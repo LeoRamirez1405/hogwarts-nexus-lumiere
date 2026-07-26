@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3a2a18"/>
+      <stop offset="100%" stop-color="#1a1208"/>
+   </linearGradient>
+    <linearGradient id="cover" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#775a19"/>
+      <stop offset="100%" stop-color="#5d4201"/>
+   </linearGradient>
+ </defs>
+  <rect width="400" height="600" fill="url(#bg)"/>
+  <rect x="80" y="60" width="240" height="480" rx="6" fill="url(#cover)" stroke="#fed488" stroke-width="3"/>
+  <rect x="100" y="100" width="200" height="40" fill="#fed488" opacity="0.4"/>
+  <text x="200" y="320" font-family="serif" font-size="32" fill="#fed488" text-anchor="middle" font-weight="bold">Libro</text>
+  <text x="200" y="360" font-family="serif" font-size="20" fill="#fed488" text-anchor="middle" opacity="0.7">Magico</text>
+  <line x1="120" y1="420" x2="280" y2="420" stroke="#fed488" stroke-width="2" opacity="0.5"/>
+  <line x1="120" y1="440" x2="280" y2="440" stroke="#fed488" stroke-width="2" opacity="0.5"/>
+  <line x1="120" y1="460" x2="280" y2="460" stroke="#fed488" stroke-width="2" opacity="0.5"/>
+  <text x="200" y="510" font-family="serif" font-size="14" fill="#fed488" text-anchor="middle" opacity="0.6" letter-spacing="2">Hogwarts Press</text>
+</svg>

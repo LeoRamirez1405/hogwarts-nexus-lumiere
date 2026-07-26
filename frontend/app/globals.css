@@ -1,0 +1,332 @@
+@import "tailwindcss";
+
+/* ===== DESIGN TOKENS (Lumiere Design System) ===== */
+@theme inline {
+  /* Colors - Primary */
+  --color-primary: #0e3b60;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #2b5278;
+  --color-on-primary-container: #a0c5f1;
+  --color-primary-fixed: #d0e4ff;
+  --color-primary-fixed-dim: #a4caf6;
+  --color-on-primary-fixed: #001d35;
+  --color-on-primary-fixed-variant: #21496f;
+
+  /* Colors - Secondary */
+  --color-secondary: #775a19;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #fed488;
+  --color-on-secondary-container: #785a1a;
+  --color-secondary-fixed: #ffdea5;
+  --color-secondary-fixed-dim: #e9c176;
+  --color-on-secondary-fixed: #261900;
+  --color-on-secondary-fixed-variant: #5d4201;
+
+  /* Colors - Tertiary */
+  --color-tertiary: #36393c;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #4d5053;
+  --color-on-tertiary-container: #c0c2c6;
+  --color-tertiary-fixed: #e0e2e6;
+  --color-tertiary-fixed-dim: #c4c7ca;
+  --color-on-tertiary-fixed: #191c1f;
+  --color-on-tertiary-fixed-variant: #44474a;
+
+  /* Colors - Surface */
+  --color-surface: #fcf9f8;
+  --color-surface-dim: #dcd9d9;
+  --color-surface-bright: #fcf9f8;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f6f3f2;
+  --color-surface-container: #f0eded;
+  --color-surface-container-high: #eae7e7;
+  --color-surface-container-highest: #e5e2e1;
+  --color-on-surface: #1c1b1b;
+  --color-on-surface-variant: #42474e;
+
+  /* Colors - Outline */
+  --color-outline: #73777f;
+  --color-outline-variant: #c2c7cf;
+
+  /* Colors - Error */
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  /* Colors - Inverse */
+  --color-inverse-surface: #313030;
+  --color-inverse-on-surface: #f3f0ef;
+  --color-inverse-primary: #a4caf6;
+
+  /* Colors - Background */
+  --color-background: #fcf9f8;
+  --color-on-background: #1c1b1b;
+
+  /* Colors - Surface Variant */
+  --color-surface-variant: #e5e2e1;
+
+  /* Colors - Semantic (hardcoded in Stitch) */
+  --color-success: #16a34a;
+  --color-on-success: #ffffff;
+  --color-success-container: #dcfce7;
+
+  /* Typography */
+  --font-display: "EB Garamond", serif;
+  --font-body: "Hanken Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Font Sizes */
+  --text-display-lg: 48px;
+  --text-headline-lg: 32px;
+  --text-headline-lg-mobile: 28px;
+  --text-title-md: 20px;
+  --text-body-md: 16px;
+  --text-label-sm: 12px;
+
+  /* Spacing */
+  --spacing-base: 8px;
+  --spacing-gutter: 24px;
+  --spacing-margin-mobile: 16px;
+  --spacing-margin-desktop: 40px;
+
+  /* Border Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  /* Container Max Width */
+  --container-max: 1280px;
+}
+
+/* ===== BASE STYLES ===== */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: var(--color-secondary-container);
+  color: var(--color-on-secondary-container);
+}
+
+/* ===== GLASSMORPHISM ===== */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+}
+
+.glass-card--tinted {
+  border-color: rgba(119, 90, 25, 0.1);
+}
+
+.glass-card--dark {
+  background: rgba(0, 0, 0, 0.95);
+  border-color: rgba(119, 90, 25, 0.3);
+  color: var(--color-surface);
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ===== PARCHMENT TEXTURES ===== */
+.parchment-bg {
+  background: var(--color-surface);
+  background-image: radial-gradient(
+    circle at 2px 2px,
+    rgba(0, 0, 0, 0.02) 1px,
+    transparent 0
+  );
+  background-size: 24px 24px;
+}
+
+.parchment-texture {
+  background: var(--color-surface);
+  background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='40' height='40' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+.parchment-edge {
+  clip-path: polygon(0% 0%, 100% 2%, 100% 98%, 0% 100%, 2% 50%);
+}
+
+.parchment-top-bottom {
+  border-top: 2px solid rgba(119, 90, 25, 0.2);
+  border-bottom: 2px solid rgba(119, 90, 25, 0.2);
+  background: linear-gradient(to bottom, #ffffff, var(--color-surface));
+}
+
+.parchment-message {
+  background: linear-gradient(to bottom, rgba(252, 249, 248, 0.5), rgba(240, 237, 237, 0.5));
+  border-bottom: 1px dashed rgba(119, 90, 25, 0.1);
+}
+
+/* ===== CRYSTAL / GEM EFFECTS ===== */
+.crystal-gradient {
+  background: linear-gradient(135deg, #0e3b60 0%, #775a19 100%);
+}
+
+.crystal-glow {
+  box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.5), 0 0 20px rgba(14, 59, 96, 0.1);
+}
+
+.inner-glow-gold {
+  box-shadow: inset 0 0 15px rgba(254, 212, 136, 0.4);
+}
+
+.inner-sparkle {
+  position: relative;
+  overflow: hidden;
+}
+
+.inner-sparkle::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.3) 0%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.inner-sparkle:hover::after {
+  opacity: 1;
+}
+
+.nexus-glow {
+  box-shadow: 0 0 15px rgba(119, 90, 25, 0.1);
+  transition: box-shadow 0.3s;
+}
+
+.nexus-glow:hover {
+  box-shadow: 0 0 25px rgba(119, 90, 25, 0.2);
+}
+
+/* ===== QUIBBLER NEWSPAPER ===== */
+.quibbler-border {
+  border-top: 4px double #1c1b1b;
+  border-bottom: 4px double #1c1b1b;
+}
+
+.newspaper-column {
+  column-count: 1;
+}
+
+@media (min-width: 768px) {
+  .newspaper-column {
+    column-count: 2;
+    column-gap: 2rem;
+  }
+}
+
+/* ===== BORGIN DARK MODE ===== */
+.borgin-card {
+  background: rgba(0, 0, 0, 0.95);
+  border: 1px solid #775a19;
+  color: var(--color-surface);
+}
+
+.borgin-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(119, 90, 25, 0.2);
+}
+
+.borgin-header {
+  background: rgba(14, 59, 96, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-color: rgba(119, 90, 25, 0.3);
+}
+
+/* ===== SIDEBAR ACTIVE ===== */
+.sidebar-active {
+  background-color: var(--color-secondary-container);
+  color: var(--color-on-secondary-container);
+  font-weight: 700;
+  border-radius: 0.5rem;
+}
+
+/* ===== PET STATUS BARS ===== */
+.status-bar-bg {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* ===== SCROLLBAR ===== */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ===== LILAC ACCENT (Flourish & Blotts) ===== */
+.lilac-glow {
+  box-shadow: 0 0 20px rgba(142, 68, 173, 0.15);
+}
+
+/* ===== MAGICAL FLOAT ===== */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.magical-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* ===== SPARKLE MICRO-INTERACTION ===== */
+@keyframes sparkle-fade {
+  0% {
+    opacity: 1;
+    transform: translate(var(--tx), var(--ty)) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--tx) * 2), calc(var(--ty) * 2)) scale(0);
+  }
+}
+
+/* ===== TAP HIGHLIGHT ===== */
+.tap-highlight-transparent {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== SAFE AREA ===== */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ===== MATERIAL SYMBOLS ===== */
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24;
+}
