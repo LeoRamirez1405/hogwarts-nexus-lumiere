@@ -3,7 +3,8 @@ from .product import Product
 from .article import Article
 from .creature import Creature
 from .user_creature import UserCreature
-from .message import Message
+from .message import Message, Poll, PollOption, PollVote
 from .post import Post, PostLike
 from .transaction import Transaction
 from .article_subscription import ArticleSubscription, Notification
+from .chat_room import ChatRoom, ChatRoomMember

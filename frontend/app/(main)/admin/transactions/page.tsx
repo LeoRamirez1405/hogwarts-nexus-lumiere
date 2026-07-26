@@ -262,6 +262,9 @@ export default function AdminTransactionsPage() {
                   <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden md:table-cell">
                     Usuario
                   </th>
+                  <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden md:table-cell">
+                    Descripción
+                  </th>
                   <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden sm:table-cell">
                     Fecha
                   </th>
@@ -330,6 +333,11 @@ export default function AdminTransactionsPage() {
                           </div>
                         )}
                       </td>
+                      <td className="px-6 py-4 hidden md:table-cell">
+                        <p className="text-label-sm text-on-surface-variant truncate max-w-[200px]">
+                          {tx.description || "—"}
+                        </p>
+                      </td>
                       <td className="px-6 py-4 hidden sm:table-cell">
                         <p className="text-label-sm text-on-surface-variant">
                           {formatTime(tx.created_at)}
@@ -350,7 +358,7 @@ export default function AdminTransactionsPage() {
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center">
+                    <td colSpan={5} className="px-6 py-12 text-center">
                       <MaterialIcon
                         name="receipt_long"
                         className="text-5xl text-outline-variant mb-3 block mx-auto"

@@ -7,6 +7,7 @@ from ..database import get_db
 from ..models.creature import Creature
 from ..models.user_creature import UserCreature
 from ..models.user import User
+from ..models.transaction import Transaction
 from ..schemas.creature import (
     CreatureCreate, CreatureResponse, UserCreatureResponse, FeedRequest,
 )
@@ -126,6 +127,15 @@ async def adopt_creature(
     current_user.zerines -= creature.price
     user_creature = UserCreature(user_id=current_user.id, creature_id=creature_id)
     db.add(user_creature)
+
+    transaction = Transaction(
+        sender_id=current_user.id,
+        amount=creature.price,
+        type="purchase",
+        description=f"Adopcion: {creature.name}",
+        status="confirmed",
+    )
+    db.add(transaction)
     await db.commit()
     await db.refresh(user_creature)
     return user_creature

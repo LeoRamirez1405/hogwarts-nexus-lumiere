@@ -30,3 +30,5 @@ class User(Base):
     transactions_received = relationship("Transaction", foreign_keys="Transaction.receiver_id", back_populates="receiver", lazy="selectin")
     article_subscriptions = relationship("ArticleSubscription", back_populates="user", lazy="selectin")
     notifications = relationship("Notification", back_populates="user", lazy="selectin")
+    chat_rooms = relationship("ChatRoomMember", back_populates="user", lazy="selectin")
+    chat_rooms_created = relationship("ChatRoom", foreign_keys="ChatRoom.created_by", lazy="selectin")

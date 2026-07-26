@@ -6,6 +6,7 @@ from sqlalchemy import select, func
 from ..database import get_db
 from ..models.product import Product
 from ..models.user import User
+from ..models.transaction import Transaction
 from ..schemas.product import ProductCreate, ProductUpdate, ProductResponse
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
@@ -56,10 +57,26 @@ async def purchase_product(
         raise HTTPException(status_code=404, detail="Product not found")
     if product.stock < quantity:
         raise HTTPException(status_code=400, detail="Insufficient stock")
-    
+
+    total = product.price * quantity
+    if current_user.zerines < total:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient zerines. Need {total}, have {current_user.zerines}",
+        )
+
+    current_user.zerines -= total
     product.stock -= quantity
     product.weekly_sales += quantity
-    
+
+    transaction = Transaction(
+        sender_id=current_user.id,
+        amount=total,
+        type="purchase",
+        description=f"Compra: {product.name} x{quantity}",
+        status="confirmed",
+    )
+    db.add(transaction)
     await db.commit()
     await db.refresh(product)
     return product

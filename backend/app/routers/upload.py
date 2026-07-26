@@ -13,7 +13,11 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 ALLOWED_TYPES = {
     "image/jpeg", "image/png", "image/gif", "image/webp",
     "video/mp4", "video/webm", "video/quicktime",
-    "audio/mpeg", "audio/wav", "audio/ogg", "audio/webm"
+    "audio/mpeg", "audio/wav", "audio/ogg", "audio/webm",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "text/plain",
 }
 
 MAX_SIZE = 10 * 1024 * 1024  # 10MB
@@ -36,7 +40,11 @@ async def upload_file(
         ext = {
             "image/jpeg": ".jpg", "image/png": ".png", "image/gif": ".gif", "image/webp": ".webp",
             "video/mp4": ".mp4", "video/webm": ".webm", "video/quicktime": ".mov",
-            "audio/mpeg": ".mp3", "audio/wav": ".wav", "audio/ogg": ".ogg", "audio/webm": ".webm"
+            "audio/mpeg": ".mp3", "audio/wav": ".wav", "audio/ogg": ".ogg", "audio/webm": ".webm",
+            "application/pdf": ".pdf",
+            "application/msword": ".doc",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+            "text/plain": ".txt",
         }.get(file.content_type, "")
     
     filename = f"{uuid.uuid4()}{ext}"

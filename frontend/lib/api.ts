@@ -91,7 +91,10 @@ export const api = {
   getPopularProducts: (shop: string, limit?: number) =>
     request<Product[]>(`/products/popular/${shop}${limit ? `?limit=${limit}` : ""}`),
   purchaseProduct: (id: string, quantity?: number) =>
-    request<Product>(`/products/${id}/purchase`, { method: "POST", body: JSON.stringify({ quantity: quantity || 1 }) }),
+    request<Product>(`/products/${id}/purchase`, {
+      method: "POST",
+      body: JSON.stringify({ quantity: quantity || 1 }),
+    }),
   createProduct: (data: Partial<Product>) =>
     request<Product>("/products", { method: "POST", body: JSON.stringify(data) }),
   updateProduct: (id: string, data: Partial<Product>) =>
@@ -141,8 +144,36 @@ export const api = {
   // Messages
   getConversations: () => request<Conversation[]>("/messages/conversations"),
   getMessages: (userId: string) => request<Message[]>(`/messages/${userId}`),
-  sendMessage: (data: { receiver_id: string; body: string; attachment_url?: string; attachment_type?: string }) =>
+  sendMessage: (data: MessageSendData) =>
     request<Message>("/messages", { method: "POST", body: JSON.stringify(data) }),
+  getRooms: () => request<ChatRoomBrief[]>("/messages/rooms"),
+  getRoom: (roomId: string) => request<ChatRoomResponse>(`/messages/rooms/${roomId}`),
+  getRoomMessages: (roomId: string, limit?: number, before?: string) =>
+    request<Message[]>(
+      `/messages/rooms/${roomId}/messages${limit ? `?limit=${limit}` : ""}${before ? `&before=${before}` : ""}`
+    ),
+  sendRoomMessage: (roomId: string, data: MessageSendData) =>
+    request<Message>(`/messages/rooms/${roomId}/messages`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  createRoom: (data: CreateRoomData) =>
+    request<ChatRoomResponse>("/messages/rooms", { method: "POST", body: JSON.stringify(data) }),
+  updateRoom: (roomId: string, data: UpdateRoomData) =>
+    request<ChatRoomResponse>(`/messages/rooms/${roomId}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteRoom: (roomId: string) =>
+    request<void>(`/messages/rooms/${roomId}`, { method: "DELETE" }),
+  addRoomMember: (roomId: string, userId: string, role?: string) =>
+    request<ChatRoomMemberResponse>(`/messages/rooms/${roomId}/members?user_id=${userId}${role ? `&role=${role}` : ""}`, { method: "POST" }),
+  removeRoomMember: (roomId: string, userId: string) =>
+    request<void>(`/messages/rooms/${roomId}/members/${userId}`, { method: "DELETE" }),
+  votePoll: (messageId: string, optionIds: string[]) =>
+    request<{ ok: boolean }>(`/messages/${messageId}/poll/vote`, {
+      method: "POST",
+      body: JSON.stringify({ option_ids: optionIds }),
+    }),
+  removePollVote: (messageId: string, optionId: string) =>
+    request<{ ok: boolean }>(`/messages/${messageId}/poll/vote?option_id=${optionId}`, { method: "DELETE" }),
 
   // Posts
   getPosts: () => request<Post[]>("/posts"),
@@ -187,7 +218,8 @@ export const api = {
     request<void>(`/friend-requests/${id}`, { method: "DELETE" }),
 
   // Upload
-  uploadFile: (file: File) => uploadFile<{ url: string; type: string; original_name: string }>("/upload", file),
+  uploadFile: (file: File) =>
+    uploadFile<{ url: string; type: string; original_name: string }>("/upload", file),
 };
 
 // Types
@@ -212,6 +244,7 @@ export interface Product {
   shop: "borgin" | "flourish";
   image_url?: string;
   stock: number;
+  weekly_sales?: number;
   created_at: string;
 }
 
@@ -267,22 +300,42 @@ export interface UserCreature {
   adopted_at: string;
 }
 
+export interface MessageMetadata {
+  transcription?: string;
+  size?: number;
+  duration?: number;
+  [key: string]: unknown;
+}
+
 export interface Message {
   id: string;
   sender_id: string;
-  receiver_id: string;
-  sender?: User;
-  receiver?: User;
-  body: string;
+  receiver_id?: string;
+  room_id?: string;
+  kind: "text" | "image" | "video" | "audio" | "document" | "sticker" | "poll" | "voice";
+  body?: string;
   attachment_url?: string;
   attachment_type?: string;
+  attachment_name?: string;
+  metadata?: MessageMetadata;
   read: boolean;
   created_at: string;
+  sender?: User;
+  receiver?: User;
+  room?: ChatRoomBrief;
+  poll?: PollResponse;
 }
 
 export interface Conversation {
-  user: User;
-  last_message: Message;
+  type: "direct" | "room";
+  id: string;
+  name: string;
+  avatar_url?: string;
+  subtitle?: string;
+  email?: string;
+  house?: string;
+  zerines?: number;
+  last_message?: Message;
   unread_count: number;
 }
 
@@ -334,4 +387,84 @@ export interface FriendRequest {
   created_at: string;
   sender?: User;
   receiver?: User;
+}
+
+// Chat Rooms
+export interface ChatRoomMemberResponse {
+  id: string;
+  room_id: string;
+  user_id: string;
+  role: string;
+  joined_at: string;
+  user?: User;
+}
+
+export interface ChatRoomBrief {
+  id: string;
+  name: string;
+  description?: string;
+  avatar_url?: string;
+  type: string;
+  created_by: string;
+  created_at: string;
+  member_count: number;
+}
+
+export interface ChatRoomResponse {
+  id: string;
+  name: string;
+  description?: string;
+  avatar_url?: string;
+  type: string;
+  created_by: string;
+  created_at: string;
+  members: ChatRoomMemberResponse[];
+}
+
+export interface CreateRoomData {
+  name: string;
+  description?: string;
+  avatar_url?: string;
+  type: string;
+  member_ids: string[];
+}
+
+export interface UpdateRoomData {
+  name?: string;
+  description?: string;
+  avatar_url?: string;
+}
+
+export interface MessageSendData {
+  receiver_id?: string;
+  room_id?: string;
+  body?: string;
+  kind?: "text" | "image" | "video" | "audio" | "document" | "sticker" | "poll" | "voice";
+  attachment_url?: string;
+  attachment_type?: string;
+  attachment_name?: string;
+  metadata?: MessageMetadata;
+  poll?: {
+    question: string;
+    options: string[];
+    multi_choice: boolean;
+  };
+}
+
+// Polls
+export interface PollOptionResponse {
+  id: string;
+  label: string;
+  option_index: number;
+  votes_count: number;
+  voted_by_me: boolean;
+}
+
+export interface PollResponse {
+  id: string;
+  question: string;
+  multi_choice: boolean;
+  total_votes: number;
+  options: PollOptionResponse[];
+  my_option_ids: string[];
 }
