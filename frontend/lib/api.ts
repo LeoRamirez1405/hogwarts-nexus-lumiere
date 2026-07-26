@@ -143,6 +143,7 @@ export const api = {
 
   // Transactions
   getTransactions: () => request<Transaction[]>("/transactions"),
+  getAllTransactionsAdmin: () => request<Transaction[]>("/transactions/admin/all"),
   deposit: (amount: number, description?: string) =>
     request<Transaction>("/transactions/deposit", {
       method: "POST",

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import GlassCard from "@/components/ui/GlassCard";
 import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
+import Avatar from "@/components/ui/Avatar";
 
 function MaterialIcon({
   name,
@@ -74,6 +75,35 @@ function statusColor(status: Transaction["status"]) {
   }
 }
 
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function getSenderName(tx: Transaction): string {
+  if (tx.sender) return tx.sender.name;
+  if (tx.sender_id) return "Desconocido (enviado)";
+  return "—";
+}
+
+function getReceiverName(tx: Transaction): string {
+  if (tx.receiver) return tx.receiver.name;
+  if (tx.receiver_id) return "Desconocido (recibido)";
+  return "—";
+}
+
+function getSenderAvatar(tx: Transaction): string | undefined {
+  return tx.sender?.avatar_url;
+}
+
+function getReceiverAvatar(tx: Transaction): string | undefined {
+  return tx.receiver?.avatar_url;
+}
+
 export default function AdminTransactionsPage() {
   const { user } = useAuthStore();
   const router = useRouter();
@@ -88,7 +118,7 @@ export default function AdminTransactionsPage() {
       return;
     }
     api
-      .getTransactions()
+      .getAllTransactionsAdmin()
       .then(setTransactions)
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -98,8 +128,10 @@ export default function AdminTransactionsPage() {
     const matchesSearch =
       !search ||
       tx.description?.toLowerCase().includes(search.toLowerCase()) ||
-      tx.sender?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      tx.receiver?.name?.toLowerCase().includes(search.toLowerCase());
+      getSenderName(tx).toLowerCase().includes(search.toLowerCase()) ||
+      getReceiverName(tx).toLowerCase().includes(search.toLowerCase()) ||
+      tx.sender?.email?.toLowerCase().includes(search.toLowerCase()) ||
+      tx.receiver?.email?.toLowerCase().includes(search.toLowerCase());
     const matchesFilter = filter === "all" || tx.type === filter;
     return matchesSearch && matchesFilter;
   });
@@ -237,7 +269,10 @@ export default function AdminTransactionsPage() {
                     Tipo
                   </th>
                   <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden md:table-cell">
-                    Descripcion
+                    De
+                  </th>
+                  <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden md:table-cell">
+                    Para
                   </th>
                   <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden sm:table-cell">
                     Fecha
@@ -253,7 +288,7 @@ export default function AdminTransactionsPage() {
               <tbody>
                 {filtered.map((tx) => {
                   const { icon, color } = txIcon(tx.type);
-                  const isCredit = tx.type === "deposit" || tx.receiver_id;
+                  const isCredit = tx.type === "deposit" || (tx.type === "transfer" && tx.receiver_id);
                   return (
                     <tr
                       key={tx.id}
@@ -277,9 +312,28 @@ export default function AdminTransactionsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 hidden md:table-cell">
-                        <p className="text-body-md text-on-surface truncate max-w-[300px]">
-                          {tx.description || "-"}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <Avatar
+                            initials={getInitials(getSenderName(tx))}
+                            src={getSenderAvatar(tx)}
+                            size="sm"
+                          />
+                          <p className="text-body-md text-on-surface truncate max-w-[150px]">
+                            {getSenderName(tx)}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 hidden md:table-cell">
+                        <div className="flex items-center gap-2">
+                          <Avatar
+                            initials={getInitials(getReceiverName(tx))}
+                            src={getReceiverAvatar(tx)}
+                            size="sm"
+                          />
+                          <p className="text-body-md text-on-surface truncate max-w-[150px]">
+                            {getReceiverName(tx)}
+                          </p>
+                        </div>
                       </td>
                       <td className="px-6 py-4 hidden sm:table-cell">
                         <p className="text-label-sm text-on-surface-variant">
@@ -306,7 +360,7 @@ export default function AdminTransactionsPage() {
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center">
+                    <td colSpan={6} className="px-6 py-12 text-center">
                       <MaterialIcon
                         name="receipt_long"
                         className="text-5xl text-outline-variant mb-3 block mx-auto"

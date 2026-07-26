@@ -2,12 +2,14 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from ..database import get_db
 from ..models.transaction import Transaction
 from ..models.user import User
 from ..schemas.transaction import TransactionCreate, TransferRequest, TransactionResponse
 from ..middleware.auth import get_current_user
+from ..middleware.roles import require_admin
 
 router = APIRouter()
 
@@ -22,6 +24,22 @@ async def list_transactions(
         .where(
             (Transaction.sender_id == current_user.id)
             | (Transaction.receiver_id == current_user.id)
+        )
+        .order_by(Transaction.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.get("/admin/all", response_model=List[TransactionResponse])
+async def list_all_transactions_admin(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    result = await db.execute(
+        select(Transaction)
+        .options(
+            selectinload(Transaction.sender),
+            selectinload(Transaction.receiver),
         )
         .order_by(Transaction.created_at.desc())
     )
