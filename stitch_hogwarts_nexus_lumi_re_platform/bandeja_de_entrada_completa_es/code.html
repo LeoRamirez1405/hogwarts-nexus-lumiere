@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700;800&amp;family=Hanken+Grotesk:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(119, 90, 25, 0.1);
+        }
+        .parchment-message {
+            background: linear-gradient(to bottom, #fcfcfc, #f5f2ee);
+            border-bottom: 1px solid rgba(119, 90, 25, 0.2);
+            position: relative;
+        }
+        .parchment-message::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: repeating-linear-gradient(90deg, transparent, transparent 5px, rgba(119, 90, 25, 0.1) 5px, rgba(119, 90, 25, 0.1) 10px);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c2c7cf;
+            border-radius: 10px;
+        }
+        .magical-glow:hover {
+            box-shadow: 0 0 15px rgba(119, 90, 25, 0.2);
+            border-color: #775a19;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary": "#775a19",
+                        "on-secondary-fixed": "#261900",
+                        "error-container": "#ffdad6",
+                        "on-error-container": "#93000a",
+                        "on-error": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-tint": "#3b6188",
+                        "primary-fixed": "#d0e4ff",
+                        "background": "#fcf9f8",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-high": "#eae7e7",
+                        "primary-fixed-dim": "#a4caf6",
+                        "inverse-on-surface": "#f3f0ef",
+                        "on-surface-variant": "#42474e",
+                        "surface-container-low": "#f6f3f2",
+                        "surface-container": "#f0eded",
+                        "tertiary": "#36393c",
+                        "inverse-primary": "#a4caf6",
+                        "tertiary-fixed": "#e0e2e6",
+                        "secondary-fixed-dim": "#e9c176",
+                        "on-primary": "#ffffff",
+                        "secondary-container": "#fed488",
+                        "outline-variant": "#c2c7cf",
+                        "tertiary-fixed-dim": "#c4c7ca",
+                        "surface-dim": "#dcd9d9",
+                        "surface": "#fcf9f8",
+                        "on-secondary-container": "#785a1a",
+                        "on-secondary": "#ffffff",
+                        "tertiary-container": "#4d5053",
+                        "on-surface": "#1c1b1b",
+                        "surface-variant": "#e5e2e1",
+                        "on-tertiary-container": "#c0c2c6",
+                        "on-background": "#1c1b1b",
+                        "secondary-fixed": "#ffdea5",
+                        "outline": "#73777f",
+                        "inverse-surface": "#313030",
+                        "on-tertiary-fixed": "#191c1f",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-container": "#a0c5f1",
+                        "surface-bright": "#fcf9f8",
+                        "primary-container": "#2b5278",
+                        "on-primary-fixed-variant": "#21496f",
+                        "on-primary-fixed": "#001d35",
+                        "on-tertiary-fixed-variant": "#44474a",
+                        "on-secondary-fixed-variant": "#5d4201",
+                        "surface-container-highest": "#e5e2e1",
+                        "primary": "#0e3b60"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-desktop": "40px",
+                        "container-max": "1280px",
+                        "base": "8px",
+                        "margin-mobile": "16px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "title-md": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["EB Garamond"],
+                        "body-md": ["Hanken Grotesk"],
+                        "label-sm": ["JetBrains Mono"],
+                        "display-lg": ["EB Garamond"],
+                        "headline-lg": ["EB Garamond"]
+                    },
+                    "fontSize": {
+                        "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-surface font-body-md text-on-surface selection:bg-secondary-container/30">
+<!-- Top Navigation Anchor -->
+<nav class="w-full top-0 sticky bg-surface/80 backdrop-blur-md z-50 border-b border-outline-variant/30 shadow-sm h-16">
+<div class="flex justify-between items-center px-margin-desktop h-full max-w-container-max mx-auto">
+<div class="flex items-center gap-8">
+<span class="font-display-lg text-headline-lg text-primary tracking-tight cursor-pointer active:scale-95 duration-200">Hogwarts Nexus Lumiére</span>
+<div class="hidden md:flex gap-6 items-center">
+<a class="font-title-md text-title-md text-primary border-b-2 border-primary pb-1 transition-colors" href="#">Nexus</a>
+<a class="font-title-md text-title-md text-on-surface-variant hover:text-secondary transition-colors" href="#">Treasures</a>
+<a class="font-title-md text-title-md text-on-surface-variant hover:text-secondary transition-colors" href="#">The Quibbler</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative flex items-center bg-surface-container-low rounded-full px-4 py-2 border border-outline-variant/20 focus-within:border-secondary transition-all">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px] mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-md w-48 outline-none" placeholder="Buscar en el Nexus..." type="text"/>
+</div>
+<button class="material-symbols-outlined text-primary hover:text-secondary transition-colors cursor-pointer p-2">language</button>
+<button class="material-symbols-outlined text-primary hover:text-secondary transition-colors cursor-pointer p-2">settings</button>
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-secondary-container p-0.5">
+<img class="w-full h-full object-cover rounded-full" data-alt="A portrait of a distinguished wizard with a kind expression and silver-rimmed glasses, wearing a midnight blue velvet robe. The lighting is soft and warm, reflecting a prestigious academic setting with a backdrop of blurred ancient bookshelves in a sunlit library. The style is hyper-realistic with a touch of magical glow." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAonAg-9HbfEn8Oa98s5xOS448JkVdMIQNrgCX4IHuqIl9gZt_HnL4DgZ3jBUXcFYEnXAZej0xesKnPvJk_Ra0_BYgOB2u_k8XsTvwu3a_aZxxBRyPw4XMaEAuQKcX7W5bRhXKfdMqWxJ4lFZVKmr6A7lYSSP1V26bOzkv0PqeU8f5GzQWSUkY71nMlmmQHiBuwLhQiS00NBTTwGnZaNzaTIiTMrgNSe9DjyGsG-6__iYSmu-Lo2vmfFg"/>
+</div>
+</div>
+</div>
+</nav>
+<div class="flex h-[calc(100vh-64px)] overflow-hidden">
+<!-- Sidebar Shell -->
+<aside class="h-full w-64 bg-surface-container-lowest border-r border-outline-variant/20 flex flex-col p-4 gap-2 shadow-md shrink-0">
+<div class="flex items-center gap-4 mb-6 px-2">
+<div class="w-12 h-12 rounded-lg bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container text-3xl" style="font-variation-settings: 'FILL' 1;">castle</span>
+</div>
+<div>
+<h2 class="font-headline-lg text-headline-lg text-secondary leading-tight">Lumiére</h2>
+<p class="text-label-sm font-label-sm text-on-surface-variant">Pure-blood Status</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1 flex-grow">
+<a class="flex items-center gap-3 bg-secondary-container text-on-secondary-container rounded-lg px-4 py-3 hover:translate-x-1 duration-300" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">mail</span>
+<span class="font-body-md">Owlery</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-high rounded-lg px-4 py-3 hover:translate-x-1 duration-300 transition-all" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-body-md">Connections</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-high rounded-lg px-4 py-3 hover:translate-x-1 duration-300 transition-all" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-body-md">Gringotts</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-high rounded-lg px-4 py-3 hover:translate-x-1 duration-300 transition-all" href="#">
+<span class="material-symbols-outlined">castle</span>
+<span class="font-body-md">Common Room</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-high rounded-lg px-4 py-3 hover:translate-x-1 duration-300 transition-all" href="#">
+<span class="material-symbols-outlined">theater_comedy</span>
+<span class="font-body-md">Borgin &amp; Burkes</span>
+</a>
+</nav>
+<button class="w-full bg-secondary text-on-secondary rounded-full py-3 font-title-md magical-glow transition-all flex items-center justify-center gap-2 mb-4">
+<span class="material-symbols-outlined text-[20px]">send</span>
+                Send Owl
+            </button>
+<footer class="border-t border-outline-variant/10 pt-4 flex flex-col gap-1">
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-secondary px-4 py-2 text-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]">shield</span>
+                    Privacy
+                </a>
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-secondary px-4 py-2 text-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]">help</span>
+                    Support
+                </a>
+</footer>
+</aside>
+<!-- Main Content Area: Split Messaging View -->
+<main class="flex flex-1 bg-surface overflow-hidden">
+<!-- Left Panel: Inbox List -->
+<section class="w-80 md:w-96 flex flex-col border-r border-outline-variant/20 bg-surface-container-lowest">
+<div class="p-6 border-b border-outline-variant/10">
+<h1 class="font-headline-lg text-headline-lg text-primary mb-4">Bandeja de Entrada</h1>
+<div class="relative flex items-center bg-surface-container rounded-lg px-4 py-2 border border-outline-variant/30 focus-within:border-primary-container transition-all">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px] mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-md w-full outline-none" placeholder="Buscar chats..." type="text"/>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar">
+<!-- Active Chat -->
+<div class="bg-primary/5 border-l-4 border-primary p-4 cursor-pointer hover:bg-primary/10 transition-colors flex gap-4">
+<div class="relative">
+<div class="w-14 h-14 rounded-full overflow-hidden border border-secondary-container">
+<img class="w-full h-full object-cover" data-alt="A portrait of Luna Lovegood with her signature long, straggly blonde hair and ethereal, dreamy expression. She is wearing dirigible plum earrings and a whimsical silver-threaded scarf. The background is a soft, dreamlike blur of the Hogwarts grounds at twilight, with a magical, light-filled atmosphere and high-end digital painting aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPaDxcKbqoUpaklu7sPxS8ZRJbk_Vp5RxeCASTTLJyeeRDxwjPSskKMUO0iCZVwknIVNxNBrTOLnvtjRUMyQv8E4rYFYUh8LmrPqMLJpw23mTMhGfcQiFpla4fY9ED3D27zfR3P071d3efwdmEjHo_UHJNexxKxUkBEFNbniWB6rMN8k000S5HJH_9d66RpNH-Xv6xKnfkXxxYzhkex4R98K3Y3vROwVk2egoS1MKj35hWsXupz9VaRg"/>
+</div>
+<div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-surface-container-lowest rounded-full"></div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-title-md text-on-surface truncate">Luna Lovegood</h3>
+<span class="text-label-sm font-label-sm text-on-surface-variant">Ahora</span>
+</div>
+<p class="text-body-md text-primary font-medium truncate">¿Has visto mis Gafas Espectrales?</p>
+</div>
+</div>
+<!-- Other Chats -->
+<div class="p-4 cursor-pointer hover:bg-surface-container-high transition-colors flex gap-4 border-b border-outline-variant/10">
+<div class="w-14 h-14 rounded-full overflow-hidden border border-outline-variant/30">
+<img class="w-full h-full object-cover" data-alt="A portrait of Hermione Granger in her senior years at Hogwarts, looking determined and intelligent. She is surrounded by floating ancient scrolls and ink pots. The lighting is focused and warm, like candlelight in the Gryffindor common room. Sophisticated and elegant digital art style with golden accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDqlsfbewT7vL0FnDelMBY2KBEmRB9RA7o9L2qEpQ_wJzey4cRAKXdQABtyY6o0COu5rUr5gQBpWbmLMcofR5bX5hoSEck6LofIN7VwFHIbwNy6SCCQrJH6iRfBIX7ZkKG8ILdPlCJuUJCDkW2jsOQSmTHlOUJY0qiYUM5YhqrrxO4uvr14rGEg8aEGDNFXuI-QJ3lyoAfU1ivHuaqVXnSbBy1uZpGJea0JEHHEllKbBQfk-rCyYx2Mqg"/>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-title-md text-on-surface truncate">Hermione Granger</h3>
+<span class="text-label-sm font-label-sm text-on-surface-variant">14:20</span>
+</div>
+<p class="text-body-md text-on-surface-variant truncate">La investigación sobre las runas...</p>
+</div>
+</div>
+<div class="p-4 cursor-pointer hover:bg-surface-container-high transition-colors flex gap-4 border-b border-outline-variant/10">
+<div class="w-14 h-14 rounded-full overflow-hidden border border-outline-variant/30">
+<img class="w-full h-full object-cover" data-alt="A handsome young wizard, Cedric Diggory, with a brave and noble expression. He wears Hufflepuff yellow and black robes. The setting is a bright, airy greenhouse with magical plants in the background. The art is clean, crisp, and high-fidelity, radiating a sense of reliability and prestige." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfra0WLBE8ze19b_y_lbdjZHVA9Dm-OogRW3hSKN8gTDkcMQ_tI0ZflcaSAWO2RMqHbxtdC9UKIM5NNpwnVNRGO_iRFaMfgV6sM7Hldn8Wi0xnQFolhC1oTewPSHDWx1x7nNxM2a-a-E1Rig_6y68eR7YcOUn_GXJCmQT4fJ73oSrQQAkW14bXq9eRqEJ7jK6ZqXBXnUhlvM2LNw6rE2th0K1JjmOPKWM25UZsqv7-GaeW_EbDuNVtmA"/>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-title-md text-on-surface truncate">Cedric Diggory</h3>
+<span class="text-label-sm font-label-sm text-on-surface-variant">Ayer</span>
+</div>
+<p class="text-body-md text-on-surface-variant truncate">¡Excelente partido hoy!</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Panel: Active Chat History -->
+<section class="flex-1 flex flex-col relative">
+
+<!-- Chat Header -->
+<header class="h-20 flex items-center justify-between px-8 bg-surface/90 backdrop-blur-md border-b border-outline-variant/30 z-10">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full overflow-hidden border-2 border-secondary-container">
+<img class="w-full h-full object-cover" data-alt="Close up of Luna Lovegood with ethereal blue eyes and a faint, knowing smile. The lighting is soft-focus with floating magical particles in the air. Highly detailed, minimalist wizarding portrait." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBreCMLAKVoYFzvv0BrBileKTfL7-ynl7na_USqRiO_RYIl7uJEEvR8SyZcpY3t1Cif1CwSj99A0_mUAVmeup1fShacVu37JgZ-WDsh8CIZfds9ARDYMr4uJbJJ1CxyCaOguy6Yps5atFgnS6pL1pfZ9WXDmkCwdOAmfdpge5aIvcf0w_yo9_Mnoz_zqJNVdeToWbfyOh2qq0lnl2-5ZS1_sVLqMgb4Dnj07aieQr4m2AcFutsl5gQoBg"/>
+</div>
+<div>
+<h2 class="font-title-md text-primary">Luna Lovegood</h2>
+<p class="text-label-sm font-label-sm text-green-600 flex items-center gap-1">
+<span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                En línea
+                            </p>
+</div>
+</div>
+<div class="flex gap-4">
+<button class="material-symbols-outlined text-primary p-2 hover:bg-primary-fixed/30 rounded-full transition-all">call</button>
+<button class="material-symbols-outlined text-primary p-2 hover:bg-primary-fixed/30 rounded-full transition-all">videocam</button>
+<button class="material-symbols-outlined text-primary p-2 hover:bg-primary-fixed/30 rounded-full transition-all">info</button>
+</div>
+</header>
+<!-- Chat History -->
+<div class="flex-1 overflow-y-auto p-8 flex flex-col gap-6 custom-scrollbar z-10">
+<div class="flex justify-center my-4">
+<span class="text-label-sm font-label-sm bg-surface-container-high px-4 py-1 rounded-full text-on-surface-variant">Hoy</span>
+</div>
+<!-- Luna Message -->
+<div class="flex gap-3 max-w-[70%]">
+<div class="w-8 h-8 rounded-full overflow-hidden mt-1 shrink-0 border border-outline-variant/20">
+<img class="w-full h-full object-cover" data-alt="Portrait of Luna Lovegood." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDpElSMpq7qh--ow61KV8mUJIjHgjz1Bjz2cjQdUxVx_IWcqMFMbIM27gQoE-iwd45RA14OatuV4a2in1mLAM-vOiuPdACIybmgGEQ2O5B83qMogoVHmyYby5HuBSgySiNWbT7qfXtqFDZxY-p2V9K4YZWQZhSa2iFga7JpMFvRlOaYVt3qCPX9aV4-zHZVTykdyYKVTvprdZ55qX12oiw1N2rpT90_2FioNDWDtBOBJTastyxmGbtazg"/>
+</div>
+<div class="bg-surface-container-high text-on-surface p-4 rounded-2xl rounded-tl-none shadow-sm parchment-message">
+<p class="text-body-md">Hola. He perdido mis Gafas Espectrales otra vez. Creo que los nargles las escondieron en el Gran Comedor.</p>
+<span class="block text-[10px] text-on-surface-variant mt-2 text-right">10:05</span>
+</div>
+</div>
+<!-- User Message -->
+<div class="flex gap-3 max-w-[70%] self-end flex-row-reverse">
+<div class="w-8 h-8 rounded-full overflow-hidden mt-1 shrink-0 border-2 border-secondary-container">
+<img class="w-full h-full object-cover" data-alt="Wizard profile portrait." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAf1wRujvs3ghoBn-V3TnnQLlmAFHnCnmW18hb_fYiHgt_O7wVuiCK71AVEVS0cizfW8g0CDTjKYSZJLv0Y6YbxMxmntmmUKtXsAzQObXEqPZUb9mJkvJGH5bN93TnG1_A2x604HxBVszS_TH3Rvkthz5mhCsCQCyN9mriGBDv3Yga-NmAqdlCqtg_Uu1fFBnbU_ky8w7-y3kfYCkQUqYf0xL6RlDWv_fPZ-7xwCY0u2BQz3c52EFXebQ"/>
+</div>
+<div class="bg-primary-container text-white p-4 rounded-2xl rounded-tr-none shadow-md border border-secondary/30 relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50"></div>
+<p class="text-body-md relative z-10">No te preocupes Luna, te ayudaré a buscarlas después de mi clase de Pociones. ¿Has mirado cerca de la mesa de Ravenclaw?</p>
+<span class="block text-[10px] text-on-primary-container mt-2 text-right relative z-10">10:07</span>
+</div>
+</div>
+<!-- Luna Message -->
+<div class="flex gap-3 max-w-[70%]">
+<div class="w-8 h-8 rounded-full overflow-hidden mt-1 shrink-0 border border-outline-variant/20">
+<img class="w-full h-full object-cover" data-alt="Portrait of Luna Lovegood." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkoeG4aZmN_kesdvHdN0TpyMvsF-JKfOnQUn0aYsL9lFX9-F9jjbj3P6vfXTJLLdleVSG5EdcnbjdicIj7bZe6vTvi1XaYQfnBnZvRrLIdZ9TxzOjJJwndbRpuPzCG2_0jVg591ojNZ_D2zVbgzNHB0c8CA--v-OQsd977mZ4SrLVDAVoGXRtUL4XdqZWw_ljZpIe0jAEQ00PfWMudYVGGFVXpKGqc1mdV5NOIbQ5cevxniULK7ezQQw"/>
+</div>
+<div class="bg-surface-container-high text-on-surface p-4 rounded-2xl rounded-tl-none shadow-sm parchment-message">
+<p class="text-body-md">Es una buena idea. Los nargles suelen ser atraídos por el pudín de esa mesa. Gracias por ser tan comprensivo, la mayoría de la gente piensa que estoy un poco chiflada.</p>
+<span class="block text-[10px] text-on-surface-variant mt-2 text-right">10:08</span>
+</div>
+</div>
+<!-- Luna Message with attachment -->
+<div class="flex gap-3 max-w-[70%]">
+<div class="w-8 h-8 rounded-full overflow-hidden mt-1 shrink-0 border border-outline-variant/20">
+<img class="w-full h-full object-cover" data-alt="Portrait of Luna Lovegood." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxAdZFM_DoaJyX559tVHIStUrELmXQqAtcO1gobRchmZpITPtXy4RjFls261hxi1ziXL-9bOD_7IUItFjqP4y2PGrd99i1kyEbH-A7zty1Mp0lpYspQihiVz5Xh-E1G1sFdzo6pYaBENE5V2F-nvkd8_JBXyf_PxDwxoV8ZkfGSCXXh4jZ8clskxbJqxbiIAFYHEf3iCn2_ImTKlF5jYTRQr9KSwvMH9d-yl5k4LthJ73ITKcQyLECYw"/>
+</div>
+<div class="bg-surface-container-high text-on-surface p-4 rounded-2xl rounded-tl-none shadow-sm parchment-message">
+<div class="bg-white/50 border border-secondary/20 rounded-lg p-3 mb-2 flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-3xl">auto_stories</span>
+<div class="flex-1 overflow-hidden">
+<p class="text-label-sm font-semibold truncate">The_Quibbler_Edicion_Marzo.scroll</p>
+<p class="text-[10px] text-on-surface-variant">2.4 MB • Pergamino Mágico</p>
+</div>
+<span class="material-symbols-outlined text-primary cursor-pointer hover:scale-110 transition-transform">download</span>
+</div>
+<p class="text-body-md">Te envío la última edición de El Quisquilloso. Hay un artículo fascinante sobre los Snorkacks de Cuerno Arrugado.</p>
+<span class="block text-[10px] text-on-surface-variant mt-2 text-right">10:10</span>
+</div>
+</div>
+</div>
+<!-- Message Input Area -->
+<footer class="p-6 bg-surface-container-lowest border-t border-outline-variant/20 z-10">
+<div class="max-w-4xl mx-auto bg-surface border border-outline-variant/50 rounded-2xl shadow-sm focus-within:shadow-md focus-within:border-secondary transition-all p-2 flex items-end gap-3">
+<div class="flex gap-1 mb-1">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-secondary p-2 transition-colors">auto_fix_high</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-secondary p-2 transition-colors">history_edu</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-secondary p-2 transition-colors">pets</button>
+</div>
+<textarea class="flex-1 bg-transparent border-none focus:ring-0 text-body-md resize-none py-2 px-1 placeholder:text-on-surface-variant/50 outline-none max-h-32 overflow-y-auto custom-scrollbar" placeholder="Escribe un mensaje mágico..." rows="1"></textarea>
+<button class="w-12 h-12 rounded-full bg-secondary text-on-secondary flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all mb-1 shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</footer>
+</section>
+</main>
+</div>
+<!-- Micro-interaction Script -->
+<script>
+        document.querySelectorAll('textarea').forEach(el => {
+            el.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+        });
+
+        // Simple floating sparkles effect in input focus
+        const textarea = document.querySelector('textarea');
+        textarea.addEventListener('focus', () => {
+            // Logic for a subtle sparkle animation could go here
+            console.log('Magical focus active');
+        });
+    </script>
+</body></html>

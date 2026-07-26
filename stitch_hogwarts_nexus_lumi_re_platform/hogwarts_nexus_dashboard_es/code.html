@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Nexus Lumiére | Panel Mágico</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700;800&amp;family=Hanken+Grotesk:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+        }
+        .crystal-glow {
+            box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.5), 0 0 20px rgba(14, 59, 96, 0.1);
+        }
+        .parchment-edge {
+            clip-path: polygon(0% 2%, 5% 0%, 10% 2%, 15% 0%, 20% 2%, 25% 0%, 30% 2%, 35% 0%, 40% 2%, 45% 0%, 50% 2%, 55% 0%, 60% 2%, 65% 0%, 70% 2%, 75% 0%, 80% 2%, 85% 0%, 90% 2%, 95% 0%, 100% 2%, 100% 98%, 95% 100%, 90% 98%, 85% 100%, 80% 98%, 75% 100%, 70% 98%, 65% 100%, 60% 98%, 55% 100%, 50% 98%, 45% 100%, 40% 98%, 35% 100%, 30% 98%, 25% 100%, 20% 98%, 15% 100%, 10% 98%, 5% 100%, 0% 98%);
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed": "#ffdea5",
+                    "on-secondary-container": "#785a1a",
+                    "outline": "#73777f",
+                    "surface-container-highest": "#e5e2e1",
+                    "primary-fixed": "#d0e4ff",
+                    "secondary-container": "#fed488",
+                    "surface-variant": "#e5e2e1",
+                    "surface-container-high": "#eae7e7",
+                    "inverse-primary": "#a4caf6",
+                    "background": "#fcf9f8",
+                    "surface-container-lowest": "#ffffff",
+                    "on-background": "#1c1b1b",
+                    "on-secondary-fixed": "#261900",
+                    "secondary-fixed-dim": "#e9c176",
+                    "inverse-surface": "#313030",
+                    "primary": "#0e3b60",
+                    "on-primary-fixed": "#001d35",
+                    "error-container": "#ffdad6",
+                    "surface": "#fcf9f8",
+                    "tertiary-fixed-dim": "#c4c7ca",
+                    "on-surface": "#1c1b1b",
+                    "secondary": "#775a19",
+                    "error": "#ba1a1a",
+                    "surface-container-low": "#f6f3f2",
+                    "on-primary-container": "#a0c5f1",
+                    "on-error-container": "#93000a",
+                    "on-surface-variant": "#42474e",
+                    "on-primary": "#ffffff",
+                    "surface-dim": "#dcd9d9",
+                    "on-secondary-fixed-variant": "#5d4201",
+                    "tertiary-fixed": "#e0e2e6",
+                    "on-tertiary-fixed-variant": "#44474a",
+                    "primary-container": "#2b5278",
+                    "outline-variant": "#c2c7cf",
+                    "on-tertiary": "#ffffff",
+                    "on-primary-fixed-variant": "#21496f",
+                    "tertiary": "#36393c",
+                    "tertiary-container": "#4d5053",
+                    "on-secondary": "#ffffff",
+                    "surface-container": "#f0eded",
+                    "surface-bright": "#fcf9f8",
+                    "on-tertiary-fixed": "#191c1f",
+                    "surface-tint": "#3b6188",
+                    "on-error": "#ffffff",
+                    "inverse-on-surface": "#f3f0ef",
+                    "primary-fixed-dim": "#a4caf6",
+                    "on-tertiary-container": "#c0c2c6"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.5rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "base": "8px",
+                    "margin-desktop": "40px",
+                    "margin-mobile": "16px",
+                    "gutter": "24px",
+                    "container-max": "1280px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["EB Garamond"],
+                    "title-md": ["Hanken Grotesk"],
+                    "body-md": ["Hanken Grotesk"],
+                    "headline-lg-mobile": ["EB Garamond"],
+                    "label-sm": ["JetBrains Mono"],
+                    "display-lg": ["EB Garamond"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "500"}],
+                    "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "500"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen selection:bg-primary-container selection:text-on-primary-container overflow-x-hidden">
+<!-- Sidebar Navigation -->
+<aside class="fixed left-0 top-0 h-full w-72 bg-surface border-r border-outline-variant/20 shadow-xl flex flex-col py-8 gap-base z-50 hidden md:flex">
+<div class="px-6 mb-8">
+<h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">Magical Nexus</h1>
+<p class="font-label-sm text-label-sm text-secondary-container bg-secondary/10 px-2 py-1 rounded inline-block mt-2">Saldo: 1,250 💎</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="bg-secondary-container text-on-secondary-container rounded-xl mx-4 font-semibold flex items-center px-4 py-3 gap-4 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-body-md text-body-md">Inicio</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-high rounded-xl mx-4 flex items-center px-4 py-3 gap-4 hover:translate-x-1 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-body-md text-body-md">Perfil</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-high rounded-xl mx-4 flex items-center px-4 py-3 gap-4 hover:translate-x-1 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined">auto_stories</span>
+<span class="font-body-md text-body-md">El Quisquilloso</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-high rounded-xl mx-4 flex items-center px-4 py-3 gap-4 hover:translate-x-1 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined">pets</span>
+<span class="font-body-md text-body-md">Santuario de Mascotas</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-high rounded-xl mx-4 flex items-center px-4 py-3 gap-4 hover:translate-x-1 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined">account_balance</span>
+<span class="font-body-md text-body-md">Cámara del Tesoro</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-high rounded-xl mx-4 flex items-center px-4 py-3 gap-4 hover:translate-x-1 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined">book</span>
+<span class="font-body-md text-body-md">Flourish &amp; Blotts</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-high rounded-xl mx-4 flex items-center px-4 py-3 gap-4 hover:translate-x-1 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined">auto_fix_high</span>
+<span class="font-body-md text-body-md">Borgin &amp; Burkes</span>
+</a>
+</nav>
+<div class="mt-auto px-4 space-y-4">
+<button class="w-full py-3 px-4 rounded-full border border-primary/20 text-primary font-semibold hover:bg-primary hover:text-on-primary transition-all active:scale-95 duration-150 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">shield_person</span>
+            Gestionar Admins
+        </button>
+<div class="pt-4 border-t border-outline-variant/20 flex flex-col gap-2">
+<a class="text-on-surface-variant hover:text-primary flex items-center px-4 py-2 gap-4 text-sm" href="#">
+<span class="material-symbols-outlined text-xl">settings</span>
+                Configuración
+            </a>
+<a class="text-on-surface-variant hover:text-primary flex items-center px-4 py-2 gap-4 text-sm" href="#">
+<span class="material-symbols-outlined text-xl">help</span>
+                Soporte
+            </a>
+</div>
+</div>
+</aside>
+<!-- Top Navigation (Mobile/Universal Bar) -->
+<header class="fixed top-0 w-full z-40 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm transition-all duration-300 ease-in-out">
+<div class="flex justify-between items-center h-20 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto">
+<div class="flex items-center gap-4">
+<span class="md:hidden material-symbols-outlined text-primary">menu</span>
+<span class="font-display-lg text-headline-lg-mobile md:text-display-lg text-primary tracking-tight">Nexus Lumiére</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden md:flex items-center gap-6">
+<a class="text-primary font-bold border-b-2 border-primary py-2 transition-all" href="#">Panel</a>
+<a class="text-on-surface-variant/70 hover:text-primary transition-colors py-2" href="#">Explorar</a>
+<a class="text-on-surface-variant/70 hover:text-primary transition-colors py-2" href="#">Santuario</a>
+<!-- Language Selector Dropdown -->
+<div class="relative group">
+<button class="flex items-center gap-1 text-on-surface-variant/70 hover:text-primary transition-colors py-2">
+<span class="material-symbols-outlined text-xl">language</span>
+<span class="text-sm font-medium">ES</span>
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<div class="absolute right-0 top-full mt-1 w-36 bg-surface border border-outline-variant/30 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+<div class="py-2">
+<a class="block px-4 py-2 text-sm text-primary font-semibold bg-primary/5" href="#">Español</a>
+<a class="block px-4 py-2 text-sm text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">Inglés</a>
+<a class="block px-4 py-2 text-sm text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">Portugués</a>
+<a class="block px-4 py-2 text-sm text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">Italiano</a>
+<a class="block px-4 py-2 text-sm text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">Francés</a>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 text-primary hover:bg-primary-container/20 rounded-full transition-colors">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+</button>
+<button class="p-2 text-primary hover:bg-primary-container/20 rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20">
+<img alt="Perfil del Administrador" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWzQT-EXr0-IfyxZ2BS7EqGUSiG2UIUqh_dPhghbBXy7Ne0Hs7MXAxSCOJ4aylxT3BVm4BO8ptilejEHRbe6zhQksKLWTk_RzRXNHwi2r6YU8PSf-ICC5qxM8TyaHm92qnmO6rPJewfK9mdhC8XTf7pdkMmgpJgu_Fq5qgzrWiUceEfkv4PTY8zqzYO7y0P8WGPRKKl0Ovmsf7m7isgwO0r9CTxO_8W4FeskwZzu-cdn7ADHcsOqEqAw"/>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="md:pl-72 pt-20 min-h-screen">
+<div class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-8 md:py-12">
+<!-- Hero Section -->
+<section class="relative h-[400px] rounded-3xl overflow-hidden mb-12 shadow-2xl group">
+<div class="absolute inset-0 bg-gradient-to-tr from-primary/80 via-primary/40 to-transparent"></div>
+<div class="relative h-full flex flex-col justify-center px-8 md:px-16 text-white max-w-2xl">
+<span class="font-label-sm text-secondary-fixed mb-4 inline-block tracking-widest uppercase">Bienvenido de nuevo, Administrador Jefe</span>
+<h2 class="font-display-lg text-4xl md:text-6xl mb-6 leading-tight">Domina el <span class="italic">Nexus</span> con Gracia</h2>
+<p class="font-body-md text-lg opacity-90 mb-8 max-w-lg">
+                    El motor Lumiére está procesando actualmente 1,422 interacciones mágicas en la red social de Hogwarts. Tu presencia asegura el equilibrio de la cámara.
+                </p>
+<div class="flex gap-4">
+<button class="px-8 py-3 bg-white text-primary rounded-full font-bold crystal-glow hover:scale-105 transition-transform active:scale-95">Entrar a la Cámara</button>
+<button class="px-8 py-3 bg-transparent border border-white/40 backdrop-blur-md rounded-full font-semibold hover:bg-white/10 transition-colors">Ver Analíticas</button>
+</div>
+</div>
+<div class="absolute bottom-8 right-8 flex gap-3">
+<div class="glass-card px-4 py-3 rounded-2xl flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+<span class="text-sm font-label-sm text-primary">Sistema Nexus: Estable</span>
+</div>
+</div>
+</section>
+<!-- Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<!-- Profile Snippet -->
+<div class="lg:col-span-1 space-y-gutter">
+<div class="glass-card p-6 rounded-3xl border-t-4 border-t-primary relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl" style="font-variation-settings: 'FILL' 1;">shield</span>
+</div>
+<div class="flex items-center gap-4 mb-6">
+<div class="w-16 h-16 rounded-2xl bg-primary-container/10 flex items-center justify-center border border-primary/20 overflow-hidden">
+<img alt="Escudo de Ravenclaw" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAABDGyj4TqlyQ6-ISGMRV7a6BGrR4s4WmNW0njoNS_TSAIxg8cYJAJjYs7fkr6X6S9V3RtWExUPK2mituhOWVKoQCMCtMZLbmpCsduFZocJvlc8CFQFh_f_oCt8-fjLju-WG2pNeSFIbw7LlnByid_qIHwljDZLr4fIJx0RMmBwQrC6sbSff3JeO_mWzxlSiQlQMu0wAJ1N4EWFmCivz3-RrYwBpahKlZPfxPoJXJFK7i17xwT-ut_DA"/>
+</div>
+<div>
+<h3 class="font-title-md text-title-md text-primary">Caelum Silverlock</h3>
+<p class="text-on-surface-variant text-sm">Casa Ravenclaw</p>
+</div>
+</div>
+<div class="space-y-4">
+<div class="bg-surface-container-low p-4 rounded-2xl flex justify-between items-center">
+<span class="text-sm text-on-surface-variant font-medium">Saldo de Zerines</span>
+<div class="flex items-center gap-1">
+<span class="font-label-sm text-lg text-primary font-bold">1,250</span>
+<span class="material-symbols-outlined text-secondary text-sm">diamond</span>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 py-2 bg-secondary-container text-on-secondary-container rounded-xl font-semibold text-sm hover:brightness-95 transition-all">Depositar</button>
+<button class="flex-1 py-2 border border-outline-variant rounded-xl font-semibold text-sm hover:bg-surface-container-high transition-all">Historial</button>
+</div>
+</div>
+</div>
+<!-- Manage Admins Section -->
+<div class="bg-white p-6 rounded-3xl shadow-sm border border-outline-variant/30 parchment-edge">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-title-md text-title-md text-primary">Gestionar Admins</h3>
+<span class="material-symbols-outlined text-on-surface-variant/50">verified_user</span>
+</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-3 hover:bg-surface-container-lowest rounded-2xl transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-200">
+<img alt="Minerva M." class="w-full h-full rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuATk5oXLxjXJuRuAhy1FU0u-ofnUGeuVvYhcDGUU7LqnC2s3BvM_vutIsVVh7a3XnYecUVUX_O_E-36RMOt9NKSVHoDJV3TU-_PtF-2qtJNgewZv5jRe4_1YbIFWfLykJub-DjnQydJZjjXv7qjUmIJk13j5L7NraVEmo0h3gNr9trStxDpaXw3WDg2snoYTQ83Afnn8AEnK6cfNBCiJ7uaD8uHE52-8o7D2du_UPizjUhywG0bTKrnzA"/>
+</div>
+<div>
+<p class="text-sm font-semibold">Minerva M.</p>
+<p class="text-xs text-on-surface-variant">Supervisión Global</p>
+</div>
+</div>
+<span class="text-[10px] px-2 py-1 bg-green-100 text-green-700 rounded-full font-bold">ACTIVO</span>
+</div>
+<div class="flex items-center justify-between p-3 hover:bg-surface-container-lowest rounded-2xl transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-200">
+<img alt="Harry P." class="w-full h-full rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpAutQf0xDqm67aypD9gzFm6bl2oiLNZDMJjPZWtrROJyjbI1q5-9tu-II_JvFVqgMMt87vvEy1ekeL1gYSlkIA4Dgr916k3KYBSUnvZe-LxptBnX622b6SAi-BjIaiqcp8D203-Vc1VqqPgeFP0BCh1-DcPkwcEg0LYQ-6NQV7Ps9NzWZyhsYV3Mk-yay8ROOVIz7MPY6BXKBTzu-jg7tF4gw193JwIHzF2nfNN10ai2tLVvcECgvwg"/>
+</div>
+<div>
+<p class="text-sm font-semibold">Harry P.</p>
+<p class="text-xs text-on-surface-variant">Líder del Santuario</p>
+</div>
+</div>
+<span class="text-[10px] px-2 py-1 bg-green-100 text-green-700 rounded-full font-bold">ACTIVO</span>
+</div>
+</div>
+<button class="w-full mt-6 py-3 border-2 border-dashed border-outline-variant rounded-2xl text-on-surface-variant hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-2 text-sm font-semibold">
+<span class="material-symbols-outlined text-lg">person_add</span>
+                        Invitar Nuevo Admin
+                    </button>
+</div>
+</div>
+<!-- Main Activity & Navigation -->
+<div class="lg:col-span-2 space-y-gutter">
+<!-- Quick Navigation Cards -->
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+<div class="bg-surface-container p-6 rounded-3xl hover:bg-primary-container hover:text-on-primary-container cursor-pointer transition-all group">
+<span class="material-symbols-outlined text-3xl mb-4 block transition-transform group-hover:scale-110">auto_stories</span>
+<p class="font-semibold text-sm">El Quisquilloso</p>
+<p class="text-xs opacity-70 mt-1">Novedades diarias</p>
+</div>
+<div class="bg-surface-container p-6 rounded-3xl hover:bg-primary-container hover:text-on-primary-container cursor-pointer transition-all group">
+<span class="material-symbols-outlined text-3xl mb-4 block transition-transform group-hover:scale-110">pets</span>
+<p class="font-semibold text-sm">Santuario</p>
+<p class="text-xs opacity-70 mt-1">Cuidado y Cría</p>
+</div>
+<div class="bg-surface-container p-6 rounded-3xl hover:bg-primary-container hover:text-on-primary-container cursor-pointer transition-all group">
+<span class="material-symbols-outlined text-3xl mb-4 block transition-transform group-hover:scale-110">account_balance</span>
+<p class="font-semibold text-sm">Cámara del Tesoro</p>
+<p class="text-xs opacity-70 mt-1">Gestión de Riqueza</p>
+</div>
+</div>
+<!-- Recent Activity / Bento Section -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- Pet Status Card -->
+<div class="glass-card p-6 rounded-3xl flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-6">
+<h3 class="font-title-md text-title-md text-primary">Criaturas Activas</h3>
+<span class="text-xs font-label-sm px-2 py-1 bg-primary/5 text-primary rounded-full">3 Registradas</span>
+</div>
+<div class="space-y-6">
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-medium">
+<span>Hipogrifo (Storm)</span>
+<span>84% Feliz</span>
+</div>
+<div class="h-2 w-full bg-primary/10 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[84%] rounded-full shadow-[0_0_8px_rgba(14,59,96,0.3)]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-medium">
+<span>Escarbato (Goldie)</span>
+<span>42% Hambriento</span>
+</div>
+<div class="h-2 w-full bg-secondary/10 rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[42%] rounded-full shadow-[0_0_8px_rgba(119,90,25,0.3)]"></div>
+</div>
+</div>
+</div>
+</div>
+<button class="w-full mt-8 py-3 bg-surface-container-high rounded-full text-sm font-semibold hover:bg-primary hover:text-on-primary transition-colors">Ir al Santuario</button>
+</div>
+<!-- Data Chart / Stats Visualization -->
+<div class="bg-primary p-6 rounded-3xl text-white relative overflow-hidden group">
+<div class="absolute -right-10 -bottom-10 opacity-10 group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-[120px]">show_chart</span>
+</div>
+<h3 class="font-title-md text-title-md mb-2">Crecimiento Nexus</h3>
+<p class="text-sm opacity-80 mb-8">+12.4% tráfico mágico esta semana</p>
+<div class="flex items-end gap-2 h-32 mb-6">
+<div class="flex-1 bg-white/20 rounded-t-lg transition-all hover:bg-secondary-fixed h-[40%]"></div>
+<div class="flex-1 bg-white/20 rounded-t-lg transition-all hover:bg-secondary-fixed h-[60%]"></div>
+<div class="flex-1 bg-white/20 rounded-t-lg transition-all hover:bg-secondary-fixed h-[35%]"></div>
+<div class="flex-1 bg-white/20 rounded-t-lg transition-all hover:bg-secondary-fixed h-[85%]"></div>
+<div class="flex-1 bg-white/20 rounded-t-lg transition-all hover:bg-secondary-fixed h-[55%]"></div>
+<div class="flex-1 bg-white/20 rounded-t-lg transition-all hover:bg-secondary-fixed h-[95%]"></div>
+<div class="flex-1 bg-white/30 rounded-t-lg transition-all hover:bg-secondary-fixed h-[100%] border-t-2 border-white"></div>
+</div>
+<div class="flex justify-between text-xs opacity-60">
+<span>Lun</span>
+<span>Mié</span>
+<span>Dom</span>
+</div>
+</div>
+</div>
+<!-- Marketplace Preview / Borgin & Burkes -->
+<div class="glass-card p-6 rounded-3xl overflow-hidden relative">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h3 class="font-headline-lg text-headline-lg text-primary">Borgin &amp; Burkes</h3>
+<p class="text-on-surface-variant text-sm">Artefactos Restringidos y Curiosidades</p>
+</div>
+<button class="material-symbols-outlined text-primary hover:rotate-180 transition-transform duration-500">sync_alt</button>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div class="flex gap-4 p-4 bg-white/50 rounded-2xl border border-white/80 hover:shadow-md transition-all">
+<div class="w-16 h-16 rounded-xl bg-slate-100 flex-shrink-0 overflow-hidden">
+<img alt="Collar de Opalo" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcuQ7UWnscuF479RjBEcer501s6MJwT8LPha7tjnQelQ8wCPa9Flmkh75VHKdKYCJn4_uKl9J4azK7A4rFNtRBqWLMNuQoB8JA-nTMxWEPAYknX2ea4n5M9SmULM45T1uA7G_NNz29ap5lEZLRE98hlsfVuACoOEARaItxcON0miEVEzqpOWtr8b9kqa1g-gqoPLaNL7fQsjcU-1ErS60qvQLL0KWRAWR-izYgY8utjb5NgeV6tL_FKQ"/>
+</div>
+<div class="flex flex-col justify-center">
+<p class="font-semibold text-sm">Collar de Ópalo</p>
+<p class="text-secondary font-label-sm text-xs mt-1">450 💎</p>
+</div>
+</div>
+<div class="flex gap-4 p-4 bg-white/50 rounded-2xl border border-white/80 hover:shadow-md transition-all">
+<div class="w-16 h-16 rounded-xl bg-slate-100 flex-shrink-0 overflow-hidden">
+<img alt="Mano de la Gloria" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxZx7A-ha9OPb_jOLv2oIyPd3XLhKrhF_CazfIUsliQuzymyt6fs8f4O3xFMzZGZEhSDi_UyVpFujqdIirZSV1G8aH1YogP4CRiVGnWFHwXSDGhwcdEzF0dlsQ0YeHQQfu2zLnPQh3XzhH12LZ7RKeD-LkbGN7fUY7kvsyIX0ECMV12cOekkGCKCYwkUBX1JpEPFHEcA5lNuhho7RkZ4fzSUhqXDg_KcJnrKZMESW7NiHFJrJmrkYpYg"/>
+</div>
+<div class="flex flex-col justify-center">
+<p class="font-semibold text-sm">Mano de la Gloria</p>
+<p class="text-secondary font-label-sm text-xs mt-1">820 💎</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Action Button -->
+<button class="fixed bottom-8 right-8 w-16 h-16 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 group">
+<span class="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform duration-300">add</span>
+</button>
+<script>
+    // Micro-interaction for hover effects on glass cards
+    document.querySelectorAll('.glass-card').forEach(card => {
+        card.addEventListener('mousemove', e => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            card.style.setProperty('--mouse-x', `${x}px`);
+            card.style.setProperty('--mouse-y', `${y}px`);
+        });
+    });
+
+    // Atmospheric shimmer effect
+    const style = document.createElement('style');
+    style.textContent = `
+        .glass-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(400px circle at var(--mouse-x) var(--mouse-y), rgba(14, 59, 96, 0.05), transparent 40%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .glass-card:hover::before {
+            opacity: 1;
+        }
+    `;
+    document.head.appendChild(style);
+</script>
+</body></html>

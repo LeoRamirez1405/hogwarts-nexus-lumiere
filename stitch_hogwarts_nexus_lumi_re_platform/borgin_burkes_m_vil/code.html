@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700;800&amp;family=Hanken+Grotesk:wght@300;400;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed": "#ffdea5",
+                    "surface-bright": "#fcf9f8",
+                    "secondary": "#775a19",
+                    "primary": "#0e3b60",
+                    "on-primary-fixed-variant": "#21496f",
+                    "on-primary-fixed": "#001d35",
+                    "surface-variant": "#e5e2e1",
+                    "tertiary": "#36393c",
+                    "on-primary-container": "#a0c5f1",
+                    "secondary-fixed-dim": "#e9c176",
+                    "secondary-container": "#fed488",
+                    "on-tertiary": "#ffffff",
+                    "outline": "#73777f",
+                    "primary-container": "#2b5278",
+                    "on-primary": "#ffffff",
+                    "background": "#fcf9f8",
+                    "inverse-surface": "#313030",
+                    "surface-container": "#f0eded",
+                    "primary-fixed-dim": "#a4caf6",
+                    "surface-dim": "#dcd9d9",
+                    "primary-fixed": "#d0e4ff",
+                    "inverse-primary": "#a4caf6",
+                    "surface-container-highest": "#e5e2e1",
+                    "on-error-container": "#93000a",
+                    "on-secondary-fixed": "#261900",
+                    "on-secondary": "#ffffff",
+                    "inverse-on-surface": "#f3f0ef",
+                    "error-container": "#ffdad6",
+                    "on-secondary-fixed-variant": "#5d4201",
+                    "tertiary-fixed": "#e0e2e6",
+                    "error": "#ba1a1a",
+                    "on-secondary-container": "#785a1a",
+                    "on-background": "#1c1b1b",
+                    "tertiary-fixed-dim": "#c4c7ca",
+                    "on-error": "#ffffff",
+                    "on-surface": "#1c1b1b",
+                    "surface": "#fcf9f8",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed": "#191c1f",
+                    "tertiary-container": "#4d5053",
+                    "surface-tint": "#3b6188",
+                    "surface-container-high": "#eae7e7",
+                    "on-tertiary-fixed-variant": "#44474a",
+                    "on-tertiary-container": "#c0c2c6",
+                    "on-surface-variant": "#42474e",
+                    "outline-variant": "#c2c7cf",
+                    "surface-container-low": "#f6f3f2"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-mobile": "16px",
+                    "container-max": "1280px",
+                    "base": "8px",
+                    "gutter": "24px",
+                    "margin-desktop": "40px"
+            },
+            "fontFamily": {
+                    "display-lg": ["EB Garamond"],
+                    "headline-lg-mobile": ["EB Garamond"],
+                    "headline-lg": ["EB Garamond"],
+                    "body-md": ["Hanken Grotesk"],
+                    "title-md": ["Hanken Grotesk"],
+                    "label-sm": ["JetBrains Mono"]
+            },
+            "fontSize": {
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "500"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "500"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(14, 59, 96, 0.1);
+        }
+        .parchment-border {
+            border-top: 1px solid rgba(119, 90, 25, 0.2);
+            border-bottom: 1px solid rgba(119, 90, 25, 0.2);
+            background-image: linear-gradient(to bottom, rgba(252, 249, 248, 0), rgba(252, 249, 248, 0.5), rgba(252, 249, 248, 0));
+        }
+        .borgin-button {
+            transition: all 0.3s ease;
+            box-shadow: inset 0 0 0 1px rgba(119, 90, 25, 0.3);
+        }
+        .borgin-button:hover {
+            box-shadow: inset 0 0 15px rgba(119, 90, 25, 0.2), 0 0 10px rgba(119, 90, 25, 0.1);
+            transform: translateY(-1px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md selection:bg-secondary-container">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-md shadow-sm flex justify-between items-center px-margin-mobile h-16 w-full">
+<button class="active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-primary text-2xl">menu</span>
+</button>
+<h1 class="font-display-lg text-display-lg text-primary">Lumiére</h1>
+<button class="active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-primary text-2xl">language</span>
+</button>
+</header>
+<main class="pt-24 pb-32 px-margin-mobile">
+<!-- Brand Header Section -->
+<section class="mb-10 text-center">
+<div class="inline-block px-4 py-1 rounded-full border border-secondary/30 bg-secondary-fixed/20 text-secondary font-label-sm text-label-sm mb-4">
+                CURADURÍA PROHIBIDA
+            </div>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary mb-2">Borgin &amp; Burkes</h2>
+<p class="text-on-surface-variant max-w-xs mx-auto italic">Artefactos de distinción para el mago exigente.</p>
+</section>
+<!-- Artifacts Grid (Asymmetric/Bento-ish) -->
+<div class="grid grid-cols-1 gap-6">
+<!-- Hand of Glory -->
+<div class="glass-card rounded-xl overflow-hidden group">
+<div class="relative h-72 w-full">
+<img class="w-full h-full object-cover" data-alt="A macro photograph of the Hand of Glory, a shriveled, mummified human hand held upright by a silver base. The scene is lit with dramatic low-key lighting, casting long shadows. Subtle golden dust motes dance in the air against a deep cobalt blue background. The aesthetic is museum-quality, eerie yet extremely elegant and high-end." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCy12GwNx0ryxq01Qkrgt-JtBhtF178PbsQeiKa69En8wUW3LvF9FhIJLj7Ts_tIU644-vbL_NiX8WCq4ZiziQx__OLbPAp4MnLJElJRofaCYKeS12VCEv6yPwpwr09Ltqf8ryXsf8dBsE7vkJrUkPlz-OLMCZgcmxpqErw-hO9Schxdh6xdp5bCnoToxzE9WRN5c5bKoZAHfphJ2v3x0If7g9m383i2yPeoAkkp2cwdJPyapWBOkAN-w"/>
+<div class="absolute top-4 right-4 bg-primary/90 text-on-primary px-3 py-1 rounded-full text-label-sm font-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">diamond</span> 4,500
+                    </div>
+</div>
+<div class="p-6">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-primary mb-2">Mano de la Gloria</h3>
+<p class="text-on-surface-variant text-sm mb-6 leading-relaxed">Proporciona luz solo al portador. Un instrumento indispensable para incursiones nocturnas y exploraciones privadas en las Sombras.</p>
+<button class="w-full py-3 rounded-lg border border-secondary text-secondary font-title-md borgin-button flex justify-center items-center gap-2">
+<span>Consultar</span>
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Cursed Necklace -->
+<div class="grid grid-cols-1 gap-6">
+<div class="glass-card rounded-xl overflow-hidden">
+<div class="relative h-64 w-full">
+<img class="w-full h-full object-cover" data-alt="A close-up of an ornate opal necklace sitting on a dark velvet cushion. The opals glow with a faint, malevolent greenish-blue inner light. Elegant silver filigree surrounds the stones. The surrounding environment is dark and atmospheric, with cold white highlights reflecting off the silver. The style is moody, luxurious, and modern gothic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHrLyfQIXrcX_vqZDu4zbeS7M0gtm3ettMCDASjdTIlkNwlQIl9H_1vSPmEyt7BA4okptjeK3YQK-1BiVFZiA-IXa6NTyKwR3N7BwYCccXEeAwMTnZCId0vOKOiZWOenxZt1GhJyRdPwPOBV6pU3R5uDFjUj4qCQa_GFHtC95tMoZue30_kCw4scRTwXhqcV6RwMIcYBVctXOXIfVElnbeqORVw4J7OM6Y-5JAaLSO9Cx_-99Ab9x8yA"/>
+<div class="absolute top-4 right-4 bg-primary/90 text-on-primary px-3 py-1 rounded-full text-label-sm font-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">diamond</span> 12,000
+                        </div>
+</div>
+<div class="p-6">
+<span class="text-error font-label-sm text-[10px] tracking-widest mb-1 block">ADVERTENCIA: NO TOCAR</span>
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-primary mb-2">Collar de Ópalos</h3>
+<p class="text-on-surface-variant text-sm mb-4 leading-relaxed">Una pieza de joyería fatal que ha reclamado la vida de diecinueve propietarios muggles. Requiere manipulación experta.</p>
+<button class="w-full py-3 rounded-lg border border-secondary text-secondary font-title-md borgin-button flex justify-center items-center gap-2">
+<span>Inquirir Valor</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Vanity Mirror of Erised (Small segment) -->
+<div class="grid grid-cols-2 gap-4">
+<div class="glass-card rounded-xl overflow-hidden flex flex-col">
+<div class="h-40 w-full relative">
+<img class="w-full h-full object-cover" data-alt="A small, handheld antique mirror with an intricately carved gold frame featuring serpents and mystical runes. The glass surface is cloudy and swirls with faint silver mists. Set against a clean white background with deep blue shadows. Sophisticated, minimalist photography with a focus on metallic textures." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBx9vPQ1ORDqAgK50YKxapE3X5QjmaHdJ4PDoHqv4sCQKpjJBLbDjPPAxyQBy5TXonLyyen9Wbw9oIGr930Z-na-GmiGNWKNScre3_xyuVnFe4UQ8FwEg1r0tMOyeTEum5m3g_lYy3jisD0RqOHXxGazj-ikvOuGxGkXkOCJ-CrqMleBRhx0_O3smKl-5qzu6OmC1zJfqwWxYfEqhQFIbKWUADafmVSonWkFWyFD993sVyh9mIntumPMA"/>
+</div>
+<div class="p-4 flex-grow flex flex-col">
+<h4 class="font-title-md text-primary mb-1">Espejo de Enigma</h4>
+<div class="mt-auto flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-secondary">💎 850</span>
+<span class="material-symbols-outlined text-secondary">add_circle</span>
+</div>
+</div>
+</div>
+<div class="glass-card rounded-xl overflow-hidden flex flex-col">
+<div class="h-40 w-full relative">
+<img class="w-full h-full object-cover" data-alt="A collection of glass phials containing swirling, iridescent silvery liquids. Each phial is sealed with dark wax and labeled with elegant, spidery handwriting. Soft, ethereal lighting illuminating the transparency of the glass. The color palette is composed of silvers, whites, and deep cobalt blues." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXqehG2z5bTnoA5exOPk04fTYshtHqcmZIP0eLz3b38vUyPTe4W06pW2U5KsH1BhoDLHgPAr18B39gAylAfEJpQ-rBR5loVFDMW7n31BHYiAU4lFi09Rz6WulsLnjRO3S--g9tIjg_d9Cx8OiNp7I2Bltu-LJ0X-JLl3_L-VBonSChy1O8xoi3J_0if9KcfpGoMfYdWygzBrrkxnKNC3BSI08y4IxolSrLHx3KqnUzJEfmiVNWJtM_tQ"/>
+</div>
+<div class="p-4 flex-grow flex flex-col">
+<h4 class="font-title-md text-primary mb-1">Recuerdos Perdidos</h4>
+<div class="mt-auto flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-secondary">💎 1,200</span>
+<span class="material-symbols-outlined text-secondary">add_circle</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Featured Banner (Full Width Parchment style) -->
+<div class="parchment-border py-8 my-4 text-center px-6">
+<span class="material-symbols-outlined text-secondary text-4xl mb-2" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<h3 class="font-display-lg text-2xl text-primary italic mb-2">Adquisiciones Recientes</h3>
+<p class="text-on-surface-variant font-body-md text-sm italic">"Donde lo antiguo se encuentra con lo eterno."</p>
+</div>
+<!-- Vanishing Cabinet (The highlight) -->
+<div class="glass-card rounded-xl overflow-hidden border-2 border-secondary/20">
+<div class="relative h-80 w-full">
+<img class="w-full h-full object-cover" data-alt="A towering, majestic black wooden cabinet with ornate gold carvings and a tall, pointed top. The wood has a high-gloss finish reflecting subtle sparks. The cabinet stands alone in a brightly lit, minimalist white room with deep cobalt floor tiles. The atmosphere is quiet, powerful, and impeccably modern." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAiGJ0kw7CzBnx_9xcl7CkLY_uV19j7Dr_1npB78r91XRYAzdE1t7XjPb8L_98xHPco_iO2DccnstcwZJzk0mYt6R0wu_SsKbbiWLMWhMVw6XJxH2A8QAxooJnn07rWfqL0EBbZt9sNv9Q7WGRPxJMBJ0WHjpSX2Hvj33y_TyzoyeRGRIC8PryFliypgTR35HJCqg7UCYn6YWg7M_uHCnqu9MjTl3uSbZlDDhtzgYcg6AYgDEo86GF7ug"/>
+<div class="absolute inset-0 bg-gradient-to-t from-primary/60 to-transparent"></div>
+<div class="absolute bottom-4 left-4 right-4">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-white">Armario Evanescente</h3>
+</div>
+</div>
+<div class="p-6">
+<p class="text-on-surface-variant text-sm mb-6 leading-relaxed">Una reliquia de transporte instantáneo. Se vende como pieza de colección, sin garantía de conexión con su gemelo. Restauración Lumiére completada.</p>
+<div class="flex items-center justify-between mb-6">
+<span class="font-label-sm text-lg text-primary flex items-center gap-2">
+<span class="material-symbols-outlined">payments</span> 
+                            Precio bajo petición
+                        </span>
+</div>
+<button class="w-full py-4 bg-primary text-on-primary rounded-full font-title-md active:scale-95 transition-transform flex justify-center items-center gap-2">
+<span class="material-symbols-outlined">mail</span>
+                        Enviar Mensaje Privado
+                    </button>
+</div>
+</div>
+</div>
+<!-- Footer space -->
+<div class="h-12"></div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-surface/90 backdrop-blur-lg border-t border-outline-variant/30 shadow-[0_-4px_20px_0_rgba(0,0,0,0.05)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-sm text-label-sm">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-sm text-label-sm">Social</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-secondary-container/50 text-on-secondary-container rounded-full px-4 py-1 active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="font-label-sm text-label-sm">Treasury</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">pets</span>
+<span class="font-label-sm text-label-sm">Pets</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">newspaper</span>
+<span class="font-label-sm text-label-sm">News</span>
+</a>
+</nav>
+<!-- Floating Action for Quick Sell -->
+<button class="fixed bottom-24 right-6 w-14 h-14 bg-secondary text-on-secondary rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform z-40">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+<script>
+        // Micro-interactions: Glow on hover for icons
+        document.querySelectorAll('.material-symbols-outlined').forEach(icon => {
+            icon.addEventListener('mouseenter', () => {
+                icon.style.textShadow = '0 0 8px rgba(119, 90, 25, 0.4)';
+            });
+            icon.addEventListener('mouseleave', () => {
+                icon.style.textShadow = 'none';
+            });
+        });
+    </script>
+</body></html>

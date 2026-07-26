@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Nexus Lumiére | Perfil de Mago</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700&amp;family=Hanken+Grotesk:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "background": "#fcf9f8",
+                    "tertiary-fixed-dim": "#c4c7ca",
+                    "on-tertiary-fixed-variant": "#44474a",
+                    "surface-dim": "#dcd9d9",
+                    "error": "#ba1a1a",
+                    "primary-container": "#2b5278",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary-fixed-dim": "#e9c176",
+                    "surface-variant": "#e5e2e1",
+                    "on-surface": "#1c1b1b",
+                    "secondary-fixed": "#ffdea5",
+                    "surface-container-highest": "#e5e2e1",
+                    "on-secondary-fixed": "#261900",
+                    "on-error": "#ffffff",
+                    "primary-fixed": "#d0e4ff",
+                    "surface-container": "#f0eded",
+                    "on-primary-fixed-variant": "#21496f",
+                    "outline": "#73777f",
+                    "on-primary-container": "#a0c5f1",
+                    "surface-tint": "#3b6188",
+                    "on-primary-fixed": "#001d35",
+                    "secondary": "#775a19",
+                    "primary": "#0e3b60",
+                    "on-tertiary-fixed": "#191c1f",
+                    "on-surface-variant": "#42474e",
+                    "tertiary-fixed": "#e0e2e6",
+                    "surface": "#fcf9f8",
+                    "on-secondary-fixed-variant": "#5d4201",
+                    "surface-bright": "#fcf9f8",
+                    "on-error-container": "#93000a",
+                    "secondary-container": "#fed488",
+                    "inverse-on-surface": "#f3f0ef",
+                    "on-background": "#1c1b1b",
+                    "tertiary-container": "#4d5053",
+                    "surface-container-high": "#eae7e7",
+                    "on-secondary-container": "#785a1a",
+                    "error-container": "#ffdad6",
+                    "outline-variant": "#c2c7cf",
+                    "inverse-surface": "#313030",
+                    "inverse-primary": "#a4caf6",
+                    "primary-fixed-dim": "#a4caf6",
+                    "on-tertiary-container": "#c0c2c6",
+                    "tertiary": "#36393c",
+                    "surface-container-low": "#f6f3f2"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "container-max": "1280px",
+                    "base": "8px",
+                    "margin-desktop": "40px",
+                    "margin-mobile": "16px",
+                    "gutter": "24px"
+            },
+            "fontFamily": {
+                    "label-sm": ["JetBrains Mono"],
+                    "display-lg": ["EB Garamond"],
+                    "headline-lg-mobile": ["EB Garamond"],
+                    "body-md": ["Hanken Grotesk"],
+                    "title-md": ["Hanken Grotesk"],
+                    "headline-lg": ["EB Garamond"]
+            },
+            "fontSize": {
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "500"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Hanken Grotesk', sans-serif; background-color: #fcf9f8; color: #1c1b1b; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(119, 90, 25, 0.15);
+            box-shadow: 0 4px 30px rgba(14, 59, 96, 0.05);
+        }
+        .parchment-top-bottom {
+            border-top: 1px solid rgba(119, 90, 25, 0.2);
+            border-bottom: 1px solid rgba(119, 90, 25, 0.2);
+            background: linear-gradient(to bottom, #ffffff 0%, #fcf9f8 100%);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .nexus-glow {
+            box-shadow: 0 0 15px rgba(119, 90, 25, 0.1);
+            transition: all 0.3s ease;
+        }
+        .nexus-glow:hover {
+            box-shadow: 0 0 25px rgba(119, 90, 25, 0.2);
+            border-color: #775a19;
+        }
+        .sidebar-active {
+            background-color: #fed488;
+            color: #785a1a;
+            font-weight: 700;
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 left-0 z-50 h-20 bg-surface/80 backdrop-blur-md border-b border-secondary/20 flex justify-between items-center px-margin-desktop w-full max-w-container-max mx-auto">
+<div class="flex items-center gap-4">
+<h1 class="font-display-lg text-headline-lg text-primary tracking-tight">Nexus Lumiére</h1>
+</div>
+<div class="flex items-center gap-6">
+<!-- Language Selector -->
+<div class="relative group">
+<button class="flex items-center gap-2 text-on-surface-variant hover:text-secondary transition-colors cursor-pointer font-title-md text-body-md">
+<span class="material-symbols-outlined" data-icon="language">language</span>
+<span>Español</span>
+<span class="material-symbols-outlined text-sm" data-icon="expand_more">expand_more</span>
+</button>
+<div class="absolute right-0 top-full mt-2 w-48 glass-card rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all py-2 z-50">
+<a class="block px-4 py-2 hover:bg-surface-container-high text-body-md" href="#">Español</a>
+<a class="block px-4 py-2 hover:bg-surface-container-high text-body-md" href="#">Inglés</a>
+<a class="block px-4 py-2 hover:bg-surface-container-high text-body-md" href="#">Portugués</a>
+<a class="block px-4 py-2 hover:bg-surface-container-high text-body-md" href="#">Italiano</a>
+<a class="block px-4 py-2 hover:bg-surface-container-high text-body-md" href="#">Francés</a>
+</div>
+</div>
+<button class="text-on-surface-variant hover:text-secondary transition-colors cursor-pointer">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-secondary/30">
+<img class="w-full h-full object-cover" data-alt="A portrait of an elegant wizard with silver hair and wise eyes, wearing midnight blue robes with gold embroidery, set against a blurred background of a magical library with floating candles. The lighting is warm and ethereal, mimicking a high-end digital portrait in light mode." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrIMrjzIgkB2aRbqJmZ3AbG9sU2TLUGq_Wg5AS4OVz7sqKEy9xFmrbm6aToy_gScv1qyw2O1DnON5EbeD0v795sygsyOF2kmAIzISIuTlyXryKuhzX1TYUgBsvFRv5eQwrHy87OH_k0C4dvbYdCfccp8cyLpheoN1dHOW8Ii8qrYUSjd5B-RTt8kG_8Uc6K84dMBZfQjfpmYj-eueRD7Sci0kwUQ70xX3davmvkUbD73f-xgneb36XGQ"/>
+</div>
+</div>
+</header>
+<!-- Sidebar Navigation -->
+<aside class="fixed left-0 top-0 h-screen w-64 bg-surface border-r border-secondary/10 flex flex-col py-8 px-4 z-40 pt-24 hidden md:flex">
+<div class="mb-8 px-4">
+<h2 class="font-headline-lg text-secondary">Albus D.</h2>
+<p class="text-on-surface-variant text-label-sm">Order of Merlin, First Class</p>
+</div>
+<nav class="flex-grow flex flex-col gap-2">
+<a class="sidebar-active flex items-center gap-3 px-4 py-3 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="auto_awesome">auto_awesome</span>
+<span class="font-body-md">Home Feed</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-low flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="mail">mail</span>
+<span class="font-body-md">Owl Post</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-low flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="font-body-md">The Quibbler</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-low flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="pets">pets</span>
+<span class="font-body-md">Pet Menagerie</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-low flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance">account_balance</span>
+<span class="font-body-md">Vault</span>
+</a>
+</nav>
+<button class="mt-4 bg-primary text-on-primary py-3 rounded-full font-title-md hover:bg-primary-container transition-all shadow-lg shadow-primary/20">
+            New Dispatch
+        </button>
+<div class="mt-auto flex flex-col gap-2 pt-8 border-t border-secondary/10">
+<a class="text-on-surface-variant hover:bg-surface-container-low flex items-center gap-3 px-4 py-2 rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-body-md">Settings</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-container-low flex items-center gap-3 px-4 py-2 rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="visibility_off">visibility_off</span>
+<span class="text-body-md">Incognito</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:ml-64 pt-24 min-h-screen px-4 md:px-margin-desktop pb-20">
+<div class="max-w-4xl mx-auto space-y-8">
+<!-- Profile Header -->
+<section class="glass-card rounded-xl overflow-hidden">
+<div class="h-48 bg-gradient-to-r from-primary to-secondary relative overflow-hidden">
+
+</div>
+<div class="px-8 pb-8 -mt-16 relative z-10 flex flex-col md:flex-row items-end gap-6">
+<div class="relative">
+<div class="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white overflow-hidden shadow-xl">
+<img class="w-full h-full object-cover" data-alt="A close-up portrait of a wizard named Caelum Silverlock. He has striking silver-blue eyes, refined features, and wears a sharp Ravenclaw-themed tailored suit in navy with a subtle bronze pinstripe. The aesthetic is clean, modern, and high-prestige, set in a brightly lit studio environment with soft shadows." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAuZjeCLad5wDTnEe7EGt_I4Rdjdljd65IE2cOuNC9ThMnn6g-LM8bHj4_59xKkLhYcVTQdIwCfPfGrRYiy0ILk0tW6GPNTX9-a-y5hYuRJRsyA5Ru4YiERQQkX7x2BjBP5Il8D3Q333sDgykJ0LnB66ZgA7NesAdeptA2rW9QfPM5pcE9FX8gIWKZXwgugANp1VD-ovAHZAZjaKAQIJ32hW9Ao9tX-OSkbPOT3HEghfD7LhqUt8V4mDQ"/>
+</div>
+<div class="absolute bottom-2 right-2 bg-primary text-on-primary p-2 rounded-full border-2 border-white">
+<span class="material-symbols-outlined text-sm" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+</div>
+<div class="flex-grow text-center md:text-left mb-2">
+<h2 class="font-display-lg text-display-lg text-on-surface leading-tight">Caelum Silverlock</h2>
+<div class="flex items-center justify-center md:justify-start gap-2 text-primary font-title-md">
+<span class="material-symbols-outlined" data-icon="auto_stories">auto_stories</span>
+<span>Ravenclaw</span>
+<span class="mx-2 text-secondary/30">•</span>
+<span class="text-on-surface-variant font-body-md">Artesano de Varitas &amp; Visionario</span>
+</div>
+</div>
+<div class="flex gap-3 mb-2">
+<button class="px-6 py-2 rounded-full border border-secondary text-secondary font-title-md hover:bg-secondary/5 transition-colors">Seguir</button>
+<button class="px-6 py-2 rounded-full bg-secondary text-on-secondary font-title-md hover:bg-secondary/90 transition-all shadow-md">Mensaje</button>
+</div>
+</div>
+<div class="px-8 py-6 border-t border-secondary/10 bg-white/30">
+<h3 class="font-title-md text-primary mb-2">Biografía</h3>
+<p class="text-on-surface-variant font-body-md max-w-2xl leading-relaxed">
+                        Explorando la intersección entre la numerología antigua y la economía mágica moderna. Coleccionista de cronómetros encantados y defensor de la transparencia en el Banco Gringotts. Siempre buscando el siguiente "Lumos" en la oscuridad de lo desconocido.
+                    </p>
+</div>
+</section>
+<!-- Grid Layout for Feed and Details -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Left Column: Details & Stats -->
+<div class="lg:col-span-1 space-y-6">
+<!-- Stats Card -->
+<div class="glass-card rounded-xl p-6 nexus-glow">
+<div class="grid grid-cols-3 gap-4 text-center">
+<div>
+<p class="text-headline-lg font-display-lg text-primary">1.2k</p>
+<p class="text-label-sm text-on-surface-variant">Hechizos</p>
+</div>
+<div>
+<p class="text-headline-lg font-display-lg text-primary">850</p>
+<p class="text-label-sm text-on-surface-variant">Aliados</p>
+</div>
+<div>
+<p class="text-headline-lg font-display-lg text-primary">42</p>
+<p class="text-label-sm text-on-surface-variant">Gremios</p>
+</div>
+</div>
+</div>
+<!-- Details Box -->
+<div class="glass-card rounded-xl p-6 border-l-4 border-secondary space-y-4">
+<h3 class="font-title-md text-primary flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="info">info</span>
+                            Detalles del Perfil
+                        </h3>
+<div class="space-y-3">
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-primary" data-icon="location_on">location_on</span>
+<span class="text-body-md">Hogsmeade, Escocia</span>
+</div>
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-primary" data-icon="magic_button">magic_button</span>
+<span class="text-body-md">Varita: Arce, 12", Núcleo Fénix</span>
+</div>
+<div class="flex items-center gap-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-primary" data-icon="history_edu">history_edu</span>
+<span class="text-body-md">Miembro desde 1998</span>
+</div>
+</div>
+<button class="w-full py-2 text-primary font-title-md hover:underline decoration-secondary">Ver más detalles</button>
+</div>
+<!-- Economy Snippet -->
+<div class="glass-card rounded-xl p-6 bg-gradient-to-br from-surface-container-low to-white">
+<h3 class="font-title-md text-secondary flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined" data-icon="diamond">diamond</span>
+                            Balance de Zerines
+                        </h3>
+<div class="flex justify-between items-center mb-4">
+<span class="font-label-sm text-on-secondary-container">Total Acumulado</span>
+<span class="font-label-sm text-primary text-xl">💎 14,205.00</span>
+</div>
+<div class="h-2 w-full bg-secondary/10 rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-3/4 rounded-full"></div>
+</div>
+<p class="text-[10px] text-on-surface-variant mt-2 text-right">Próxima meta: 20,000 💎</p>
+</div>
+</div>
+<!-- Right Column: Feed -->
+<div class="lg:col-span-2 space-y-6">
+<!-- Post Creation -->
+<div class="glass-card rounded-xl p-6">
+<div class="flex gap-4">
+<div class="w-12 h-12 rounded-full border border-secondary/20 overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Small circular avatar of Caelum Silverlock for the post creation box. Clean studio lighting, professional wizard portrait." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpyJkcQqULo2DoCoaGJ2AC2tnpExSGF22pK9Vk0JiKTFEkqw5jP-rVNrncyq58Cp0Q54Ca3WcnT2dIoHLYV-SB6k1bx78TkDSVWvhWDM_qXIP--JCwtcGLPq34wYp0XyiGssLME8tctidP-ciMWrlxLrTxxIJE6MS22FOSbbRm7OCIOFL0Omr7urvl9KwaoO-NgGEsWpGaxh1901ho9ftteYXqK718mGwJf-tI-Ysr_8Wv-NAmeuSKaw"/>
+</div>
+<div class="flex-grow space-y-4">
+<textarea class="w-full bg-surface-container-low border-none rounded-lg focus:ring-1 focus:ring-secondary/30 p-4 font-body-md resize-none h-24 placeholder:text-on-surface-variant/50" placeholder="Comparte un pensamiento mágico o una foto..."></textarea>
+<div class="flex justify-between items-center">
+<div class="flex gap-2">
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/5 rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="image">image</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/5 rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="movie">movie</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/5 rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="auto_fix_high">auto_fix_high</span>
+</button>
+</div>
+<button class="px-8 py-2 bg-primary text-on-primary rounded-full font-title-md hover:shadow-lg hover:shadow-primary/20 transition-all">Compartir</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Post Feed -->
+<div class="space-y-6">
+<h3 class="font-headline-lg text-primary border-b border-secondary/10 pb-4">Publicaciones Recientes</h3>
+<!-- Post 1 -->
+<article class="glass-card rounded-xl overflow-hidden">
+<div class="p-6">
+<div class="flex justify-between items-start mb-4">
+<div class="flex gap-3">
+<div class="w-10 h-10 rounded-full border border-secondary/20 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Avatar of Caelum Silverlock for a social media post. Professional digital photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDphavIxzxcA8n6Um65AiGzVL6eE68kwWaRezCMSWusT7OKbdYELXYy8RvRXj7XnKdUoMVY9MVtvPcD9zgouL0X64YqlKMUYnTcGRkXm63qePLlXEqMeP6oksFc-drrKTHJedtWjzwzCZoeRJXqf_d6icIdvAr7XbZPSHnnT1nmHvxjpz6wfgEgeYw-ZGFgdJwKHlnd6H3WMbIyhEGtmjPqxVBPP632LFl5RMKDDXjrTvo7fSTSzixdww"/>
+</div>
+<div>
+<p class="font-title-md text-on-surface">Caelum Silverlock</p>
+<p class="text-label-sm text-on-surface-variant">Hace 2 horas • Hechizo del Día</p>
+</div>
+</div>
+<button class="text-on-surface-variant"><span class="material-symbols-outlined" data-icon="more_horiz">more_horiz</span></button>
+</div>
+<p class="font-body-md text-on-surface mb-6 leading-relaxed">
+                                    He estado perfeccionando este encantamiento de refracción de luz durante semanas. Lograr el tono exacto de azul cobalto sin comprometer la estabilidad estructural fue un desafío. ¿Qué opinan del resultado? ✨
+                                </p>
+<div class="rounded-lg overflow-hidden h-80 bg-surface-container relative">
+<img class="w-full h-full object-cover" data-alt="A cinematic photo of a magic spell being cast. A wand is emitting a swirling, ethereal sphere of electric blue and gold light particles. The light illuminates a dark, stone-walled room with high-contrast shadows. The aesthetic is magical, vibrant, and high-fidelity, resembling a film still." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBiNFuvQ0RR7-2Esd2cDnTvGqZANTzWMqdKLTYkiHDqDV6DtkEmUe7vL6iW1_aMqaqLsTkYek0yOzU1I83QozvOYCpAHsRNbke3dRgTrUEZCncEm45QkcSyNZYgdGhPxxO45-FVyl6D_LFXFgfbe9MlzGxvIRtS8GQI4auH8SqfyQMnfXICb84Lbf8HtpeiIrDtc2DVpy0MrmsNjnKv0Fng-8PSVHwZDYLqgS0_scZjaNFTDbg8dOWTiA"/>
+<div class="absolute inset-0 pointer-events-none border border-white/10"></div>
+</div>
+</div>
+<div class="parchment-top-bottom px-6 py-3 flex justify-between items-center">
+<div class="flex gap-6">
+<button class="flex items-center gap-1 text-on-surface-variant hover:text-error transition-colors">
+<span class="material-symbols-outlined text-xl" data-icon="favorite">favorite</span>
+<span class="text-body-md">142</span>
+</button>
+<button class="flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl" data-icon="chat_bubble">chat_bubble</span>
+<span class="text-body-md">24</span>
+</button>
+<button class="flex items-center gap-1 text-on-surface-variant hover:text-secondary transition-colors">
+<span class="material-symbols-outlined text-xl" data-icon="cycle">cycle</span>
+<span class="text-body-md">12</span>
+</button>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl" data-icon="share">share</span>
+</button>
+</div>
+</article>
+<!-- Post 2 -->
+<article class="glass-card rounded-xl overflow-hidden">
+<div class="p-6">
+<div class="flex justify-between items-start mb-4">
+<div class="flex gap-3">
+<div class="w-10 h-10 rounded-full border border-secondary/20 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Avatar of Caelum Silverlock for a second social media post. Professional and elegant wizardry portrait." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGA3lMNS7xHQ-p8VYkU3HmnUfamQDSeztbbzJHj2meNEsIRa3SyagX-SbroQjwR_5EK6pfKahVkNCusorQGugpPlQGQ7Q2ZNGUYgVGPXpW4-WsVOAXLcREaBo4U57Zlk2JGVOPPZ1d_bTCVHgFNyGOC-3N3vSDtgxxYjtZQsV_h4yasMh_TOz6wEDMM_9psW9RCEYlb4KqorVBpjiNfMr4UtNhyrfmjw6CbFi_2AON10e9cn9hg8iCqg"/>
+</div>
+<div>
+<p class="font-title-md text-on-surface">Caelum Silverlock</p>
+<p class="text-label-sm text-on-surface-variant">Hace 1 día • Hogwarts</p>
+</div>
+</div>
+<button class="text-on-surface-variant"><span class="material-symbols-outlined" data-icon="more_horiz">more_horiz</span></button>
+</div>
+<p class="font-body-md text-on-surface mb-6 leading-relaxed">
+                                    Nada supera el amanecer sobre el Lago Negro. El castillo se ve especialmente majestuoso bajo esta luz. Un recordatorio de por qué llamamos a este lugar nuestro hogar. 🏰✨
+                                </p>
+<div class="rounded-lg overflow-hidden h-64 bg-surface-container relative">
+<img class="w-full h-full object-cover" data-alt="A breathtaking landscape of Hogwarts Castle during a golden hour sunrise. The castle towers are silhouetted against a sky of soft oranges, pinks, and purples. The Great Lake in the foreground reflects the castle perfectly. The style is romantic, ethereal, and grand, with a high-key light-mode aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbJNzlQ0fmSyAVuQ2mvC9vexVgLSZeXUD2HeFGbfE58EQmue6pH_kdAW2G9GnKTqUbX0aiFtt8wXbbAqG0KsJ0Vvr3wOGsHEh5P7VCmOCbwzx10v8Ik5IxkW2MMKsmU72O5CRWv5RHqJkFutOMYBjNVl8XfHWifBz_qWZmoAKZFNuprAn_dYaKwdOY-SQgnEtfdBNSkywdxlNH8hrUUiHXooQQHHf9uRmAdbJnLTaDQfnoAxZntePCZA"/>
+</div>
+</div>
+<div class="parchment-top-bottom px-6 py-3 flex justify-between items-center">
+<div class="flex gap-6">
+<button class="flex items-center gap-1 text-error">
+<span class="material-symbols-outlined text-xl" data-icon="favorite" style="font-variation-settings: 'FILL' 1;">favorite</span>
+<span class="text-body-md font-bold">512</span>
+</button>
+<button class="flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl" data-icon="chat_bubble">chat_bubble</span>
+<span class="text-body-md">48</span>
+</button>
+</div>
+</div>
+</article>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Mobile Nav -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface/90 backdrop-blur-lg border-t border-secondary/10 flex justify-around items-center px-4 z-50">
+<button class="text-primary flex flex-col items-center">
+<span class="material-symbols-outlined" data-icon="auto_awesome" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="text-[10px] font-bold">Inicio</span>
+</button>
+<button class="text-on-surface-variant flex flex-col items-center">
+<span class="material-symbols-outlined" data-icon="explore">explore</span>
+<span class="text-[10px]">Explorar</span>
+</button>
+<button class="bg-secondary text-on-secondary p-3 rounded-full -mt-10 shadow-lg border-4 border-background">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+</button>
+<button class="text-on-surface-variant flex flex-col items-center">
+<span class="material-symbols-outlined" data-icon="mail">mail</span>
+<span class="text-[10px]">Correo</span>
+</button>
+<button class="text-on-surface-variant flex flex-col items-center">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-[10px]">Perfil</span>
+</button>
+</nav>
+<script>
+        // Micro-interactions for glass cards
+        document.querySelectorAll('.glass-card').forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                card.style.setProperty('--mouse-x', `${x}px`);
+                card.style.setProperty('--mouse-y', `${y}px`);
+            });
+        });
+
+        // Simple language switcher simulation
+        const langBtn = document.querySelector('header .group button');
+        const langOptions = document.querySelectorAll('header .group a');
+        langOptions.forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                e.preventDefault();
+                langBtn.querySelector('span:nth-child(2)').textContent = opt.textContent;
+            });
+        });
+    </script>
+</body></html>

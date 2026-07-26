@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Borgin &amp; Burkes | Artefactos Mágicos Oscuros</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700&amp;family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-secondary-fixed": "#261900",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-container": "#785a1a",
+                    "primary": "#0e3b60",
+                    "secondary-fixed": "#ffdea5",
+                    "surface-container": "#f0eded",
+                    "on-primary": "#ffffff",
+                    "on-surface": "#1c1b1b",
+                    "on-tertiary-fixed": "#191c1f",
+                    "surface-container-high": "#eae7e7",
+                    "surface": "#fcf9f8",
+                    "inverse-surface": "#313030",
+                    "tertiary-fixed-dim": "#c4c7ca",
+                    "outline-variant": "#c2c7cf",
+                    "primary-fixed-dim": "#a4caf6",
+                    "primary-fixed": "#d0e4ff",
+                    "surface-bright": "#fcf9f8",
+                    "surface-container-low": "#f6f3f2",
+                    "error": "#ba1a1a",
+                    "secondary-fixed-dim": "#e9c176",
+                    "on-background": "#1c1b1b",
+                    "secondary-container": "#fed488",
+                    "inverse-on-surface": "#f3f0ef",
+                    "on-secondary": "#ffffff",
+                    "tertiary-container": "#4d5053",
+                    "surface-dim": "#dcd9d9",
+                    "on-primary-fixed": "#001d35",
+                    "tertiary": "#36393c",
+                    "surface-tint": "#3b6188",
+                    "on-primary-container": "#a0c5f1",
+                    "secondary": "#775a19",
+                    "on-tertiary-fixed-variant": "#44474a",
+                    "on-secondary-fixed-variant": "#5d4201",
+                    "background": "#fcf9f8",
+                    "outline": "#73777f",
+                    "on-primary-fixed-variant": "#21496f",
+                    "surface-variant": "#e5e2e1",
+                    "on-surface-variant": "#42474e",
+                    "on-error-container": "#93000a",
+                    "error-container": "#ffdad6",
+                    "on-tertiary": "#ffffff",
+                    "tertiary-fixed": "#e0e2e6",
+                    "inverse-primary": "#a4caf6",
+                    "surface-container-highest": "#e5e2e1",
+                    "primary-container": "#2b5278",
+                    "on-tertiary-container": "#c0c2c6",
+                    "on-error": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.5rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "base": "8px",
+                    "margin-desktop": "40px",
+                    "margin-mobile": "16px",
+                    "gutter": "24px",
+                    "container-max": "1280px"
+            },
+            "fontFamily": {
+                    "label-sm": ["JetBrains Mono"],
+                    "headline-lg": ["EB Garamond"],
+                    "display-lg": ["EB Garamond"],
+                    "title-md": ["Hanken Grotesk"],
+                    "body-md": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "500"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        
+        .borgin-card {
+            background: rgba(0, 0, 0, 0.95);
+            border: 1px solid #775a19;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .borgin-card:hover {
+            box-shadow: 0 0 25px rgba(119, 90, 25, 0.4);
+            transform: translateY(-4px);
+        }
+        
+        .glass-header {
+            background: rgba(14, 59, 96, 0.1);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(119, 90, 25, 0.3);
+        }
+
+        .artifact-image-container {
+            position: relative;
+            overflow: hidden;
+        }
+        .artifact-image-container::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.8) 100%);
+        }
+
+        @keyframes subtle-glow {
+            0%, 100% { filter: drop-shadow(0 0 2px #775a19); }
+            50% { filter: drop-shadow(0 0 8px #ffdea5); }
+        }
+        .animate-glow {
+            animation: subtle-glow 3s infinite ease-in-out;
+        }
+
+        /* Language Dropdown Styles */
+        .language-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .language-dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background-color: #1c1b1b;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.4);
+            z-index: 100;
+            border: 1px solid #775a19;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        .language-dropdown:hover .language-dropdown-content {
+            display: block;
+        }
+        .language-dropdown-content a {
+            color: #fcf9f8;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .language-dropdown-content a:hover {
+            background-color: #775a19;
+            color: #261900;
+        }
+    </style>
+</head>
+<body class="bg-inverse-surface text-surface selection:bg-secondary/40 font-body-md">
+<!-- Top Navigation Bar -->
+<nav class="fixed top-0 w-full z-50 glass-header">
+<div class="flex justify-between items-center h-20 px-margin-desktop max-w-container-max mx-auto">
+<div class="flex items-center gap-base">
+<span class="material-symbols-outlined text-secondary text-3xl animate-glow" style="font-variation-settings: 'FILL' 1;">auto_fix_high</span>
+<h1 class="font-display-lg text-headline-lg text-secondary tracking-tight">Borgin &amp; Burkes</h1>
+</div>
+<div class="hidden md:flex gap-gutter items-center">
+<a class="font-title-md text-title-md text-secondary font-bold border-b-2 border-secondary px-2 py-1" href="#">Bóveda</a>
+<a class="font-title-md text-title-md text-on-surface-variant/70 hover:text-secondary transition-colors px-2 py-1" href="#">Historia</a>
+<a class="font-title-md text-title-md text-on-surface-variant/70 hover:text-secondary transition-colors px-2 py-1" href="#">Malditos</a>
+</div>
+<div class="flex items-center gap-base">
+<div class="language-dropdown mr-4">
+<button class="flex items-center gap-1 text-secondary font-title-md py-1 px-2 hover:bg-secondary/10 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-xl">language</span>
+<span>Español</span>
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<div class="language-dropdown-content">
+<a href="#">Español</a>
+<a href="#">Inglés</a>
+<a href="#">Portugués</a>
+<a href="#">Italiano</a>
+<a href="#">Francés</a>
+</div>
+</div>
+<div class="flex flex-col items-end mr-4">
+<span class="font-label-sm text-label-sm text-secondary-fixed-dim uppercase tracking-widest">Balance</span>
+<span class="font-title-md text-title-md text-secondary flex items-center gap-1">
+                        1,250 <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">diamond</span>
+</span>
+</div>
+<button class="relative p-2 rounded-full bg-surface-container-highest/10 hover:bg-surface-container-highest/20 transition-all" id="cartBtn">
+<span class="material-symbols-outlined text-secondary">shopping_basket</span>
+<span class="absolute -top-1 -right-1 bg-secondary text-on-secondary-fixed text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full" id="cartCount">0</span>
+</button>
+<div class="w-10 h-10 rounded-full border border-secondary p-0.5 overflow-hidden">
+<img alt="Retrato misterioso" class="w-full h-full object-cover rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDEPrj9isVnE6DxjzmbV9p0e5qoz2PMYesZ-3qzYSicaY2UE3PkH9_2zaQ0veWUImzcy3GqLDL993mSSP3umK3Ae2jlpBF90HgVJQO-XYsdDA8UftwXFZ-2rtd__DgKQQ7-gDSNxGlNG_0fSnpZ4bXj5eJTZP-ZkbiZOH_f4fyxYu8gjjpLnoSDSf_LGbDoEyUwaJGzof3wPd2lcOhQTNSWOR-7imPE-JBYu3kM9O4GTIV7t3N_sAIZ5A"/>
+</div>
+</div>
+</div>
+</nav>
+<!-- Sidebar (Desktop) -->
+<aside class="fixed left-0 top-0 h-full w-72 bg-black border-r border-secondary/20 pt-24 hidden lg:flex flex-col gap-base px-4">
+<div class="px-4 py-6 border-b border-secondary/10 mb-4">
+<h2 class="font-headline-lg text-headline-lg text-secondary">Nexo Mágico</h2>
+<p class="text-on-surface-variant/60 font-body-md text-sm mt-1">Acceso Admin: Nivel 7</p>
+</div>
+<nav class="flex flex-col gap-2">
+<button class="bg-secondary-container/10 text-secondary rounded-xl p-4 font-semibold flex items-center gap-3 transition-all hover:translate-x-1">
+<span class="material-symbols-outlined">home</span> Inicio
+            </button>
+<button class="text-on-surface-variant hover:bg-secondary-container/5 rounded-xl p-4 flex items-center gap-3 transition-all hover:translate-x-1">
+<span class="material-symbols-outlined">auto_stories</span> El Quisquilloso
+            </button>
+<button class="text-on-surface-variant hover:bg-secondary-container/5 rounded-xl p-4 flex items-center gap-3 transition-all hover:translate-x-1">
+<span class="material-symbols-outlined">pets</span> Santuario
+            </button>
+<button class="text-on-surface-variant hover:bg-secondary-container/5 rounded-xl p-4 flex items-center gap-3 transition-all hover:translate-x-1">
+<span class="material-symbols-outlined">account_balance</span> Cámara del Tesoro
+            </button>
+<button class="bg-secondary text-on-secondary-fixed rounded-xl p-4 mt-8 font-bold text-center hover:opacity-90 transition-all">
+                Gestionar Admins
+            </button>
+</nav>
+<div class="mt-auto pb-8 flex flex-col gap-2 border-t border-secondary/10 pt-4">
+<button class="text-on-surface-variant hover:text-secondary p-2 flex items-center gap-3">
+<span class="material-symbols-outlined">settings</span> Ajustes
+            </button>
+<button class="text-on-surface-variant hover:text-secondary p-2 flex items-center gap-3">
+<span class="material-symbols-outlined">help</span> Soporte
+            </button>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="lg:ml-72 pt-28 px-margin-mobile md:px-margin-desktop pb-20">
+<!-- Hero Header -->
+<header class="mb-12 relative rounded-2xl overflow-hidden h-64 flex items-center px-12">
+<div class="relative z-10 max-w-2xl">
+<h2 class="font-display-lg text-display-lg text-secondary-fixed-dim leading-none mb-4">Bóveda de Artefactos Oscuros</h2>
+<p class="font-body-md text-body-md text-on-surface-variant/80">Sólo para aquellos que aprecian el lado más fino y oscuro de la historia mágica. Explore nuestra colección curada de objetos malditos y reliquias raras.</p>
+</div>
+</header>
+<!-- Artifact Grid -->
+<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-gutter">
+<!-- Artifact Card 1: Hand of Glory -->
+<div class="borgin-card rounded-2xl overflow-hidden flex flex-col">
+<div class="artifact-image-container h-64">
+<img alt="Mano de la Gloria" class="w-full h-full object-cover grayscale-[0.3] hover:grayscale-0 transition-all duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCeVgAVIhe0-3SjmgDHLlUBbkQOakr3VNUNuR-9metxKDDT6w45Jpts7-wtourZB_rCB1bd2ucURk44XP7VlnXAxYsLRINSV33z6MQ7LKWFraRaXXmGppLxyIaE4vgwRfr9K4G0wIWE5RqELLV4TMU1N6F-zSTQNS3kiWDEOfZQGXJTIPrNyb3mQgqwfOUQpv3ZjAwBtQWts6Mia2uQvhWCdBv8ndABIXjxDKmN7WvD08KwGcvilTgGCQ"/>
+<div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-secondary/30">
+<span class="font-label-sm text-secondary uppercase text-[10px] tracking-tighter">Reliquia Rara</span>
+</div>
+</div>
+<div class="p-6 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-lg text-2xl text-surface">Mano de la Gloria</h3>
+<div class="flex items-center gap-1 text-secondary font-label-sm">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">diamond</span>
+                            850
+                        </div>
+</div>
+<p class="font-body-md text-on-surface-variant/70 text-sm mb-6 flex-grow">Mano seca y encurtida de un ahorcado. Solo otorga luz a quien la sostiene.</p>
+<button class="w-full py-3 bg-transparent border border-secondary text-secondary font-bold rounded-xl hover:bg-secondary hover:text-on-secondary-fixed transition-all flex items-center justify-center gap-2" onclick="addToCart('Mano de la Gloria', 850)">
+<span class="material-symbols-outlined">add_shopping_cart</span> Añadir al Carrito
+                    </button>
+</div>
+</div>
+<!-- Artifact Card 2: Opal Necklace -->
+<div class="borgin-card rounded-2xl overflow-hidden flex flex-col">
+<div class="artifact-image-container h-64">
+<img alt="Collar de Opales" class="w-full h-full object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQLQV6KvDDxi0IhGVgmNm_fknzQBnMifAmS6famdxjXMgvGLf43nhd6VBJEjHfBQCZXCkpxYXqKdSD2d2f5CxA3NLEL4aL1LzBukqXVhZlsRAIdFt9iM3ccLWwOp8-UwLbe_5_9VLM46Qv6Af12RearVv5-ZEOHsz3YL1IDXTXeZBCBHDtaRaT0zn0QUUSWlCFIm6grBnXMNg2mmhOUn5csU94viSc82kRjbgh69uxKmlgVABISLK1Sw"/>
+<div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-error/50">
+<span class="font-label-sm text-error uppercase text-[10px] tracking-tighter">Maldito</span>
+</div>
+</div>
+<div class="p-6 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-lg text-2xl text-surface">Collar de Ópalos</h3>
+<div class="flex items-center gap-1 text-secondary font-label-sm">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">diamond</span>
+                            2,400
+                        </div>
+</div>
+<p class="font-body-md text-on-surface-variant/70 text-sm mb-6 flex-grow">Magnífica joya que se dice cobró la vida de diecinueve Muggles. Manipular con guantes.</p>
+<button class="w-full py-3 bg-transparent border border-secondary text-secondary font-bold rounded-xl hover:bg-secondary hover:text-on-secondary-fixed transition-all flex items-center justify-center gap-2" onclick="addToCart('Collar de Ópalos', 2400)">
+<span class="material-symbols-outlined">add_shopping_cart</span> Añadir al Carrito
+                    </button>
+</div>
+</div>
+<!-- Artifact Card 3: Vanishing Cabinet -->
+<div class="borgin-card rounded-2xl overflow-hidden flex flex-col">
+<div class="artifact-image-container h-64">
+<img alt="Armario Evanescente" class="w-full h-full object-cover grayscale-[0.4] hover:grayscale-0 transition-all duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA8hAjXDNZNWcC2rMJXZy5DIkbwh7Pch8bB7Hdxoc6G_uSKP_YtCXlV3XYHcsXq5xuJ-39x3R6YMhhgV4I9ztI3MLwfYMG6dwrvjMevmDhFwS1HqLgnwy1qnnQo5RPmpwcO3X3DG6qEym0IJIb-4UlLyY2IZ3fdOS0kb7ZMFGTuejEm41ISNmCBgldpBN9kRwjJhHxpA3rPF8oT_YdRE8Yn7yyyKcyrY9xccdnLJzl0UHU1tuUsmkuiTQ"/>
+<div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-secondary/30">
+<span class="font-label-sm text-secondary uppercase text-[10px] tracking-tighter">Objeto Grande</span>
+</div>
+</div>
+<div class="p-6 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-lg text-2xl text-surface">Armario Evanescente</h3>
+<div class="flex items-center gap-1 text-secondary font-label-sm">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">diamond</span>
+                            5,000
+                        </div>
+</div>
+<p class="font-body-md text-on-surface-variant/70 text-sm mb-6 flex-grow">Un par de portales de teletransportación. Se venden por separado. Requiere alto mantenimiento.</p>
+<button class="w-full py-3 bg-transparent border border-secondary text-secondary font-bold rounded-xl hover:bg-secondary hover:text-on-secondary-fixed transition-all flex items-center justify-center gap-2" onclick="addToCart('Armario Evanescente', 5000)">
+<span class="material-symbols-outlined">add_shopping_cart</span> Añadir al Carrito
+                    </button>
+</div>
+</div>
+</section>
+</main>
+<!-- Shopping Cart Modal Overlay -->
+<div class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-margin-mobile" id="cartModal">
+<div class="bg-surface-container-lowest w-full max-w-lg rounded-2xl overflow-hidden border border-secondary/30 flex flex-col max-h-[819px]">
+<div class="p-6 border-b border-outline-variant flex justify-between items-center bg-inverse-surface">
+<h2 class="font-headline-lg text-2xl text-secondary">Tus Adquisiciones</h2>
+<button class="text-on-surface-variant hover:text-secondary" onclick="toggleCart()">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<div class="flex-grow overflow-y-auto p-6 space-y-4 bg-surface" id="cartItemsList">
+<div class="text-center py-12 text-on-surface-variant/50">
+<span class="material-symbols-outlined text-6xl mb-4">shopping_bag</span>
+<p>Tu bolsa está tan vacía como el alma de un Dementor.</p>
+</div>
+</div>
+<div class="p-6 border-t border-outline-variant bg-surface-container-low">
+<div class="flex justify-between items-center mb-6">
+<span class="font-title-md text-on-surface">Inversión Total</span>
+<div class="flex items-center gap-1 text-secondary font-bold text-xl">
+<span id="totalPrice">0</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">diamond</span>
+</div>
+</div>
+<button class="w-full py-4 bg-secondary text-on-secondary-fixed font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-on-secondary-container transition-all" disabled="" id="checkoutBtn" onclick="checkout()">
+                    Finalizar Transacción
+                </button>
+</div>
+</div>
+</div>
+<!-- Success Ticket Modal -->
+<div class="fixed inset-0 z-[70] hidden bg-black/90 backdrop-blur-2xl flex items-center justify-center p-margin-mobile overflow-y-auto" id="ticketModal">
+<div class="bg-white text-black w-full max-w-md rounded-lg shadow-2xl relative flex flex-col my-auto">
+<div class="p-8 border-b-2 border-dashed border-black/20 text-center relative">
+<div class="absolute -bottom-2 -left-2 w-4 h-4 rounded-full bg-black"></div>
+<div class="absolute -bottom-2 -right-2 w-4 h-4 rounded-full bg-black"></div>
+<h3 class="font-display-lg text-3xl tracking-widest uppercase mb-1">Recibo de Venta</h3>
+<p class="font-label-sm text-xs opacity-60">BORGIN &amp; BURKES • CALLEJÓN KNOCKTURN</p>
+</div>
+<div class="p-8 space-y-6" id="ticketContent">
+</div>
+<div class="p-8 bg-surface-container-low/50 border-t-2 border-dashed border-black/20 text-center relative">
+<div class="absolute -top-2 -left-2 w-4 h-4 rounded-full bg-black"></div>
+<div class="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-black"></div>
+<div class="flex justify-center mb-4">
+<div class="w-full h-12 bg-[repeating-linear-gradient(90deg,black,black_2px,transparent_2px,transparent_4px)]"></div>
+</div>
+<p class="font-label-sm text-[10px] leading-tight">SIN REEMBOLSOS EN ARTÍCULOS MALDITOS. <br/> NO SOMOS RESPONSABLES POR DESMEMBRAMIENTOS ACCIDENTALES.</p>
+<button class="mt-6 px-8 py-2 border-2 border-black font-bold hover:bg-black hover:text-white transition-all uppercase text-sm" onclick="closeTicket()">Cerrar Bóveda</button>
+</div>
+</div>
+</div>
+<script>
+        let cart = [];
+        const zerineIcon = "<span class='material-symbols-outlined text-sm' style='font-variation-settings: \"FILL\" 1;'>diamond</span>";
+
+        function addToCart(name, price) {
+            const existing = cart.find(item => item.name === name);
+            if (existing) {
+                existing.quantity += 1;
+            } else {
+                cart.push({ name, price, quantity: 1 });
+            }
+            updateCartUI();
+            
+            const btn = event.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span> Añadido';
+            btn.classList.add('bg-secondary', 'text-on-secondary-fixed');
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.remove('bg-secondary', 'text-on-secondary-fixed');
+            }, 1000);
+        }
+
+        function updateCartUI() {
+            const list = document.getElementById('cartItemsList');
+            const totalEl = document.getElementById('totalPrice');
+            const countEl = document.getElementById('cartCount');
+            const checkoutBtn = document.getElementById('checkoutBtn');
+
+            if (cart.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center py-12 text-on-surface-variant/50">
+                        <span class="material-symbols-outlined text-6xl mb-4">shopping_bag</span>
+                        <p>Tu bolsa está tan vacía como el alma de un Dementor.</p>
+                    </div>`;
+                checkoutBtn.disabled = true;
+                countEl.textContent = '0';
+                totalEl.textContent = '0';
+                return;
+            }
+
+            checkoutBtn.disabled = false;
+            let total = 0;
+            let count = 0;
+
+            list.innerHTML = cart.map((item, index) => {
+                total += item.price * item.quantity;
+                count += item.quantity;
+                return `
+                    <div class="flex items-center justify-between p-4 bg-surface-container rounded-xl">
+                        <div>
+                            <h4 class="font-title-md text-on-surface">${item.name}</h4>
+                            <p class="text-sm text-on-surface-variant">${item.price} Zerines x ${item.quantity}</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button onclick="changeQty(${index}, -1)" class="w-8 h-8 rounded-full border border-outline flex items-center justify-center hover:bg-secondary/10">-</button>
+                            <span class="font-bold">${item.quantity}</span>
+                            <button onclick="changeQty(${index}, 1)" class="w-8 h-8 rounded-full border border-outline flex items-center justify-center hover:bg-secondary/10">+</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            totalEl.textContent = total.toLocaleString();
+            countEl.textContent = count;
+        }
+
+        function changeQty(index, delta) {
+            cart[index].quantity += delta;
+            if (cart[index].quantity <= 0) {
+                cart.splice(index, 1);
+            }
+            updateCartUI();
+        }
+
+        function toggleCart() {
+            const modal = document.getElementById('cartModal');
+            modal.classList.toggle('hidden');
+        }
+
+        document.getElementById('cartBtn').onclick = toggleCart;
+
+        function checkout() {
+            const ticketContent = document.getElementById('ticketContent');
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            
+            let itemsHtml = cart.map(item => `
+                <div class="flex justify-between items-center py-2 border-b border-black/10">
+                    <div class="flex items-center gap-4">
+                        <span class="font-bold text-lg">${item.quantity}x</span>
+                        <div>
+                            <p class="font-bold uppercase tracking-wide text-sm">${item.name}</p>
+                            <p class="text-[10px] opacity-60">REF ART: BB-${Math.floor(Math.random()*9000)+1000}</p>
+                        </div>
+                    </div>
+                    <p class="font-label-sm font-bold">${(item.price * item.quantity).toLocaleString()} 💎</p>
+                </div>
+            `).join('');
+
+            itemsHtml += `
+                <div class="pt-4 flex justify-between items-center">
+                    <p class="font-display-lg text-2xl">TOTAL</p>
+                    <p class="font-display-lg text-2xl">${total.toLocaleString()} 💎</p>
+                </div>
+            `;
+
+            ticketContent.innerHTML = itemsHtml;
+            
+            document.getElementById('cartModal').classList.add('hidden');
+            document.getElementById('ticketModal').classList.remove('hidden');
+            
+            cart = [];
+            updateCartUI();
+        }
+
+        function closeTicket() {
+            document.getElementById('ticketModal').classList.add('hidden');
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('cartModal')) toggleCart();
+            if (event.target == document.getElementById('ticketModal')) closeTicket();
+        }
+    </script>
+</body></html>

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Flourish &amp; Blotts | Librería Mágica</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&amp;family=Hanken+Grotesk:ital,wght@0,100..900;1,100..900&amp;family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#42474e",
+                        "on-secondary-fixed": "#261900",
+                        "tertiary-fixed-dim": "#c4c7ca",
+                        "on-tertiary": "#ffffff",
+                        "outline-variant": "#c2c7cf",
+                        "secondary": "#775a19",
+                        "primary": "#0e3b60",
+                        "error-container": "#ffdad6",
+                        "on-error-container": "#93000a",
+                        "tertiary-container": "#4d5053",
+                        "tertiary-fixed": "#e0e2e6",
+                        "primary-fixed": "#d0e4ff",
+                        "surface-container-highest": "#e5e2e1",
+                        "inverse-primary": "#a4caf6",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed-variant": "#21496f",
+                        "primary-fixed-dim": "#a4caf6",
+                        "on-primary-container": "#a0c5f1",
+                        "inverse-surface": "#313030",
+                        "surface-container": "#f0eded",
+                        "on-secondary-container": "#785a1a",
+                        "on-surface": "#1c1b1b",
+                        "background": "#fcf9f8",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-dim": "#dcd9d9",
+                        "surface-container-low": "#f6f3f2",
+                        "on-tertiary-container": "#c0c2c6",
+                        "tertiary": "#36393c",
+                        "surface-tint": "#3b6188",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed-dim": "#e9c176",
+                        "on-error": "#ffffff",
+                        "secondary-container": "#fed488",
+                        "on-background": "#1c1b1b",
+                        "surface-variant": "#e5e2e1",
+                        "primary-container": "#2b5278",
+                        "on-tertiary-fixed-variant": "#44474a",
+                        "on-secondary-fixed-variant": "#5d4201",
+                        "inverse-on-surface": "#f3f0ef",
+                        "outline": "#73777f",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-fixed": "#191c1f",
+                        "surface-bright": "#fcf9f8",
+                        "surface": "#fcf9f8",
+                        "on-primary-fixed": "#001d35",
+                        "surface-container-high": "#eae7e7",
+                        "secondary-fixed": "#ffdea5",
+                        "lilac-accent": "#E6E6FA",
+                        "lilac-deep": "#8E44AD"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-desktop": "40px",
+                        "base": "8px",
+                        "margin-mobile": "16px",
+                        "container-max": "1280px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "title-md": ["Hanken Grotesk"],
+                        "label-sm": ["JetBrains Mono"],
+                        "headline-lg": ["EB Garamond"],
+                        "body-md": ["Hanken Grotesk"],
+                        "display-lg": ["EB Garamond"]
+                    },
+                    "fontSize": {
+                        "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(252, 249, 248, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(142, 68, 173, 0.1);
+        }
+        .parchment-edge {
+            clip-path: polygon(0% 0%, 100% 2%, 100% 98%, 0% 100%, 2% 50%);
+        }
+        .lilac-glow {
+            box-shadow: 0 0 20px rgba(142, 68, 173, 0.15);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen overflow-x-hidden">
+<!-- Barra de navegación superior global -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm">
+<div class="flex justify-between items-center h-20 px-margin-desktop max-w-container-max mx-auto">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">auto_stories</span>
+<h1 class="font-display-lg text-display-lg text-primary tracking-tight">Flourish &amp; Blotts</h1>
+</div>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="text-primary font-bold border-b-2 border-primary py-2 transition-all" href="#">Catálogo</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#">Hallazgos Raros</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#">Bóvedas</a>
+<!-- Selector de idioma -->
+<div class="relative group ml-2">
+<button class="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-outline-variant/40 hover:bg-surface-container transition-all text-sm font-medium">
+<span class="material-symbols-outlined text-sm">language</span>
+                        Español
+                        <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<div class="absolute right-0 mt-2 w-40 bg-surface border border-outline-variant/30 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
+<a class="block px-4 py-2 hover:bg-lilac-accent/30 text-sm" href="#">Español</a>
+<a class="block px-4 py-2 hover:bg-lilac-accent/30 text-sm" href="#">Inglés</a>
+<a class="block px-4 py-2 hover:bg-lilac-accent/30 text-sm" href="#">Portugués</a>
+<a class="block px-4 py-2 hover:bg-lilac-accent/30 text-sm" href="#">Italiano</a>
+<a class="block px-4 py-2 hover:bg-lilac-accent/30 text-sm" href="#">Francés</a>
+</div>
+</div>
+<div class="h-8 w-px bg-outline-variant/40 mx-2"></div>
+<button class="relative p-2 hover:bg-surface-container rounded-full transition-all" onclick="toggleCart()">
+<span class="material-symbols-outlined">shopping_bag</span>
+<span class="absolute -top-1 -right-1 bg-primary text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold" id="cart-count">0</span>
+</button>
+<div class="flex items-center gap-3 bg-surface-container-low px-4 py-2 rounded-full border border-outline-variant/20">
+<span class="material-symbols-outlined text-secondary">account_balance_wallet</span>
+<span class="font-label-sm text-label-sm">1,250 💎</span>
+</div>
+</nav>
+</div>
+</header>
+<!-- Barra lateral -->
+<aside class="fixed left-0 top-0 h-full w-72 bg-surface border-r border-outline-variant/20 shadow-xl hidden lg:flex flex-col py-8 gap-base mt-20">
+<div class="px-6 mb-8">
+<h2 class="font-headline-lg text-headline-lg text-primary">Nexo Mágico</h2>
+<p class="text-on-surface-variant text-sm opacity-70">Vista de Administrador</p>
+</div>
+<div class="flex flex-col gap-2">
+<a class="flex items-center gap-4 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl mx-4 transition-transform duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">home</span> Inicio
+            </a>
+<a class="flex items-center gap-4 px-6 py-3 bg-secondary-container text-on-secondary-container rounded-xl mx-4 font-semibold" href="#">
+<span class="material-symbols-outlined">book</span> Flourish &amp; Blotts
+            </a>
+<a class="flex items-center gap-4 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl mx-4 transition-transform duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">pets</span> Santuario de Mascotas
+            </a>
+<a class="flex items-center gap-4 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl mx-4 transition-transform duration-200 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined">account_balance</span> Cámara del Tesoro
+            </a>
+</div>
+<div class="mt-auto px-8">
+<button class="w-full bg-primary text-on-primary py-3 rounded-xl font-semibold shadow-lg hover:brightness-110 transition-all">
+                Gestionar Inventario
+            </button>
+</div>
+</aside>
+<!-- Lienzo de contenido principal -->
+<main class="pt-32 pb-20 px-margin-mobile md:px-margin-desktop lg:ml-72 max-w-container-max">
+<!-- Sección Hero -->
+<section class="mb-16 relative overflow-hidden rounded-3xl p-12 bg-lilac-accent/30 border border-lilac-accent/50">
+<div class="relative z-10 max-w-2xl">
+<span class="font-label-sm text-label-sm text-lilac-deep uppercase tracking-widest bg-white/60 px-3 py-1 rounded-full">Novedades</span>
+<h2 class="font-display-lg text-display-lg text-primary mt-4 mb-6 leading-tight">Sabiduría del Mundo Mágico</h2>
+<p class="text-lg text-on-surface-variant mb-8">Descubre los últimos grimorios, libros de texto y pergaminos antiguos seleccionados para la bruja y el mago exigente.</p>
+<div class="flex gap-4">
+<button class="px-8 py-3 bg-primary text-white rounded-full font-title-md hover:shadow-xl transition-all">Explorar Bóveda Rara</button>
+<button class="px-8 py-3 border border-primary text-primary rounded-full font-title-md hover:bg-primary/5 transition-all">Reservar Pergaminos</button>
+</div>
+</div>
+</section>
+<!-- Cuadrícula de catálogo -->
+<section class="mb-20">
+<div class="flex justify-between items-end mb-10">
+<div>
+<h3 class="font-headline-lg text-headline-lg text-primary">Departamento de Grimorios</h3>
+<p class="text-on-surface-variant">Explora nuestra extensa colección de textos mágicos.</p>
+</div>
+<div class="flex gap-2">
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-surface-container transition-colors"><span class="material-symbols-outlined">filter_list</span></button>
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-surface-container transition-colors"><span class="material-symbols-outlined">grid_view</span></button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-gutter">
+<!-- Tarjeta de Libro 1 -->
+<div class="glass-card rounded-3xl p-6 lilac-glow group transition-all duration-300 hover:-translate-y-2 flex flex-col">
+<div class="relative h-64 w-full rounded-2xl overflow-hidden mb-6 bg-surface-container">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="A luxurious hardback book titled The Standard Book of Spells, featuring gold filigree on a deep navy blue cover..." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUYz3WUoGPT8XrrpqxN_xiyxx8rmzVhOMmDfyJfBWvLf61jlCNwG-oaLzT7mhhTGJiLGWoIzMacpTEfv8d2I3QAl8UynILQdmmQiqHg0c2XRigXCCAskMrArmu0koL1WtiE1vawJSCYqywXH5sDelHnPtXdWddsdTNAIOcCq9cxmJAp2ZrURSqoWK3ZkInLf88O9HptZ5VDv__brcVpZC6W9rox09sEwnZwvArmgiBn5Lr5DaS_ReE6g"/>
+<div class="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-primary font-bold shadow-sm">Grado 1</div>
+</div>
+<h4 class="font-title-md text-title-md text-primary mb-2">Libro Estándar de Hechizos</h4>
+<p class="text-on-surface-variant text-sm mb-6 line-clamp-2">Por Miranda Goshawk. La guía fundamental para los encantamientos y maleficios básicos de cada joven mago.</p>
+<div class="mt-auto flex justify-between items-center">
+<div class="flex items-center gap-1 font-label-sm text-lg text-primary">
+<span>250</span>
+<span class="text-secondary">💎</span>
+</div>
+<button class="bg-primary/5 hover:bg-primary text-primary hover:text-white px-6 py-2 rounded-full font-title-md border border-primary/20 transition-all flex items-center gap-2" onclick="addToCart('Libro Estándar de Hechizos', 250)">
+<span class="material-symbols-outlined text-sm">add_shopping_cart</span>
+                            Añadir
+                        </button>
+</div>
+</div>
+<!-- Tarjeta de Libro 2 -->
+<div class="glass-card rounded-3xl p-6 lilac-glow group transition-all duration-300 hover:-translate-y-2 flex flex-col">
+<div class="relative h-64 w-full rounded-2xl overflow-hidden mb-6 bg-surface-container">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="An ancient-looking tome titled A History of Magic, with a rich purple leather texture..." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCosX7X7TqFSwGvAnX0Q85XwMOc7yupFlo1dEymB3pDeC_HverUUFfPH2nYhhG0PUDClOvDJvbotSkuJqp2v8T41jvc7AAsMEnGMkyWcZLMO47cvCT_pAlmQ3hWG--ahzUDKxS7kErGb7iigIY4-LyH3Jl4l_rp5NpS3rNNWlLKCZeycyD3F0bm80SIAcT5HWZhYd7RMqzRSGEf6fSwX9L28IeXGlOlV525st6zEDmvc1EYtmSCvA00bg"/>
+<div class="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-primary font-bold shadow-sm">Historia</div>
+</div>
+<h4 class="font-title-md text-title-md text-primary mb-2">Una Historia de la Magia</h4>
+<p class="text-on-surface-variant text-sm mb-6 line-clamp-2">Por Bathilda Bagshot. Explora los secretos del pasado mágico, desde la quema de brujas hasta las rebeliones de duendes.</p>
+<div class="mt-auto flex justify-between items-center">
+<div class="flex items-center gap-1 font-label-sm text-lg text-primary">
+<span>420</span>
+<span class="text-secondary">💎</span>
+</div>
+<button class="bg-primary/5 hover:bg-primary text-primary hover:text-white px-6 py-2 rounded-full font-title-md border border-primary/20 transition-all flex items-center gap-2" onclick="addToCart('Una Historia de la Magia', 420)">
+<span class="material-symbols-outlined text-sm">add_shopping_cart</span>
+                            Añadir
+                        </button>
+</div>
+</div>
+<!-- Tarjeta de Libro 3 -->
+<div class="glass-card rounded-3xl p-6 lilac-glow group transition-all duration-300 hover:-translate-y-2 flex flex-col">
+<div class="relative h-64 w-full rounded-2xl overflow-hidden mb-6 bg-surface-container">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="A magical herbology book titled One Thousand Magical Herbs and Fungi..." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCLOlRx9hJxORvq9Qf6NsxL-YJHfxy9e7pEt1jbErTVw6nmGOVTsZAk3plIkqf6fX06icU29epVumnVRoB5RdOjsUZ3TbiWanG-xrGTr9E6Tftk8aOEtjXnzOrj3V7cXgFIsIbLX2kFXi4ZzInbSxmx0f8VAXMzyrsUqZzg3uLRB3ZWh8dqDTV6t7ZdvLAJcDTfozFwf_KC2zSn0-lsdr4E6EUr0bTAJE7DWLr0AibjDL_7thZduiZMcg"/>
+<div class="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-primary font-bold shadow-sm">Botánica</div>
+</div>
+<h4 class="font-title-md text-title-md text-primary mb-2">Mil Hierbas Mágicas</h4>
+<p class="text-on-surface-variant text-sm mb-6 line-clamp-2">Estudio esencial para cualquier herbólogo. Incluye dibujos detallados y propiedades de los hongos.</p>
+<div class="mt-auto flex justify-between items-center">
+<div class="flex items-center gap-1 font-label-sm text-lg text-primary">
+<span>180</span>
+<span class="text-secondary">💎</span>
+</div>
+<button class="bg-primary/5 hover:bg-primary text-primary hover:text-white px-6 py-2 rounded-full font-title-md border border-primary/20 transition-all flex items-center gap-2" onclick="addToCart('Mil Hierbas Mágicas', 180)">
+<span class="material-symbols-outlined text-sm">add_shopping_cart</span>
+                            Añadir
+                        </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Sub-sección de recomendaciones -->
+<section class="mb-20">
+<h3 class="font-headline-lg text-headline-lg text-primary mb-8">Popular entre Prefectos</h3>
+<div class="flex gap-gutter overflow-x-auto pb-8 snap-x no-scrollbar">
+<div class="min-w-[300px] snap-start glass-card p-6 rounded-2xl border-l-4 border-l-lilac-deep">
+<div class="flex items-start gap-4">
+<div class="w-20 h-24 bg-surface-container rounded-lg overflow-hidden shrink-0">
+<img class="w-full h-full object-cover" data-alt="A small, thin spellbook with a shimmering iridescent cover..." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0pEDwLVCquzCVPoKss0w4wo7lRtNeafEzrimUPbYnTErbsTsPdnR6Aqc1A3jlH_6xOWAkq3WUoyWQjM9I7CCzRdF19RyFlUVODxMpxV_jsEJlhl_GHI2_mO_Cx_c2yEP4nh5a2y1utGDqHK0bBXn6DGYRO6u4-p6NZvcAR4IomLMQJx78HqEEc9rj9OMSK9Frt4Iz6XlTyqTYBpIkNVgeOX6kfvYYoa6RRnrp1Hk6zz3oTBwkpJr0MA"/>
+</div>
+<div>
+<h5 class="font-title-md text-primary mb-1">Bases de Defensa</h5>
+<p class="text-xs text-on-surface-variant mb-4">Requerido para 2º Año</p>
+<span class="font-label-sm text-secondary">95 💎</span>
+</div>
+</div>
+</div>
+<div class="min-w-[300px] snap-start glass-card p-6 rounded-2xl border-l-4 border-l-lilac-deep">
+<div class="flex items-start gap-4">
+<div class="w-20 h-24 bg-surface-container rounded-lg overflow-hidden shrink-0">
+<img class="w-full h-full object-cover" data-alt="A book about magical creatures with a fur-like texture..." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXsZptrT6slZdHOFe8UNA9u6eSmPScf9jOAEiul4tx4iEaum4YC4dTBsmqbfy5Fxm_DllNzMPbeyegFM2pVVJV8fPQjGX3ecqpehRI2D1BlN8P4e8hlNfM-jmQHgSQaMaF-I6J4Vzcob2JB6cbznIpJj17eC0Mu-DDm3lINsAh2rYgPaSeheq0YdYOxM05s1oa-ZXI5Uih7CsqRXiAYLNXgdqXtHRUGgHj-utszD1m_AZfdIrrYseQ_Q"/>
+</div>
+<div>
+<h5 class="font-title-md text-primary mb-1">Animales Fantásticos</h5>
+<p class="text-xs text-on-surface-variant mb-4">Por Newt Scamander</p>
+<span class="font-label-sm text-secondary">310 💎</span>
+</div>
+</div>
+</div>
+<div class="min-w-[300px] snap-start glass-card p-6 rounded-2xl border-l-4 border-l-lilac-deep">
+<div class="flex items-start gap-4">
+<div class="w-20 h-24 bg-surface-container rounded-lg overflow-hidden shrink-0">
+<img class="w-full h-full object-cover" data-alt="A sleek black book with a minimalist white star pattern..." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA8IcBwxLFqTor8n8SqDR2cdbhK71zrUVu8yRbQybIIEwPHrV5sCYX5z1WyDXcyKF4vQtpR8JuqtPDI5JGAzh-QQfeAGvW6tYHln-PZRRd2ILJYdxGdY2w7_Tt-vM9CICGLOj6fAMx4EE4M-6VkmKh5-7R-3YlzdnrnWw-A1u4Ui353MDg2Di3_b37O0p_qWuGJO_hGUXCoOmbwcIi46L_hFQMQgWzPNY-coOkvgtPlIb9_qc3tUyT_5g"/>
+</div>
+<div>
+<h5 class="font-title-md text-primary mb-1">Cartas Astrales Vol II</h5>
+<p class="text-xs text-on-surface-variant mb-4">Astronomía Avanzada</p>
+<span class="font-label-sm text-secondary">150 💎</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Superposición del carrito -->
+<div class="fixed inset-0 z-[60] invisible pointer-events-none transition-all duration-300" id="cart-sidebar">
+<div class="absolute inset-0 bg-black/20 backdrop-blur-sm" onclick="toggleCart()"></div>
+<div class="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl translate-x-full transition-transform duration-500 flex flex-col" id="cart-content-panel">
+<div class="p-8 border-b border-outline-variant/30 flex justify-between items-center">
+<h3 class="font-display-lg text-headline-lg text-primary">Tu Carrito</h3>
+<button class="p-2 hover:bg-surface-container rounded-full transition-all" onclick="toggleCart()">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<div class="flex-grow overflow-y-auto p-8 space-y-6" id="cart-items">
+<p class="text-on-surface-variant text-center mt-20 opacity-50 italic" id="empty-cart-msg">Tu carrito está tan vacío como un armario desvanecedor.</p>
+</div>
+<div class="p-8 border-t border-outline-variant/30 bg-surface">
+<div class="flex justify-between items-center mb-6">
+<span class="text-on-surface-variant">Inversión Total</span>
+<span class="text-2xl font-bold text-primary" id="cart-total">0 💎</span>
+</div>
+<button class="w-full bg-primary text-on-primary py-4 rounded-xl font-bold text-lg lilac-glow hover:brightness-110 transition-all flex items-center justify-center gap-3" onclick="processPurchase()">
+<span class="material-symbols-outlined">payments</span>
+                    Pagar en Cámara del Tesoro
+                </button>
+</div>
+</div>
+</div>
+<!-- Modal de éxito -->
+<div class="fixed inset-0 z-[70] hidden flex items-center justify-center p-6" id="success-modal">
+<div class="absolute inset-0 bg-primary/20 backdrop-blur-md"></div>
+<div class="relative glass-card max-w-lg w-full rounded-3xl p-10 lilac-glow overflow-hidden">
+<div class="relative z-10 text-center">
+<div class="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+<span class="material-symbols-outlined text-4xl text-primary animate-bounce">check_circle</span>
+</div>
+<h2 class="font-display-lg text-headline-lg text-primary mb-2">¡Compra Exitosa!</h2>
+<p class="text-on-surface-variant mb-8">Tus grimorios han sido enviados mágicamente a tu lechucería.</p>
+<div class="bg-white/50 rounded-2xl p-6 mb-8 text-left border border-outline-variant/30 parchment-edge">
+<h4 class="font-label-sm uppercase tracking-tighter text-on-surface-variant mb-4">Recibo Oficial</h4>
+<div class="space-y-3 mb-6" id="receipt-list">
+</div>
+<div class="border-t border-dashed border-outline-variant py-3 flex justify-between font-bold text-primary">
+<span>Total Pagado</span>
+<span id="receipt-total">0 💎</span>
+</div>
+</div>
+<button class="w-full bg-primary text-white py-4 rounded-xl font-bold" onclick="closeSuccess()">Volver al Catálogo</button>
+</div>
+</div>
+</div>
+<script>
+        let cart = [];
+        let total = 0;
+
+        function toggleCart() {
+            const sidebar = document.getElementById('cart-sidebar');
+            const panel = document.getElementById('cart-content-panel');
+            if (sidebar.classList.contains('invisible')) {
+                sidebar.classList.remove('invisible', 'pointer-events-none');
+                panel.classList.remove('translate-x-full');
+            } else {
+                sidebar.classList.add('invisible', 'pointer-events-none');
+                panel.classList.add('translate-x-full');
+            }
+        }
+
+        function addToCart(name, price) {
+            cart.push({ name, price });
+            total += price;
+            updateCartUI();
+            
+            const btn = event.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="material-symbols-outlined text-sm">check</span> Añadido';
+            btn.classList.add('bg-secondary', 'text-white');
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.remove('bg-secondary', 'text-white');
+            }, 1000);
+        }
+
+        function updateCartUI() {
+            const cartItems = document.getElementById('cart-items');
+            const emptyMsg = document.getElementById('empty-cart-msg');
+            const count = document.getElementById('cart-count');
+            const totalEl = document.getElementById('cart-total');
+
+            count.innerText = cart.length;
+            totalEl.innerText = `${total} 💎`;
+
+            if (cart.length > 0) {
+                emptyMsg.classList.add('hidden');
+                cartItems.innerHTML = cart.map((item, idx) => `
+                    <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-lilac-accent/30">
+                        <div>
+                            <h6 class="font-semibold text-primary">${item.name}</h6>
+                            <span class="text-sm text-secondary">${item.price} 💎</span>
+                        </div>
+                        <button onclick="removeFromCart(${idx})" class="text-error/60 hover:text-error transition-colors">
+                            <span class="material-symbols-outlined">delete_outline</span>
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                emptyMsg.classList.remove('hidden');
+                cartItems.innerHTML = '';
+            }
+        }
+
+        function removeFromCart(idx) {
+            total -= cart[idx].price;
+            cart.splice(idx, 1);
+            updateCartUI();
+        }
+
+        function processPurchase() {
+            if (cart.length === 0) return;
+            const receiptList = document.getElementById('receipt-list');
+            const receiptTotal = document.getElementById('receipt-total');
+            receiptList.innerHTML = cart.map(item => `
+                <div class="flex justify-between text-sm">
+                    <span class="text-on-surface-variant">${item.name}</span>
+                    <span class="font-label-sm">${item.price} 💎</span>
+                </div>
+            `).join('');
+            receiptTotal.innerText = `${total} 💎`;
+            toggleCart();
+            document.getElementById('success-modal').classList.remove('hidden');
+        }
+
+        function closeSuccess() {
+            document.getElementById('success-modal').classList.add('hidden');
+            cart = [];
+            total = 0;
+            updateCartUI();
+        }
+    </script>
+</body></html>
