@@ -31,7 +31,13 @@ class ChatRoom(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
-    creator = relationship("User", lazy="selectin")
+    creator = relationship(
+        "User",
+        lazy="selectin",
+        foreign_keys=[created_by],
+        overlaps="chat_rooms_created",
+        viewonly=True,
+    )
 
 
 class ChatRoomMember(Base):

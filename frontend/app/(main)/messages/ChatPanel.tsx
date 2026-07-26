@@ -36,6 +36,7 @@ export default function ChatPanel({
   const [showStickers, setShowStickers] = useState(false);
   const [showPoll, setShowPoll] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [hasRecording, setHasRecording] = useState(false);
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -121,11 +122,14 @@ export default function ChatPanel({
 
       recorder.onstop = () => {
         setAudioChunks(chunks);
+        setHasRecording(true);
+        setRecording(false);
         stream.getTracks().forEach((t) => t.stop());
       };
 
       setMediaRecorder(recorder);
       setRecording(true);
+      setHasRecording(false);
       setAudioChunks([]);
       recorder.start();
     } catch (err) {
@@ -137,7 +141,6 @@ export default function ChatPanel({
   const stopRecording = () => {
     if (!mediaRecorder) return;
     mediaRecorder.stop();
-    setRecording(false);
   };
 
   const sendVoiceMessage = async () => {
@@ -327,9 +330,9 @@ export default function ChatPanel({
               ))}
    </div>
             <div className="flex flex-wrap gap-1">
-              {STICKER_PACKS[stickerTab].map((s) => (
+              {STICKER_PACKS[stickerTab].map((s, i) => (
                 <button
-                  key={s}
+                  key={`${i}-${s}`}
                   onClick={() => sendSticker(s)}
                   className="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-2xl hover:bg-surface-container-high transition-colors"
                 >
@@ -344,22 +347,22 @@ export default function ChatPanel({
           <PollCreator onCreate={handlePollCreate} onCancel={() => setShowPoll(false)} />
         )}
 
-        {recording && (
+{recording && (
           <div className="mb-2 flex items-center gap-3 bg-primary-container/20 rounded-xl px-4 py-3 border border-primary/30">
             <MaterialIcon name="mic" className="text-primary text-xl animate-pulse" />
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-body-md text-on-surface">
                   Grabando voz...
-             </span>
+                </span>
                 <span className="text-label-sm text-primary font-mono">
                   🔴 EN VIVO
-             </span>
-         </div>
-   </div>
+                </span>
+            </div>
+      </div>
             <Button variant="secondary" size="sm" icon="stop" onClick={stopRecording}>
               Detener
-       </Button>
+        </Button>
             <Button
               variant="primary"
               size="sm"
@@ -368,8 +371,41 @@ export default function ChatPanel({
               disabled={audioChunks.length === 0 || uploading}
             >
               Enviar
-       </Button>
- </div>
+        </Button>
+  </div>
+        )}
+
+        {!recording && hasRecording && (
+          <div className="mb-2 flex items-center gap-3 bg-secondary-container/20 rounded-xl px-4 py-3 border border-secondary/30">
+            <MaterialIcon name="mic" className="text-secondary text-xl" />
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-body-md text-on-surface">
+                  Nota de voz lista
+                </span>
+                <span className="text-label-sm text-secondary font-mono">
+                  ✓ LISTO
+                </span>
+            </div>
+      </div>
+            <Button
+              variant="primary"
+              size="sm"
+              icon="send"
+              onClick={sendVoiceMessage}
+              disabled={uploading}
+            >
+              Enviar nota
+        </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="delete"
+              onClick={() => { setHasRecording(false); setAudioChunks([]); }}
+            >
+              Cancelar
+        </Button>
+  </div>
         )}
 
         <div className="flex items-center gap-2 bg-surface-container-low rounded-full px-4 py-2">
