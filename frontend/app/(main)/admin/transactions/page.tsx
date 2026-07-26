@@ -5,7 +5,6 @@ import { api, Transaction } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
 import GlassCard from "@/components/ui/GlassCard";
-import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Avatar from "@/components/ui/Avatar";
 
@@ -62,19 +61,6 @@ function txIcon(type: Transaction["type"]) {
   }
 }
 
-function statusColor(status: Transaction["status"]) {
-  switch (status) {
-    case "completed":
-      return "success";
-    case "confirmed":
-      return "primary";
-    case "pending":
-      return "secondary";
-    default:
-      return "default";
-  }
-}
-
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -84,24 +70,24 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-function getSenderName(tx: Transaction): string {
-  if (tx.sender) return tx.sender.name;
-  if (tx.sender_id) return "Desconocido (enviado)";
+function getActorName(tx: Transaction): string {
+  if (tx.type === "deposit") {
+    return tx.receiver?.name || tx.receiver_id ? "Desconocido" : "—";
+  }
+  if (tx.type === "withdrawal" || tx.type === "purchase") {
+    return tx.sender?.name || tx.sender_id ? "Desconocido" : "—";
+  }
+  if (tx.type === "transfer") {
+    return tx.sender?.name || tx.sender_id ? "Desconocido" : "—";
+  }
   return "—";
 }
 
-function getReceiverName(tx: Transaction): string {
-  if (tx.receiver) return tx.receiver.name;
-  if (tx.receiver_id) return "Desconocido (recibido)";
-  return "—";
-}
-
-function getSenderAvatar(tx: Transaction): string | undefined {
+function getActorAvatar(tx: Transaction): string | undefined {
+  if (tx.type === "deposit") {
+    return tx.receiver?.avatar_url;
+  }
   return tx.sender?.avatar_url;
-}
-
-function getReceiverAvatar(tx: Transaction): string | undefined {
-  return tx.receiver?.avatar_url;
 }
 
 export default function AdminTransactionsPage() {
@@ -125,11 +111,11 @@ export default function AdminTransactionsPage() {
   }, [user, router]);
 
   const filtered = transactions.filter((tx) => {
+    const actorName = getActorName(tx);
     const matchesSearch =
       !search ||
       tx.description?.toLowerCase().includes(search.toLowerCase()) ||
-      getSenderName(tx).toLowerCase().includes(search.toLowerCase()) ||
-      getReceiverName(tx).toLowerCase().includes(search.toLowerCase()) ||
+      actorName.toLowerCase().includes(search.toLowerCase()) ||
       tx.sender?.email?.toLowerCase().includes(search.toLowerCase()) ||
       tx.receiver?.email?.toLowerCase().includes(search.toLowerCase());
     const matchesFilter = filter === "all" || tx.type === filter;
@@ -269,16 +255,10 @@ export default function AdminTransactionsPage() {
                     Tipo
                   </th>
                   <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden md:table-cell">
-                    De
-                  </th>
-                  <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden md:table-cell">
-                    Para
+                    Usuario
                   </th>
                   <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden sm:table-cell">
                     Fecha
-                  </th>
-                  <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium">
-                    Estado
                   </th>
                   <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium text-right">
                     Monto
@@ -314,24 +294,12 @@ export default function AdminTransactionsPage() {
                       <td className="px-6 py-4 hidden md:table-cell">
                         <div className="flex items-center gap-2">
                           <Avatar
-                            initials={getInitials(getSenderName(tx))}
-                            src={getSenderAvatar(tx)}
+                            initials={getInitials(getActorName(tx))}
+                            src={getActorAvatar(tx)}
                             size="sm"
                           />
                           <p className="text-body-md text-on-surface truncate max-w-[150px]">
-                            {getSenderName(tx)}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 hidden md:table-cell">
-                        <div className="flex items-center gap-2">
-                          <Avatar
-                            initials={getInitials(getReceiverName(tx))}
-                            src={getReceiverAvatar(tx)}
-                            size="sm"
-                          />
-                          <p className="text-body-md text-on-surface truncate max-w-[150px]">
-                            {getReceiverName(tx)}
+                            {getActorName(tx)}
                           </p>
                         </div>
                       </td>
@@ -339,11 +307,6 @@ export default function AdminTransactionsPage() {
                         <p className="text-label-sm text-on-surface-variant">
                           {formatTime(tx.created_at)}
                         </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge variant="tag" color={statusColor(tx.status)}>
-                          {tx.status}
-                        </Badge>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <p
@@ -360,7 +323,7 @@ export default function AdminTransactionsPage() {
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center">
+                    <td colSpan={4} className="px-6 py-12 text-center">
                       <MaterialIcon
                         name="receipt_long"
                         className="text-5xl text-outline-variant mb-3 block mx-auto"
