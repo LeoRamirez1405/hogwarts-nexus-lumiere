@@ -9,7 +9,7 @@ from ..models.transaction import Transaction
 from ..models.user import User
 from ..schemas.transaction import TransactionCreate, TransferRequest, TransactionResponse
 from ..middleware.auth import get_current_user
-from ..middleware.roles import require_admin
+from ..middleware.roles import require_role
 
 router = APIRouter()
 
@@ -33,7 +33,7 @@ async def list_transactions(
 @router.get("/admin/all", response_model=List[TransactionResponse])
 async def list_all_transactions_admin(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_role("admin")),
 ):
     result = await db.execute(
         select(Transaction)
