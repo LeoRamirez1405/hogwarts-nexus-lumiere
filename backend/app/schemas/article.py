@@ -31,6 +31,31 @@ class ArticleResponse(BaseModel):
     image_url: Optional[str] = None
     featured: bool
     created_at: datetime
+    subscribed: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class ArticleSubscriptionResponse(BaseModel):
+    id: str
+    user_id: str
+    article_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationResponse(BaseModel):
+    id: str
+    user_id: str
+    type: str
+    title: str
+    body: str
+    related_id: Optional[str] = None
+    read: bool
+    created_at: datetime
 
     class Config:
         from_attributes = True

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/authStore";
+import { api, Notification } from "@/lib/api";
 import Avatar from "@/components/ui/Avatar";
 
 interface TopBarProps {
@@ -24,15 +25,6 @@ const desktopNavItems: DesktopNavItem[] = [
   { label: "Mercado", href: "/marketplace/flourish-blotts" },
   { label: "Mascotas", href: "/pets" },
 ];
-
-interface Notification {
-  id: string;
-  text: string;
-  time: string;
-  icon: string;
-  read: boolean;
-  href: string;
-}
 
 function MaterialIcon({
   name,
@@ -63,13 +55,8 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   const { user } = useAuthStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
-
-  const [notifications, setNotifications] = useState<Notification[]>([
-    { id: "1", text: "Luna Lovegood te envio un mensaje", time: "2m", icon: "mail", read: false, href: "/messages" },
-    { id: "2", text: "Cedric Diggory reactuvo a tu publicacion", time: "15m", icon: "favorite", read: false, href: "/profile" },
-    { id: "3", text: "Tu criatura esta hambrienta", time: "1h", icon: "pets", read: true, href: "/pets" },
-    { id: "4", text: "Nuevo articulo en El Quisquilloso", time: "3h", icon: "article", read: true, href: "/news" },
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loadingNotifs, setLoadingNotifs] = useState(true);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -81,18 +68,37 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      api.getNotifications()
+        .then(setNotifications)
+        .catch(() => {})
+        .finally(() => setLoadingNotifs(false));
+    }
+  }, [user]);
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const handleNotificationClick = (notif: Notification) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
-    );
+  const handleNotificationClick = async (notif: Notification) => {
+    if (!notif.read) {
+      try {
+        await api.markNotificationRead(notif.id);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
+        );
+      } catch {}
+    }
     setShowNotifications(false);
-    router.push(notif.href);
+    if (notif.related_id) {
+      router.push(`/news/${notif.related_id}`);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markAllAsRead = async () => {
+    try {
+      await api.markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch {}
   };
 
   return (
@@ -177,42 +183,57 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                   )}
                 </div>
                 <div className="max-h-80 overflow-y-auto no-scrollbar">
-                  {notifications.map((n) => (
-                    <button
-                      key={n.id}
-                      onClick={() => handleNotificationClick(n)}
-                      className={`flex items-start gap-3 px-4 py-3 hover:bg-surface-container-high transition-colors w-full text-left ${
-                        !n.read ? "bg-primary/5" : ""
-                      }`}
-                    >
-                      <div
-                        className={`w-9 h-9 inline-flex items-center justify-center rounded-full flex-shrink-0 ${
-                          !n.read
-                            ? "bg-primary/10 text-primary"
-                            : "bg-surface-container-high text-on-surface-variant"
+                  {loadingNotifs ? (
+                    <div className="px-4 py-8 text-center text-on-surface-variant">
+                      <MaterialIcon name="progress_activity" className="text-2xl animate-spin mx-auto mb-2" />
+                      Cargando...
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-on-surface-variant">
+                      <MaterialIcon name="notifications_off" className="text-3xl mx-auto mb-2" />
+                      <p className="text-body-md">Sin notificaciones</p>
+                    </div>
+                  ) : (
+                    notifications.map((n) => (
+                      <button
+                        key={n.id}
+                        onClick={() => handleNotificationClick(n)}
+                        className={`flex items-start gap-3 px-4 py-3 hover:bg-surface-container-high transition-colors w-full text-left ${
+                          !n.read ? "bg-primary/5" : ""
                         }`}
                       >
-                        <MaterialIcon name={n.icon} className="text-lg" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-body-md ${
+                        <div
+                          className={`w-9 h-9 inline-flex items-center justify-center rounded-full flex-shrink-0 ${
                             !n.read
-                              ? "font-medium text-on-surface"
-                              : "text-on-surface-variant"
+                              ? "bg-primary/10 text-primary"
+                              : "bg-surface-container-high text-on-surface-variant"
                           }`}
                         >
-                          {n.text}
-                        </p>
-                        <p className="text-label-sm text-on-surface-variant/60 mt-0.5">
-                          hace {n.time}
-                        </p>
-                      </div>
-                      {!n.read && (
-                        <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                      )}
-                    </button>
-                  ))}
+                          <MaterialIcon name="article" className="text-lg" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-body-md ${
+                              !n.read
+                                ? "font-medium text-on-surface"
+                                : "text-on-surface-variant"
+                            }`}
+                          >
+                            {n.title}
+                          </p>
+                          <p className="text-label-sm text-on-surface-variant/60 mt-0.5 line-clamp-1">
+                            {n.body}
+                          </p>
+                          <p className="text-label-sm text-on-surface-variant/40 mt-0.5">
+                            hace {timeAgo(n.created_at)}
+                          </p>
+                        </div>
+                        {!n.read && (
+                          <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
+                        )}
+                      </button>
+                    ))
+                  )}
                 </div>
                 <div className="border-t border-outline-variant/20 px-4 py-2.5">
                   <button
@@ -242,4 +263,19 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       </div>
     </header>
   );
+}
+
+function timeAgo(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return "ahora mismo";
+  if (minutes < 60) return `hace ${minutes}m`;
+  if (hours < 24) return `hace ${hours}h`;
+  if (days < 7) return `hace ${days}d`;
+  return date.toLocaleDateString("es-ES");
 }

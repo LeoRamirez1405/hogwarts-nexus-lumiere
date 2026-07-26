@@ -74,6 +74,8 @@ export default function ArticleDetailPage() {
   const [newComment, setNewComment] = useState("");
   const [posting, setPosting] = useState(false);
   const [liked, setLiked] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
 
   useEffect(() => {
     if (!params.id) return;
@@ -87,6 +89,7 @@ export default function ArticleDetailPage() {
           return;
         }
         setArticle(found);
+        setSubscribed(found.subscribed ?? false);
         setRelated(
           all.filter((a) => a.id !== found.id && a.category === found.category).slice(0, 3)
         );
@@ -101,6 +104,24 @@ export default function ArticleDetailPage() {
       cancelled = true;
     };
   }, [params.id, router]);
+
+  const handleSubscribe = async () => {
+    if (!authUser || subscribing || !article) return;
+    setSubscribing(true);
+    try {
+      if (subscribed) {
+        await api.unsubscribeArticle(article.id);
+      } else {
+        await api.subscribeArticle(article.id);
+      }
+      setSubscribed((v) => !v);
+      setArticle((a) => a ? { ...a, subscribed: !a.subscribed } : null);
+    } catch {
+      // error
+    } finally {
+      setSubscribing(false);
+    }
+  };
 
   const handleSubmitComment = () => {
     if (!newComment.trim() || !authUser) return;
@@ -238,14 +259,28 @@ export default function ArticleDetailPage() {
               <span className="material-symbols-outlined text-xl">share</span>
             </button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            icon="bookmark"
-            onClick={() => {}}
-          >
-            Guardar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={subscribed ? "bookmark" : "bookmark_add"}
+              onClick={handleSubscribe}
+              disabled={subscribing || !authUser}
+            >
+              {subscribed ? "Guardado" : "Guardar"}
+            </Button>
+            {authUser && article && (
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={subscribed ? "notifications_off" : "notifications_active"}
+                onClick={handleSubscribe}
+                disabled={subscribing}
+              >
+                {subscribed ? "Suscrito" : "Suscribirse"}
+              </Button>
+            )}
+          </div>
         </div>
       </article>
 

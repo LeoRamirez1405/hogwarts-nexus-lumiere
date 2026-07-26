@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from .database import init_db
-from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload
+from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications
 from .models import friend_request  # noqa: F401
 
 
@@ -38,6 +38,7 @@ app.include_router(transactions.router, prefix="/transactions", tags=["transacti
 app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(friend_requests.router, prefix="/friend-requests", tags=["friend-requests"])
 app.include_router(upload.router, prefix="/upload", tags=["upload"])
+app.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 
 uploads_dir = Path("uploads")
 uploads_dir.mkdir(exist_ok=True)

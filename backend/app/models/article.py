@@ -20,3 +20,4 @@ class Article(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     author = relationship("User", back_populates="articles", lazy="selectin")
+    subscriptions = relationship("ArticleSubscription", back_populates="article", lazy="selectin")

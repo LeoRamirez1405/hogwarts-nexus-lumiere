@@ -28,3 +28,5 @@ class User(Base):
     creatures = relationship("UserCreature", back_populates="user", lazy="selectin")
     transactions_sent = relationship("Transaction", foreign_keys="Transaction.sender_id", back_populates="sender", lazy="selectin")
     transactions_received = relationship("Transaction", foreign_keys="Transaction.receiver_id", back_populates="receiver", lazy="selectin")
+    article_subscriptions = relationship("ArticleSubscription", back_populates="user", lazy="selectin")
+    notifications = relationship("Notification", back_populates="user", lazy="selectin")

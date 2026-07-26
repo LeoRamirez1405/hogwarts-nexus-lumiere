@@ -65,8 +65,23 @@ interface Thread {
   commentCount: number;
 }
 
-function FeaturedArticle({ article }: { article: Article }) {
+function FeaturedArticle({
+  article,
+  onSubscribe,
+}: {
+  article: Article;
+  onSubscribe: (id: string) => void;
+}) {
   const router = useRouter();
+  const { user } = useAuthStore();
+
+  const handleSubscribe = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) return;
+    onSubscribe(article.id);
+  };
+
   return (
     <GlassCard className="overflow-hidden md:border-r-4 md:border-r-secondary/30" hover glow>
       {article.image_url && (
@@ -79,19 +94,49 @@ function FeaturedArticle({ article }: { article: Article }) {
             unoptimized={isLocalUpload(article.image_url)}
           />
           <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
-          <div className="absolute bottom-4 left-4 right-4">
+          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
             <Badge variant="rarity" color="secondary">
               Exclusivo
             </Badge>
+            {user && (
+              <button
+                onClick={handleSubscribe}
+                className={`p-2 rounded-full transition-colors ${
+                  article.subscribed
+                    ? "bg-secondary text-on-secondary"
+                    : "bg-white/10 text-on-surface hover:bg-white/20"
+                }`}
+                aria-label={article.subscribed ? "Dejar de seguir" : "Seguir"}
+              >
+                <span className="material-symbols-outlined text-lg">
+                  {article.subscribed ? "bookmark_remove" : "bookmark_add"}
+                </span>
+              </button>
+            )}
           </div>
         </div>
       )}
       <div className="p-6 md:p-8">
         {!article.image_url && (
-          <div className="mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <Badge variant="rarity" color="secondary">
               Exclusivo
             </Badge>
+            {user && (
+              <button
+                onClick={handleSubscribe}
+                className={`p-2 rounded-full transition-colors ${
+                  article.subscribed
+                    ? "bg-secondary text-on-secondary"
+                    : "bg-white/10 text-on-surface hover:bg-white/20"
+                }`}
+                aria-label={article.subscribed ? "Dejar de seguir" : "Seguir"}
+              >
+                <span className="material-symbols-outlined text-lg">
+                  {article.subscribed ? "bookmark_remove" : "bookmark_add"}
+                </span>
+              </button>
+            )}
           </div>
         )}
         <h2 className="font-display text-headline-lg md:text-display-lg text-on-surface leading-tight mb-3">
@@ -138,8 +183,23 @@ function FeaturedArticle({ article }: { article: Article }) {
   );
 }
 
-function ArticleCard({ article }: { article: Article }) {
+function ArticleCard({
+  article,
+  onSubscribe,
+}: {
+  article: Article;
+  onSubscribe: (id: string) => void;
+}) {
   const router = useRouter();
+  const { user } = useAuthStore();
+
+  const handleSubscribe = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) return;
+    onSubscribe(article.id);
+  };
+
   return (
     <GlassCard
       className="p-5 cursor-pointer"
@@ -151,6 +211,21 @@ function ArticleCard({ article }: { article: Article }) {
         <span className="text-label-sm text-on-surface-variant">
           {formatDate(article.created_at)}
         </span>
+        {user && (
+          <button
+            onClick={handleSubscribe}
+            className={`ml-auto p-2 rounded-full transition-colors ${
+              article.subscribed
+                ? "bg-secondary text-on-secondary"
+                : "bg-surface-container-high text-on-surface-variant hover:bg-secondary-container"
+            }`}
+            aria-label={article.subscribed ? "Dejar de seguir" : "Seguir"}
+          >
+            <span className="material-symbols-outlined text-sm">
+              {article.subscribed ? "bookmark_remove" : "bookmark_add"}
+            </span>
+          </button>
+        )}
       </div>
       <h3 className="font-display text-title-md text-on-surface mb-2 leading-snug">
         {article.title}
@@ -245,6 +320,24 @@ export default function NewsPage() {
     setPostingThread(false);
   };
 
+  const handleSubscribe = async (articleId: string) => {
+    if (!authUser) return;
+    try {
+      const article = articles.find((a) => a.id === articleId);
+      if (!article) return;
+      if (article.subscribed) {
+        await api.unsubscribeArticle(articleId);
+      } else {
+        await api.subscribeArticle(articleId);
+      }
+      setArticles((prev) =>
+        prev.map((a) => (a.id === articleId ? { ...a, subscribed: !a.subscribed } : a))
+      );
+    } catch {
+      // error
+    }
+  };
+
   return (
     <div className="space-y-10 pb-16">
       {/* ===== DESKTOP MASTHEAD ===== */}
@@ -295,7 +388,7 @@ export default function NewsPage() {
             {/* Featured */}
             <div className="md:col-span-8">
               {featured ? (
-                <FeaturedArticle article={featured} />
+                <FeaturedArticle article={featured} onSubscribe={handleSubscribe} />
               ) : (
                 <GlassCard className="p-12 text-center">
                   <MaterialIcon
@@ -495,7 +588,7 @@ export default function NewsPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {sortedArticles.map((a) => (
-                <ArticleCard key={a.id} article={a} />
+                <ArticleCard key={a.id} article={a} onSubscribe={handleSubscribe} />
               ))}
               {articles.length === 0 && (
                 <GlassCard className="col-span-full p-12 text-center">

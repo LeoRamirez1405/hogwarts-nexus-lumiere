@@ -108,6 +108,18 @@ export const api = {
     request<Article>(`/articles/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteArticle: (id: string) =>
     request<void>(`/articles/${id}`, { method: "DELETE" }),
+  subscribeArticle: (id: string) =>
+    request<ArticleSubscription>(`/articles/${id}/subscribe`, { method: "POST" }),
+  unsubscribeArticle: (id: string) =>
+    request<void>(`/articles/${id}/subscribe`, { method: "DELETE" }),
+  getMySubscriptions: () => request<Article[]>("/articles/my/subscriptions"),
+
+  // Notifications
+  getNotifications: () => request<Notification[]>("/notifications"),
+  markNotificationRead: (id: string) =>
+    request<Notification>(`/notifications/${id}/read`, { method: "PUT" }),
+  markAllNotificationsRead: () =>
+    request<void>("/notifications/read-all", { method: "PUT" }),
 
   // Creatures
   getCreatures: () => request<Creature[]>("/creatures"),
@@ -212,6 +224,25 @@ export interface Article {
   category: string;
   image_url?: string;
   featured: boolean;
+  created_at: string;
+  subscribed?: boolean;
+}
+
+export interface ArticleSubscription {
+  id: string;
+  user_id: string;
+  article_id: string;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string;
+  related_id?: string;
+  read: boolean;
   created_at: string;
 }
 
