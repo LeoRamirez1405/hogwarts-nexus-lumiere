@@ -78,7 +78,9 @@ function getActorName(tx: Transaction): string {
     return tx.sender?.name || tx.sender_id ? "Desconocido" : "—";
   }
   if (tx.type === "transfer") {
-    return tx.sender?.name || tx.sender_id ? "Desconocido" : "—";
+    const sender = tx.sender?.name || (tx.sender_id ? "Desconocido" : "—");
+    const receiver = tx.receiver?.name || (tx.receiver_id ? "Desconocido" : "—");
+    return `${sender} → ${receiver}`;
   }
   return "—";
 }
@@ -86,6 +88,9 @@ function getActorName(tx: Transaction): string {
 function getActorAvatar(tx: Transaction): string | undefined {
   if (tx.type === "deposit") {
     return tx.receiver?.avatar_url;
+  }
+  if (tx.type === "transfer") {
+    return tx.sender?.avatar_url;
   }
   return tx.sender?.avatar_url;
 }
@@ -292,16 +297,38 @@ export default function AdminTransactionsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 hidden md:table-cell">
-                        <div className="flex items-center gap-2">
-                          <Avatar
-                            initials={getInitials(getActorName(tx))}
-                            src={getActorAvatar(tx)}
-                            size="sm"
-                          />
-                          <p className="text-body-md text-on-surface truncate max-w-[150px]">
-                            {getActorName(tx)}
-                          </p>
-                        </div>
+                        {tx.type === "transfer" && tx.sender && tx.receiver ? (
+                          <div className="flex items-center gap-1">
+                            <Avatar
+                              initials={tx.sender.name.charAt(0).toUpperCase()}
+                              src={tx.sender.avatar_url}
+                              size="sm"
+                            />
+                            <MaterialIcon
+                              name="arrow_forward"
+                              className="text-outline-variant text-sm"
+                            />
+                            <Avatar
+                              initials={tx.receiver.name.charAt(0).toUpperCase()}
+                              src={tx.receiver.avatar_url}
+                              size="sm"
+                            />
+                            <span className="text-label-sm text-on-surface-variant ml-1">
+                              {tx.sender.name} → {tx.receiver.name}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Avatar
+                              initials={getInitials(getActorName(tx))}
+                              src={getActorAvatar(tx)}
+                              size="sm"
+                            />
+                            <p className="text-body-md text-on-surface truncate max-w-[150px]">
+                              {getActorName(tx)}
+                            </p>
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 hidden sm:table-cell">
                         <p className="text-label-sm text-on-surface-variant">
