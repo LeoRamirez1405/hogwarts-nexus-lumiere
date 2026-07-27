@@ -325,6 +325,14 @@ export default function ChatPanel({
     voice.cleanup();
   };
 
+  const scrollToMessage = (messageId: string) => {
+    const el = document.getElementById(`msg-${messageId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("highlight-message");
+    setTimeout(() => el.classList.remove("highlight-message"), 2000);
+  };
+
   const formatElapsed = (sec: number) => {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
@@ -436,6 +444,7 @@ export default function ChatPanel({
                 isOwn={msg.sender_id === user?.id}
                 onReply={(m) => setReplyingTo(m)}
                 onReactionChange={onRefresh}
+                onScrollToMessage={scrollToMessage}
               />
             ))}
             <div ref={messagesEndRef} />

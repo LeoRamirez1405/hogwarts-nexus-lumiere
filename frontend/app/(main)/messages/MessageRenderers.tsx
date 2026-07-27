@@ -235,7 +235,7 @@ export function DocumentView({
   );
 }
 
-function ReplyPreview({ message }: { message: Message }) {
+function ReplyPreview({ message, onScrollToMessage }: { message: Message; onScrollToMessage?: (id: string) => void }) {
   if (!message.reply_to) return null;
   const r = message.reply_to;
   const senderName = r.sender?.name || "Alguien";
@@ -249,10 +249,17 @@ function ReplyPreview({ message }: { message: Message }) {
   if (preview.length > 60) preview = preview.slice(0, 60) + "...";
 
   return (
-    <div className="mb-2 pl-3 border-l-3 border-current/40 bg-white/10 rounded-r-lg px-3 py-1.5 -mt-1 -mb-1">
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        if (onScrollToMessage && message.reply_to_id) onScrollToMessage(message.reply_to_id);
+      }}
+      className="mb-2 pl-3 border-l-3 border-current/40 bg-white/10 rounded-r-lg px-3 py-1.5 -mt-1 -mb-1 w-full text-left hover:bg-white/20 transition-colors cursor-pointer"
+    >
       <p className="text-label-sm font-semibold opacity-90">{senderName}</p>
       <p className="text-label-sm opacity-70 truncate">{preview}</p>
-    </div>
+    </button>
   );
 }
 
@@ -430,16 +437,19 @@ export function MessageBubble({
   isOwn,
   onReply,
   onReactionChange,
+  onScrollToMessage,
 }: {
   message: Message;
   isOwn: boolean;
   onReply?: (msg: Message) => void;
   onReactionChange?: () => void;
+  onScrollToMessage?: (id: string) => void;
 }) {
   const kind = message.kind || "text";
 
   return (
     <div
+      id={`msg-${message.id}`}
       className={`flex ${isOwn ? "justify-end" : "justify-start"} mb-3 gap-2 group`}
     >
       {!isOwn && (
@@ -455,7 +465,7 @@ export function MessageBubble({
               : "bg-white text-on-surface rounded-2xl rounded-tl-none border border-outline-variant/20"
           }`}
         >
-          <ReplyPreview message={message} />
+          <ReplyPreview message={message} onScrollToMessage={onScrollToMessage} />
 
           {kind === "poll" && message.poll && (
             <PollView poll={message.poll} isOwn={isOwn} />
