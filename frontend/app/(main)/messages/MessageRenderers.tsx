@@ -27,40 +27,39 @@ export function PollView({
 
   return (
     <div
-      className={`mt-2 p-3 rounded-xl ${
+      className={`mt-2 p-3 rounded-xl border ${
         isOwn
-          ? "bg-on-primary-container/10"
-          : "bg-surface-container-high"
-      } border border-outline-variant/20`}
+          ? "bg-white/10 border-white/20"
+          : "bg-white border-outline-variant/30"
+      }`}
     >
-      <p className="text-body-md font-medium text-on-surface mb-2">
+      <p className={`text-body-md font-semibold mb-2 ${isOwn ? "text-white" : "text-on-surface"}`}>
         {poll.question}
       </p>
       <div className="space-y-1.5">
         {poll.options.map((opt) => {
-          const pct =
-            totalVotes > 0 ? (opt.votes_count / totalVotes) * 100 : 0;
+          const pct = totalVotes > 0 ? (opt.votes_count / totalVotes) * 100 : 0;
           return (
             <div key={opt.id} className="flex items-center gap-2">
               <div
-                className={`flex-1 h-8 rounded-full transition-all ${
+                className={`flex-1 h-8 rounded-full transition-all overflow-hidden ${
                   opt.voted_by_me
-                    ? "bg-primary"
-                    : "bg-surface-container-highest"
+                    ? isOwn ? "bg-white/25" : "bg-primary"
+                    : isOwn ? "bg-white/10" : "bg-surface-container-high"
                 }`}
-                style={{ width: `${pct}%`, minWidth: "60px" }}
+                style={{ width: `${Math.max(pct, 8)}%`, minWidth: "60px" }}
               >
                 <span
-                  className={`flex items-center justify-end pr-2 text-label-sm h-full ${
+                  className={`flex items-center justify-end pr-2 text-label-sm h-full font-medium ${
                     opt.voted_by_me
-                      ? "text-on-primary"
-                      : "text-on-surface-variant"
+                      ? isOwn ? "text-white" : "text-on-primary"
+                      : isOwn ? "text-white/80" : "text-on-surface"
                   }`}
                 >
                   {opt.label}
                 </span>
               </div>
-              <div className="w-16 text-right text-label-sm text-on-surface-variant">
+              <div className={`w-16 text-right text-label-sm font-medium ${isOwn ? "text-white/70" : "text-on-surface-variant"}`}>
                 {opt.votes_count}{" "}
                 {totalVotes > 0 ? `(${Math.round(pct)}%)` : ""}
               </div>
@@ -68,12 +67,12 @@ export function PollView({
           );
         })}
       </div>
-      <div className="flex items-center justify-between mt-3 pt-2 border-t border-outline-variant/20">
-        <span className="text-label-sm text-on-surface-variant">
+      <div className={`flex items-center justify-between mt-3 pt-2 border-t ${isOwn ? "border-white/20" : "border-outline-variant/30"}`}>
+        <span className={`text-label-sm font-medium ${isOwn ? "text-white/70" : "text-on-surface-variant"}`}>
           {totalVotes} voto{totalVotes !== 1 ? "s" : ""}
         </span>
         {poll.multi_choice && (
-          <span className="text-label-sm text-primary">
+          <span className={`text-label-sm font-medium ${isOwn ? "text-white/80" : "text-primary"}`}>
             Multiple opcion
           </span>
         )}
@@ -136,15 +135,15 @@ export function VoiceView({
   return (
     <div
       className={`flex items-center gap-3 p-2 rounded-xl ${
-        isOwn ? "bg-primary-container/30" : "bg-surface-container-high"
+        isOwn ? "bg-white/15" : "bg-surface-container-high border border-outline-variant/20"
       }`}
     >
       <button
         onClick={togglePlay}
         className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
           isOwn
-            ? "bg-primary text-on-primary"
-            : "bg-surface-container-highest text-on-surface"
+            ? "bg-white text-primary"
+            : "bg-primary text-on-primary"
         }`}
         aria-label={playing ? "Pausar" : "Reproducir"}
       >
@@ -155,22 +154,20 @@ export function VoiceView({
       </button>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-2 rounded-full bg-surface-container-highest relative overflow-hidden">
+          <div className={`flex-1 h-2 rounded-full relative overflow-hidden ${isOwn ? "bg-white/20" : "bg-surface-container-highest"}`}>
             <div
-              className="h-full bg-primary/50 rounded-full transition-all"
+              className={`h-full rounded-full transition-all ${isOwn ? "bg-white/70" : "bg-primary/60"}`}
               style={{
-                width: `${
-                  duration > 0 ? (currentTime / duration) * 100 : 0
-                }%`,
+                width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%`,
               }}
             />
           </div>
-          <span className="text-label-sm text-on-surface-variant font-mono w-12 text-right">
+          <span className={`text-label-sm font-mono w-12 text-right ${isOwn ? "text-white/80" : "text-on-surface-variant"}`}>
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
         </div>
         {transcription && (
-          <p className="text-label-sm text-on-surface-variant/80 mt-1 italic max-h-16 overflow-hidden text-ellipsis">
+          <p className={`text-label-sm mt-1 italic max-h-16 overflow-hidden text-ellipsis ${isOwn ? "text-white/70" : "text-on-surface-variant"}`}>
             {transcription}
           </p>
         )}
@@ -178,7 +175,7 @@ export function VoiceView({
       <div className="flex items-center gap-2">
         {transcription && (
           <button
-            className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant"
+            className={`p-1 rounded-full transition-colors ${isOwn ? "hover:bg-white/20 text-white/70" : "hover:bg-surface-container-highest text-on-surface-variant"}`}
             title="Copiar transcripcion"
           >
             <MaterialIcon name="content_copy" className="text-lg" />
@@ -187,7 +184,7 @@ export function VoiceView({
         <a
           href={message.attachment_url}
           download
-          className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant"
+          className={`p-1 rounded-full transition-colors ${isOwn ? "hover:bg-white/20 text-white/70" : "hover:bg-surface-container-highest text-on-surface-variant"}`}
         >
           <MaterialIcon name="download" className="text-lg" />
         </a>
@@ -214,26 +211,26 @@ export function DocumentView({
       href={message.attachment_url}
       target="_blank"
       rel="noopener noreferrer"
-      className={`flex items-center gap-3 p-3 rounded-xl ${
+      className={`flex items-center gap-3 p-3 rounded-xl border w-fit ${
         isOwn
-          ? "bg-primary-container/30"
-          : "bg-surface-container-high"
-      } border border-outline-variant/20 w-fit`}
+          ? "bg-white/15 border-white/20"
+          : "bg-white border-outline-variant/20"
+      }`}
     >
       <div
         className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${
           isOwn
-            ? "bg-primary/20 text-primary"
-            : "bg-surface-container-highest text-on-surface-variant"
+            ? "bg-white/20 text-white"
+            : "bg-primary/10 text-primary"
         }`}
       >
         <MaterialIcon name={icon} className="text-2xl" />
       </div>
       <div className="min-w-0">
-        <p className="text-body-md text-on-surface truncate max-w-xs">{name}</p>
-        <p className="text-label-sm text-on-surface-variant">{size}</p>
+        <p className={`text-body-md truncate max-w-xs ${isOwn ? "text-white" : "text-on-surface"}`}>{name}</p>
+        <p className={`text-label-sm ${isOwn ? "text-white/70" : "text-on-surface-variant"}`}>{size}</p>
       </div>
-      <MaterialIcon name="open_in_new" className="text-on-surface-variant" />
+      <MaterialIcon name="open_in_new" className={isOwn ? "text-white/70" : "text-on-surface-variant"} />
     </a>
   );
 }
@@ -252,9 +249,9 @@ function ReplyPreview({ message }: { message: Message }) {
   if (preview.length > 60) preview = preview.slice(0, 60) + "...";
 
   return (
-    <div className="mb-2 pl-3 border-l-3 border-primary/60 bg-primary/5 rounded-r-lg px-3 py-1.5 -mt-1 -mb-1">
-      <p className="text-label-sm font-medium text-primary">{senderName}</p>
-      <p className="text-label-sm text-on-surface-variant truncate">{preview}</p>
+    <div className="mb-2 pl-3 border-l-3 border-current/40 bg-white/10 rounded-r-lg px-3 py-1.5 -mt-1 -mb-1">
+      <p className="text-label-sm font-semibold opacity-90">{senderName}</p>
+      <p className="text-label-sm opacity-70 truncate">{preview}</p>
     </div>
   );
 }
@@ -454,8 +451,8 @@ export function MessageBubble({
         <div
           className={`px-4 py-2.5 ${
             isOwn
-              ? "bg-primary-container text-on-primary-container rounded-2xl rounded-tr-none"
-              : "bg-surface-container-high text-on-surface rounded-2xl rounded-tl-none parchment-message"
+              ? "bg-primary text-white rounded-2xl rounded-tr-none"
+              : "bg-white text-on-surface rounded-2xl rounded-tl-none border border-outline-variant/20"
           }`}
         >
           <ReplyPreview message={message} />
@@ -511,7 +508,7 @@ export function MessageBubble({
 
           <p
             className={`text-[10px] mt-1 ${
-              isOwn ? "text-on-primary-container/60" : "text-on-surface-variant/60"
+              isOwn ? "text-white/60" : "text-on-surface-variant"
             }`}
           >
             {formatMessageTime(message.created_at)}
@@ -542,7 +539,7 @@ export function MessageBubble({
       </div>
 
       {isOwn && (
-        <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container text-label-sm shrink-0 mt-1">
+        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-label-sm shrink-0 mt-1">
           <MaterialIcon name="person" className="text-lg" filled />
         </div>
       )}
