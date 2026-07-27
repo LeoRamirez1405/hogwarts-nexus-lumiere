@@ -255,7 +255,7 @@ function ReplyPreview({ message, onScrollToMessage }: { message: Message; onScro
         e.stopPropagation();
         if (onScrollToMessage && message.reply_to_id) onScrollToMessage(message.reply_to_id);
       }}
-      className="mb-2 pl-3 border-l-3 border-current/40 bg-white/10 rounded-r-lg px-3 py-1.5 -mt-1 -mb-1 w-full text-left hover:bg-white/20 transition-colors cursor-pointer"
+      className="mb-2 pl-3 border-l-3 border-current/40 bg-white/10 rounded-r-lg px-3 py-1.5 -mt-1 w-full text-left hover:bg-white/20 transition-colors cursor-pointer"
     >
       <p className="text-label-sm font-semibold opacity-90">{senderName}</p>
       <p className="text-label-sm opacity-70 truncate">{preview}</p>

@@ -21,6 +21,7 @@ function useVoiceRecorder() {
   const [elapsed, setElapsed] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -53,6 +54,7 @@ function useVoiceRecorder() {
     setRecordedBlob(null);
     setRecording(false);
     setIsPlaying(false);
+    setTranscribing(false);
     transcriptRef.current = "";
   }, []);
 
@@ -80,34 +82,6 @@ function useVoiceRecorder() {
       }, 1000);
 
       recorder.start();
-
-      // Start live transcription concurrently
-      const SpeechRecognitionAPI =
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).SpeechRecognition ||
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).webkitSpeechRecognition;
-      if (SpeechRecognitionAPI) {
-        const recognition = new SpeechRecognitionAPI();
-        recognition.lang = "es-ES";
-        recognition.continuous = true;
-        recognition.interimResults = false;
-        let finalTranscript = "";
-        recognition.onresult = (event: { results: SpeechRecognitionResultList }) => {
-          for (let i = 0; i < event.results.length; i++) {
-            if (event.results[i].isFinal) {
-              finalTranscript += event.results[i][0].transcript + " ";
-            }
-          }
-          transcriptRef.current = finalTranscript;
-        };
-        recognition.onerror = () => {};
-        recognition.onend = () => {};
-        try {
-          recognition.start();
-          speechRecRef.current = recognition;
-        } catch {}
-      }
     } catch {
       alert("No se pudo acceder al microfono");
     }
@@ -120,12 +94,6 @@ function useVoiceRecorder() {
         resolve(null);
         cleanup();
         return;
-      }
-
-      // Stop speech recognition
-      if (speechRecRef.current) {
-        try { speechRecRef.current.stop(); } catch {}
-        speechRecRef.current = null;
       }
 
       recorder.onstop = () => {
@@ -155,6 +123,61 @@ function useVoiceRecorder() {
     });
   }, []);
 
+  const startTranscription = useCallback(() => {
+    const SpeechRecognitionAPI =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).SpeechRecognition ||
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) {
+      alert("Tu navegador no soporta transcripcion. Intenta con Chrome o Edge.");
+      return false;
+    }
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = "es-ES";
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    let finalTranscript = "";
+
+    setTranscribing(true);
+    transcriptRef.current = "";
+
+    recognition.onresult = (event: { results: SpeechRecognitionResultList }) => {
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript + " ";
+        }
+      }
+      transcriptRef.current = finalTranscript;
+    };
+
+    recognition.onerror = () => {
+      setTranscribing(false);
+    };
+
+    recognition.onend = () => {
+      setTranscribing(false);
+    };
+
+    try {
+      recognition.start();
+      speechRecRef.current = recognition;
+      return true;
+    } catch {
+      setTranscribing(false);
+      return false;
+    }
+  }, []);
+
+  const stopTranscription = useCallback(() => {
+    if (speechRecRef.current) {
+      try { speechRecRef.current.stop(); } catch {}
+      speechRecRef.current = null;
+    }
+    setTranscribing(false);
+  }, []);
+
   const playPreview = useCallback(() => {
     if (!recordedBlob) return;
     const url = URL.createObjectURL(recordedBlob);
@@ -172,7 +195,11 @@ function useVoiceRecorder() {
     }
   }, []);
 
-  return { recording, elapsed, recordedBlob, isPlaying, start, stopRecording, playPreview, pausePreview, cleanup, transcriptRef };
+  return {
+    recording, elapsed, recordedBlob, isPlaying, transcribing,
+    start, stopRecording, playPreview, pausePreview,
+    startTranscription, stopTranscription, cleanup, transcriptRef,
+  };
 }
 
 export default function ChatPanel({
@@ -307,13 +334,20 @@ export default function ChatPanel({
   };
 
   const handleTranscribeVoice = () => {
-    const text = voice.transcriptRef.current.trim();
-    if (text) {
-      onSend(buildBaseData({ body: text, kind: "text" }));
-      clearInputState();
-      voice.cleanup();
+    if (voice.transcribing) {
+      // Already listening — stop and send what we have
+      voice.stopTranscription();
+      const text = voice.transcriptRef.current.trim();
+      if (text) {
+        onSend(buildBaseData({ body: text, kind: "text" }));
+        clearInputState();
+        voice.cleanup();
+      } else {
+        alert("No se detectó voz. Intenta hablar más alto o más cerca del micrófono.");
+      }
     } else {
-      alert("No se detectó voz. Intenta hablar más alto o más cerca del micrófono.");
+      // Start listening — discard audio blob, open fresh mic for speech recognition
+      voice.startTranscription();
     }
   };
 
@@ -553,43 +587,60 @@ export default function ChatPanel({
             </button>
           </div>
         ) : voice.recordedBlob ? (
-          <div className="flex items-center gap-2 bg-surface-container rounded-full px-4 py-2 border border-outline-variant/30">
-            <button
-              onClick={voice.isPlaying ? voice.pausePreview : voice.playPreview}
-              className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90"
-              title={voice.isPlaying ? "Pausar" : "Reproducir"}
-            >
-              <MaterialIcon name={voice.isPlaying ? "pause" : "play_arrow"} className="text-lg" />
-            </button>
-            <span className="font-mono text-body-md text-on-surface tabular-nums">
-              {formatElapsed(voice.elapsed)}
-            </span>
-            <div className="flex-1" />
-            <button
-              onClick={handleCancelRecording}
-              className="p-1.5 rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors"
-              title="Cancelar"
-            >
-              <MaterialIcon name="close" className="text-lg" />
-            </button>
-            <button
-              onClick={handleTranscribeVoice}
-              disabled={uploading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/10 text-secondary hover:bg-secondary/20 transition-colors text-label-sm font-medium disabled:opacity-40"
-              title="Enviar como texto"
-            >
-              <MaterialIcon name="speech_to_text" className="text-lg" />
-              Transcribir
-            </button>
-            <button
-              onClick={handleSendVoice}
-              disabled={uploading}
-              className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 disabled:opacity-40"
-              title="Enviar audio"
-            >
-              <MaterialIcon name="send" className="text-lg" />
-            </button>
-          </div>
+          voice.transcribing ? (
+            <div className="flex items-center gap-2 bg-secondary/10 rounded-full px-4 py-2 border border-secondary/30">
+              <div className="w-3 h-3 rounded-full bg-secondary animate-pulse" />
+              <span className="text-body-md text-on-surface font-medium">
+                Escuchando... habla ahora
+              </span>
+              <div className="flex-1" />
+              <button
+                onClick={handleTranscribeVoice}
+                className="w-9 h-9 flex items-center justify-center bg-secondary text-white rounded-full hover:opacity-90"
+                title="Detener y enviar texto"
+              >
+                <MaterialIcon name="stop" className="text-lg" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 bg-surface-container rounded-full px-4 py-2 border border-outline-variant/30">
+              <button
+                onClick={voice.isPlaying ? voice.pausePreview : voice.playPreview}
+                className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90"
+                title={voice.isPlaying ? "Pausar" : "Reproducir"}
+              >
+                <MaterialIcon name={voice.isPlaying ? "pause" : "play_arrow"} className="text-lg" />
+              </button>
+              <span className="font-mono text-body-md text-on-surface tabular-nums">
+                {formatElapsed(voice.elapsed)}
+              </span>
+              <div className="flex-1" />
+              <button
+                onClick={handleCancelRecording}
+                className="p-1.5 rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                title="Cancelar"
+              >
+                <MaterialIcon name="close" className="text-lg" />
+              </button>
+              <button
+                onClick={handleTranscribeVoice}
+                disabled={uploading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/10 text-secondary hover:bg-secondary/20 transition-colors text-label-sm font-medium disabled:opacity-40"
+                title="Grabar voz y enviar como texto"
+              >
+                <MaterialIcon name="speech_to_text" className="text-lg" />
+                Transcribir
+              </button>
+              <button
+                onClick={handleSendVoice}
+                disabled={uploading}
+                className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 disabled:opacity-40"
+                title="Enviar audio"
+              >
+                <MaterialIcon name="send" className="text-lg" />
+              </button>
+            </div>
+          )
         ) : (
           <div className="flex items-center gap-2 bg-surface-container-low rounded-full px-4 py-2">
             <input

@@ -127,13 +127,26 @@ export default function AdminTransactionsPage() {
     return matchesSearch && matchesFilter;
   });
 
-  const totalDeposits = transactions
+  const now = new Date();
+  const dayOfWeek = (now.getDay() + 6) % 7;
+  const startOfWeek = new Date(now);
+  startOfWeek.setHours(0, 0, 0, 0);
+  startOfWeek.setDate(now.getDate() - dayOfWeek);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 7);
+
+  const weekTransactions = transactions.filter((t) => {
+    const d = new Date(t.created_at);
+    return d >= startOfWeek && d < endOfWeek;
+  });
+
+  const totalDeposits = weekTransactions
     .filter((t) => t.type === "deposit")
     .reduce((sum, t) => sum + t.amount, 0);
-  const totalWithdrawals = transactions
+  const totalWithdrawals = weekTransactions
     .filter((t) => t.type === "withdrawal")
     .reduce((sum, t) => sum + t.amount, 0);
-  const totalTransfers = transactions
+  const totalTransfers = weekTransactions
     .filter((t) => t.type === "transfer")
     .reduce((sum, t) => sum + t.amount, 0);
 
@@ -169,7 +182,7 @@ export default function AdminTransactionsPage() {
             </div>
             <div>
               <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">
-                Depositos
+                Depositos (semana)
               </p>
               <p className="font-display text-title-md text-success">
                 +{formatAmount(totalDeposits)}
@@ -184,7 +197,7 @@ export default function AdminTransactionsPage() {
             </div>
             <div>
               <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">
-                Retiros
+                Retiros (semana)
               </p>
               <p className="font-display text-title-md text-error">
                 -{formatAmount(totalWithdrawals)}
@@ -199,7 +212,7 @@ export default function AdminTransactionsPage() {
             </div>
             <div>
               <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">
-                Transferencias
+                Transferencias (semana)
               </p>
               <p className="font-display text-title-md text-primary">
                 {formatAmount(totalTransfers)}
