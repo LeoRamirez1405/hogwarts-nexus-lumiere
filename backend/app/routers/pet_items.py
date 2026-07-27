@@ -87,6 +87,7 @@ async def buy_pet_item(
             user_id=current_user.id, pet_item_id=item_id, quantity=units
         )
         db.add(inventory)
+    current_user.items_purchased = (current_user.items_purchased or 0) + units
 
     kind_label = "Comida" if item.kind == "food" else "Juguete"
     db.add(Transaction(

@@ -41,6 +41,7 @@ const adminNavItems: NavItem[] = [
   { icon: "inventory_2", label: "Productos", href: "/admin/products" },
   { icon: "article", label: "Articulos", href: "/admin/articles" },
   { icon: "pets", label: "Criaturas", href: "/admin/creatures" },
+  { icon: "nutrition", label: "Comida y Juguetes", href: "/admin/pet-items" },
   { icon: "groups", label: "Gestión de Grupos", href: "/admin/groups" },
   {
     icon: "receipt_long",

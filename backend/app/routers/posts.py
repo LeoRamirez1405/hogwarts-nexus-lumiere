@@ -9,6 +9,7 @@ from ..models.user import User
 from ..schemas.post import PostCreate, PostResponse, CommentCreate, CommentResponse
 from ..schemas.user import UserResponse
 from ..middleware.auth import get_current_user
+from ..notifications_service import notify, notify_like, resolve_mentions, N
 
 router = APIRouter()
 
@@ -141,6 +142,21 @@ async def create_post(
     await db.commit()
     await db.refresh(post)
 
+    # Notify anyone @mentioned in the post body.
+    mentioned = await resolve_mentions(db, post.body)
+    if mentioned:
+        for user in mentioned:
+            await notify(
+                db,
+                user_id=user.id,
+                type=N.POST_MENTION,
+                title=f"{current_user.name} te mencionó en una publicación",
+                body=(post.body or "")[:200],
+                related_id=post.id,
+                actor_id=current_user.id,
+            )
+        await db.commit()
+
     response = PostResponse.model_validate(post)
     response.likes_count = 0
     response.liked_by_me = False
@@ -166,11 +182,16 @@ async def toggle_like(
     )
     like = existing.scalar_one_or_none()
 
+    liked_now = False
     if like:
         await db.delete(like)
     else:
         db.add(PostLike(post_id=post_id, user_id=current_user.id))
+        liked_now = True
 
+    await db.flush()
+    if liked_now:
+        await notify_like(db, post, current_user)
     await db.commit()
 
     return await _build_post_response(db, post, current_user)
@@ -195,11 +216,23 @@ async def toggle_repost(
     )
     repost = existing.scalar_one_or_none()
 
+    reposted_now = False
     if repost:
         await db.delete(repost)
     else:
         db.add(PostRepost(post_id=post_id, user_id=current_user.id))
+        reposted_now = True
 
+    if reposted_now:
+        await notify(
+            db,
+            user_id=post.author_id,
+            type=N.POST_REPOST,
+            title=f"{current_user.name} compartió tu publicación",
+            body=(post.body or "Tu publicación")[:140],
+            related_id=post_id,
+            actor_id=current_user.id,
+        )
     await db.commit()
 
     return await _build_post_response(db, post, current_user)
@@ -253,6 +286,31 @@ async def create_comment(
         body=body,
     )
     db.add(comment)
+    await db.flush()
+
+    # Notify the post author, plus anyone @mentioned in the comment.
+    await notify(
+        db,
+        user_id=post.author_id,
+        type=N.POST_COMMENT,
+        title=f"{current_user.name} comentó tu publicación",
+        body=body[:200],
+        related_id=post_id,
+        actor_id=current_user.id,
+    )
+    for mentioned in await resolve_mentions(db, body):
+        if mentioned.id == post.author_id:
+            continue  # already covered by the comment notification
+        await notify(
+            db,
+            user_id=mentioned.id,
+            type=N.POST_MENTION,
+            title=f"{current_user.name} te mencionó en un comentario",
+            body=body[:200],
+            related_id=post_id,
+            actor_id=current_user.id,
+        )
+
     await db.commit()
     await db.refresh(comment)
     resp = CommentResponse.model_validate(comment)

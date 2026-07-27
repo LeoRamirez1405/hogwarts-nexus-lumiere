@@ -1,14 +1,13 @@
 import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from .database import init_db
-from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support
+from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum
 from .models import friend_request  # noqa: F401
 from .retention import retention_loop
+from .pet_care import pet_care_loop
 
 
 @asynccontextmanager
@@ -18,10 +17,12 @@ async def lifespan(app: FastAPI):
     await seed_data()
     await seed_pet_supplies()
     retention_task = asyncio.create_task(retention_loop())
+    pet_care_task = asyncio.create_task(pet_care_loop())
     try:
         yield
     finally:
         retention_task.cancel()
+        pet_care_task.cancel()
 
 
 app = FastAPI(title="Hogwarts Nexus Lumiere API", lifespan=lifespan)
@@ -48,10 +49,9 @@ app.include_router(friend_requests.router, prefix="/friend-requests", tags=["fri
 app.include_router(upload.router, prefix="/upload", tags=["upload"])
 app.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 app.include_router(support.router, prefix="/support", tags=["support"])
-
-uploads_dir = Path("uploads")
-uploads_dir.mkdir(exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.include_router(announcements.router, prefix="/announcements", tags=["announcements"])
+app.include_router(classifieds.router, prefix="/classifieds", tags=["classifieds"])
+app.include_router(forum.router, prefix="/forum", tags=["forum"])
 
 
 @app.get("/")

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { api, Article } from "@/lib/api";
+import { api, Article, ArticleComment } from "@/lib/api";
 import { GlassCard, Badge, Button, Avatar } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
 
@@ -30,38 +30,6 @@ function isLocalUpload(src?: string): boolean {
   return src?.startsWith("http://localhost:8000/uploads/") ?? false;
 }
 
-interface Comment {
-  id: string;
-  author: string;
-  avatar?: string;
-  body: string;
-  created_at: string;
-}
-
-const seedComments: Comment[] = [
-  {
-    id: "c1",
-    author: "Luna Lovegood",
-    avatar: "",
-    body: "Sabia que esto iba a pasar. Los snorkacks lo advertian.",
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: "c2",
-    author: "Cedric Diggory",
-    avatar: "",
-    body: "Excelente reportaje, muy bien investigado.",
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    id: "c3",
-    author: "Hermione Granger",
-    avatar: "",
-    body: "Deberian verificar las fuentes del articulo antes de publicar.",
-    created_at: new Date(Date.now() - 10800000).toISOString(),
-  },
-];
-
 export default function ArticleDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -70,7 +38,7 @@ export default function ArticleDetailPage() {
   const [article, setArticle] = useState<Article | null>(null);
   const [related, setRelated] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
-  const [comments, setComments] = useState<Comment[]>(seedComments);
+  const [comments, setComments] = useState<ArticleComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [posting, setPosting] = useState(false);
   const [liked, setLiked] = useState(false);
@@ -93,6 +61,11 @@ export default function ArticleDetailPage() {
         setRelated(
           all.filter((a) => a.id !== found.id && a.category === found.category).slice(0, 3)
         );
+        api.getArticleComments(found.id)
+          .then((cs) => {
+            if (!cancelled) setComments(cs);
+          })
+          .catch(() => {});
       })
       .catch(() => {
         if (!cancelled) router.push("/news");
@@ -123,19 +96,18 @@ export default function ArticleDetailPage() {
     }
   };
 
-  const handleSubmitComment = () => {
-    if (!newComment.trim() || !authUser) return;
+  const handleSubmitComment = async () => {
+    if (!newComment.trim() || !authUser || !article || posting) return;
     setPosting(true);
-    const c: Comment = {
-      id: `c${Date.now()}`,
-      author: authUser.name,
-      avatar: authUser.avatar_url,
-      body: newComment.trim(),
-      created_at: new Date().toISOString(),
-    };
-    setComments((prev) => [c, ...prev]);
-    setNewComment("");
-    setPosting(false);
+    try {
+      const created = await api.createArticleComment(article.id, newComment.trim());
+      setComments((prev) => [created, ...prev]);
+      setNewComment("");
+    } catch {
+      // error
+    } finally {
+      setPosting(false);
+    }
   };
 
   if (loading || !article) {
@@ -335,34 +307,37 @@ export default function ArticleDetailPage() {
         )}
 
         <div className="space-y-3">
-          {comments.map((c) => (
-            <GlassCard key={c.id} className="p-4">
-              <div className="flex gap-3">
-                <Avatar
-                  src={c.avatar}
-                  alt={c.author}
-                  size="sm"
-                  initials={c.author
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-                />
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-body-md font-semibold text-on-surface">
-                      {c.author}
-                    </p>
-                    <p className="text-label-sm text-on-surface-variant">
-                      {timeAgo(c.created_at)}
+          {comments.map((c) => {
+            const authorName = c.author?.name ?? "Anónimo";
+            return (
+              <GlassCard key={c.id} className="p-4">
+                <div className="flex gap-3">
+                  <Avatar
+                    src={c.author?.avatar_url}
+                    alt={authorName}
+                    size="sm"
+                    initials={authorName
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-body-md font-semibold text-on-surface">
+                        {authorName}
+                      </p>
+                      <p className="text-label-sm text-on-surface-variant">
+                        {timeAgo(c.created_at)}
+                      </p>
+                    </div>
+                    <p className="text-body-md text-on-surface-variant leading-relaxed">
+                      {c.body}
                     </p>
                   </div>
-                  <p className="text-body-md text-on-surface-variant leading-relaxed">
-                    {c.body}
-                  </p>
                 </div>
-              </div>
-            </GlassCard>
-          ))}
+              </GlassCard>
+            );
+          })}
         </div>
       </section>
 

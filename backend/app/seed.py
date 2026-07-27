@@ -9,6 +9,8 @@ from .models.user_creature import UserCreature
 from .models.message import Message
 from .models.post import Post, PostLike
 from .models.transaction import Transaction
+from .models.announcement import Announcement
+from .models.classified import Classified
 from .middleware.auth import hash_password
 
 
@@ -189,6 +191,7 @@ async def seed_data():
                 rarity="rare",
                 pet_type="avian",
                 price=450,
+                required_user_level=4,
                 image_url="/placeholder-generic.svg",
             ),
             Creature(
@@ -205,6 +208,7 @@ async def seed_data():
                 rarity="ethereal",
                 pet_type="avian",
                 price=600,
+                required_sanctuary_level=5,
                 image_url="/placeholder-generic.svg",
             ),
             Creature(
@@ -221,6 +225,8 @@ async def seed_data():
                 rarity="legendary",
                 pet_type="beast",
                 price=5200,
+                required_user_level=6,
+                required_sanctuary_level=8,
                 image_url="/placeholder-generic.svg",
             ),
         ]
@@ -304,6 +310,37 @@ async def seed_data():
             ),
         ]
         db.add_all(articles)
+
+        # Announcements (short bulletin texts for /news sidebar)
+        announcements_seed = [
+            Announcement(
+                body="La Copa de las Casas arranca el proximo viernes en el Gran Salon",
+            ),
+            Announcement(
+                body="Nuevas reglas para el Santuario de Mascotas: maximo 3 criaturas por estudiante",
+            ),
+            Announcement(
+                body="Flourish & Blotts ofrece un 20% de descuento en libros de pociones esta semana",
+            ),
+        ]
+        db.add_all(announcements_seed)
+
+        # Classifieds (title + price for /news sidebar)
+        classifieds_seed = [
+            Classified(
+                title="Vendo escoba Nimbus 2001",
+                price="150 Zerines",
+            ),
+            Classified(
+                title="Se buscan voluntarios para Hogsmeade",
+                price="Gratis",
+            ),
+            Classified(
+                title="Intercambio de cartas de Quidditch",
+                price="A convenir",
+            ),
+        ]
+        db.add_all(classifieds_seed)
 
         # Messages
         messages = [

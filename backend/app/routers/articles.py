@@ -5,12 +5,17 @@ from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
-from ..models.article import Article
+from ..models.article import Article, ArticleComment
 from ..models.user import User
 from ..models.article_subscription import ArticleSubscription, Notification
-from ..schemas.article import ArticleCreate, ArticleUpdate, ArticleResponse, ArticleSubscriptionResponse, NotificationResponse
+from ..schemas.article import (
+    ArticleCreate, ArticleUpdate, ArticleResponse, ArticleSubscriptionResponse,
+    NotificationResponse, ArticleCommentCreate, ArticleCommentResponse,
+)
+from ..schemas.user import UserResponse
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
+from ..notifications_service import notify, notify_all_users, resolve_mentions, N
 
 router = APIRouter()
 
@@ -111,8 +116,16 @@ async def create_article(
     await db.commit()
     await db.refresh(article)
 
-    # Notify subscribers
-    await notify_subscribers(db, article, "article_created")
+    # A brand-new article is public news: tell everyone (except the author).
+    await notify_all_users(
+        db,
+        type=N.ARTICLE_CREATED,
+        title="Nuevo artículo en El Quisquilloso",
+        body=f'Se publicó "{article.title}"',
+        related_id=article.id,
+        exclude_id=current_user.id,
+    )
+    await db.commit()
 
     # Load author for response
     result = await db.execute(
@@ -242,6 +255,84 @@ async def get_my_subscriptions(
         article.subscribed = True
 
     return articles
+
+
+@router.get("/{article_id}/comments", response_model=List[ArticleCommentResponse])
+async def list_article_comments(
+    article_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(ArticleComment)
+        .where(ArticleComment.article_id == article_id)
+        .order_by(ArticleComment.created_at.desc())
+    )
+    comments = result.scalars().all()
+    out = []
+    for c in comments:
+        resp = ArticleCommentResponse.model_validate(c)
+        if c.user:
+            resp.author = UserResponse.model_validate(c.user)
+        out.append(resp)
+    return out
+
+
+@router.post(
+    "/{article_id}/comments",
+    response_model=ArticleCommentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_article_comment(
+    article_id: str,
+    data: ArticleCommentCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    body = data.body.strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="El comentario no puede estar vacío")
+
+    article = (
+        await db.execute(select(Article).where(Article.id == article_id))
+    ).scalar_one_or_none()
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    comment = ArticleComment(article_id=article_id, user_id=current_user.id, body=body)
+    db.add(comment)
+    await db.flush()
+
+    # Recipients: the author, every subscriber, and anyone @mentioned — deduped,
+    # never the commenter themselves (notify() also guards actor == user).
+    subs = (
+        await db.execute(
+            select(ArticleSubscription.user_id).where(
+                ArticleSubscription.article_id == article_id
+            )
+        )
+    ).scalars().all()
+    recipients = {article.author_id, *subs}
+    for u in await resolve_mentions(db, body):
+        recipients.add(u.id)
+    recipients.discard(current_user.id)
+
+    for uid in recipients:
+        await notify(
+            db,
+            user_id=uid,
+            type=N.ARTICLE_COMMENT,
+            title=f"{current_user.name} comentó en {article.title}",
+            body=body[:200],
+            related_id=article_id,
+            actor_id=current_user.id,
+        )
+
+    await db.commit()
+    await db.refresh(comment)
+    resp = ArticleCommentResponse.model_validate(comment)
+    resp.author = UserResponse.model_validate(current_user)
+    return resp
 
 
 @router.get("/notifications", response_model=List[NotificationResponse])

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { Product } from "./api";
 
-interface CartItem {
+export interface CartItem {
   product: Product;
   quantity: number;
 }
@@ -11,6 +11,7 @@ interface CartState {
   isOpen: boolean;
   addItem: (product: Product) => void;
   removeItem: (productId: string) => void;
+  updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   toggleCart: () => void;
   getTotal: () => number;
@@ -38,6 +39,17 @@ export const useCartStore = create<CartState>((set, get) => ({
     set((state) => ({
       items: state.items.filter((i) => i.product.id !== productId),
     })),
+  updateQuantity: (productId, quantity) =>
+    set((state) => {
+      if (quantity <= 0) {
+        return { items: state.items.filter((i) => i.product.id !== productId) };
+      }
+      return {
+        items: state.items.map((i) =>
+          i.product.id === productId ? { ...i, quantity } : i
+        ),
+      };
+    }),
   clearCart: () => set({ items: [], isOpen: false }),
   toggleCart: () => set((state) => ({ isOpen: !state.isOpen })),
   getTotal: () =>

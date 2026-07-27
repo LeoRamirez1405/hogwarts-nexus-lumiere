@@ -21,3 +21,15 @@ class Article(Base):
 
     author = relationship("User", back_populates="articles", lazy="selectin")
     subscriptions = relationship("ArticleSubscription", back_populates="article", lazy="selectin")
+
+
+class ArticleComment(Base):
+    __tablename__ = "article_comments"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    article_id = Column(String, ForeignKey("articles.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    body = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", lazy="selectin")

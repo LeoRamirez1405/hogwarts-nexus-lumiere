@@ -64,7 +64,9 @@ export default function ConversationItem({
             {conversation.last_message?.body ?? "Sin mensajes"}
          </p>
           {conversation.unread_count > 0 && (
-            <Badge variant="count">{conversation.unread_count}</Badge>
+            <Badge variant="count">
+              {conversation.unread_count > 99 ? "+99" : conversation.unread_count}
+            </Badge>
           )}
        </div>
      </div>

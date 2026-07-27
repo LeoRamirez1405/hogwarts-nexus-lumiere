@@ -1,6 +1,6 @@
 from .user import User
 from .product import Product
-from .article import Article
+from .article import Article, ArticleComment
 from .creature import Creature
 from .user_creature import UserCreature
 from .pet_item import PetItem
@@ -12,3 +12,4 @@ from .article_subscription import ArticleSubscription, Notification
 from .announcement import Announcement
 from .classified import Classified
 from .chat_room import ChatRoom, ChatRoomMember, UserConversationPreference
+from .forum import ForumThread, ForumThreadVote, ForumComment, ForumSubscription

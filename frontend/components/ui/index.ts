@@ -9,3 +9,5 @@ export { default as Modal } from "./Modal";
 export { default as TabGroup } from "./TabGroup";
 export { default as FAB } from "./FAB";
 export { default as LanguageSelector } from "./LanguageSelector";
+export { default as LevelUpCelebration } from "./LevelUpCelebration";
+export { MaterialIcon } from "./MaterialIcon";

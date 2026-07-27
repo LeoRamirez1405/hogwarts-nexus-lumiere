@@ -26,11 +26,14 @@ class Notification(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    type = Column(String, nullable=False)  # article_created, article_updated, etc.
+    type = Column(String, nullable=False)  # article_created, post_like, mention, etc.
     title = Column(String, nullable=False)
     body = Column(Text, nullable=False)
     related_id = Column(String, nullable=True)
+    # Who triggered the notification (for avatars and "X y N mas" aggregation).
+    actor_id = Column(String, ForeignKey("users.id"), nullable=True)
     read = Column(String, default="false", nullable=False)  # "true" / "false"
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    user = relationship("User", lazy="selectin")
+    user = relationship("User", foreign_keys=[user_id], back_populates="notifications", lazy="selectin")
+    actor = relationship("User", foreign_keys=[actor_id], lazy="selectin")

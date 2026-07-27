@@ -62,8 +62,11 @@ export default function AdminCreaturesPage() {
     name: "",
     description: "",
     rarity: "common" as Creature["rarity"],
+    pet_type: "critter" as Creature["pet_type"],
     price: "",
     image_url: "",
+    required_user_level: "",
+    required_sanctuary_level: "",
   });
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -91,7 +94,16 @@ export default function AdminCreaturesPage() {
   const openNew = () => {
     setIsNew(true);
     setEditCreature(null);
-    setForm({ name: "", description: "", rarity: "common", price: "", image_url: "" });
+    setForm({
+      name: "",
+      description: "",
+      rarity: "common",
+      pet_type: "critter",
+      price: "",
+      image_url: "",
+      required_user_level: "",
+      required_sanctuary_level: "",
+    });
   };
 
   const openEdit = (c: Creature) => {
@@ -101,8 +113,11 @@ export default function AdminCreaturesPage() {
       name: c.name,
       description: c.description,
       rarity: c.rarity,
+      pet_type: c.pet_type,
       price: c.price.toString(),
       image_url: c.image_url || "",
+      required_user_level: (c.required_user_level ?? 1).toString(),
+      required_sanctuary_level: (c.required_sanctuary_level ?? 0).toString(),
     });
   };
 
@@ -113,8 +128,11 @@ export default function AdminCreaturesPage() {
         name: form.name,
         description: form.description,
         rarity: form.rarity,
+        pet_type: form.pet_type,
         price: parseInt(form.price) || 0,
         image_url: form.image_url || undefined,
+        required_user_level: Math.max(1, parseInt(form.required_user_level) || 1),
+        required_sanctuary_level: Math.max(0, parseInt(form.required_sanctuary_level) || 0),
       };
       if (isNew) {
         const created = await api.createCreature(data);
@@ -257,6 +275,25 @@ export default function AdminCreaturesPage() {
                     <option value="legendary">Legendario</option>
                     <option value="ethereal">Etereo</option>
                   </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Tipo de mascota</label>
+                <select value={form.pet_type} onChange={(e) => setForm((p) => ({ ...p, pet_type: e.target.value as Creature["pet_type"] }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors">
+                  <option value="avian">Aves</option>
+                  <option value="beast">Bestias</option>
+                  <option value="critter">Criaturas pequenas</option>
+                </select>
+                <p className="text-label-sm text-on-surface-variant mt-1">Determina que comida y juguetes acepta.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Nivel magico req.</label>
+                  <input type="number" min={1} value={form.required_user_level} onChange={(e) => setForm((p) => ({ ...p, required_user_level: e.target.value }))} placeholder="1 = sin requisito" className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
+                </div>
+                <div>
+                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Nivel santuario req.</label>
+                  <input type="number" min={0} value={form.required_sanctuary_level} onChange={(e) => setForm((p) => ({ ...p, required_sanctuary_level: e.target.value }))} placeholder="0 = sin requisito" className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
                 </div>
               </div>
               <div>

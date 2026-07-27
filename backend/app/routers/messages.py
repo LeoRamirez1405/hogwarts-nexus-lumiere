@@ -9,6 +9,7 @@ import io
 import tempfile
 import os
 import re
+import cloudinary.uploader
 
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from ..models.message import Message, Poll, PollOption, PollVote, MessageReactio
 from ..models.chat_room import ChatRoom, ChatRoomMember, UserConversationPreference
 from ..models.user import User
 from ..models.article_subscription import Notification
+from ..notifications_service import notify, resolve_mentions, N
 from ..schemas.message import (
     ChatRoomCreate,
     ChatRoomUpdate,
@@ -44,19 +46,52 @@ UPLOAD_DIR = Path("uploads")
 
 
 def _delete_attachment_file(attachment_url: Optional[str]) -> None:
-    """Best-effort removal of an uploaded file referenced by a message."""
+    """Best-effort removal of an uploaded file referenced by a message.
+    
+    Handles both local file paths (for backward compatibility) and Cloudinary URLs.
+    """
     if not attachment_url:
         return
-    # Stored as http://.../uploads/<filename>
-    filename = attachment_url.rstrip("/").split("/")[-1]
-    if not filename:
-        return
-    filepath = UPLOAD_DIR / filename
-    try:
-        if filepath.exists() and filepath.is_file():
-            filepath.unlink()
-    except OSError:
-        pass
+    
+    # Handle local file paths (backward compatibility)
+    if attachment_url.startswith("http://localhost:8000/uploads/") or \
+       attachment_url.startswith("/uploads/"):
+        # Extract filename from URL
+        if attachment_url.startswith("http://localhost:8000/uploads/"):
+            filename = attachment_url[len("http://localhost:8000/uploads/"):]
+        else:  # starts with /uploads/
+            filename = attachment_url[len("/uploads/"):]
+        
+        if not filename:
+            return
+            
+        filepath = UPLOAD_DIR / filename
+        try:
+            if filepath.exists() and filepath.is_file():
+                filepath.unlink()
+        except OSError:
+            pass
+    
+    # Handle Cloudinary URLs
+    elif "res.cloudinary.com" in attachment_url:
+        try:
+            # Extract public_id from Cloudinary URL
+            # Format: https://res.cloudinary.com/<cloud_name>/image/upload/v1234567890/public_id.extension
+            # or: https://res.cloudinary.com/<cloud_name>/<resource_type>/<upload_type>/v1234567890/public_id.extension
+            import re
+            # Match pattern: /<resource_type>/<upload_type>/v<timestamp>/<public_id>.<extension>
+            # or: /<resource_type>/<upload_type>/<public_id>.<extension>
+            match = re.search(r'/([^/]+/[^/]+/v\d+_/)?([^/]+?)\.[^/]+$', attachment_url)
+            if match:
+                public_id = match.group(2)  # The public_id part
+                # Full public_id includes the folder prefix
+                full_public_id = f"nexus_uploads/{public_id}"
+                
+                # Delete from Cloudinary
+                cloudinary.uploader.destroy(full_public_id, resource_type="auto")
+        except Exception:
+            # Best effort - don't fail the retention sweep if Cloudinary deletion fails
+            pass
 
 router = APIRouter()
 
@@ -317,42 +352,19 @@ async def create_mention_notifications(
     room_id: str,
     message_id: str,
 ):
-    # Names can be multi-word, and the text after an "@" usually keeps going
-    # ("@Hermione Granger mira esto"). So we can't just capture the phrase and
-    # match it whole. Instead: for every "@<phrase>", pick the *longest* real
-    # user name that is a prefix of that phrase. Loading all users is cheap at
-    # this scale (<= ~100).
-    all_users = (await db.execute(select(User))).scalars().all()
-    users_by_lower = {}
-    for u in all_users:
-        # keep the first user for a given (lowercased) name; duplicates are rare
-        users_by_lower.setdefault(u.name.lower(), u)
-
-    mention_pattern = re.compile(r"@([A-Za-z\u00C0-\u017F]+(?: [A-Za-z\u00C0-\u017F]+)*)")
-    notified_ids: set[str] = set()
-    for match in mention_pattern.finditer(body):
-        words = match.group(1).split(" ")
-        mentioned_user = None
-        for k in range(len(words), 0, -1):  # longest prefix first
-            candidate = " ".join(words[:k]).lower()
-            if candidate in users_by_lower:
-                mentioned_user = users_by_lower[candidate]
-                break
-        if not mentioned_user:
-            continue
-        if mentioned_user.id == sender.id or mentioned_user.id in notified_ids:
-            continue
-        notified_ids.add(mentioned_user.id)
-        notification = Notification(
+    """Notify every user "@mentioned" in a room message (resolution lives in the
+    shared notifications_service)."""
+    for mentioned_user in await resolve_mentions(db, body):
+        await notify(
+            db,
             user_id=mentioned_user.id,
-            type="mention",
+            type=N.MENTION,
             title=f"@{sender.name} te mencionó en {room_name}",
             body=body[:200],
             # related_id encodes the jump target: "<room_id>:<message_id>"
             related_id=f"{room_id}:{message_id}",
-            read="false",
+            actor_id=sender.id,
         )
-        db.add(notification)
 
 
 @router.post("/", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
@@ -445,6 +457,7 @@ async def send_message(
         for opt in message.poll.options:
             await db.refresh(opt)
 
+    notified = False
     # Create mention notifications for room messages
     if message.room_id and message.body and "@" in message.body:
         room_result2 = await db.execute(
@@ -455,6 +468,25 @@ async def send_message(
         await create_mention_notifications(
             db, current_user, message.body, room_name, message.room_id, message.id
         )
+        notified = True
+
+    # Direct message: let the recipient know they got a new message.
+    if message.receiver_id and not message.room_id:
+        preview = (message.body or "").strip()
+        if not preview:
+            preview = "Te envió un adjunto" if message.attachment_url else "Nuevo mensaje"
+        await notify(
+            db,
+            user_id=message.receiver_id,
+            type=N.DM_MESSAGE,
+            title=f"Nuevo mensaje de {current_user.name}",
+            body=preview[:200],
+            related_id=current_user.id,
+            actor_id=current_user.id,
+        )
+        notified = True
+
+    if notified:
         await db.commit()
 
     return await serialize_message(db, message, current_user.id)
@@ -759,6 +791,15 @@ async def add_room_member(
 
     member = ChatRoomMember(room_id=room_id, user_id=member_id, role=role)
     db.add(member)
+    await notify(
+        db,
+        user_id=member_id,
+        type=N.GROUP_ADDED,
+        title=f"Te agregaron a {room.name}",
+        body=f"{current_user.name} te añadió al grupo {room.name}.",
+        related_id=room_id,
+        actor_id=current_user.id,
+    )
     await db.commit()
     await db.refresh(member)
     member.user = user

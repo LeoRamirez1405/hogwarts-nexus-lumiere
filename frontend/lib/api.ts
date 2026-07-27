@@ -1,4 +1,9 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// En build-time (Next.js 16) NEXT_PUBLIC_API_URL se incrusta en el bundle.
+// Si no se define, usamos mismo origen (/api proxy) en runtime del navegador,
+// evitando el fallo clasico de caer a localhost en produccion.
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined" ? `${window.location.origin}/api` : "http://localhost:8000");
 
 function buildQuery(params: Record<string, string | number | undefined | null>): string {
   const parts: string[] = [];
@@ -141,12 +146,75 @@ export const api = {
     request<void>(`/articles/${id}/subscribe`, { method: "DELETE" }),
   getMySubscriptions: () => request<Article[]>("/articles/my/subscriptions"),
 
+  // Announcements
+  getAnnouncements: () => request<Announcement[]>("/announcements"),
+  createAnnouncement: (data: Partial<Announcement>) =>
+    request<Announcement>("/announcements", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateAnnouncement: (id: string, data: Partial<Announcement>) =>
+    request<Announcement>(`/announcements/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteAnnouncement: (id: string) =>
+    request<void>(`/announcements/${id}`, { method: "DELETE" }),
+
+  // Classifieds
+  getClassifieds: () => request<Classified[]>("/classifieds"),
+  createClassified: (data: Partial<Classified>) =>
+    request<Classified>("/classifieds", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateClassified: (id: string, data: Partial<Classified>) =>
+    request<Classified>(`/classifieds/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteClassified: (id: string) =>
+    request<void>(`/classifieds/${id}`, { method: "DELETE" }),
+
   // Notifications
   getNotifications: () => request<Notification[]>("/notifications"),
+  getUnreadNotificationCount: () =>
+    request<{ count: number }>("/notifications/unread-count"),
   markNotificationRead: (id: string) =>
     request<Notification>(`/notifications/${id}/read`, { method: "PUT" }),
   markAllNotificationsRead: () =>
     request<void>("/notifications/read-all", { method: "PUT" }),
+
+  // Article comments
+  getArticleComments: (articleId: string) =>
+    request<ArticleComment[]>(`/articles/${articleId}/comments`),
+  createArticleComment: (articleId: string, body: string) =>
+    request<ArticleComment>(`/articles/${articleId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    }),
+
+  // Forum
+  getThreads: () => request<ForumThread[]>("/forum/"),
+  getThread: (id: string) => request<ForumThread>(`/forum/${id}`),
+  createThread: (data: { title: string; body: string; category: string }) =>
+    request<ForumThread>("/forum/", { method: "POST", body: JSON.stringify(data) }),
+  voteThread: (id: string, value: 1 | -1) =>
+    request<ForumThread>(`/forum/${id}/vote`, {
+      method: "POST",
+      body: JSON.stringify({ value }),
+    }),
+  getThreadComments: (id: string) =>
+    request<ForumComment[]>(`/forum/${id}/comments`),
+  createThreadComment: (id: string, body: string) =>
+    request<ForumComment>(`/forum/${id}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    }),
+  subscribeThread: (id: string) =>
+    request<{ subscribed: boolean }>(`/forum/${id}/subscribe`, { method: "POST" }),
+  unsubscribeThread: (id: string) =>
+    request<void>(`/forum/${id}/subscribe`, { method: "DELETE" }),
 
   // Creatures
   getCreatures: () => request<Creature[]>("/creatures"),
@@ -170,6 +238,17 @@ export const api = {
       body: JSON.stringify({ item_id: itemId }),
     }),
   getMyCreatures: () => request<UserCreature[]>("/creatures/my"),
+  getSanctuaryStats: () => request<SanctuaryStats>("/creatures/stats"),
+  getCreatureMarket: () => request<MarketCreature[]>("/creatures/market"),
+  listCreatureForSale: (userCreatureId: string, price: number) =>
+    request<UserCreature>(`/creatures/${userCreatureId}/sell`, {
+      method: "POST",
+      body: JSON.stringify({ price }),
+    }),
+  unlistCreature: (userCreatureId: string) =>
+    request<UserCreature>(`/creatures/${userCreatureId}/sell`, { method: "DELETE" }),
+  buyMarketCreature: (userCreatureId: string) =>
+    request<UserCreature>(`/creatures/market/${userCreatureId}/buy`, { method: "POST" }),
 
   // Pet items (food / toys)
   getPetItems: (params?: { kind?: string; pet_type?: string }) =>
@@ -399,6 +478,19 @@ export interface ArticleSubscription {
   created_at: string;
 }
 
+export interface Announcement {
+  id: string;
+  body: string;
+  created_at: string;
+}
+
+export interface Classified {
+  id: string;
+  title: string;
+  price: string;
+  created_at: string;
+}
+
 export interface Notification {
   id: string;
   user_id: string;
@@ -406,8 +498,42 @@ export interface Notification {
   title: string;
   body: string;
   related_id?: string;
+  actor_id?: string;
+  actor?: User;
   read: boolean;
   created_at: string;
+}
+
+export interface ArticleComment {
+  id: string;
+  article_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  author?: User;
+}
+
+export interface ForumThread {
+  id: string;
+  author_id: string;
+  author?: User;
+  title: string;
+  body: string;
+  category: string;
+  created_at: string;
+  vote_count: number;
+  my_vote: number;
+  comment_count: number;
+  subscribed: boolean;
+}
+
+export interface ForumComment {
+  id: string;
+  thread_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  author?: User;
 }
 
 export type PetType = "avian" | "beast" | "critter";
@@ -421,6 +547,8 @@ export interface Creature {
   pet_type: PetType;
   price: number;
   image_url?: string;
+  required_user_level: number;
+  required_sanctuary_level: number;
   created_at: string;
 }
 
@@ -430,10 +558,44 @@ export interface UserCreature {
   creature_id: string;
   creature?: Creature;
   level: number;
+  level_name: string;
   hunger: number;
   happiness: number;
   mood: string;
+  age_days: number;
+  stage: string;
+  for_sale: boolean;
+  sale_price?: number | null;
   adopted_at: string;
+}
+
+export interface MarketCreature {
+  id: string;
+  creature?: Creature;
+  level: number;
+  level_name: string;
+  stage: string;
+  sale_price: number;
+  seller_id: string;
+  seller_name: string;
+}
+
+export interface LevelProgress {
+  current_floor: number | null;
+  next_threshold: number | null;
+  percent: number;
+}
+
+export interface SanctuaryStats {
+  sanctuary_level: number;
+  sanctuary_score: number;
+  sanctuary_max: number;
+  sanctuary_progress: LevelProgress;
+  user_level: number;
+  user_level_name: string;
+  user_level_max: number;
+  user_progress: number; // 0..1 toward next user level
+  pets_count: number;
 }
 
 export interface PetItem {

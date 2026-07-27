@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: hogwarts-nexus-backend
+    env: python
+    buildCommand: ./build.sh
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hogwarts-nexus-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+
+databases:
+  - name: hogwarts-nexus-db
+    engine: postgres
+    plan: free
+
+# Note: For Turso, you would typically set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN
+# as environment variables directly in the Render dashboard rather than using a separate DB service
+# since Turso is an external service.

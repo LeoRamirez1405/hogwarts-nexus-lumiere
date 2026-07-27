@@ -12,13 +12,81 @@ from ..models.pet_item import PetItem
 from ..models.user_pet_item import UserPetItem
 from ..models.user import User
 from ..models.transaction import Transaction
+from ..models.article_subscription import Notification
 from ..schemas.creature import (
     CreatureCreate, CreatureResponse, UserCreatureResponse, UseItemRequest,
+    MarketCreatureResponse, ListForSaleRequest, SanctuaryStats,
 )
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
+from ..utils.magic_level import get_magic_level
+from .. import pet_progress
 
 router = APIRouter()
+
+
+async def _sanctuary_level_for(db: AsyncSession, user: User) -> int:
+    pets = (await db.execute(
+        select(UserCreature).where(UserCreature.user_id == user.id)
+    )).scalars().all()
+    score = pet_progress.sanctuary_score(
+        len(pets),
+        sum(p.level for p in pets),
+        user.items_purchased or 0,
+        user.care_actions or 0,
+    )
+    return pet_progress.sanctuary_level(score)
+
+
+async def _check_requirements(db: AsyncSession, user: User, creature: Creature) -> None:
+    """Raise 403 if the user doesn't meet a creature's level requirements."""
+    req_user = creature.required_user_level or 1
+    req_sanct = creature.required_sanctuary_level or 0
+    if req_user <= 1 and req_sanct <= 0:
+        return
+    if req_user > 1:
+        user_lvl = get_magic_level(user).get("level", 1)
+        if user_lvl < req_user:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Necesitas Nivel Magico {req_user} (tienes {user_lvl})",
+            )
+    if req_sanct > 0:
+        sanct_lvl = await _sanctuary_level_for(db, user)
+        if sanct_lvl < req_sanct:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Necesitas nivel de santuario {req_sanct} (tienes {sanct_lvl})",
+            )
+
+
+async def _process_aging(db: AsyncSession, uc: UserCreature) -> bool:
+    """Handle a pet's aging. Returns True if the pet was retired (removed).
+
+    Sends a one-time farewell heads-up near end of life, and retires the pet
+    with a farewell notification once its lifespan is exceeded. Does not commit.
+    """
+    name = uc.creature.name if uc.creature else "Tu mascota"
+    if pet_progress.pet_is_expired(uc.adopted_at):
+        db.add(Notification(
+            user_id=uc.user_id,
+            type="pet_farewell",
+            title="Una despedida",
+            body=f"{name} ha vivido una larga y feliz vida en tu santuario, y hoy parte en paz. Gracias por cuidarla.",
+            related_id=uc.creature_id,
+        ))
+        await db.delete(uc)
+        return True
+    if not uc.farewell_warned and pet_progress.pet_needs_farewell_warning(uc.adopted_at):
+        db.add(Notification(
+            user_id=uc.user_id,
+            type="pet_aging",
+            title="Tu mascota esta muy ancianita",
+            body=f"{name} ya es muy mayor. Disfruta y cuida bien sus ultimos dias.",
+            related_id=uc.creature_id,
+        ))
+        uc.farewell_warned = True
+    return False
 
 
 def _settle_decay(uc: UserCreature) -> None:
@@ -58,10 +126,84 @@ async def my_creatures(
         select(UserCreature).where(UserCreature.user_id == current_user.id)
     )
     creatures = result.scalars().all()
+    alive = []
     for uc in creatures:
+        retired = await _process_aging(db, uc)
+        if retired:
+            continue
         _settle_decay(uc)
+        alive.append(uc)
     await db.commit()
-    return creatures
+    return alive
+
+
+@router.get("/stats", response_model=SanctuaryStats)
+async def sanctuary_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Sanctuary level (0-23, from the whole sanctuary) + the user's own level.
+
+    The user level is the existing profile "magic level" (1-11), independent of
+    the pets; it is surfaced here only so the pets page can show and celebrate it.
+    """
+    pets = (await db.execute(
+        select(UserCreature).where(UserCreature.user_id == current_user.id)
+    )).scalars().all()
+    pets_count = len(pets)
+    levels_sum = sum(p.level for p in pets)
+
+    care = current_user.care_actions or 0
+    bought = current_user.items_purchased or 0
+
+    s_score = pet_progress.sanctuary_score(pets_count, levels_sum, bought, care)
+    s_level = pet_progress.sanctuary_level(s_score)
+
+    magic = get_magic_level(current_user)
+
+    return SanctuaryStats(
+        sanctuary_level=s_level,
+        sanctuary_score=s_score,
+        sanctuary_max=pet_progress.MAX_SANCTUARY_LEVEL,
+        sanctuary_progress=pet_progress.level_progress(
+            s_score, s_level, pet_progress.MAX_SANCTUARY_LEVEL, base=4.0
+        ),
+        user_level=magic.get("level", 1),
+        user_level_name=magic.get("name", ""),
+        user_level_max=11,
+        user_progress=float(magic.get("progress", 0.0)),
+        pets_count=pets_count,
+    )
+
+
+@router.get("/market", response_model=List[MarketCreatureResponse])
+async def creature_market(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Pets other users have listed for sale."""
+    result = await db.execute(
+        select(UserCreature, User)
+        .join(User, User.id == UserCreature.user_id)
+        .where(
+            UserCreature.for_sale.is_(True),
+            UserCreature.user_id != current_user.id,
+        )
+        .order_by(UserCreature.sale_price)
+    )
+    listings = []
+    for uc, seller in result.all():
+        listings.append(MarketCreatureResponse(
+            id=uc.id,
+            creature=uc.creature,
+            level=uc.level,
+            level_name=uc.level_name,
+            stage=uc.stage,
+            sale_price=uc.sale_price or 0,
+            seller_id=seller.id,
+            seller_name=seller.name,
+        ))
+    return listings
 
 
 @router.get("/{creature_id}", response_model=CreatureResponse)
@@ -132,6 +274,8 @@ async def adopt_creature(
     creature = result.scalar_one_or_none()
     if not creature:
         raise HTTPException(status_code=404, detail="Creature not found")
+
+    await _check_requirements(db, current_user, creature)
 
     if current_user.zerines < creature.price:
         raise HTTPException(
@@ -236,8 +380,14 @@ async def feed_creature(
 
     user_creature.hunger = min(100, user_creature.hunger + item.restore_amount)
     user_creature.happiness = min(100, user_creature.happiness + 5)
-    if user_creature.hunger >= 80 and user_creature.happiness >= 80:
+    if (
+        user_creature.hunger >= 80
+        and user_creature.happiness >= 80
+        and user_creature.level < UserCreature.MAX_LEVEL
+    ):
         user_creature.level += 1
+    current_user.care_actions += 1
+    user_creature.attention_warned = False  # cared for → re-arm the reminder
 
     await db.commit()
     await db.refresh(user_creature)
@@ -257,9 +407,118 @@ async def play_creature(
 
     user_creature.happiness = min(100, user_creature.happiness + item.restore_amount)
     user_creature.hunger = max(0, user_creature.hunger - 5)
-    if user_creature.happiness >= 90:
+    if (
+        user_creature.happiness >= 90
+        and user_creature.level < UserCreature.MAX_LEVEL
+    ):
         user_creature.level += 1
+    current_user.care_actions += 1
+    user_creature.attention_warned = False  # cared for → re-arm the reminder
 
     await db.commit()
     await db.refresh(user_creature)
     return user_creature
+
+
+async def _owned_creature(db, current_user, user_creature_id) -> UserCreature:
+    result = await db.execute(
+        select(UserCreature).where(
+            UserCreature.id == user_creature_id,
+            UserCreature.user_id == current_user.id,
+        )
+    )
+    uc = result.scalar_one_or_none()
+    if not uc:
+        raise HTTPException(status_code=404, detail="You don't own this creature")
+    return uc
+
+
+@router.post("/{user_creature_id}/sell", response_model=UserCreatureResponse)
+async def list_for_sale(
+    user_creature_id: str,
+    body: ListForSaleRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if body.price <= 0:
+        raise HTTPException(status_code=400, detail="El precio debe ser mayor que 0")
+    uc = await _owned_creature(db, current_user, user_creature_id)
+    uc.for_sale = True
+    uc.sale_price = body.price
+    await db.commit()
+    await db.refresh(uc)
+    return uc
+
+
+@router.delete("/{user_creature_id}/sell", response_model=UserCreatureResponse)
+async def unlist_from_sale(
+    user_creature_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    uc = await _owned_creature(db, current_user, user_creature_id)
+    uc.for_sale = False
+    uc.sale_price = None
+    await db.commit()
+    await db.refresh(uc)
+    return uc
+
+
+@router.post("/market/{user_creature_id}/buy", response_model=UserCreatureResponse)
+async def buy_from_market(
+    user_creature_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(UserCreature).where(UserCreature.id == user_creature_id)
+    )
+    uc = result.scalar_one_or_none()
+    if not uc or not uc.for_sale:
+        raise HTTPException(status_code=404, detail="Esta mascota no esta a la venta")
+    if uc.user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Ya es tu mascota")
+
+    if uc.creature:
+        await _check_requirements(db, current_user, uc.creature)
+
+    price = uc.sale_price or 0
+    if current_user.zerines < price:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No tienes suficientes zerines. Necesitas {price}, tienes {current_user.zerines}",
+        )
+
+    seller = (await db.execute(
+        select(User).where(User.id == uc.user_id)
+    )).scalar_one_or_none()
+
+    # Transfer funds and ownership.
+    current_user.zerines -= price
+    if seller:
+        seller.zerines += price
+    former_owner_id = uc.user_id
+    uc.user_id = current_user.id
+    uc.for_sale = False
+    uc.sale_price = None
+
+    creature_name = uc.creature.name if uc.creature else "una mascota"
+    db.add(Transaction(
+        sender_id=current_user.id,
+        receiver_id=former_owner_id,
+        amount=price,
+        type="purchase",
+        description=f"Compra de mascota: {creature_name}",
+        status="confirmed",
+    ))
+    db.add(Notification(
+        user_id=former_owner_id,
+        type="pet_sold",
+        title="Vendiste una mascota",
+        body=f"{current_user.name} compro a {creature_name} por {price} zerines.",
+        related_id=uc.creature_id,
+    ))
+
+    await db.commit()
+    await db.refresh(uc)
+    return uc

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/authStore";
 import { api, Notification } from "@/lib/api";
+import { notificationMeta } from "@/lib/notificationMeta";
 import Avatar from "@/components/ui/Avatar";
 
 interface TopBarProps {
@@ -69,15 +70,29 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   }, []);
 
   useEffect(() => {
-    if (user) {
+    if (!user) return;
+    let active = true;
+    const load = () => {
       api.getNotifications()
-        .then(setNotifications)
+        .then((n) => {
+          if (active) setNotifications(n);
+        })
         .catch(() => {})
-        .finally(() => setLoadingNotifs(false));
-    }
+        .finally(() => {
+          if (active) setLoadingNotifs(false);
+        });
+    };
+    load();
+    // Light polling so fresh notifications trickle in without a page reload.
+    const id = setInterval(load, 45000);
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
   }, [user]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadLabel = unreadCount > 99 ? "+99" : String(unreadCount);
 
   const handleNotificationClick = async (notif: Notification) => {
     if (!notif.read) {
@@ -89,18 +104,8 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       } catch {}
     }
     setShowNotifications(false);
-    if (!notif.related_id) return;
-    if (notif.type === "mention") {
-      // related_id is "<room_id>:<message_id>" — open the chat and jump there
-      const [roomId, messageId] = notif.related_id.split(":");
-      if (roomId && messageId) {
-        router.push(`/messages?room=${roomId}&msg=${messageId}`);
-      } else {
-        router.push("/messages");
-      }
-    } else {
-      router.push(`/news/${notif.related_id}`);
-    }
+    const dest = notificationMeta(notif.type).route(notif);
+    if (dest) router.push(dest);
   };
 
   const markAllAsRead = async () => {
@@ -173,7 +178,9 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             >
               <MaterialIcon name="notifications" className="text-2xl" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-error rounded-full border-2 border-surface" />
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center bg-error text-white text-[10px] font-bold rounded-full border-2 border-surface">
+                  {unreadLabel}
+                </span>
               )}
             </button>
             {showNotifications && (
@@ -212,13 +219,13 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                         }`}
                       >
                         <div
-                          className={`w-9 h-9 inline-flex items-center justify-center rounded-full flex-shrink-0 ${
-                            !n.read
-                              ? "bg-primary/10 text-primary"
-                              : "bg-surface-container-high text-on-surface-variant"
-                          }`}
+                          className={`w-9 h-9 inline-flex items-center justify-center rounded-full flex-shrink-0 ${notificationMeta(n.type).chip}`}
                         >
-                          <MaterialIcon name="article" className="text-lg" />
+                          <MaterialIcon
+                            name={notificationMeta(n.type).icon}
+                            className="text-lg"
+                            filled={!n.read}
+                          />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p
@@ -245,15 +252,13 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                   )}
                 </div>
                 <div className="border-t border-outline-variant/20 px-4 py-2.5">
-                  <button
-                    onClick={() => {
-                      setShowNotifications(false);
-                      markAllAsRead();
-                    }}
-                    className="w-full text-center text-body-md text-primary font-medium hover:underline"
+                  <Link
+                    href="/notifications"
+                    onClick={() => setShowNotifications(false)}
+                    className="block w-full text-center text-body-md text-primary font-medium hover:underline"
                   >
                     Ver todas
-                  </button>
+                  </Link>
                 </div>
               </div>
             )}

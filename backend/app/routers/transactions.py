@@ -10,6 +10,7 @@ from ..models.user import User
 from ..schemas.transaction import TransactionCreate, TransferRequest, TransactionResponse
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
+from ..notifications_service import notify, N
 
 router = APIRouter()
 
@@ -135,6 +136,16 @@ async def transfer(
         status="confirmed",
     )
     db.add(transaction)
+    await db.flush()
+    await notify(
+        db,
+        user_id=receiver.id,
+        type=N.ZERINES_RECEIVED,
+        title=f"Recibiste {data.amount} zerines",
+        body=f"{current_user.name} te transfirió {data.amount} zerines.",
+        related_id=transaction.id,
+        actor_id=current_user.id,
+    )
     await db.commit()
     await db.refresh(transaction)
     return transaction

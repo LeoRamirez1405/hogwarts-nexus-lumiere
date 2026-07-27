@@ -10,6 +10,7 @@ import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import Image from "next/image";
 
 function MaterialIcon({
   name,
@@ -435,9 +436,15 @@ export default function AdminGroupsPage() {
                 onClick={() => createAvatarRef.current?.click()}
                 className="relative w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden border-2 border-dashed border-outline-variant/40 hover:border-primary/60 transition-colors"
               >
-                {newRoom.avatar_url ? (
-                  <img src={newRoom.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                ) : uploadingAvatar ? (
+{newRoom.avatar_url ? (
+                      <Image
+                        src={newRoom.avatar_url}
+                        alt="Avatar"
+                        fill
+                        className="object-cover"
+                        unoptimized={newRoom.avatar_url?.startsWith("http://localhost:8000/uploads/") ?? false}
+                      />
+                    ) : uploadingAvatar ? (
                   <MaterialIcon name="progress_activity" className="text-2xl text-outline-variant animate-spin" />
                 ) : (
                   <MaterialIcon name="add_a_photo" className="text-2xl text-outline-variant" />
@@ -550,9 +557,15 @@ export default function AdminGroupsPage() {
                 onClick={() => editAvatarRef.current?.click()}
                 className="relative w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden border-2 border-dashed border-outline-variant/40 hover:border-primary/60 transition-colors"
               >
-                {editRoom.avatar_url ? (
-                  <img src={editRoom.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                ) : uploadingEditAvatar ? (
+{editRoom.avatar_url ? (
+                      <Image
+                        src={editRoom.avatar_url}
+                        alt="Avatar"
+                        fill
+                        className="object-cover"
+                        unoptimized={editRoom.avatar_url?.startsWith("http://localhost:8000/uploads/") ?? false}
+                      />
+                    ) : uploadingEditAvatar ? (
                   <MaterialIcon name="progress_activity" className="text-2xl text-outline-variant animate-spin" />
                 ) : (
                   <MaterialIcon name="add_a_photo" className="text-2xl text-outline-variant" />

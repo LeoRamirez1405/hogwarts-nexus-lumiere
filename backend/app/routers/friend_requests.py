@@ -9,6 +9,7 @@ from ..models.user import User
 from ..schemas.friend_request import FriendRequestCreate, FriendRequestResponse
 from ..schemas.user import UserResponse
 from ..middleware.auth import get_current_user
+from ..notifications_service import notify, N
 from sqlalchemy.orm import selectinload
 
 router = APIRouter()
@@ -82,6 +83,15 @@ async def send_friend_request(
 
     fr = FriendRequest(sender_id=current_user.id, receiver_id=data.receiver_id)
     db.add(fr)
+    await notify(
+        db,
+        user_id=data.receiver_id,
+        type=N.FRIEND_REQUEST,
+        title=f"{current_user.name} te envió una solicitud de amistad",
+        body="Revisa tu perfil para aceptarla o rechazarla.",
+        related_id=current_user.id,
+        actor_id=current_user.id,
+    )
     await db.commit()
     await db.refresh(fr)
     return fr
@@ -103,6 +113,15 @@ async def accept_friend_request(
         raise HTTPException(status_code=400, detail="La solicitud ya fue procesada")
 
     fr.status = "accepted"
+    await notify(
+        db,
+        user_id=fr.sender_id,
+        type=N.FRIEND_ACCEPTED,
+        title=f"{current_user.name} aceptó tu solicitud de amistad",
+        body="¡Ahora son amigos!",
+        related_id=current_user.id,
+        actor_id=current_user.id,
+    )
     await db.commit()
     await db.refresh(fr)
     return fr
