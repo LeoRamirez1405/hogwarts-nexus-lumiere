@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, and_, func, desc
+from sqlalchemy import select, or_, and_, func, desc, update
 from sqlalchemy.orm import selectinload
 import json
 import io
@@ -10,7 +10,10 @@ import tempfile
 import os
 import re
 
+from pathlib import Path
+
 from ..database import get_db
+from ..config import settings
 from ..models.message import Message, Poll, PollOption, PollVote, MessageReaction
 from ..models.chat_room import ChatRoom, ChatRoomMember, UserConversationPreference
 from ..models.user import User
@@ -23,6 +26,7 @@ from ..schemas.message import (
     ChatRoomMemberResponse,
     MessageCreate,
     MessageResponse,
+    MessagePage,
     ConversationResponse,
     PollCreate,
     PollVoteRequest,
@@ -35,6 +39,24 @@ from ..schemas.message import (
 )
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
+
+UPLOAD_DIR = Path("uploads")
+
+
+def _delete_attachment_file(attachment_url: Optional[str]) -> None:
+    """Best-effort removal of an uploaded file referenced by a message."""
+    if not attachment_url:
+        return
+    # Stored as http://.../uploads/<filename>
+    filename = attachment_url.rstrip("/").split("/")[-1]
+    if not filename:
+        return
+    filepath = UPLOAD_DIR / filename
+    try:
+        if filepath.exists() and filepath.is_file():
+            filepath.unlink()
+    except OSError:
+        pass
 
 router = APIRouter()
 
@@ -108,6 +130,7 @@ async def serialize_message(
         attachment_name=msg.attachment_name,
         metadata=metadata,
         read=msg.read,
+        pinned=bool(msg.pinned),
         created_at=msg.created_at,
         sender=msg.sender,
         receiver=msg.receiver,
@@ -184,18 +207,16 @@ async def build_conversations(
     )
     rooms = room_result.scalars().all()
 
-    # Also load mute status for rooms
-    mute_result = await db.execute(
-        select(ChatRoomMember).where(
-            and_(
-                ChatRoomMember.user_id == current_user.id,
-                ChatRoomMember.muted_until.isnot(None),
-            )
-        )
+    # Load this user's room memberships (mute status + last-read marker)
+    membership_result = await db.execute(
+        select(ChatRoomMember).where(ChatRoomMember.user_id == current_user.id)
     )
     muted_rooms = {}
-    for m in mute_result.scalars().all():
-        muted_rooms[m.room_id] = m.muted_until
+    last_read_map = {}
+    for m in membership_result.scalars().all():
+        if m.muted_until is not None:
+            muted_rooms[m.room_id] = m.muted_until
+        last_read_map[m.room_id] = m.last_read_at
 
     dm_map = {}
     for msg in dms:
@@ -238,14 +259,15 @@ async def build_conversations(
         last_msg = msg_result.scalars().first()
         unread = 0
         if last_msg:
+            last_read = last_read_map.get(room.id)
+            count_filters = [
+                Message.room_id == room.id,
+                Message.sender_id != current_user.id,
+            ]
+            if last_read is not None:
+                count_filters.append(Message.created_at > last_read)
             count_result = await db.execute(
-                select(func.count(Message.id)).where(
-                    and_(
-                        Message.room_id == room.id,
-                        Message.sender_id != current_user.id,
-                        Message.read == False,
-                    )
-                )
+                select(func.count(Message.id)).where(and_(*count_filters))
             )
             unread = count_result.scalar() or 0
 
@@ -292,25 +314,45 @@ async def create_mention_notifications(
     sender: User,
     body: str,
     room_name: str,
+    room_id: str,
     message_id: str,
 ):
+    # Names can be multi-word, and the text after an "@" usually keeps going
+    # ("@Hermione Granger mira esto"). So we can't just capture the phrase and
+    # match it whole. Instead: for every "@<phrase>", pick the *longest* real
+    # user name that is a prefix of that phrase. Loading all users is cheap at
+    # this scale (<= ~100).
+    all_users = (await db.execute(select(User))).scalars().all()
+    users_by_lower = {}
+    for u in all_users:
+        # keep the first user for a given (lowercased) name; duplicates are rare
+        users_by_lower.setdefault(u.name.lower(), u)
+
     mention_pattern = re.compile(r"@([A-Za-z\u00C0-\u017F]+(?: [A-Za-z\u00C0-\u017F]+)*)")
-    mentions = mention_pattern.findall(body)
-    for name in mentions:
-        user_result = await db.execute(
-            select(User).where(User.name.ilike(f"%{name}%"))
+    notified_ids: set[str] = set()
+    for match in mention_pattern.finditer(body):
+        words = match.group(1).split(" ")
+        mentioned_user = None
+        for k in range(len(words), 0, -1):  # longest prefix first
+            candidate = " ".join(words[:k]).lower()
+            if candidate in users_by_lower:
+                mentioned_user = users_by_lower[candidate]
+                break
+        if not mentioned_user:
+            continue
+        if mentioned_user.id == sender.id or mentioned_user.id in notified_ids:
+            continue
+        notified_ids.add(mentioned_user.id)
+        notification = Notification(
+            user_id=mentioned_user.id,
+            type="mention",
+            title=f"@{sender.name} te mencionó en {room_name}",
+            body=body[:200],
+            # related_id encodes the jump target: "<room_id>:<message_id>"
+            related_id=f"{room_id}:{message_id}",
+            read="false",
         )
-        mentioned_user = user_result.scalar_one_or_none()
-        if mentioned_user and mentioned_user.id != sender.id:
-            notification = Notification(
-                user_id=mentioned_user.id,
-                type="mention",
-                title=f"@{sender.name} te mencionó en {room_name}",
-                body=body[:200],
-                related_id=message_id,
-                read="false",
-            )
-            db.add(notification)
+        db.add(notification)
 
 
 @router.post("/", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
@@ -410,7 +452,9 @@ async def send_message(
         )
         room_obj = room_result2.scalar_one_or_none()
         room_name = room_obj.name if room_obj else "el grupo"
-        await create_mention_notifications(db, current_user, message.body, room_name, message.id)
+        await create_mention_notifications(
+            db, current_user, message.body, room_name, message.room_id, message.id
+        )
         await db.commit()
 
     return await serialize_message(db, message, current_user.id)
@@ -527,12 +571,60 @@ async def get_chat_room(
     return serialize_room(room, current_user.id)
 
 
-@router.get("/rooms/{room_id}/messages", response_model=List[MessageResponse])
+async def _resolve_cursor(db: AsyncSession, before: Optional[str]):
+    """Turn a `before` message id into a (created_at, id) keyset cursor.
+
+    Returns None when there is no cursor (initial load) or the referenced
+    message no longer exists (e.g. it was purged) — callers then just return
+    the newest page.
+    """
+    if not before:
+        return None
+    row = (
+        await db.execute(
+            select(Message.created_at, Message.id).where(Message.id == before)
+        )
+    ).first()
+    return row  # (created_at, id) or None
+
+
+def _older_than(cursor):
+    """Keyset predicate: strictly older than the cursor (created_at, id)."""
+    created_at, mid = cursor
+    return or_(
+        Message.created_at < created_at,
+        and_(Message.created_at == created_at, Message.id < mid),
+    )
+
+
+_ROOM_MSG_OPTS = (
+    selectinload(Message.sender),
+    selectinload(Message.poll).selectinload(Poll.options).selectinload(PollOption.votes),
+    selectinload(Message.reply_to).selectinload(Message.sender),
+    selectinload(Message.reactions),
+)
+
+# On the initial load we expand the page so the unread divider (plus a little
+# read context above it) is included and every unread message is visible below
+# it — the client then lazy-loads older read history upward. Capped so a huge
+# backlog never triggers a giant single query.
+INITIAL_UNREAD_CONTEXT = 10
+INITIAL_MAX = 100
+
+
+def _initial_limit(limit: int, unread_count: int, has_first_unread: bool) -> int:
+    """Widen the first page to cover all unread messages + some context."""
+    if not has_first_unread or unread_count <= 0:
+        return limit
+    return min(max(limit, unread_count + INITIAL_UNREAD_CONTEXT), INITIAL_MAX)
+
+
+@router.get("/rooms/{room_id}/messages", response_model=MessagePage)
 async def get_room_messages(
     room_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(30, ge=1, le=100),
     before: Optional[str] = None,
 ):
     member_result = await db.execute(
@@ -543,36 +635,67 @@ async def get_room_messages(
             )
         )
     )
-    if not member_result.scalar_one_or_none():
+    member = member_result.scalar_one_or_none()
+    if not member:
         raise HTTPException(status_code=403, detail="Not a member of this room")
 
+    # Unread marker is only meaningful on the initial load (no cursor).
+    first_unread_id = None
+    unread_count = 0
+    last_read = member.last_read_at
+    if not before:
+        unread_filters = [
+            Message.room_id == room_id,
+            Message.sender_id != current_user.id,
+        ]
+        if last_read is not None:
+            unread_filters.append(Message.created_at > last_read)
+        first_unread_id = (
+            await db.execute(
+                select(Message.id)
+                .where(and_(*unread_filters))
+                .order_by(Message.created_at.asc(), Message.id.asc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        unread_count = (
+            await db.execute(
+                select(func.count(Message.id)).where(and_(*unread_filters))
+            )
+        ).scalar() or 0
+
+    eff_limit = _initial_limit(limit, unread_count, first_unread_id is not None)
     query = (
         select(Message)
         .where(Message.room_id == room_id)
-        .options(
-            selectinload(Message.sender),
-            selectinload(Message.poll).selectinload(Poll.options).selectinload(PollOption.votes),
-            selectinload(Message.reply_to).selectinload(Message.sender),
-            selectinload(Message.reactions),
-        )
-        .order_by(Message.created_at.desc())
-        .limit(limit)
+        .options(*_ROOM_MSG_OPTS)
+        .order_by(Message.created_at.desc(), Message.id.desc())
+        .limit(eff_limit + 1)
     )
-    if before:
-        query = query.where(Message.id != before)
+    cursor = await _resolve_cursor(db, before)
+    if cursor is not None:
+        query = query.where(_older_than(cursor))
 
     result = await db.execute(query)
-    messages = result.scalars().all()
+    rows = result.scalars().all()
+    has_more = len(rows) > eff_limit
+    rows = rows[:eff_limit]
 
-    for msg in messages:
-        if msg.sender_id != current_user.id and not msg.read:
-            msg.read = True
-
+    # Advance this member's last-read marker on the initial load.
+    if not before and rows:
+        newest = max(m.created_at for m in rows)
+        if member.last_read_at is None or newest > member.last_read_at:
+            member.last_read_at = newest
     await db.commit()
 
-    out = [await serialize_message(db, msg, current_user.id) for msg in messages]
-    out.reverse()
-    return out
+    out = [await serialize_message(db, m, current_user.id) for m in rows]
+    out.reverse()  # oldest-first for rendering
+    return MessagePage(
+        messages=out,
+        has_more=has_more,
+        first_unread_id=first_unread_id,
+        unread_count=unread_count,
+    )
 
 
 @router.post(
@@ -1131,13 +1254,161 @@ async def search_users(
     ]
 
 
-@router.get("/{user_id}", response_model=List[MessageResponse])
-async def get_messages(
+@router.post("/admin/purge")
+async def admin_purge_messages(
+    days: Optional[int] = Query(None, ge=0),
+    current_user: User = Depends(require_role("admin")),
+):
+    """Manually run the retention sweep. `days` overrides the configured
+    window for this run; omit to use MESSAGE_RETENTION_DAYS."""
+    from ..retention import purge_old_messages
+
+    effective = settings.MESSAGE_RETENTION_DAYS if days is None else days
+    result = await purge_old_messages(effective)
+    return {"requested_days": effective, **result}
+
+
+_PIN_OPTS = (
+    selectinload(Message.sender),
+    selectinload(Message.receiver),
+    selectinload(Message.poll).selectinload(Poll.options).selectinload(PollOption.votes),
+    selectinload(Message.reply_to).selectinload(Message.sender),
+    selectinload(Message.reactions),
+)
+
+
+@router.put("/{message_id}/pin", response_model=MessageResponse)
+async def toggle_pin(
+    message_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    msg = (
+        await db.execute(
+            select(Message).where(Message.id == message_id).options(*_PIN_OPTS)
+        )
+    ).scalar_one_or_none()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    # Authorize: room members, or either side of the DM.
+    if msg.room_id:
+        member = (
+            await db.execute(
+                select(ChatRoomMember).where(
+                    and_(
+                        ChatRoomMember.room_id == msg.room_id,
+                        ChatRoomMember.user_id == current_user.id,
+                    )
+                )
+            )
+        ).scalar_one_or_none()
+        if not member:
+            raise HTTPException(status_code=403, detail="Not a member of this room")
+    elif current_user.id not in (msg.sender_id, msg.receiver_id):
+        raise HTTPException(status_code=403, detail="Not part of this conversation")
+
+    msg.pinned = not bool(msg.pinned)
+    await db.commit()
+    await db.refresh(msg)
+    return await serialize_message(db, msg, current_user.id)
+
+
+@router.get("/rooms/{room_id}/pinned", response_model=List[MessageResponse])
+async def list_room_pinned(
+    room_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    member = (
+        await db.execute(
+            select(ChatRoomMember).where(
+                and_(
+                    ChatRoomMember.room_id == room_id,
+                    ChatRoomMember.user_id == current_user.id,
+                )
+            )
+        )
+    ).scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=403, detail="Not a member of this room")
+
+    rows = (
+        await db.execute(
+            select(Message)
+            .where(and_(Message.room_id == room_id, Message.pinned == True))  # noqa: E712
+            .options(*_PIN_OPTS)
+            .order_by(Message.created_at.desc())
+        )
+    ).scalars().all()
+    return [await serialize_message(db, m, current_user.id) for m in rows]
+
+
+@router.get("/dm/{user_id}/pinned", response_model=List[MessageResponse])
+async def list_dm_pinned(
     user_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
+    convo_filter = or_(
+        and_(Message.sender_id == current_user.id, Message.receiver_id == user_id),
+        and_(Message.sender_id == user_id, Message.receiver_id == current_user.id),
+    )
+    rows = (
+        await db.execute(
+            select(Message)
+            .where(and_(convo_filter, Message.pinned == True))  # noqa: E712
+            .options(*_PIN_OPTS)
+            .order_by(Message.created_at.desc())
+        )
+    ).scalars().all()
+    return [await serialize_message(db, m, current_user.id) for m in rows]
+
+
+@router.get("/{user_id}", response_model=MessagePage)
+async def get_messages(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    limit: int = Query(30, ge=1, le=100),
+    before: Optional[str] = None,
+):
+    convo_filter = or_(
+        and_(
+            Message.sender_id == current_user.id,
+            Message.receiver_id == user_id,
+        ),
+        and_(
+            Message.sender_id == user_id,
+            Message.receiver_id == current_user.id,
+        ),
+    )
+
+    # Unread marker only on the initial load (no cursor).
+    first_unread_id = None
+    unread_count = 0
+    if not before:
+        unread_filters = [
+            Message.receiver_id == current_user.id,
+            Message.sender_id == user_id,
+            Message.read == False,  # noqa: E712
+        ]
+        first_unread_id = (
+            await db.execute(
+                select(Message.id)
+                .where(and_(*unread_filters))
+                .order_by(Message.created_at.asc(), Message.id.asc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        unread_count = (
+            await db.execute(
+                select(func.count(Message.id)).where(and_(*unread_filters))
+            )
+        ).scalar() or 0
+
+    eff_limit = _initial_limit(limit, unread_count, first_unread_id is not None)
+    query = (
         select(Message)
         .options(
             selectinload(Message.sender),
@@ -1145,26 +1416,40 @@ async def get_messages(
             selectinload(Message.reply_to).selectinload(Message.sender),
             selectinload(Message.reactions),
         )
-        .where(
-            or_(
-                and_(
-                    Message.sender_id == current_user.id,
-                    Message.receiver_id == user_id,
-                ),
-                and_(
-                    Message.sender_id == user_id,
-                    Message.receiver_id == current_user.id,
-                ),
-            )
-        )
-        .order_by(Message.created_at.asc())
+        .where(convo_filter)
+        .order_by(Message.created_at.desc(), Message.id.desc())
+        .limit(eff_limit + 1)
     )
-    messages = result.scalars().all()
+    cursor = await _resolve_cursor(db, before)
+    if cursor is not None:
+        query = query.where(_older_than(cursor))
 
-    for msg in messages:
-        if msg.receiver_id == current_user.id and not msg.read:
-            msg.read = True
+    result = await db.execute(query)
+    rows = result.scalars().all()
+    has_more = len(rows) > eff_limit
+    rows = rows[:eff_limit]
 
+    # On the initial load, clear the whole unread badge for this DM (not only
+    # the messages in this page), so the conversation list count resets.
+    if not before:
+        await db.execute(
+            update(Message)
+            .where(
+                and_(
+                    Message.receiver_id == current_user.id,
+                    Message.sender_id == user_id,
+                    Message.read == False,  # noqa: E712
+                )
+            )
+            .values(read=True)
+        )
     await db.commit()
 
-    return [await serialize_message(db, msg, current_user.id) for msg in messages]
+    out = [await serialize_message(db, m, current_user.id) for m in rows]
+    out.reverse()  # oldest-first for rendering
+    return MessagePage(
+        messages=out,
+        has_more=has_more,
+        first_unread_id=first_unread_id,
+        unread_count=unread_count,
+    )

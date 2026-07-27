@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useAuthStore } from "@/lib/authStore";
 import { api, User, Post, PostComment, Conversation, SharedPostMeta } from "@/lib/api";
 import { Avatar, GlassCard, Button, ProgressBar, Badge } from "@/components/ui";
+import ProfileDetails from "./ProfileDetails";
 
 function MaterialIcon({
   name,
@@ -36,6 +37,15 @@ const EMOJIS = [
   "❤️","💎","⚡","🌟","🎉","🎊","🦋","猫","🦉","🏰",
   " wand","📜","🧪","⚗️","🔮","🗝️","🧣","📚"," cauldron","🪄",
 ];
+
+function formatDateShort(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const day = d.toLocaleDateString("es-ES", { day: "numeric" });
+  const month = d.toLocaleDateString("es-ES", { month: "short" }).replace(".", "");
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+}
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("es-ES", {
@@ -499,8 +509,24 @@ export default function ProfilePage() {
   const [currentFrId, setCurrentFrId] = useState<string | null>(null);
   const [frLoading, setFrLoading] = useState(false);
   const [shareTarget, setShareTarget] = useState<Post | null>(null);
+  const [showAllFriends, setShowAllFriends] = useState(false);
+  const [friendsSearch, setFriendsSearch] = useState("");
+
+  const filteredFriends = friendsSearch
+    ? friends.filter((f) =>
+        f.name.toLowerCase().includes(friendsSearch.toLowerCase())
+      )
+    : friends;
 
   const isOwn = authUser?.id === profileId;
+
+  const reloadProfile = useCallback(async () => {
+    if (!profileId) return;
+    try {
+      const u = await api.getUser(profileId);
+      setProfile(u);
+    } catch {}
+  }, [profileId]);
 
   useEffect(() => {
     if (!profileId) return;
@@ -508,16 +534,14 @@ export default function ProfilePage() {
     Promise.all([
       api.getUser(profileId),
       api.getProfileFeed(profileId),
-      api.getUsers(),
+      api.getFriends(profileId),
       api.getFriendRequests(),
     ])
-      .then(([u, feed, allUsers, frs]) => {
+      .then(([u, feed, friendUsers, frs]) => {
         if (cancelled) return;
         setProfile(u);
         setPosts(feed);
-        setFriends(
-          allUsers.filter((u) => u.id !== profileId).slice(0, 9)
-        );
+        setFriends(friendUsers);
         if (authUser && authUser.id !== profileId) {
           const existing = frs.find(
             (fr) =>
@@ -837,7 +861,7 @@ export default function ProfilePage() {
           <span className="material-symbols-outlined text-success text-2xl mb-1" style={{ fontVariationSettings: '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24' }}>
             calendar_today
           </span>
-          <p className="font-display text-title-md text-on-surface">{formatDate(profile.created_at).split(" ").slice(0, 2).join(" ")}</p>
+          <p className="font-display text-title-md text-on-surface">{formatDateShort(profile.created_at)}</p>
           <p className="text-label-sm text-on-surface-variant">Se unio</p>
         </div>
       </div>
@@ -847,73 +871,13 @@ export default function ProfilePage() {
         {/* Left Column */}
         <div className="space-y-6 lg:col-span-1">
           {/* Stats */}
-          <GlassCard className="p-6 parchment-top-bottom">
-            <h3 className="text-title-md font-display text-on-surface mb-4">
-              Estadisticas
-            </h3>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-headline-lg font-display text-primary">
-                  {posts.length}
-                </p>
-                <p className="text-label-sm text-on-surface-variant">
-                  Publicaciones
-                </p>
-              </div>
-              <div>
-                <p className="text-headline-lg font-display text-primary">
-                  {friends.length}
-                </p>
-                <p className="text-label-sm text-on-surface-variant">
-                  Amigos
-                </p>
-              </div>
-              <div>
-                <p className="text-headline-lg font-display text-secondary">
-                  {profile.zerines.toLocaleString()}
-                </p>
-                <p className="text-label-sm text-on-surface-variant">
-                  Zerines
-                </p>
-              </div>
-            </div>
-          </GlassCard>
-
+          
           {/* Details */}
-          <GlassCard className="p-6">
-            <h3 className="text-title-md font-display text-on-surface mb-4">
-              Detalles
-            </h3>
-            <ul className="space-y-3">
-              <li className="flex items-center gap-3 border-l-4 border-secondary pl-3">
-                <MaterialIcon
-                  name="location_on"
-                  className="text-lg text-secondary"
-                />
-                <span className="text-body-md text-on-surface-variant">
-                  Hogwarts
-                </span>
-              </li>
-              <li className="flex items-center gap-3 border-l-4 border-secondary pl-3">
-                <MaterialIcon
-                  name="auto_fix_high"
-                  className="text-lg text-secondary"
-                />
-                <span className="text-body-md text-on-surface-variant">
-                  Sauco & Pelo de Unicornio
-                </span>
-              </li>
-              <li className="flex items-center gap-3 border-l-4 border-secondary pl-3">
-                <MaterialIcon
-                  name="calendar_today"
-                  className="text-lg text-secondary"
-                />
-                <span className="text-body-md text-on-surface-variant">
-                  Se unio {formatDate(profile.created_at)}
-                </span>
-              </li>
-            </ul>
-          </GlassCard>
+          <ProfileDetails
+            profile={profile}
+            isOwn={isOwn}
+            onUpdate={reloadProfile}
+          />
 
           {/* Friends */}
           <GlassCard className="p-6">
@@ -948,6 +912,14 @@ export default function ProfilePage() {
                 </Link>
               ))}
             </div>
+            {friends.length > 6 && (
+              <button
+                onClick={() => setShowAllFriends(true)}
+                className="w-full mt-4 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant hover:text-primary text-label-sm font-medium transition-colors"
+              >
+                Ver todos ({friends.length})
+              </button>
+            )}
           </GlassCard>
 
           {/* Zerines Progress */}
@@ -1083,6 +1055,93 @@ export default function ProfilePage() {
       {/* Share / Send Post Modal */}
       {shareTarget && (
         <SharePostModal post={shareTarget} onClose={() => setShareTarget(null)} />
+      )}
+
+      {/* All Friends Modal (Facebook-style) */}
+      {showAllFriends && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setShowAllFriends(false)}
+        >
+          <div
+            className="bg-surface rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20 sticky top-0 bg-surface z-10">
+              <div>
+                <h2 className="font-display text-title-md text-on-surface">
+                  Amigos
+                </h2>
+                <p className="text-label-sm text-on-surface-variant">
+                  {friends.length} {friends.length === 1 ? "amigo" : "amigos"}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAllFriends(false)}
+                className="w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
+              >
+                <MaterialIcon name="close" className="text-xl" />
+              </button>
+            </div>
+            <div className="px-6 py-3 border-b border-outline-variant/10">
+              <div className="relative">
+                <MaterialIcon
+                  name="search"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant text-lg"
+                />
+                <input
+                  type="text"
+                  value={friendsSearch}
+                  onChange={(e) => setFriendsSearch(e.target.value)}
+                  placeholder="Buscar amigos..."
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:border-primary/40 transition-colors"
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-3 py-3 no-scrollbar">
+              {filteredFriends.length === 0 ? (
+                <p className="text-center text-label-sm text-on-surface-variant py-8">
+                  {friendsSearch ? "No se encontraron amigos" : "Sin amigos todavia"}
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  {filteredFriends.map((f) => (
+                    <Link
+                      key={f.id}
+                      href={`/profile/${f.id}`}
+                      onClick={() => setShowAllFriends(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-surface-container-low transition-colors group"
+                    >
+                      <Avatar
+                        src={f.avatar_url}
+                        alt={f.name}
+                        size="md"
+                        initials={f.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-body-md text-on-surface group-hover:text-primary transition-colors truncate">
+                          {f.name}
+                        </p>
+                        {f.house && (
+                          <p className="text-label-sm text-on-surface-variant truncate">
+                            {f.house}
+                          </p>
+                        )}
+                      </div>
+                      <MaterialIcon
+                        name="chevron_right"
+                        className="text-outline-variant opacity-0 group-hover:opacity-100 transition-opacity"
+                      />
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Edit Profile Modal */}

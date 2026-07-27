@@ -1,5 +1,14 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+function buildQuery(params: Record<string, string | number | undefined | null>): string {
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === "") continue;
+    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+  }
+  return parts.length ? `?${parts.join("&")}` : "";
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
@@ -91,6 +100,13 @@ export const api = {
     request<User>(`/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteUser: (id: string) =>
     request<void>(`/users/${id}`, { method: "DELETE" }),
+  setUserTitle: (id: string, title: string | null) =>
+    request<User>(`/users/${id}/title`, {
+      method: "PUT",
+      body: JSON.stringify({ official_title: title }),
+    }),
+  getHousePoints: (house: string) =>
+    request<HousePoints>(`/users/houses/${house}/points`),
 
   // Products
   getProducts: (shop?: string) =>
@@ -151,15 +167,23 @@ export const api = {
 
   // Messages
   getConversations: () => request<Conversation[]>("/messages/conversations"),
-  getMessages: (userId: string) => request<Message[]>(`/messages/${userId}`),
+  getMessages: (userId: string, limit?: number, before?: string) =>
+    request<MessagePage>(`/messages/${userId}${buildQuery({ limit, before })}`),
   sendMessage: (data: MessageSendData) =>
     request<Message>("/messages", { method: "POST", body: JSON.stringify(data) }),
   getRooms: (all?: boolean) => request<ChatRoomBrief[]>(`/messages/rooms${all ? "?all=true" : ""}`),
   getRoom: (roomId: string) => request<ChatRoomResponse>(`/messages/rooms/${roomId}`),
   getRoomMessages: (roomId: string, limit?: number, before?: string) =>
-    request<Message[]>(
-      `/messages/rooms/${roomId}/messages${limit ? `?limit=${limit}` : ""}${before ? `&before=${before}` : ""}`
+    request<MessagePage>(
+      `/messages/rooms/${roomId}/messages${buildQuery({ limit, before })}`
     ),
+  // Pinning
+  pinMessage: (messageId: string) =>
+    request<Message>(`/messages/${messageId}/pin`, { method: "PUT" }),
+  getRoomPinned: (roomId: string) =>
+    request<Message[]>(`/messages/rooms/${roomId}/pinned`),
+  getDmPinned: (userId: string) =>
+    request<Message[]>(`/messages/dm/${userId}/pinned`),
   sendRoomMessage: (roomId: string, data: MessageSendData) =>
     request<Message>(`/messages/rooms/${roomId}/messages`, {
       method: "POST",
@@ -255,6 +279,7 @@ export const api = {
 
   // Friend Requests
   getFriendRequests: () => request<FriendRequest[]>("/friend-requests"),
+  getFriends: (userId: string) => request<User[]>(`/friend-requests/friends/${userId}`),
   sendFriendRequest: (receiver_id: string) =>
     request<FriendRequest>("/friend-requests", { method: "POST", body: JSON.stringify({ receiver_id }) }),
   acceptFriendRequest: (id: string) =>
@@ -270,6 +295,19 @@ export const api = {
 };
 
 // Types
+export interface MagicLevelInfo {
+  level: number;
+  name: string;
+  xp: number;
+  progress: number;
+  next_xp: number;
+}
+
+export interface HousePoints {
+  house: string;
+  points: number;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -279,6 +317,12 @@ export interface User {
   avatar_url?: string;
   house?: string;
   bio?: string;
+  status?: string;
+  wand?: string;
+  location?: string;
+  official_title?: string;
+  last_active_at?: string;
+  magic_level?: MagicLevelInfo;
   created_at: string;
 }
 
@@ -368,6 +412,7 @@ export interface Message {
   attachment_name?: string;
   metadata?: MessageMetadata;
   read: boolean;
+  pinned?: boolean;
   created_at: string;
   sender?: User;
   receiver?: User;
@@ -375,6 +420,13 @@ export interface Message {
   poll?: PollResponse;
   reply_to?: Message;
   reactions?: MessageReaction[];
+}
+
+export interface MessagePage {
+  messages: Message[];
+  has_more: boolean;
+  first_unread_id?: string | null;
+  unread_count: number;
 }
 
 export interface Conversation {

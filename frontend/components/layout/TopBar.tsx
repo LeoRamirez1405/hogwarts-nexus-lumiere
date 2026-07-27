@@ -89,7 +89,16 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       } catch {}
     }
     setShowNotifications(false);
-    if (notif.related_id) {
+    if (!notif.related_id) return;
+    if (notif.type === "mention") {
+      // related_id is "<room_id>:<message_id>" — open the chat and jump there
+      const [roomId, messageId] = notif.related_id.split(":");
+      if (roomId && messageId) {
+        router.push(`/messages?room=${roomId}&msg=${messageId}`);
+      } else {
+        router.push("/messages");
+      }
+    } else {
       router.push(`/news/${notif.related_id}`);
     }
   };

@@ -49,6 +49,7 @@ class ChatRoomMember(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     role = Column(String, default="member", nullable=False)  # member / admin
     muted_until = Column(DateTime, nullable=True)  # None = not muted, datetime = muted until
+    last_read_at = Column(DateTime, nullable=True)  # last time this member read the room
     joined_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     room = relationship("ChatRoom", back_populates="members", lazy="selectin")

@@ -141,6 +141,7 @@ class MessageResponse(BaseModel):
     attachment_name: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
     read: bool
+    pinned: bool = False
     created_at: datetime
     sender: Optional[UserResponse] = None
     receiver: Optional[UserResponse] = None
@@ -151,6 +152,20 @@ class MessageResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class MessagePage(BaseModel):
+    """A page of messages, oldest-first, for lazy/infinite scroll.
+
+    `has_more` tells the client there are still older messages before the
+    first item in this page (so it can prefetch the next page upward).
+    `first_unread_id` / `unread_count` are only populated on the initial
+    load (no cursor) so the client can draw a "no leídos" divider.
+    """
+    messages: List[MessageResponse] = Field(default_factory=list)
+    has_more: bool = False
+    first_unread_id: Optional[str] = None
+    unread_count: int = 0
 
 
 class ConversationResponse(BaseModel):

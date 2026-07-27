@@ -574,6 +574,7 @@ export function MessageBubble({
   onReply,
   onReactionChange,
   onScrollToMessage,
+  onTogglePin,
   members,
 }: {
   message: Message;
@@ -581,6 +582,7 @@ export function MessageBubble({
   onReply?: (msg: Message) => void;
   onReactionChange?: () => void;
   onScrollToMessage?: (id: string) => void;
+  onTogglePin?: (msg: Message) => void;
   members?: ChatRoomMemberResponse[];
 }) {
   const kind = message.kind || "text";
@@ -660,13 +662,16 @@ export function MessageBubble({
               </div>
             )}
 
-          <p
-            className={`text-[10px] mt-1 ${
+          <div
+            className={`flex items-center gap-1 mt-1 ${
               isOwn ? "text-white/60" : "text-on-surface-variant"
             }`}
           >
-            {formatMessageTime(message.created_at)}
-          </p>
+            {message.pinned && (
+              <MaterialIcon name="push_pin" className="text-[11px]" filled />
+            )}
+            <p className="text-[10px]">{formatMessageTime(message.created_at)}</p>
+          </div>
         </div>
 
         {/* Reactions bar */}
@@ -684,6 +689,19 @@ export function MessageBubble({
             title="Responder"
           >
             <MaterialIcon name="reply" className="text-base" />
+          </button>
+        )}
+        {onTogglePin && (
+          <button
+            onClick={() => onTogglePin(message)}
+            className={`w-7 h-7 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors ${
+              message.pinned
+                ? "text-primary"
+                : "text-on-surface-variant/60 hover:text-on-surface-variant"
+            }`}
+            title={message.pinned ? "Dejar de fijar" : "Fijar mensaje"}
+          >
+            <MaterialIcon name="push_pin" className="text-base" filled={message.pinned} />
           </button>
         )}
         <ReactionPicker

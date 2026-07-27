@@ -7,7 +7,9 @@ from ..database import get_db
 from ..models.friend_request import FriendRequest
 from ..models.user import User
 from ..schemas.friend_request import FriendRequestCreate, FriendRequestResponse
+from ..schemas.user import UserResponse
 from ..middleware.auth import get_current_user
+from sqlalchemy.orm import selectinload
 
 router = APIRouter()
 
@@ -26,6 +28,32 @@ async def list_friend_requests(
         ).order_by(FriendRequest.created_at.desc())
     )
     return result.scalars().all()
+
+
+@router.get("/friends/{user_id}", response_model=List[UserResponse])
+async def list_friends(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Devuelve los usuarios amigos de user_id (solicitudes aceptadas en ambos sentidos)."""
+    result = await db.execute(
+        select(FriendRequest).where(
+            or_(
+                FriendRequest.sender_id == user_id,
+                FriendRequest.receiver_id == user_id,
+            ),
+            FriendRequest.status == "accepted",
+        ).options(selectinload(FriendRequest.sender), selectinload(FriendRequest.receiver))
+    )
+    rows = result.scalars().all()
+    friends: List[User] = []
+    for fr in rows:
+        if fr.sender_id == user_id and fr.receiver:
+            friends.append(fr.receiver)
+        elif fr.receiver_id == user_id and fr.sender:
+            friends.append(fr.sender)
+    return friends
 
 
 @router.post("/", response_model=FriendRequestResponse, status_code=status.HTTP_201_CREATED)

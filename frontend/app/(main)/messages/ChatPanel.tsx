@@ -257,6 +257,14 @@ export default function ChatPanel({
   roomMembers,
   onHideConversation,
   onLeaveRoom,
+  hasMore,
+  loadingOlder,
+  onLoadOlder,
+  firstUnreadId,
+  unreadCount,
+  pinnedMessages,
+  onTogglePin,
+  targetMessageId,
 }: {
   messages: Message[];
   selectedConv: SelectedConv | null;
@@ -267,6 +275,14 @@ export default function ChatPanel({
   roomMembers?: ChatRoomMemberResponse[];
   onHideConversation?: (convType: "dm" | "room", convId: string) => void;
   onLeaveRoom?: (roomId: string) => void;
+  hasMore?: boolean;
+  loadingOlder?: boolean;
+  onLoadOlder?: () => void;
+  firstUnreadId?: string | null;
+  unreadCount?: number;
+  pinnedMessages?: Message[];
+  onTogglePin?: (message: Message) => void;
+  targetMessageId?: string | null;
 }) {
   const [input, setInput] = useState("");
   const [showMenu, setShowMenu] = useState(false);
@@ -281,16 +297,119 @@ export default function ChatPanel({
   const [mentionResults, setMentionResults] = useState<UserSearchResult[]>([]);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dividerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuthStore();
   const [stickerTab, setStickerTab] = useState("magicos");
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [newCount, setNewCount] = useState(0);
+  const [showPinned, setShowPinned] = useState(false);
   const voice = useVoiceRecorder();
 
+  // --- Scroll positioning bookkeeping (WhatsApp-style) ---------------------
+  // stickToBottom reflects whether the user was near the bottom *before* the
+  // last content change, so we know whether to auto-follow new messages.
+  const stickToBottomRef = useRef(true);
+  const prevConvIdRef = useRef<string | null>(null);
+  const prevFirstIdRef = useRef<string | null>(null);
+  const prevLastIdRef = useRef<string | null>(null);
+  const prevScrollHeightRef = useRef(0);
+  const jumpedTargetRef = useRef<string | null>(null);
+
+  const NEAR_BOTTOM_PX = 120;
+  const PREFETCH_TOP_PX = 300; // start loading older well before the top
+
+  const scrollToBottom = useCallback((smooth = true) => {
+    const c = containerRef.current;
+    if (!c) return;
+    c.scrollTo({ top: c.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+    setNewCount(0);
+    setShowScrollBtn(false);
+    stickToBottomRef.current = true;
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const c = containerRef.current;
+    if (!c) return;
+    const distanceFromBottom = c.scrollHeight - c.scrollTop - c.clientHeight;
+    const nearBottom = distanceFromBottom < NEAR_BOTTOM_PX;
+    stickToBottomRef.current = nearBottom;
+    setShowScrollBtn(!nearBottom);
+    if (nearBottom) setNewCount(0);
+    // Lazy-load older messages before the user actually hits the top.
+    if (c.scrollTop < PREFETCH_TOP_PX && hasMore && !loadingOlder) {
+      onLoadOlder?.();
+    }
+  }, [hasMore, loadingOlder, onLoadOlder]);
+
+  // Position the viewport whenever messages or the conversation change.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const c = containerRef.current;
+    if (!c) return;
+    const convId = selectedConv?.id ?? null;
+    const first = messages[0]?.id ?? null;
+    const last = messages[messages.length - 1]?.id ?? null;
+
+    if (prevConvIdRef.current !== convId) {
+      // Wait until the first page has actually loaded before positioning, so
+      // the transient "empty" reset render doesn't consume the switch.
+      if (messages.length === 0) return;
+      // Fresh conversation: jump to the unread divider, else to the bottom.
+      prevConvIdRef.current = convId;
+      prevFirstIdRef.current = first;
+      prevLastIdRef.current = last;
+      requestAnimationFrame(() => {
+        const cc = containerRef.current;
+        if (!cc) return;
+        if (firstUnreadId && dividerRef.current) {
+          dividerRef.current.scrollIntoView({ block: "center" });
+          stickToBottomRef.current = false;
+          setShowScrollBtn(true);
+        } else {
+          cc.scrollTop = cc.scrollHeight;
+          stickToBottomRef.current = true;
+          setShowScrollBtn(false);
+        }
+        prevScrollHeightRef.current = cc.scrollHeight;
+      });
+      return;
+    }
+
+    // Older page prepended at the top: keep the current view anchored.
+    if (first !== prevFirstIdRef.current) {
+      const delta = c.scrollHeight - prevScrollHeightRef.current;
+      if (delta > 0) c.scrollTop += delta;
+    }
+    // New message appended at the bottom.
+    if (last !== prevLastIdRef.current) {
+      if (stickToBottomRef.current) {
+        c.scrollTop = c.scrollHeight;
+      } else {
+        setNewCount((n) => n + 1);
+        setShowScrollBtn(true);
+      }
+    }
+    prevFirstIdRef.current = first;
+    prevLastIdRef.current = last;
+    prevScrollHeightRef.current = c.scrollHeight;
+  }, [messages, selectedConv?.id, firstUnreadId]);
+
+  // Jump + highlight a specific message (from a mention notification).
+  useEffect(() => {
+    if (!targetMessageId || jumpedTargetRef.current === targetMessageId) return;
+    if (!messages.some((m) => m.id === targetMessageId)) return; // not loaded yet
+    jumpedTargetRef.current = targetMessageId;
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`msg-${targetMessageId}`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("highlight-message");
+      setTimeout(() => el.classList.remove("highlight-message"), 2000);
+    });
+  }, [targetMessageId, messages]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -347,6 +466,16 @@ export default function ChatPanel({
     setShowPoll(false);
   }, []);
 
+  // Sending our own message should always snap us to the bottom.
+  const doSend = useCallback(
+    (data: MessageSendData) => {
+      stickToBottomRef.current = true;
+      setNewCount(0);
+      onSend(data);
+    },
+    [onSend]
+  );
+
   const handleSend = () => {
     const trimmed = input.trim();
     if (!trimmed && !attachment) return;
@@ -366,7 +495,7 @@ export default function ChatPanel({
         : "document";
     }
 
-    onSend(data);
+    doSend(data);
     clearInputState();
   };
 
@@ -397,7 +526,7 @@ export default function ChatPanel({
     try {
       const file = new File([blob], `voice-${Date.now()}.webm`, { type: "audio/webm" });
       const result = await api.uploadFile(file);
-      onSend({
+      doSend({
         ...buildBaseData({
           body: " ",
           attachment_url: result.url,
@@ -425,7 +554,7 @@ export default function ChatPanel({
       const wavBlob = await blobToWav(blob);
       const result = await api.transcribeAudio(wavBlob);
       if (result.text.trim()) {
-        onSend(buildBaseData({ body: result.text.trim(), kind: "text" }));
+        doSend(buildBaseData({ body: result.text.trim(), kind: "text" }));
         clearInputState();
         voice.cleanup();
       } else {
@@ -452,6 +581,17 @@ export default function ChatPanel({
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     el.classList.add("highlight-message");
     setTimeout(() => el.classList.remove("highlight-message"), 2000);
+  };
+
+  const previewOf = (m: Message) => {
+    if (m.kind === "sticker") return `Sticker ${m.body || ""}`;
+    if (m.kind === "poll") return `Encuesta: ${m.poll?.question || ""}`;
+    if (m.kind === "voice") return "Nota de voz";
+    if (m.kind === "image") return "Imagen";
+    if (m.kind === "video") return "Video";
+    if (m.kind === "document") return m.attachment_name || "Documento";
+    if (m.kind === "post") return "Publicacion compartida";
+    return m.body || "";
   };
 
   const formatElapsed = (sec: number) => {
@@ -518,7 +658,7 @@ export default function ChatPanel({
   };
 
   const sendSticker = (sticker: string) => {
-    onSend(buildBaseData({ body: sticker, kind: "sticker" }));
+    doSend(buildBaseData({ body: sticker, kind: "sticker" }));
     setShowStickers(false);
     setReplyingTo(null);
   };
@@ -528,7 +668,7 @@ export default function ChatPanel({
     options: string[],
     multiChoice: boolean
   ) => {
-    onSend(
+    doSend(
       buildBaseData({
         body: "",
         kind: "poll",
@@ -713,32 +853,130 @@ export default function ChatPanel({
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 no-scrollbar">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <MaterialIcon name="forum" className="text-5xl text-outline-variant mb-3" />
-            <p className="text-on-surface-variant text-body-md">
-              No hay mensajes aun
-            </p>
-            <p className="text-on-surface-variant/60 text-label-sm mt-1">
-              Envia el primer mensaje
-            </p>
-          </div>
-        ) : (
-          <>
-            {messages.map((msg) => (
-              <MessageBubble
-                key={msg.id}
-                message={msg}
-                isOwn={msg.sender_id === user?.id}
-                onReply={(m) => setReplyingTo(m)}
-                onReactionChange={onRefresh}
-                onScrollToMessage={scrollToMessage}
-                members={isRoom ? roomMembers : undefined}
+      <div className="relative flex-1 min-h-0">
+        {/* Pinned messages bar */}
+        {pinnedMessages && pinnedMessages.length > 0 && (
+          <div className="absolute top-0 left-0 right-0 z-20">
+            <button
+              onClick={() => setShowPinned((s) => !s)}
+              className="w-full flex items-center gap-2 px-4 py-2 bg-surface-container-high/95 backdrop-blur-sm border-b border-outline-variant/20 text-left hover:bg-surface-container-highest transition-colors"
+            >
+              <MaterialIcon name="push_pin" className="text-primary text-lg" filled />
+              <span className="text-label-sm font-medium text-on-surface flex-1 truncate">
+                {pinnedMessages.length} mensaje{pinnedMessages.length !== 1 ? "s" : ""} fijado{pinnedMessages.length !== 1 ? "s" : ""}
+              </span>
+              <MaterialIcon
+                name={showPinned ? "expand_less" : "expand_more"}
+                className="text-on-surface-variant text-lg"
               />
-            ))}
-            <div ref={messagesEndRef} />
-          </>
+            </button>
+            {showPinned && (
+              <div className="bg-surface-container/95 backdrop-blur-sm border-b border-outline-variant/20 max-h-56 overflow-y-auto divide-y divide-outline-variant/10">
+                {pinnedMessages.map((pm) => (
+                  <div
+                    key={pm.id}
+                    className="flex items-center gap-2 px-4 py-2 hover:bg-surface-container-high/60"
+                  >
+                    <button
+                      onClick={() => { setShowPinned(false); scrollToMessage(pm.id); }}
+                      className="flex-1 min-w-0 text-left"
+                    >
+                      <p className="text-label-sm font-semibold text-on-surface truncate">
+                        {pm.sender?.name || "Alguien"}
+                      </p>
+                      <p className="text-label-sm text-on-surface-variant truncate">
+                        {previewOf(pm)}
+                      </p>
+                    </button>
+                    {onTogglePin && (
+                      <button
+                        onClick={() => onTogglePin(pm)}
+                        title="Dejar de fijar"
+                        className="p-1 rounded-full hover:bg-surface-container-highest text-on-surface-variant shrink-0"
+                      >
+                        <MaterialIcon name="push_pin" className="text-base" filled />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div
+          ref={containerRef}
+          onScroll={handleScroll}
+          className="h-full overflow-y-auto px-4 py-4 no-scrollbar"
+        >
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <MaterialIcon name="forum" className="text-5xl text-outline-variant mb-3" />
+              <p className="text-on-surface-variant text-body-md">
+                No hay mensajes aun
+              </p>
+              <p className="text-on-surface-variant/60 text-label-sm mt-1">
+                Envia el primer mensaje
+              </p>
+            </div>
+          ) : (
+            <>
+              {loadingOlder && (
+                <div className="flex justify-center py-2">
+                  <MaterialIcon
+                    name="progress_activity"
+                    className="text-xl text-outline-variant animate-spin"
+                  />
+                </div>
+              )}
+              {!hasMore && (
+                <p className="text-center text-label-sm text-on-surface-variant/50 py-2">
+                  Inicio de la conversacion
+                </p>
+              )}
+              {messages.map((msg) => (
+                <div key={msg.id}>
+                  {firstUnreadId && msg.id === firstUnreadId && (
+                    <div ref={dividerRef} className="flex items-center gap-2 my-3">
+                      <div className="flex-1 h-px bg-primary/30" />
+                      <span className="text-label-sm font-medium text-primary bg-primary/10 px-3 py-0.5 rounded-full whitespace-nowrap">
+                        {unreadCount && unreadCount > 0
+                          ? `${unreadCount} mensaje${unreadCount !== 1 ? "s" : ""} no leido${unreadCount !== 1 ? "s" : ""}`
+                          : "No leidos"}
+                      </span>
+                      <div className="flex-1 h-px bg-primary/30" />
+                    </div>
+                  )}
+                  <MessageBubble
+                    message={msg}
+                    isOwn={msg.sender_id === user?.id}
+                    onReply={(m) => setReplyingTo(m)}
+                    onReactionChange={onRefresh}
+                    onScrollToMessage={scrollToMessage}
+                    onTogglePin={onTogglePin}
+                    members={isRoom ? roomMembers : undefined}
+                  />
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </>
+          )}
+        </div>
+
+        {/* Scroll to bottom */}
+        {showScrollBtn && (
+          <button
+            onClick={() => scrollToBottom(true)}
+            className="absolute bottom-4 right-4 z-20 w-11 h-11 flex items-center justify-center rounded-full bg-surface-container-highest shadow-lg border border-outline-variant/20 text-on-surface hover:bg-surface-container-high transition-colors"
+            title="Ir al ultimo mensaje"
+          >
+            <MaterialIcon name="keyboard_arrow_down" className="text-2xl" />
+            {newCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-primary text-on-primary text-[10px] font-semibold">
+                {newCount > 99 ? "99+" : newCount}
+              </span>
+            )}
+          </button>
         )}
       </div>
 

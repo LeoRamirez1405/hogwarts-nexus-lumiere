@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -7,6 +8,7 @@ from pathlib import Path
 from .database import init_db
 from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications
 from .models import friend_request  # noqa: F401
+from .retention import retention_loop
 
 
 @asynccontextmanager
@@ -14,7 +16,11 @@ async def lifespan(app: FastAPI):
     await init_db()
     from .seed import seed_data
     await seed_data()
-    yield
+    retention_task = asyncio.create_task(retention_loop())
+    try:
+        yield
+    finally:
+        retention_task.cancel()
 
 
 app = FastAPI(title="Hogwarts Nexus Lumiere API", lifespan=lifespan)

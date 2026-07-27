@@ -19,6 +19,11 @@ class User(Base):
     avatar_url = Column(String, nullable=True)
     house = Column(String, nullable=True)
     bio = Column(Text, nullable=True)
+    status = Column(String(80), nullable=True)
+    wand = Column(String(200), nullable=True)
+    location = Column(String(100), nullable=True)
+    official_title = Column(String(100), nullable=True)
+    last_active_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     articles = relationship("Article", back_populates="author", lazy="selectin")

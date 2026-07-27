@@ -18,7 +18,7 @@ async def seed_data():
         if existing.scalar_one_or_none():
             return
 
-        # Users
+        # Users (each gets a distinct, realistic join date from the real DB)
         admin = User(
             name="Albus Dumbledore",
             email="admin@nexus.com",
@@ -28,6 +28,7 @@ async def seed_data():
             house="Gryffindor",
             bio="Headmaster of Hogwarts School of Witchcraft and Wizardry",
             avatar_url="/placeholder-avatar.svg",
+            created_at=datetime.now() - timedelta(days=1825),
         )
 
         hermione = User(
@@ -39,6 +40,7 @@ async def seed_data():
             house="Gryffindor",
             bio="Brightest witch of her age. Prefect and co-founder of Dumbledore's Army.",
             avatar_url="/placeholder-avatar.svg",
+            created_at=datetime.now() - timedelta(days=730),
         )
 
         luna = User(
@@ -50,6 +52,7 @@ async def seed_data():
             house="Ravenclaw",
             bio="Believer in the extraordinary. Editor of The Quibbler.",
             avatar_url="/placeholder-avatar.svg",
+            created_at=datetime.now() - timedelta(days=420),
         )
 
         cedric = User(
@@ -61,6 +64,7 @@ async def seed_data():
             house="Hufflepuff",
             bio="True Hufflepuff. Triwizard Champion and all-around good person.",
             avatar_url="/placeholder-avatar.svg",
+            created_at=datetime.now() - timedelta(days=210),
         )
 
         harry = User(
@@ -72,6 +76,7 @@ async def seed_data():
             house="Gryffindor",
             bio="The Boy Who Lived. Savior of the Wizarding World.",
             avatar_url="/placeholder-avatar.svg",
+            created_at=datetime.now() - timedelta(days=95),
         )
 
         db.add_all([admin, hermione, luna, cedric, harry])
