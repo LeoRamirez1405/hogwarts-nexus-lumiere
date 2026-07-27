@@ -187,6 +187,7 @@ async def seed_data():
                 name="Fawkes the Phoenix",
                 description="A majestic phoenix that can burst into flame and be reborn. Loyal to Dumbledore.",
                 rarity="rare",
+                pet_type="avian",
                 price=450,
                 image_url="/placeholder-generic.svg",
             ),
@@ -194,6 +195,7 @@ async def seed_data():
                 name="Niffler",
                 description="A small, furry creature attracted to shiny things. Excellent at finding treasure.",
                 rarity="uncommon",
+                pet_type="critter",
                 price=320,
                 image_url="/placeholder-generic.svg",
             ),
@@ -201,6 +203,7 @@ async def seed_data():
                 name="Hedwig the Owl",
                 description="A beautiful snowy owl, exceptionally loyal and clever. Perfect for delivering letters.",
                 rarity="ethereal",
+                pet_type="avian",
                 price=600,
                 image_url="/placeholder-generic.svg",
             ),
@@ -208,6 +211,7 @@ async def seed_data():
                 name="Toad",
                 description="A common but endearing toad. Trevor the toad enjoys wandering off at parties.",
                 rarity="common",
+                pet_type="critter",
                 price=200,
                 image_url="/placeholder-generic.svg",
             ),
@@ -215,6 +219,7 @@ async def seed_data():
                 name="Buckbeak the Hippogriff",
                 description="A proud and noble hippogriff. Must be approached with respect. Loves fresh fish.",
                 rarity="legendary",
+                pet_type="beast",
                 price=5200,
                 image_url="/placeholder-generic.svg",
             ),
@@ -482,3 +487,97 @@ async def seed_data():
         db.add_all(transactions)
 
         await db.commit()
+
+
+# Keyword-based mapping used to backfill pet_type on pre-existing creatures.
+_PET_TYPE_KEYWORDS = [
+    ("avian", ("phoenix", "owl", "hippogriff", "griffin", "eagle", "bird", "fawkes", "hedwig")),
+    ("beast", ("dragon", "hippogriff", "thestral", "unicorn", "horse", "wolf", "buckbeak")),
+]
+
+
+def _guess_pet_type(name: str) -> str:
+    lowered = (name or "").lower()
+    # beast keywords take priority over generic avian for hippogriff-like beasts
+    if any(k in lowered for k in ("hippogriff", "dragon", "thestral", "unicorn", "buckbeak")):
+        return "beast"
+    if any(k in lowered for k in ("phoenix", "owl", "eagle", "bird", "fawkes", "hedwig")):
+        return "avian"
+    return "critter"
+
+
+# (name, description, kind, pet_type, price, restore_amount, pack_size)
+_PET_SUPPLIES = [
+    # ---- AVIAN (fénix, lechuza) ----
+    ("Semillas de Fenix", "Semillas doradas que reavivan la energia de las aves magicas.", "food", "avian", 40, 15, 1),
+    ("Bayas Incandescentes", "Bayas calidas ideales para fenix y lechuzas hambrientas.", "food", "avian", 90, 30, 1),
+    ("Ratones de Campo Frescos", "Presa natural para lechuzas; muy nutritiva.", "food", "avian", 180, 55, 1),
+    ("Festin de Salmon Ahumado", "Un banquete premium que sacia por completo a cualquier ave.", "food", "avian", 350, 85, 1),
+    ("Racion Diaria de Semillas", "Bolsa con varias raciones de semillas para el dia a dia.", "food", "avian", 150, 15, 5),
+    ("Aro Flamigero", "Un aro encantado que las aves persiguen felices.", "toy", "avian", 45, 15, 1),
+    ("Campanilla Encantada", "Tintinea con melodias que animan a las lechuzas.", "toy", "avian", 95, 32, 1),
+    ("Percha Giratoria Magica", "Una percha que gira suavemente; horas de diversion.", "toy", "avian", 190, 58, 1),
+    ("Plumas Danzantes", "Set de plumas que flotan y bailan solas.", "toy", "avian", 120, 18, 4),
+
+    # ---- BEAST (hipogrifo y bestias grandes) ----
+    ("Huron Fresco", "Bocado favorito de los hipogrifos.", "food", "beast", 50, 15, 1),
+    ("Pescado del Lago Negro", "Pescado fresco que encanta a las bestias nobles.", "food", "beast", 100, 30, 1),
+    ("Cesta de Carne Premium", "Carne selecta para saciar a las criaturas mas grandes.", "food", "beast", 200, 55, 1),
+    ("Banquete Real de Bestia", "El festin definitivo; sacia por completo a la bestia.", "food", "beast", 380, 90, 1),
+    ("Saco de Hurones", "Varios hurones para toda la semana.", "food", "beast", 210, 16, 5),
+    ("Pelota de Cuero de Dragon", "Resistente y rebota alto; ideal para bestias energicas.", "toy", "beast", 55, 15, 1),
+    ("Lazo Volador", "Un lazo encantado para juegos de persecucion.", "toy", "beast", 110, 33, 1),
+    ("Muneco de Entrenamiento", "Muneco robusto que aguanta las embestidas mas fuertes.", "toy", "beast", 210, 60, 1),
+    ("Set de Aros de Vuelo", "Varios aros para montar circuitos de vuelo.", "toy", "beast", 180, 22, 3),
+
+    # ---- CRITTER (niffler, sapo, pequeños) ----
+    ("Gusarajos", "El aperitivo clasico para criaturas pequenas.", "food", "critter", 35, 15, 1),
+    ("Escarabajos Crujientes", "Crujientes y nutritivos; les encantan.", "food", "critter", 85, 30, 1),
+    ("Bufe de Tesoros Comestibles", "Golosinas brillantes que sacian y alegran.", "food", "critter", 170, 55, 1),
+    ("Festin del Niffler", "Un banquete dorado que deja al niffler pleno.", "food", "critter", 320, 82, 1),
+    ("Bolsa de Gusarajos", "Multiples raciones de gusarajos.", "food", "critter", 140, 15, 5),
+    ("Bolitas Brillantes", "Bolitas relucientes que los nifflers adoran perseguir.", "toy", "critter", 40, 15, 5),
+    ("Rueda Giratoria", "Una rueda para que corran sin parar.", "toy", "critter", 90, 30, 1),
+    ("Cubo Excavador", "Un cubo lleno de rincones para escarbar tesoros.", "toy", "critter", 175, 55, 1),
+    ("Piezas de Lego Magico", "Piezas encantadas para construir y jugar; se venden por lote.", "toy", "critter", 100, 20, 5),
+]
+
+
+async def seed_pet_supplies():
+    """Idempotently ensure pet food/toys exist and backfill creature pet_type.
+
+    Runs independently of ``seed_data`` so that databases seeded before the
+    pet-supply feature existed still get the catalog and correct pet types.
+    """
+    from .models.pet_item import PetItem
+
+    async with async_session() as db:
+        # Backfill pet_type on creatures still on the default.
+        creatures = (await db.execute(select(Creature))).scalars().all()
+        changed = False
+        for c in creatures:
+            if not c.pet_type or c.pet_type == "critter":
+                guessed = _guess_pet_type(c.name)
+                if guessed != c.pet_type:
+                    c.pet_type = guessed
+                    changed = True
+
+        existing_item = await db.execute(select(PetItem).limit(1))
+        if existing_item.scalar_one_or_none() is None:
+            db.add_all([
+                PetItem(
+                    name=name,
+                    description=desc,
+                    kind=kind,
+                    pet_type=pet_type,
+                    price=price,
+                    restore_amount=restore,
+                    pack_size=pack,
+                    image_url="/placeholder-generic.svg",
+                )
+                for (name, desc, kind, pet_type, price, restore, pack) in _PET_SUPPLIES
+            ])
+            changed = True
+
+        if changed:
+            await db.commit()

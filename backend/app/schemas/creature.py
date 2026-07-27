@@ -7,6 +7,7 @@ class CreatureCreate(BaseModel):
     name: str
     description: Optional[str] = None
     rarity: str
+    pet_type: str = "critter"  # avian / beast / critter
     price: int
     image_url: Optional[str] = None
 
@@ -16,6 +17,7 @@ class CreatureResponse(BaseModel):
     name: str
     description: Optional[str] = None
     rarity: str
+    pet_type: str
     price: int
     image_url: Optional[str] = None
     created_at: datetime
@@ -28,8 +30,8 @@ class AdoptRequest(BaseModel):
     pass
 
 
-class FeedRequest(BaseModel):
-    amount: int = 10
+class UseItemRequest(BaseModel):
+    item_id: str
 
 
 class UserCreatureResponse(BaseModel):
@@ -40,6 +42,7 @@ class UserCreatureResponse(BaseModel):
     level: int
     hunger: int
     happiness: int
+    mood: str = "bien"
     adopted_at: datetime
 
     class Config:

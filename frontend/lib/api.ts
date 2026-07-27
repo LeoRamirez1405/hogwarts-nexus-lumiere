@@ -159,11 +159,32 @@ export const api = {
     request<void>(`/creatures/${id}`, { method: "DELETE" }),
   adoptCreature: (id: string) =>
     request<UserCreature>(`/creatures/${id}/adopt`, { method: "POST" }),
-  feedCreature: (id: string) =>
-    request<UserCreature>(`/creatures/${id}/feed`, { method: "POST" }),
-  playCreature: (id: string) =>
-    request<UserCreature>(`/creatures/${id}/play`, { method: "POST" }),
+  feedCreature: (userCreatureId: string, itemId: string) =>
+    request<UserCreature>(`/creatures/${userCreatureId}/feed`, {
+      method: "POST",
+      body: JSON.stringify({ item_id: itemId }),
+    }),
+  playCreature: (userCreatureId: string, itemId: string) =>
+    request<UserCreature>(`/creatures/${userCreatureId}/play`, {
+      method: "POST",
+      body: JSON.stringify({ item_id: itemId }),
+    }),
   getMyCreatures: () => request<UserCreature[]>("/creatures/my"),
+
+  // Pet items (food / toys)
+  getPetItems: (params?: { kind?: string; pet_type?: string }) =>
+    request<PetItem[]>(`/pet-items${buildQuery(params ?? {})}`),
+  getPetInventory: () => request<UserPetItem[]>("/pet-items/inventory"),
+  buyPetItem: (id: string, quantity = 1) =>
+    request<UserPetItem>(`/pet-items/${id}/buy${buildQuery({ quantity })}`, {
+      method: "POST",
+    }),
+  createPetItem: (data: Partial<PetItem>) =>
+    request<PetItem>("/pet-items", { method: "POST", body: JSON.stringify(data) }),
+  updatePetItem: (id: string, data: Partial<PetItem>) =>
+    request<PetItem>(`/pet-items/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deletePetItem: (id: string) =>
+    request<void>(`/pet-items/${id}`, { method: "DELETE" }),
 
   // Messages
   getConversations: () => request<Conversation[]>("/messages/conversations"),
@@ -370,11 +391,15 @@ export interface Notification {
   created_at: string;
 }
 
+export type PetType = "avian" | "beast" | "critter";
+export type PetItemKind = "food" | "toy";
+
 export interface Creature {
   id: string;
   name: string;
   description: string;
   rarity: "common" | "uncommon" | "rare" | "legendary" | "ethereal";
+  pet_type: PetType;
   price: number;
   image_url?: string;
   created_at: string;
@@ -388,7 +413,28 @@ export interface UserCreature {
   level: number;
   hunger: number;
   happiness: number;
+  mood: string;
   adopted_at: string;
+}
+
+export interface PetItem {
+  id: string;
+  name: string;
+  description?: string;
+  kind: PetItemKind;
+  pet_type: PetType;
+  price: number;
+  restore_amount: number;
+  pack_size: number;
+  image_url?: string;
+  created_at: string;
+}
+
+export interface UserPetItem {
+  id: string;
+  pet_item_id: string;
+  quantity: number;
+  pet_item?: PetItem;
 }
 
 export interface MessageMetadata {

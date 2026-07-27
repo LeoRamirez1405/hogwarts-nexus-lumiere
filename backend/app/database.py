@@ -32,6 +32,8 @@ def _run_migrations(sync_conn):
     wanted = [
         ("messages", "pinned", "BOOLEAN NOT NULL DEFAULT 0"),
         ("chat_room_members", "last_read_at", "DATETIME"),
+        ("creatures", "pet_type", "VARCHAR(40) NOT NULL DEFAULT 'critter'"),
+        ("user_creatures", "last_decay_at", "DATETIME"),
         ("users", "status", "VARCHAR(80)"),
         ("users", "wand", "VARCHAR(200)"),
         ("users", "location", "VARCHAR(100)"),

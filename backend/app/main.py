@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from .database import init_db
-from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications
+from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items
 from .models import friend_request  # noqa: F401
 from .retention import retention_loop
 
@@ -14,8 +14,9 @@ from .retention import retention_loop
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    from .seed import seed_data
+    from .seed import seed_data, seed_pet_supplies
     await seed_data()
+    await seed_pet_supplies()
     retention_task = asyncio.create_task(retention_loop())
     try:
         yield
@@ -38,6 +39,7 @@ app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(products.router, prefix="/products", tags=["products"])
 app.include_router(articles.router, prefix="/articles", tags=["articles"])
 app.include_router(creatures.router, prefix="/creatures", tags=["creatures"])
+app.include_router(pet_items.router, prefix="/pet-items", tags=["pet-items"])
 app.include_router(messages.router, prefix="/messages", tags=["messages"])
 app.include_router(posts.router, prefix="/posts", tags=["posts"])
 app.include_router(transactions.router, prefix="/transactions", tags=["transactions"])

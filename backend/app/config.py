@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     # How often the background purge runs, in hours.
     RETENTION_SWEEP_HOURS: int = 24
 
+    # Pet stat decay: points lost per hour while unattended (clamped at 0).
+    # Applied lazily whenever a creature's stats are read or mutated.
+    HUNGER_DECAY_PER_HOUR: float = 5.0
+    HAPPINESS_DECAY_PER_HOUR: float = 3.0
+
     class Config:
         env_file = ".env"
 
