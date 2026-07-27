@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 import json
 
 from ..database import get_db
-from ..models.message import Message, Poll, PollOption, PollVote
+from ..models.message import Message, Poll, PollOption, PollVote, MessageReaction
 from ..models.chat_room import ChatRoom, ChatRoomMember
 from ..models.user import User
 from ..schemas.message import (
@@ -23,6 +23,8 @@ from ..schemas.message import (
     PollVoteRequest,
     PollOptionResponse,
     PollResponse,
+    ReactionCreate,
+    MessageReactionResponse,
 )
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
@@ -69,11 +71,29 @@ async def serialize_message(
             metadata = json.loads(msg.metadata_json)
         except Exception:
             pass
+
+    reply_to_data = None
+    if msg.reply_to_id and msg.reply_to:
+        reply_to_data = await serialize_message(db, msg.reply_to, current_user_id)
+
+    reactions_out = []
+    for r in (msg.reactions or []):
+        reactions_out.append(
+            MessageReactionResponse(
+                id=r.id,
+                message_id=r.message_id,
+                user_id=r.user_id,
+                emoji=r.emoji,
+                created_at=r.created_at,
+            )
+        )
+
     return MessageResponse(
         id=msg.id,
         sender_id=msg.sender_id,
         receiver_id=msg.receiver_id,
         room_id=msg.room_id,
+        reply_to_id=msg.reply_to_id,
         kind=msg.kind,
         body=msg.body,
         attachment_url=msg.attachment_url,
@@ -86,6 +106,8 @@ async def serialize_message(
         receiver=msg.receiver,
         room=None,
         poll=poll_data,
+        reply_to=reply_to_data,
+        reactions=reactions_out,
     )
 
 
@@ -108,6 +130,7 @@ def serialize_room(room: ChatRoom, user_id: str) -> ChatRoomResponse:
         description=room.description,
         avatar_url=room.avatar_url,
         type=room.type,
+        closed=room.closed,
         created_by=room.created_by,
         created_at=room.created_at,
         members=members_out,
@@ -226,7 +249,12 @@ async def get_messages(
 ):
     result = await db.execute(
         select(Message)
-        .options(selectinload(Message.sender), selectinload(Message.receiver))
+        .options(
+            selectinload(Message.sender),
+            selectinload(Message.receiver),
+            selectinload(Message.reply_to).selectinload(Message.sender),
+            selectinload(Message.reactions),
+        )
         .where(
             or_(
                 and_(
@@ -291,15 +319,22 @@ async def send_message(
             select(ChatRoom).where(ChatRoom.id == message_data.room_id)
         )
         room = room_result.scalar_one_or_none()
+        if room and room.closed and current_user.role != "admin":
+            raise HTTPException(
+                status_code=403, detail="This room is closed by an administrator"
+            )
 
     metadata_json = None
     if message_data.metadata:
         metadata_json = json.dumps(message_data.metadata)
 
+    reply_to_id = message_data.reply_to_id
+
     message = Message(
         sender_id=current_user.id,
         receiver_id=message_data.receiver_id,
         room_id=message_data.room_id,
+        reply_to_id=reply_to_id,
         kind=message_data.kind or "text",
         body=message_data.body,
         attachment_url=message_data.attachment_url,
@@ -389,13 +424,20 @@ async def create_chat_room(
 async def list_my_rooms(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    all: bool = Query(False),
 ):
-    result = await db.execute(
-        select(ChatRoom)
-        .join(ChatRoomMember, ChatRoom.id == ChatRoomMember.room_id)
-        .where(ChatRoomMember.user_id == current_user.id)
-        .options(selectinload(ChatRoom.members))
-    )
+    if all and current_user.role == "admin":
+        result = await db.execute(
+            select(ChatRoom)
+            .options(selectinload(ChatRoom.members))
+        )
+    else:
+        result = await db.execute(
+            select(ChatRoom)
+            .join(ChatRoomMember, ChatRoom.id == ChatRoomMember.room_id)
+            .where(ChatRoomMember.user_id == current_user.id)
+            .options(selectinload(ChatRoom.members))
+        )
     rooms = result.scalars().all()
     return [
         ChatRoomBrief(
@@ -404,6 +446,7 @@ async def list_my_rooms(
             description=r.description,
             avatar_url=r.avatar_url,
             type=r.type,
+            closed=r.closed,
             created_by=r.created_by,
             created_at=r.created_at,
             member_count=len(r.members),
@@ -463,7 +506,12 @@ async def get_room_messages(
     query = (
         select(Message)
         .where(Message.room_id == room_id)
-        .options(selectinload(Message.sender), selectinload(Message.poll).selectinload(Poll.options).selectinload(PollOption.votes))
+        .options(
+            selectinload(Message.sender),
+            selectinload(Message.poll).selectinload(Poll.options).selectinload(PollOption.votes),
+            selectinload(Message.reply_to).selectinload(Message.sender),
+            selectinload(Message.reactions),
+        )
         .order_by(Message.created_at.desc())
         .limit(limit)
     )
@@ -701,3 +749,95 @@ async def remove_poll_vote(
     await db.delete(vote)
     await db.commit()
     return {"ok": True}
+
+
+@router.post("/messages/{message_id}/reactions", response_model=MessageReactionResponse, status_code=status.HTTP_201_CREATED)
+async def add_reaction(
+    message_id: str,
+    reaction_data: ReactionCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    msg_result = await db.execute(select(Message).where(Message.id == message_id))
+    message = msg_result.scalar_one_or_none()
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    existing = await db.execute(
+        select(MessageReaction).where(
+            and_(
+                MessageReaction.message_id == message_id,
+                MessageReaction.user_id == current_user.id,
+                MessageReaction.emoji == reaction_data.emoji,
+            )
+        )
+    )
+    existing_reaction = existing.scalar_one_or_none()
+    if existing_reaction:
+        await db.delete(existing_reaction)
+        await db.commit()
+        return {"id": existing_reaction.id, "message_id": message_id, "user_id": current_user.id, "emoji": reaction_data.emoji, "created_at": existing_reaction.created_at, "removed": True}
+
+    reaction = MessageReaction(
+        message_id=message_id,
+        user_id=current_user.id,
+        emoji=reaction_data.emoji,
+    )
+    db.add(reaction)
+    await db.commit()
+    await db.refresh(reaction)
+    return MessageReactionResponse(
+        id=reaction.id,
+        message_id=reaction.message_id,
+        user_id=reaction.user_id,
+        emoji=reaction.emoji,
+        created_at=reaction.created_at,
+    )
+
+
+@router.delete("/messages/{message_id}/reactions/{emoji}", status_code=204)
+async def remove_reaction(
+    message_id: str,
+    emoji: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(MessageReaction).where(
+            and_(
+                MessageReaction.message_id == message_id,
+                MessageReaction.user_id == current_user.id,
+                MessageReaction.emoji == emoji,
+            )
+        )
+    )
+    reaction = result.scalar_one_or_none()
+    if not reaction:
+        raise HTTPException(status_code=404, detail="Reaction not found")
+
+    await db.delete(reaction)
+    await db.commit()
+
+
+@router.put("/rooms/{room_id}/toggle-close", response_model=ChatRoomResponse)
+async def toggle_room_closed(
+    room_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    result = await db.execute(select(ChatRoom).where(ChatRoom.id == room_id))
+    room = result.scalar_one_or_none()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    room.closed = not room.closed
+    await db.commit()
+    await db.refresh(room)
+
+    member_result = await db.execute(
+        select(ChatRoomMember)
+        .where(ChatRoomMember.room_id == room.id)
+        .options(selectinload(ChatRoomMember.user))
+    )
+    room.members = member_result.scalars().all()
+    return serialize_room(room, current_user.id)

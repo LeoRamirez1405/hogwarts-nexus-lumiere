@@ -363,7 +363,7 @@ export default function BorginBurkesPage() {
       {/* Search & Filters */}
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-wrap">
-          <div className="w-full sm:w-80 flex-shrink-0">
+          <div className="w-full sm:w-80 shrink-0">
             <SearchBar
               placeholder="Buscar artefactos..."
               value={search}

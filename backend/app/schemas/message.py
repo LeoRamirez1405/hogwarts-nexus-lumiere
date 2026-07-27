@@ -10,13 +10,14 @@ class ChatRoomCreate(BaseModel):
     description: Optional[str] = None
     avatar_url: Optional[str] = None
     type: str = "group"
-    member_ids: List[str] = Field(default_factory=list)
+    member_ids: List[str] = Field(min_length=2)
 
 
 class ChatRoomUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     avatar_url: Optional[str] = None
+    closed: Optional[bool] = None
 
 
 class ChatRoomMemberResponse(BaseModel):
@@ -37,6 +38,7 @@ class ChatRoomResponse(BaseModel):
     description: Optional[str] = None
     avatar_url: Optional[str] = None
     type: str
+    closed: bool = False
     created_by: str
     created_at: datetime
     members: List[ChatRoomMemberResponse] = Field(default_factory=list)
@@ -51,6 +53,7 @@ class ChatRoomBrief(BaseModel):
     description: Optional[str] = None
     avatar_url: Optional[str] = None
     type: str
+    closed: bool = False
     created_by: str
     created_at: datetime
     member_count: int = 0
@@ -92,6 +95,10 @@ class PollResponse(BaseModel):
     options: List[PollOptionResponse] = Field(default_factory=list)
     my_option_ids: List[str] = Field(default_factory=list)
 
+
+class ReactionCreate(BaseModel):
+    emoji: str
+
     class Config:
         from_attributes = True
 
@@ -99,6 +106,7 @@ class PollResponse(BaseModel):
 class MessageCreate(BaseModel):
     receiver_id: Optional[str] = None
     room_id: Optional[str] = None
+    reply_to_id: Optional[str] = None
     body: Optional[str] = None
     kind: str = "text"
     attachment_url: Optional[str] = None
@@ -108,11 +116,23 @@ class MessageCreate(BaseModel):
     poll: Optional[PollCreate] = None
 
 
+class MessageReactionResponse(BaseModel):
+    id: str
+    message_id: str
+    user_id: str
+    emoji: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class MessageResponse(BaseModel):
     id: str
     sender_id: str
     receiver_id: Optional[str] = None
     room_id: Optional[str] = None
+    reply_to_id: Optional[str] = None
     kind: str
     body: Optional[str] = None
     attachment_url: Optional[str] = None
@@ -125,6 +145,8 @@ class MessageResponse(BaseModel):
     receiver: Optional[UserResponse] = None
     room: Optional[ChatRoomBrief] = None
     poll: Optional[PollResponse] = None
+    reply_to: Optional["MessageResponse"] = None
+    reactions: List[MessageReactionResponse] = Field(default_factory=list)
 
     class Config:
         from_attributes = True

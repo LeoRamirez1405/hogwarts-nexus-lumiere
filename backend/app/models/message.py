@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, Integer, DateTime, Text, Boolean, ForeignKey
+from sqlalchemy import Column, String, Integer, DateTime, Text, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from ..database import Base
@@ -14,6 +14,7 @@ class Message(Base):
     sender_id = Column(String, ForeignKey("users.id"), nullable=False)
     receiver_id = Column(String, ForeignKey("users.id"), nullable=True)
     room_id = Column(String, ForeignKey("chat_rooms.id"), nullable=True)
+    reply_to_id = Column(String, ForeignKey("messages.id"), nullable=True)
 
     kind = Column(String, default="text", nullable=False)
     # text / image / video / audio / document / sticker / poll / voice
@@ -48,6 +49,18 @@ class Message(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
         uselist=False,
+    )
+    reply_to = relationship(
+        "Message",
+        remote_side="Message.id",
+        foreign_keys=[reply_to_id],
+        lazy="selectin",
+    )
+    reactions = relationship(
+        "MessageReaction",
+        back_populates="message",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
 
@@ -99,3 +112,15 @@ class PollVote(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     option = relationship("PollOption", back_populates="votes", lazy="selectin")
+
+
+class MessageReaction(Base):
+    __tablename__ = "message_reactions"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    message_id = Column(String, ForeignKey("messages.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    emoji = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    message = relationship("Message", back_populates="reactions", lazy="selectin")

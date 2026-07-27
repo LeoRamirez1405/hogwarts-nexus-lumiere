@@ -146,7 +146,7 @@ export const api = {
   getMessages: (userId: string) => request<Message[]>(`/messages/${userId}`),
   sendMessage: (data: MessageSendData) =>
     request<Message>("/messages", { method: "POST", body: JSON.stringify(data) }),
-  getRooms: () => request<ChatRoomBrief[]>("/messages/rooms"),
+  getRooms: (all?: boolean) => request<ChatRoomBrief[]>(`/messages/rooms${all ? "?all=true" : ""}`),
   getRoom: (roomId: string) => request<ChatRoomResponse>(`/messages/rooms/${roomId}`),
   getRoomMessages: (roomId: string, limit?: number, before?: string) =>
     request<Message[]>(
@@ -174,6 +174,19 @@ export const api = {
     }),
   removePollVote: (messageId: string, optionId: string) =>
     request<{ ok: boolean }>(`/messages/${messageId}/poll/vote?option_id=${optionId}`, { method: "DELETE" }),
+
+  // Reactions
+  addReaction: (messageId: string, emoji: string) =>
+    request<MessageReaction>(`/messages/${messageId}/reactions`, {
+      method: "POST",
+      body: JSON.stringify({ emoji }),
+    }),
+  removeReaction: (messageId: string, emoji: string) =>
+    request<void>(`/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`, { method: "DELETE" }),
+
+  // Room management
+  toggleRoomClosed: (roomId: string) =>
+    request<ChatRoomResponse>(`/messages/rooms/${roomId}/toggle-close`, { method: "PUT" }),
 
   // Posts
   getPosts: () => request<Post[]>("/posts"),
@@ -312,6 +325,7 @@ export interface Message {
   sender_id: string;
   receiver_id?: string;
   room_id?: string;
+  reply_to_id?: string;
   kind: "text" | "image" | "video" | "audio" | "document" | "sticker" | "poll" | "voice";
   body?: string;
   attachment_url?: string;
@@ -324,6 +338,8 @@ export interface Message {
   receiver?: User;
   room?: ChatRoomBrief;
   poll?: PollResponse;
+  reply_to?: Message;
+  reactions?: MessageReaction[];
 }
 
 export interface Conversation {
@@ -405,6 +421,7 @@ export interface ChatRoomBrief {
   description?: string;
   avatar_url?: string;
   type: string;
+  closed: boolean;
   created_by: string;
   created_at: string;
   member_count: number;
@@ -416,6 +433,7 @@ export interface ChatRoomResponse {
   description?: string;
   avatar_url?: string;
   type: string;
+  closed: boolean;
   created_by: string;
   created_at: string;
   members: ChatRoomMemberResponse[];
@@ -438,6 +456,7 @@ export interface UpdateRoomData {
 export interface MessageSendData {
   receiver_id?: string;
   room_id?: string;
+  reply_to_id?: string;
   body?: string;
   kind?: "text" | "image" | "video" | "audio" | "document" | "sticker" | "poll" | "voice";
   attachment_url?: string;
@@ -449,6 +468,14 @@ export interface MessageSendData {
     options: string[];
     multi_choice: boolean;
   };
+}
+
+export interface MessageReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
 }
 
 // Polls

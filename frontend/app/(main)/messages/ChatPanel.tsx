@@ -22,12 +22,14 @@ export default function ChatPanel({
   onSend,
   onBack,
   showBack,
+  onRefresh,
 }: {
   messages: Message[];
   selectedConv: SelectedConv | null;
   onSend: (data: MessageSendData) => void;
   onBack: () => void;
   showBack: boolean;
+  onRefresh?: () => void;
 }) {
   const [input, setInput] = useState("");
   const [showMenu, setShowMenu] = useState(false);
@@ -39,6 +41,7 @@ export default function ChatPanel({
   const [hasRecording, setHasRecording] = useState(false);
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -71,6 +74,10 @@ export default function ChatPanel({
       body: trimmed || " ",
     };
 
+    if (replyingTo) {
+      data.reply_to_id = replyingTo.id;
+    }
+
     if (attachment) {
       data.attachment_url = attachment.url;
       data.attachment_type = attachment.type;
@@ -87,6 +94,7 @@ export default function ChatPanel({
     onSend(data);
     setInput("");
     setAttachment(null);
+    setReplyingTo(null);
     setShowStickers(false);
     setShowPoll(false);
   };
@@ -134,7 +142,7 @@ export default function ChatPanel({
       recorder.start();
     } catch (err) {
       console.error("Recording failed", err);
-      alert("No se pudo acceder al micrófono");
+      alert("No se pudo acceder al microfono");
     }
   };
 
@@ -172,13 +180,18 @@ export default function ChatPanel({
   };
 
   const sendSticker = (sticker: string) => {
-    onSend({
+    const data: MessageSendData = {
       receiver_id: isRoom ? undefined : selectedConv?.id,
       room_id: isRoom ? selectedConv?.id : undefined,
       body: sticker,
       kind: "sticker",
-    });
+    };
+    if (replyingTo) {
+      data.reply_to_id = replyingTo.id;
+    }
+    onSend(data);
     setShowStickers(false);
+    setReplyingTo(null);
   };
 
   const handlePollCreate = (
@@ -186,14 +199,19 @@ export default function ChatPanel({
     options: string[],
     multiChoice: boolean
   ) => {
-    onSend({
+    const data: MessageSendData = {
       receiver_id: isRoom ? undefined : selectedConv?.id,
       room_id: isRoom ? selectedConv?.id : undefined,
       body: "",
       kind: "poll",
       poll: { question, options, multi_choice: multiChoice },
-    });
+    };
+    if (replyingTo) {
+      data.reply_to_id = replyingTo.id;
+    }
+    onSend(data);
     setShowPoll(false);
+    setReplyingTo(null);
   };
 
   return (
@@ -206,7 +224,7 @@ export default function ChatPanel({
             className="p-1 rounded-full hover:bg-surface-container-high transition-colors mr-1"
           >
             <MaterialIcon name="arrow_back" className="text-xl" />
-       </button>
+          </button>
         )}
         <Avatar
           src={selectedConv?.avatar_url}
@@ -217,18 +235,18 @@ export default function ChatPanel({
         <div className="flex-1">
           <p className="text-body-md font-semibold text-on-surface">
             {selectedConv?.name}
-     </p>
+          </p>
           <p className="text-label-sm text-on-surface-variant">
             {selectedConv?.type === "room" ? "Grupo" : "En linea"}
-     </p>
-   </div>
+          </p>
+        </div>
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setShowMenu(!showMenu)}
             className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
           >
             <MaterialIcon name="more_vert" className="text-xl" />
-     </button>
+          </button>
           {showMenu && (
             <div className="absolute right-0 top-full mt-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-30 w-52">
               <Link
@@ -238,25 +256,25 @@ export default function ChatPanel({
               >
                 <MaterialIcon name="person" className="text-xl" />
                 Ver perfil
-       </Link>
+              </Link>
               <button
                 onClick={() => setShowMenu(false)}
                 className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
               >
                 <MaterialIcon name="search" className="text-xl" />
                 Buscar en mensajes
-         </button>
+              </button>
               <button
                 onClick={() => setShowMenu(false)}
                 className="flex items-center gap-3 px-4 py-2.5 text-body-md text-error hover:bg-error-container/30 transition-colors w-full text-left"
               >
                 <MaterialIcon name="delete" className="text-xl" />
                 Eliminar conversacion
-       </button>
-   </div>
+              </button>
+            </div>
           )}
-     </div>
- </div>
+        </div>
+      </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 no-scrollbar">
@@ -265,11 +283,11 @@ export default function ChatPanel({
             <MaterialIcon name="forum" className="text-5xl text-outline-variant mb-3" />
             <p className="text-on-surface-variant text-body-md">
               No hay mensajes aun
-       </p>
+            </p>
             <p className="text-on-surface-variant/60 text-label-sm mt-1">
               Envia el primer mensaje
-       </p>
-   </div>
+            </p>
+          </div>
         ) : (
           <>
             {messages.map((msg) => (
@@ -277,15 +295,38 @@ export default function ChatPanel({
                 key={msg.id}
                 message={msg}
                 isOwn={msg.sender_id === user?.id}
+                onReply={(m) => setReplyingTo(m)}
+                onReactionChange={onRefresh}
               />
             ))}
             <div ref={messagesEndRef} />
           </>
         )}
- </div>
+      </div>
 
       {/* Input Area */}
       <div className="px-4 py-3 border-t border-outline-variant/20 bg-surface/80 backdrop-blur-sm">
+        {/* Reply preview */}
+        {replyingTo && (
+          <div className="mb-2 flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
+            <MaterialIcon name="reply" className="text-primary text-lg shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-label-sm font-medium text-primary">
+                Respondiendo a {replyingTo.sender?.name || "alguien"}
+              </p>
+              <p className="text-label-sm text-on-surface-variant truncate">
+                {replyingTo.body || (replyingTo.kind === "sticker" ? "Sticker" : replyingTo.kind === "poll" ? "Encuesta" : "...")}
+              </p>
+            </div>
+            <button
+              onClick={() => setReplyingTo(null)}
+              className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant"
+            >
+              <MaterialIcon name="close" className="text-lg" />
+            </button>
+          </div>
+        )}
+
         {attachment && (
           <div className="mb-2 flex items-center gap-2 bg-surface-container rounded-xl px-3 py-2">
             <MaterialIcon
@@ -302,14 +343,14 @@ export default function ChatPanel({
             />
             <span className="text-label-sm text-on-surface truncate flex-1">
               {attachment.name}
-     </span>
+            </span>
             <button
               onClick={() => setAttachment(null)}
               className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant"
             >
               <MaterialIcon name="close" className="text-lg" />
-       </button>
-   </div>
+            </button>
+          </div>
         )}
 
         {showStickers && (
@@ -326,9 +367,9 @@ export default function ChatPanel({
                   }`}
                 >
                   {pack.charAt(0).toUpperCase() + pack.slice(1)}
-             </button>
+                </button>
               ))}
-   </div>
+            </div>
             <div className="flex flex-wrap gap-1">
               {STICKER_PACKS[stickerTab].map((s, i) => (
                 <button
@@ -337,17 +378,17 @@ export default function ChatPanel({
                   className="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-2xl hover:bg-surface-container-high transition-colors"
                 >
                   {s}
-             </button>
+                </button>
               ))}
-   </div>
- </div>
+            </div>
+          </div>
         )}
 
         {showPoll && (
           <PollCreator onCreate={handlePollCreate} onCancel={() => setShowPoll(false)} />
         )}
 
-{recording && (
+        {recording && (
           <div className="mb-2 flex items-center gap-3 bg-primary-container/20 rounded-xl px-4 py-3 border border-primary/30">
             <MaterialIcon name="mic" className="text-primary text-xl animate-pulse" />
             <div className="flex-1">
@@ -356,13 +397,13 @@ export default function ChatPanel({
                   Grabando voz...
                 </span>
                 <span className="text-label-sm text-primary font-mono">
-                  🔴 EN VIVO
+                  EN VIVO
                 </span>
+              </div>
             </div>
-      </div>
             <Button variant="secondary" size="sm" icon="stop" onClick={stopRecording}>
               Detener
-        </Button>
+            </Button>
             <Button
               variant="primary"
               size="sm"
@@ -371,8 +412,8 @@ export default function ChatPanel({
               disabled={audioChunks.length === 0 || uploading}
             >
               Enviar
-        </Button>
-  </div>
+            </Button>
+          </div>
         )}
 
         {!recording && hasRecording && (
@@ -384,10 +425,10 @@ export default function ChatPanel({
                   Nota de voz lista
                 </span>
                 <span className="text-label-sm text-secondary font-mono">
-                  ✓ LISTO
+                  LISTO
                 </span>
+              </div>
             </div>
-      </div>
             <Button
               variant="primary"
               size="sm"
@@ -396,7 +437,7 @@ export default function ChatPanel({
               disabled={uploading}
             >
               Enviar nota
-        </Button>
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -404,8 +445,8 @@ export default function ChatPanel({
               onClick={() => { setHasRecording(false); setAudioChunks([]); }}
             >
               Cancelar
-        </Button>
-  </div>
+            </Button>
+          </div>
         )}
 
         <div className="flex items-center gap-2 bg-surface-container-low rounded-full px-4 py-2">
@@ -424,7 +465,7 @@ export default function ChatPanel({
             className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors disabled:opacity-40"
           >
             <MaterialIcon name="add_circle" className="text-xl" />
-     </button>
+          </button>
 
           <button
             onClick={() => setShowStickers(!showStickers)}
@@ -432,7 +473,7 @@ export default function ChatPanel({
             title="Stickers"
           >
             <MaterialIcon name="emoji_emotions" className="text-xl" />
-     </button>
+          </button>
 
           <button
             onClick={() => setShowPoll(!showPoll)}
@@ -440,7 +481,7 @@ export default function ChatPanel({
             title="Crear encuesta"
           >
             <MaterialIcon name="ballot" className="text-xl" />
-     </button>
+          </button>
 
           <button
             onClick={recording ? stopRecording : startRecording}
@@ -449,13 +490,13 @@ export default function ChatPanel({
                 ? "bg-error text-on-error animate-pulse"
                 : "text-on-surface-variant hover:text-primary"
             }`}
-            title={recording ? "Detener grabación" : "Grabar voz"}
+            title={recording ? "Detener grabacion" : "Grabar voz"}
           >
             <MaterialIcon
               name={recording ? "stop" : "mic"}
               className="text-xl"
             />
-     </button>
+          </button>
 
           <input
             type="text"
@@ -466,7 +507,7 @@ export default function ChatPanel({
               !e.shiftKey &&
               (e.preventDefault(), handleSend())
             }
-            placeholder="Escribe un mensaje..."
+            placeholder={replyingTo ? "Escribe tu respuesta..." : "Escribe un mensaje..."}
             className="flex-1 bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50"
             disabled={uploading}
           />
@@ -477,9 +518,9 @@ export default function ChatPanel({
             className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full transition-all hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none"
           >
             <MaterialIcon name="send" className="text-lg" />
-     </button>
-   </div>
- </div>
-</div>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

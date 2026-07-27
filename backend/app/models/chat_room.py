@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, UniqueConstraint, Boolean
 from sqlalchemy.orm import relationship
 
 
@@ -16,6 +16,7 @@ class ChatRoom(Base):
     description = Column(Text, nullable=True)
     avatar_url = Column(String, nullable=True)
     type = Column(String, default="group", nullable=False)  # group / direct
+    closed = Column(Boolean, default=False, nullable=False)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

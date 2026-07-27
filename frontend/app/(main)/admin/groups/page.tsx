@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/authStore";
 import { api, ChatRoomBrief, User } from "@/lib/api";
 import { useRouter } from "next/navigation";
@@ -44,6 +44,19 @@ function formatDate(dateStr: string) {
   });
 }
 
+function Toast({ message, onClose }: { message: string; onClose: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 3000);
+    return () => clearTimeout(t);
+  }, [onClose]);
+  return (
+    <div className="fixed top-24 right-6 z-50 bg-primary text-on-primary px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-[slideIn_0.3s_ease]">
+      <MaterialIcon name="check_circle" className="text-xl" filled />
+      <span className="text-body-md font-medium">{message}</span>
+    </div>
+  );
+}
+
 export default function AdminGroupsPage() {
   const { user } = useAuthStore();
   const router = useRouter();
@@ -59,6 +72,7 @@ export default function AdminGroupsPage() {
     description: "",
     type: "group",
     member_ids: [] as string[],
+    avatar_url: "",
   });
   const [editRoom, setEditRoom] = useState<ChatRoomBrief | null>(null);
   const [memberSearch, setMemberSearch] = useState("");
@@ -66,32 +80,16 @@ export default function AdminGroupsPage() {
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [addingMembers, setAddingMembers] = useState(false);
-
-  useEffect(() => {
-    if (user?.role !== "admin") {
-      router.push("/dashboard");
-      return;
-    }
-    (async () => {
-      try {
-        const [roomsData, usersData] = await Promise.all([
-          api.getRooms(),
-          api.getUsers(),
-        ]);
-        setRooms(roomsData);
-        setAllUsers(usersData.filter((u) => u.id !== user?.id));
-      } catch (e) {
-        console.error("Error loading data", e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [user, router]);
+  const [toast, setToast] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingEditAvatar, setUploadingEditAvatar] = useState(false);
+  const createAvatarRef = useRef<HTMLInputElement>(null);
+  const editAvatarRef = useRef<HTMLInputElement>(null);
 
   const loadData = async () => {
     try {
       const [roomsData, usersData] = await Promise.all([
-        api.getRooms(),
+        api.getRooms(true),
         api.getUsers(),
       ]);
       setRooms(roomsData);
@@ -103,13 +101,62 @@ export default function AdminGroupsPage() {
     }
   };
 
+  useEffect(() => {
+    if (user?.role !== "admin") {
+      router.push("/dashboard");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [roomsData, usersData] = await Promise.all([
+          api.getRooms(true),
+          api.getUsers(),
+        ]);
+        if (!cancelled) {
+          setRooms(roomsData);
+          setAllUsers(usersData.filter((u) => u.id !== user?.id));
+        }
+      } catch (e) {
+        console.error("Error loading data", e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user, router]);
+
+  const handleAvatarUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    target: "create" | "edit"
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (target === "create") setUploadingAvatar(true);
+    else setUploadingEditAvatar(true);
+    try {
+      const result = await api.uploadFile(file);
+      if (target === "create") {
+        setNewRoom((prev) => ({ ...prev, avatar_url: result.url }));
+      } else if (editRoom) {
+        setEditRoom({ ...editRoom, avatar_url: result.url });
+      }
+    } catch (err) {
+      console.error("Upload failed", err);
+    }
+    if (target === "create") setUploadingAvatar(false);
+    else setUploadingEditAvatar(false);
+    e.target.value = "";
+  };
+
   const handleCreateRoom = async () => {
-    if (!newRoom.name.trim()) return;
+    if (!newRoom.name.trim() || newRoom.member_ids.length < 2) return;
     setCreating(true);
     try {
       await api.createRoom(newRoom);
       setShowCreate(false);
-      setNewRoom({ name: "", description: "", type: "group", member_ids: [] });
+      setNewRoom({ name: "", description: "", type: "group", member_ids: [], avatar_url: "" });
+      setToast("Grupo creado exitosamente");
       await loadData();
     } catch (e) {
       console.error("Error creating room", e);
@@ -128,6 +175,7 @@ export default function AdminGroupsPage() {
         avatar_url: editRoom.avatar_url,
       });
       setShowEdit(null);
+      setToast("Grupo actualizado");
       await loadData();
     } catch (e) {
       console.error("Error updating room", e);
@@ -140,9 +188,22 @@ export default function AdminGroupsPage() {
     if (!confirm("¿Eliminar este grupo? Se borrarán todos sus mensajes.")) return;
     try {
       await api.deleteRoom(roomId);
+      setToast("Grupo eliminado");
       await loadData();
     } catch (e) {
       console.error("Error deleting room", e);
+    }
+  };
+
+  const handleToggleClose = async (roomId: string) => {
+    try {
+      const updated = await api.toggleRoomClosed(roomId);
+      setRooms((prev) =>
+        prev.map((r) => (r.id === roomId ? { ...r, closed: updated.closed } : r))
+      );
+      setToast(updated.closed ? "Grupo cerrado — solo admins pueden hablar" : "Grupo reabierto");
+    } catch (e) {
+      console.error("Error toggling room", e);
     }
   };
 
@@ -156,12 +217,22 @@ export default function AdminGroupsPage() {
       setShowMembers(null);
       setSelectedMembers([]);
       setMemberSearch("");
+      setToast("Miembros agregados");
       await loadData();
     } catch (e) {
       console.error("Error adding members", e);
     } finally {
       setAddingMembers(false);
     }
+  };
+
+  const toggleMemberInCreate = (userId: string) => {
+    setNewRoom((prev) => ({
+      ...prev,
+      member_ids: prev.member_ids.includes(userId)
+        ? prev.member_ids.filter((id) => id !== userId)
+        : [...prev.member_ids, userId],
+    }));
   };
 
   const openEdit = (room: ChatRoomBrief) => {
@@ -171,7 +242,6 @@ export default function AdminGroupsPage() {
 
   const openMembers = async (room: ChatRoomBrief) => {
     setShowMembers(room.id);
-    // Fetch full room to get members
     try {
       const fullRoom = await api.getRoom(room.id);
       setSelectedMembers(fullRoom.members.map((m) => m.user_id));
@@ -209,10 +279,12 @@ export default function AdminGroupsPage() {
 
   return (
     <div className="space-y-8">
+      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-headline-lg text-on-surface">
-            Gestión de Grupos
+            Gestion de Grupos
           </h1>
           <p className="text-on-surface-variant text-body-md mt-1">
             Crea y administra grupos de chat. Solo administradores.
@@ -243,6 +315,9 @@ export default function AdminGroupsPage() {
                   Miembros
                 </th>
                 <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden lg:table-cell">
+                  Estado
+                </th>
+                <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden lg:table-cell">
                   Creador
                 </th>
                 <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium">
@@ -256,7 +331,7 @@ export default function AdminGroupsPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <MaterialIcon name="progress_activity" className="text-4xl text-outline-variant animate-spin mb-3" />
                       <p className="text-on-surface-variant text-body-md">Cargando grupos...</p>
@@ -265,10 +340,10 @@ export default function AdminGroupsPage() {
                 </tr>
               ) : filteredRooms.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <MaterialIcon name="groups" className="text-5xl text-outline-variant mb-3 block mx-auto" />
                     <p className="text-on-surface-variant text-body-md">
-                      {search ? "Sin resultados" : "No hay grupos creados aún"}
+                      {search ? "Sin resultados" : "No hay grupos creados aun"}
                     </p>
                   </td>
                 </tr>
@@ -291,15 +366,39 @@ export default function AdminGroupsPage() {
                       <span className="text-label-sm text-on-surface-variant ml-2">miembros</span>
                     </td>
                     <td className="px-6 py-4 hidden lg:table-cell">
+                      {room.closed ? (
+                        <Badge variant="tag" color="error">
+                          <MaterialIcon name="lock" className="text-xs mr-1" />
+                          Cerrado
+                        </Badge>
+                      ) : (
+                        <Badge variant="tag" color="success">
+                          <MaterialIcon name="lock_open" className="text-xs mr-1" />
+                          Abierto
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 hidden lg:table-cell">
                       <p className="text-label-sm text-on-surface-variant">
-                        {allUsers.find((u) => u.id === room.created_by)?.name || room.created_by}
+                        {allUsers.find((u) => u.id === room.created_by)?.name || room.created_by.slice(0, 8)}
                       </p>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-label-sm text-on-surface-variant">{formatDate(room.created_at)}</p>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleToggleClose(room.id)}
+                          className={`p-2 rounded-full transition-colors ${
+                            room.closed
+                              ? "hover:bg-green-100 text-green-600"
+                              : "hover:bg-amber-100 text-amber-600"
+                          }`}
+                          title={room.closed ? "Reabrir grupo" : "Cerrar grupo"}
+                        >
+                          <MaterialIcon name={room.closed ? "lock_open" : "lock"} className="text-lg" />
+                        </button>
                         <button onClick={() => openEdit(room)} className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors" title="Editar">
                           <MaterialIcon name="edit" className="text-lg" />
                         </button>
@@ -323,6 +422,33 @@ export default function AdminGroupsPage() {
       {showCreate && (
         <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Crear Nuevo Grupo" size="md">
           <div className="space-y-4">
+            {/* Avatar upload */}
+            <div className="flex items-center gap-4">
+              <input
+                ref={createAvatarRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleAvatarUpload(e, "create")}
+              />
+              <button
+                onClick={() => createAvatarRef.current?.click()}
+                className="relative w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden border-2 border-dashed border-outline-variant/40 hover:border-primary/60 transition-colors"
+              >
+                {newRoom.avatar_url ? (
+                  <img src={newRoom.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                ) : uploadingAvatar ? (
+                  <MaterialIcon name="progress_activity" className="text-2xl text-outline-variant animate-spin" />
+                ) : (
+                  <MaterialIcon name="add_a_photo" className="text-2xl text-outline-variant" />
+                )}
+              </button>
+              <div>
+                <p className="text-body-md text-on-surface font-medium">Foto del grupo</p>
+                <p className="text-label-sm text-on-surface-variant">Opcional. Click para subir.</p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-label-sm text-on-surface-variant mb-1">Nombre del grupo *</label>
               <input
@@ -334,17 +460,71 @@ export default function AdminGroupsPage() {
               />
             </div>
             <div>
-              <label className="block text-label-sm text-on-surface-variant mb-1">Descripción</label>
+              <label className="block text-label-sm text-on-surface-variant mb-1">Descripcion</label>
               <textarea
                 value={newRoom.description}
                 onChange={(e) => setNewRoom({ ...newRoom, description: e.target.value })}
-                placeholder="Descripción opcional..."
+                placeholder="Descripcion opcional..."
                 rows={3}
                 className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-outline-variant/20 focus:border-primary/40 transition-colors resize-none"
               />
             </div>
+
+            {/* Member selection */}
+            <div>
+              <label className="block text-label-sm text-on-surface-variant mb-1">
+                Miembros * <span className="text-error">(minimo 2)</span>
+              </label>
+              <div className="relative mb-2">
+                <MaterialIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-xl text-on-surface-variant" />
+                <input
+                  type="text"
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  placeholder="Buscar usuarios..."
+                  className="w-full bg-surface-container-low rounded-xl pl-10 pr-4 py-3 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-outline-variant/20 focus:border-primary/40 transition-colors"
+                />
+              </div>
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {filteredUsers.length === 0 ? (
+                  <p className="py-4 text-center text-on-surface-variant text-label-sm">Sin usuarios</p>
+                ) : (
+                  filteredUsers.map((u) => {
+                    const selected = newRoom.member_ids.includes(u.id);
+                    return (
+                      <button
+                        key={u.id}
+                        onClick={() => toggleMemberInCreate(u.id)}
+                        className={`flex items-center gap-3 px-3 py-2 w-full text-left rounded-xl transition-colors ${
+                          selected ? "bg-primary/10 border border-primary/30" : "hover:bg-surface-container-high"
+                        }`}
+                      >
+                        <Avatar src={u.avatar_url} alt={u.name} size="sm" initials={getInitials(u.name)} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-body-md text-on-surface truncate">{u.name}</p>
+                        </div>
+                        <MaterialIcon
+                          name={selected ? "check_circle" : "add_circle"}
+                          className={selected ? "text-primary text-xl" : "text-on-surface-variant text-xl"}
+                        />
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              {newRoom.member_ids.length > 0 && (
+                <p className="text-label-sm text-primary mt-2">
+                  {newRoom.member_ids.length} seleccionado(s)
+                </p>
+              )}
+            </div>
+
             <div className="flex gap-4 pt-4 justify-end">
-              <Button variant="primary" onClick={handleCreateRoom} disabled={creating || !newRoom.name.trim()}>
+              <Button
+                variant="primary"
+                onClick={handleCreateRoom}
+                disabled={creating || !newRoom.name.trim() || newRoom.member_ids.length < 2}
+              >
                 {creating ? "Creando..." : "Crear grupo"}
               </Button>
               <Button variant="secondary" onClick={() => setShowCreate(false)}>Cancelar</Button>
@@ -357,6 +537,33 @@ export default function AdminGroupsPage() {
       {showEdit && editRoom && (
         <Modal open={true} onClose={() => setShowEdit(null)} title="Editar Grupo" size="md">
           <div className="space-y-4">
+            {/* Avatar upload */}
+            <div className="flex items-center gap-4">
+              <input
+                ref={editAvatarRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleAvatarUpload(e, "edit")}
+              />
+              <button
+                onClick={() => editAvatarRef.current?.click()}
+                className="relative w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden border-2 border-dashed border-outline-variant/40 hover:border-primary/60 transition-colors"
+              >
+                {editRoom.avatar_url ? (
+                  <img src={editRoom.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                ) : uploadingEditAvatar ? (
+                  <MaterialIcon name="progress_activity" className="text-2xl text-outline-variant animate-spin" />
+                ) : (
+                  <MaterialIcon name="add_a_photo" className="text-2xl text-outline-variant" />
+                )}
+              </button>
+              <div>
+                <p className="text-body-md text-on-surface font-medium">Foto del grupo</p>
+                <p className="text-label-sm text-on-surface-variant">Click para cambiar.</p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-label-sm text-on-surface-variant mb-1">Nombre del grupo *</label>
               <input
@@ -367,7 +574,7 @@ export default function AdminGroupsPage() {
               />
             </div>
             <div>
-              <label className="block text-label-sm text-on-surface-variant mb-1">Descripción</label>
+              <label className="block text-label-sm text-on-surface-variant mb-1">Descripcion</label>
               <textarea
                 value={editRoom.description ?? ""}
                 onChange={(e) => setEditRoom({ ...editRoom, description: e.target.value })}
@@ -407,7 +614,7 @@ export default function AdminGroupsPage() {
               {availableUsers.length === 0 ? (
                 <div className="py-8 text-center text-on-surface-variant">
                   <MaterialIcon name="person_search" className="text-4xl mb-2 block mx-auto" />
-                  <p>Todos los usuarios ya están en el grupo</p>
+                  <p>Todos los usuarios ya estan en el grupo</p>
                 </div>
               ) : (
                 availableUsers.map((u) => (

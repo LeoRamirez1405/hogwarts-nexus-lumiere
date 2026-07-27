@@ -181,6 +181,20 @@ export default function MessagesPage() {
                 setSelectedType(null);
               }}
               showBack
+              onRefresh={() => {
+                if (selectedId) {
+                  const fetchMessages = async () => {
+                    try {
+                      const msgs =
+                        selectedType === "room"
+                          ? await api.getRoomMessages(selectedId)
+                          : await api.getMessages(selectedId);
+                      setMessages(msgs);
+                    } catch {}
+                  };
+                  fetchMessages();
+                }
+              }}
             />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
