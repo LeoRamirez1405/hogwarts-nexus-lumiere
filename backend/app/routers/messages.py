@@ -241,45 +241,6 @@ async def get_conversations(
     return await build_conversations(db, current_user)
 
 
-@router.get("/{user_id}", response_model=List[MessageResponse])
-async def get_messages(
-    user_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    result = await db.execute(
-        select(Message)
-        .options(
-            selectinload(Message.sender),
-            selectinload(Message.receiver),
-            selectinload(Message.reply_to).selectinload(Message.sender),
-            selectinload(Message.reactions),
-        )
-        .where(
-            or_(
-                and_(
-                    Message.sender_id == current_user.id,
-                    Message.receiver_id == user_id,
-                ),
-                and_(
-                    Message.sender_id == user_id,
-                    Message.receiver_id == current_user.id,
-                ),
-            )
-        )
-        .order_by(Message.created_at.asc())
-    )
-    messages = result.scalars().all()
-
-    for msg in messages:
-        if msg.receiver_id == current_user.id and not msg.read:
-            msg.read = True
-
-    await db.commit()
-
-    return [await serialize_message(db, msg, current_user.id) for msg in messages]
-
-
 @router.post("/", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
 async def send_message(
     message_data: MessageCreate,
@@ -841,3 +802,42 @@ async def toggle_room_closed(
     )
     room.members = member_result.scalars().all()
     return serialize_room(room, current_user.id)
+
+
+@router.get("/{user_id}", response_model=List[MessageResponse])
+async def get_messages(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Message)
+        .options(
+            selectinload(Message.sender),
+            selectinload(Message.receiver),
+            selectinload(Message.reply_to).selectinload(Message.sender),
+            selectinload(Message.reactions),
+        )
+        .where(
+            or_(
+                and_(
+                    Message.sender_id == current_user.id,
+                    Message.receiver_id == user_id,
+                ),
+                and_(
+                    Message.sender_id == user_id,
+                    Message.receiver_id == current_user.id,
+                ),
+            )
+        )
+        .order_by(Message.created_at.asc())
+    )
+    messages = result.scalars().all()
+
+    for msg in messages:
+        if msg.receiver_id == current_user.id and not msg.read:
+            msg.read = True
+
+    await db.commit()
+
+    return [await serialize_message(db, msg, current_user.id) for msg in messages]

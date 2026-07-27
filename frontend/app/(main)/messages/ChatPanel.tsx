@@ -18,12 +18,17 @@ export interface SelectedConv {
 
 function useVoiceRecorder() {
   const [recording, setRecording] = useState(false);
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const [elapsed, setElapsed] = useState(0);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const speechRecRef = useRef<any>(null);
+  const transcriptRef = useRef<string>("");
 
   const cleanup = useCallback(() => {
     if (intervalRef.current) {
@@ -34,11 +39,21 @@ function useVoiceRecorder() {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (speechRecRef.current) {
+      try { speechRecRef.current.stop(); } catch {}
+      speechRecRef.current = null;
+    }
     mediaRecorderRef.current = null;
     chunksRef.current = [];
     setElapsed(0);
-    setAudioChunks([]);
+    setRecordedBlob(null);
     setRecording(false);
+    setIsPlaying(false);
+    transcriptRef.current = "";
   }, []);
 
   const start = useCallback(async () => {
@@ -55,27 +70,62 @@ function useVoiceRecorder() {
       streamRef.current = stream;
       mediaRecorderRef.current = recorder;
       chunksRef.current = chunks;
-      setAudioChunks([]);
+      setRecordedBlob(null);
       setElapsed(0);
       setRecording(true);
+      transcriptRef.current = "";
 
       intervalRef.current = setInterval(() => {
         setElapsed((prev) => prev + 1);
       }, 1000);
 
       recorder.start();
+
+      // Start live transcription concurrently
+      const SpeechRecognitionAPI =
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).SpeechRecognition ||
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).webkitSpeechRecognition;
+      if (SpeechRecognitionAPI) {
+        const recognition = new SpeechRecognitionAPI();
+        recognition.lang = "es-ES";
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        let finalTranscript = "";
+        recognition.onresult = (event: { results: SpeechRecognitionResultList }) => {
+          for (let i = 0; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript + " ";
+            }
+          }
+          transcriptRef.current = finalTranscript;
+        };
+        recognition.onerror = () => {};
+        recognition.onend = () => {};
+        try {
+          recognition.start();
+          speechRecRef.current = recognition;
+        } catch {}
+      }
     } catch {
       alert("No se pudo acceder al microfono");
     }
   }, []);
 
-  const stop = useCallback((): Promise<Blob | null> => {
+  const stopRecording = useCallback((): Promise<Blob | null> => {
     return new Promise((resolve) => {
       const recorder = mediaRecorderRef.current;
       if (!recorder || recorder.state === "inactive") {
         resolve(null);
         cleanup();
         return;
+      }
+
+      // Stop speech recognition
+      if (speechRecRef.current) {
+        try { speechRecRef.current.stop(); } catch {}
+        speechRecRef.current = null;
       }
 
       recorder.onstop = () => {
@@ -93,20 +143,36 @@ function useVoiceRecorder() {
         const chunks = chunksRef.current;
         if (chunks.length > 0) {
           const blob = new Blob(chunks, { type: "audio/webm" });
-          setAudioChunks(chunks);
+          setRecordedBlob(blob);
           resolve(blob);
         } else {
           resolve(null);
         }
         chunksRef.current = [];
-        setElapsed(0);
       };
 
       recorder.stop();
     });
-  }, [cleanup]);
+  }, []);
 
-  return { recording, elapsed, audioChunks, start, stop, cleanup };
+  const playPreview = useCallback(() => {
+    if (!recordedBlob) return;
+    const url = URL.createObjectURL(recordedBlob);
+    const audio = new Audio(url);
+    audio.onended = () => setIsPlaying(false);
+    audioRef.current = audio;
+    audio.play();
+    setIsPlaying(true);
+  }, [recordedBlob]);
+
+  const pausePreview = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+  }, []);
+
+  return { recording, elapsed, recordedBlob, isPlaying, start, stopRecording, playPreview, pausePreview, cleanup, transcriptRef };
 }
 
 export default function ChatPanel({
@@ -131,7 +197,6 @@ export default function ChatPanel({
   const [showStickers, setShowStickers] = useState(false);
   const [showPoll, setShowPoll] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [transcribing, setTranscribing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -216,15 +281,12 @@ export default function ChatPanel({
   };
 
   const handleSendVoice = async () => {
-    const blob = await voice.stop();
+    const blob = voice.recordedBlob;
     if (!blob) return;
-
-    const file = new File([blob], `voice-${Date.now()}.webm`, {
-      type: "audio/webm",
-    });
 
     setUploading(true);
     try {
+      const file = new File([blob], `voice-${Date.now()}.webm`, { type: "audio/webm" });
       const result = await api.uploadFile(file);
       onSend({
         ...buildBaseData({
@@ -237,109 +299,30 @@ export default function ChatPanel({
         }),
       });
       clearInputState();
+      voice.cleanup();
     } catch (err) {
       console.error("Voice upload failed", err);
     }
     setUploading(false);
   };
 
-  const handleTranscribeVoice = async () => {
-    const SpeechRecognition =
-      typeof window !== "undefined"
-        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).SpeechRecognition ||
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).webkitSpeechRecognition
-        : null;
-
-    if (!SpeechRecognition) {
-      alert("Tu navegador no soporta transcripcion de voz. Intenta con Chrome o Edge.");
-      return;
+  const handleTranscribeVoice = () => {
+    const text = voice.transcriptRef.current.trim();
+    if (text) {
+      onSend(buildBaseData({ body: text, kind: "text" }));
+      clearInputState();
+      voice.cleanup();
+    } else {
+      alert("No se detectó voz. Intenta hablar más alto o más cerca del micrófono.");
     }
+  };
 
-    setTranscribing(true);
-    const blob = await voice.stop();
-    if (!blob) {
-      setTranscribing(false);
-      return;
-    }
+  const handleStopRecording = () => {
+    voice.stopRecording();
+  };
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = "es-ES";
-    recognition.continuous = true;
-    recognition.interimResults = false;
-
-    recognition.onresult = (event: { results: SpeechRecognitionResultList }) => {
-      let text = "";
-      for (let i = event.results.length - 1; i >= 0; i--) {
-        if (event.results[i].isFinal) {
-          text += event.results[i][0].transcript;
-        }
-      }
-      if (text.trim()) {
-        const data = buildBaseData({ body: text.trim(), kind: "text" });
-        onSend(data);
-        clearInputState();
-      }
-      setTranscribing(false);
-    };
-
-    recognition.onerror = () => {
-      const file = new File([blob], `voice-${Date.now()}.webm`, {
-        type: "audio/webm",
-      });
-      setUploading(true);
-      api
-        .uploadFile(file)
-        .then((result) => {
-          onSend({
-            ...buildBaseData({
-              body: " ",
-              attachment_url: result.url,
-              attachment_type: "audio/webm",
-              attachment_name: file.name,
-              kind: "voice",
-              metadata: { duration: voice.elapsed },
-            }),
-          });
-          clearInputState();
-        })
-        .catch(() => {})
-        .finally(() => setUploading(false));
-      setTranscribing(false);
-    };
-
-    recognition.onend = () => {
-      setTranscribing(false);
-    };
-
-    try {
-      const tempRecorder = new MediaRecorder(blob as unknown as MediaStream);
-      recognition.start();
-      setTimeout(() => recognition.stop(), 500);
-      void tempRecorder;
-    } catch {
-      const file = new File([blob], `voice-${Date.now()}.webm`, {
-        type: "audio/webm",
-      });
-      setUploading(true);
-      try {
-        const result = await api.uploadFile(file);
-        onSend({
-          ...buildBaseData({
-            body: " ",
-            attachment_url: result.url,
-            attachment_type: "audio/webm",
-            attachment_name: file.name,
-            kind: "voice",
-            metadata: { duration: voice.elapsed },
-          }),
-        });
-        clearInputState();
-      } catch {}
-      setUploading(false);
-      setTranscribing(false);
-    }
+  const handleCancelRecording = () => {
+    voice.cleanup();
   };
 
   const formatElapsed = (sec: number) => {
@@ -544,21 +527,47 @@ export default function ChatPanel({
           <PollCreator onCreate={handlePollCreate} onCancel={() => setShowPoll(false)} />
         )}
 
-        {/* Input bar - normal or recording mode */}
+        {/* Input bar - three modes: recording, preview, normal */}
         {voice.recording ? (
-          <div className="flex items-center gap-2 bg-primary-container/10 rounded-full px-4 py-2 border border-primary/30">
+          <div className="flex items-center gap-2 bg-primary/10 rounded-full px-4 py-2 border border-primary/30">
             <div className="w-3 h-3 rounded-full bg-error animate-pulse" />
             <span className="font-mono text-body-md text-on-surface tabular-nums">
               {formatElapsed(voice.elapsed)}
             </span>
             <div className="flex-1" />
-            <span className="text-label-sm text-on-surface-variant">
-              {transcribing ? "Transcribiendo..." : ""}
+            <button
+              onClick={handleStopRecording}
+              className="w-9 h-9 flex items-center justify-center bg-error text-white rounded-full hover:opacity-90"
+              title="Detener grabacion"
+            >
+              <MaterialIcon name="stop" className="text-lg" />
+            </button>
+          </div>
+        ) : voice.recordedBlob ? (
+          <div className="flex items-center gap-2 bg-surface-container rounded-full px-4 py-2 border border-outline-variant/30">
+            <button
+              onClick={voice.isPlaying ? voice.pausePreview : voice.playPreview}
+              className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90"
+              title={voice.isPlaying ? "Pausar" : "Reproducir"}
+            >
+              <MaterialIcon name={voice.isPlaying ? "pause" : "play_arrow"} className="text-lg" />
+            </button>
+            <span className="font-mono text-body-md text-on-surface tabular-nums">
+              {formatElapsed(voice.elapsed)}
             </span>
+            <div className="flex-1" />
+            <button
+              onClick={handleCancelRecording}
+              className="p-1.5 rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors"
+              title="Cancelar"
+            >
+              <MaterialIcon name="close" className="text-lg" />
+            </button>
             <button
               onClick={handleTranscribeVoice}
-              disabled={transcribing || uploading}
+              disabled={uploading}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/10 text-secondary hover:bg-secondary/20 transition-colors text-label-sm font-medium disabled:opacity-40"
+              title="Enviar como texto"
             >
               <MaterialIcon name="speech_to_text" className="text-lg" />
               Transcribir
@@ -567,6 +576,7 @@ export default function ChatPanel({
               onClick={handleSendVoice}
               disabled={uploading}
               className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 disabled:opacity-40"
+              title="Enviar audio"
             >
               <MaterialIcon name="send" className="text-lg" />
             </button>
