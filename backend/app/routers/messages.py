@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,11 +8,13 @@ import json
 import io
 import tempfile
 import os
+import re
 
 from ..database import get_db
 from ..models.message import Message, Poll, PollOption, PollVote, MessageReaction
-from ..models.chat_room import ChatRoom, ChatRoomMember
+from ..models.chat_room import ChatRoom, ChatRoomMember, UserConversationPreference
 from ..models.user import User
+from ..models.article_subscription import Notification
 from ..schemas.message import (
     ChatRoomCreate,
     ChatRoomUpdate,
@@ -28,6 +30,8 @@ from ..schemas.message import (
     PollResponse,
     ReactionCreate,
     MessageReactionResponse,
+    MuteRequest,
+    UserSearchResult,
 )
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
@@ -123,6 +127,7 @@ def serialize_room(room: ChatRoom, user_id: str) -> ChatRoomResponse:
                 room_id=m.room_id,
                 user_id=m.user_id,
                 role=m.role,
+                muted_until=m.muted_until,
                 joined_at=m.joined_at,
                 user=m.user,
             )
@@ -143,6 +148,19 @@ def serialize_room(room: ChatRoom, user_id: str) -> ChatRoomResponse:
 async def build_conversations(
     db: AsyncSession, current_user: User
 ) -> List[ConversationResponse]:
+    # Get hidden conversation IDs for this user
+    prefs_result = await db.execute(
+        select(UserConversationPreference).where(
+            and_(
+                UserConversationPreference.user_id == current_user.id,
+                UserConversationPreference.hidden == True,
+            )
+        )
+    )
+    hidden_prefs = prefs_result.scalars().all()
+    hidden_dm_ids = {p.conversation_id for p in hidden_prefs if p.conversation_type == "dm"}
+    hidden_room_ids = {p.conversation_id for p in hidden_prefs if p.conversation_type == "room"}
+
     result = await db.execute(
         select(Message)
         .options(selectinload(Message.sender))
@@ -160,9 +178,24 @@ async def build_conversations(
         select(ChatRoom)
         .join(ChatRoomMember, ChatRoom.id == ChatRoomMember.room_id)
         .where(ChatRoomMember.user_id == current_user.id)
-        .options(selectinload(ChatRoom.members).selectinload(ChatRoomMember.user))
+        .options(
+            selectinload(ChatRoom.members).selectinload(ChatRoomMember.user),
+        )
     )
     rooms = room_result.scalars().all()
+
+    # Also load mute status for rooms
+    mute_result = await db.execute(
+        select(ChatRoomMember).where(
+            and_(
+                ChatRoomMember.user_id == current_user.id,
+                ChatRoomMember.muted_until.isnot(None),
+            )
+        )
+    )
+    muted_rooms = {}
+    for m in mute_result.scalars().all():
+        muted_rooms[m.room_id] = m.muted_until
 
     dm_map = {}
     for msg in dms:
@@ -170,6 +203,8 @@ async def build_conversations(
             msg.receiver_id if msg.sender_id == current_user.id else msg.sender_id
         )
         if not other_id:
+            continue
+        if other_id in hidden_dm_ids:
             continue
         if other_id not in dm_map:
             other_result = await db.execute(
@@ -191,6 +226,8 @@ async def build_conversations(
 
     room_convs = []
     for room in rooms:
+        if room.id in hidden_room_ids:
+            continue
         msg_result = await db.execute(
             select(Message)
             .where(Message.room_id == room.id)
@@ -212,6 +249,12 @@ async def build_conversations(
             )
             unread = count_result.scalar() or 0
 
+        is_muted = False
+        if room.id in muted_rooms:
+            mu = muted_rooms[room.id]
+            if mu is None or mu > datetime.utcnow():
+                is_muted = True
+
         room_convs.append(
             ConversationResponse(
                 type="room",
@@ -224,7 +267,7 @@ async def build_conversations(
                     if last_msg
                     else None
                 ),
-                unread_count=unread,
+                unread_count=unread if not is_muted else 0,
             )
         )
 
@@ -242,6 +285,32 @@ async def get_conversations(
     current_user: User = Depends(get_current_user),
 ):
     return await build_conversations(db, current_user)
+
+
+async def create_mention_notifications(
+    db: AsyncSession,
+    sender: User,
+    body: str,
+    room_name: str,
+    message_id: str,
+):
+    mention_pattern = re.compile(r"@([A-Za-z\u00C0-\u017F]+(?: [A-Za-z\u00C0-\u017F]+)*)")
+    mentions = mention_pattern.findall(body)
+    for name in mentions:
+        user_result = await db.execute(
+            select(User).where(User.name.ilike(f"%{name}%"))
+        )
+        mentioned_user = user_result.scalar_one_or_none()
+        if mentioned_user and mentioned_user.id != sender.id:
+            notification = Notification(
+                user_id=mentioned_user.id,
+                type="mention",
+                title=f"@{sender.name} te mencionó en {room_name}",
+                body=body[:200],
+                related_id=message_id,
+                read="false",
+            )
+            db.add(notification)
 
 
 @router.post("/", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
@@ -333,6 +402,16 @@ async def send_message(
         await db.refresh(message.poll)
         for opt in message.poll.options:
             await db.refresh(opt)
+
+    # Create mention notifications for room messages
+    if message.room_id and message.body and "@" in message.body:
+        room_result2 = await db.execute(
+            select(ChatRoom).where(ChatRoom.id == message.room_id)
+        )
+        room_obj = room_result2.scalar_one_or_none()
+        room_name = room_obj.name if room_obj else "el grupo"
+        await create_mention_notifications(db, current_user, message.body, room_name, message.id)
+        await db.commit()
 
     return await serialize_message(db, message, current_user.id)
 
@@ -851,6 +930,205 @@ async def transcribe_audio(
             os.unlink(tmp_path.name)
         if wav_path and os.path.exists(wav_path) and (not tmp_path or wav_path != tmp_path.name):
             os.unlink(wav_path)
+
+
+@router.post("/conversations/{conv_type}/{conv_id}/hide")
+async def hide_conversation(
+    conv_type: str,
+    conv_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if conv_type not in ("dm", "room"):
+        raise HTTPException(status_code=400, detail="conv_type must be 'dm' or 'room'")
+
+    existing = await db.execute(
+        select(UserConversationPreference).where(
+            and_(
+                UserConversationPreference.user_id == current_user.id,
+                UserConversationPreference.conversation_type == conv_type,
+                UserConversationPreference.conversation_id == conv_id,
+            )
+        )
+    )
+    pref = existing.scalar_one_or_none()
+    if pref:
+        pref.hidden = True
+    else:
+        pref = UserConversationPreference(
+            user_id=current_user.id,
+            conversation_type=conv_type,
+            conversation_id=conv_id,
+            hidden=True,
+        )
+        db.add(pref)
+
+    await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/conversations/{conv_type}/{conv_id}/hide")
+async def unhide_conversation(
+    conv_type: str,
+    conv_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if conv_type not in ("dm", "room"):
+        raise HTTPException(status_code=400, detail="conv_type must be 'dm' or 'room'")
+
+    existing = await db.execute(
+        select(UserConversationPreference).where(
+            and_(
+                UserConversationPreference.user_id == current_user.id,
+                UserConversationPreference.conversation_type == conv_type,
+                UserConversationPreference.conversation_id == conv_id,
+            )
+        )
+    )
+    pref = existing.scalar_one_or_none()
+    if pref:
+        pref.hidden = False
+        await db.commit()
+
+    return {"ok": True}
+
+
+@router.delete("/rooms/{room_id}/leave")
+async def leave_room(
+    room_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    member_result = await db.execute(
+        select(ChatRoomMember).where(
+            and_(
+                ChatRoomMember.room_id == room_id,
+                ChatRoomMember.user_id == current_user.id,
+            )
+        )
+    )
+    member = member_result.scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=404, detail="You are not a member of this room")
+
+    # Check if user is the only admin
+    if member.role == "admin":
+        admin_count_result = await db.execute(
+            select(func.count(ChatRoomMember.id)).where(
+                and_(
+                    ChatRoomMember.room_id == room_id,
+                    ChatRoomMember.role == "admin",
+                )
+            )
+        )
+        admin_count = admin_count_result.scalar() or 0
+        if admin_count <= 1:
+            # Check if there are other members
+            member_count_result = await db.execute(
+                select(func.count(ChatRoomMember.id)).where(
+                    ChatRoomMember.room_id == room_id
+                )
+            )
+            member_count = member_count_result.scalar() or 0
+            if member_count > 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Eres el unico administrador. Transfiere la administracion antes de salir.",
+                )
+            else:
+                # Only member and admin, delete the room
+                room_result = await db.execute(
+                    select(ChatRoom).where(ChatRoom.id == room_id)
+                )
+                room = room_result.scalar_one_or_none()
+                if room:
+                    await db.delete(room)
+                    await db.commit()
+                    return {"ok": True, "room_deleted": True}
+
+    await db.delete(member)
+    await db.commit()
+    return {"ok": True, "room_deleted": False}
+
+
+@router.put("/rooms/{room_id}/mute")
+async def mute_room(
+    room_id: str,
+    mute_data: MuteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    member_result = await db.execute(
+        select(ChatRoomMember).where(
+            and_(
+                ChatRoomMember.room_id == room_id,
+                ChatRoomMember.user_id == current_user.id,
+            )
+        )
+    )
+    member = member_result.scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=404, detail="You are not a member of this room")
+
+    duration = mute_data.duration
+    if duration == "off":
+        member.muted_until = None
+    elif duration == "8h":
+        member.muted_until = datetime.utcnow() + timedelta(hours=8)
+    elif duration == "24h":
+        member.muted_until = datetime.utcnow() + timedelta(hours=24)
+    elif duration == "forever":
+        member.muted_until = datetime(2099, 12, 31, 23, 59, 59)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid duration. Use: 8h, 24h, forever, off")
+
+    await db.commit()
+    return {"ok": True, "muted_until": member.muted_until.isoformat() if member.muted_until else None}
+
+
+@router.get("/users/search", response_model=List[UserSearchResult])
+async def search_users(
+    q: str = Query(..., min_length=1),
+    friends_only: bool = Query(False),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = select(User).where(
+        and_(
+            User.id != current_user.id,
+            User.name.ilike(f"%{q}%"),
+        )
+    )
+
+    if friends_only:
+        from ..models.friend_request import FriendRequest
+        friend_ids_subq = (
+            select(FriendRequest.sender_id)
+            .where(
+                and_(
+                    FriendRequest.receiver_id == current_user.id,
+                    FriendRequest.status == "accepted",
+                )
+            )
+            .union(
+                select(FriendRequest.receiver_id).where(
+                    and_(
+                        FriendRequest.sender_id == current_user.id,
+                        FriendRequest.status == "accepted",
+                    )
+                )
+            )
+        )
+        query = query.where(User.id.in_(friend_ids_subq))
+
+    result = await db.execute(query.limit(10))
+    users = result.scalars().all()
+
+    return [
+        UserSearchResult(id=u.id, name=u.name, avatar_url=u.avatar_url, house=u.house)
+        for u in users
+    ]
 
 
 @router.get("/{user_id}", response_model=List[MessageResponse])

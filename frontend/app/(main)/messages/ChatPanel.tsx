@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/lib/authStore";
-import { api, Message, MessageSendData } from "@/lib/api";
+import { api, Message, MessageSendData, ChatRoomMemberResponse, UserSearchResult } from "@/lib/api";
 import { Avatar } from "@/components/ui";
 import { MaterialIcon, getInitials, STICKER_PACKS } from "./helpers";
 import { MessageBubble } from "./MessageRenderers";
@@ -57,6 +57,7 @@ export interface SelectedConv {
   name: string;
   avatar_url?: string;
   type?: "direct" | "room";
+  created_by?: string;
 }
 
 function useVoiceRecorder() {
@@ -253,6 +254,9 @@ export default function ChatPanel({
   onBack,
   showBack,
   onRefresh,
+  roomMembers,
+  onHideConversation,
+  onLeaveRoom,
 }: {
   messages: Message[];
   selectedConv: SelectedConv | null;
@@ -260,17 +264,26 @@ export default function ChatPanel({
   onBack: () => void;
   showBack: boolean;
   onRefresh?: () => void;
+  roomMembers?: ChatRoomMemberResponse[];
+  onHideConversation?: (convType: "dm" | "room", convId: string) => void;
+  onLeaveRoom?: (roomId: string) => void;
 }) {
   const [input, setInput] = useState("");
   const [showMenu, setShowMenu] = useState(false);
+  const [showMuteMenu, setShowMuteMenu] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
   const [attachment, setAttachment] = useState<{ url: string; type: string; name: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [showStickers, setShowStickers] = useState(false);
   const [showPoll, setShowPoll] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [mentionSearch, setMentionSearch] = useState("");
+  const [mentionResults, setMentionResults] = useState<UserSearchResult[]>([]);
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuthStore();
   const [stickerTab, setStickerTab] = useState("magicos");
   const voice = useVoiceRecorder();
@@ -283,6 +296,7 @@ export default function ChatPanel({
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setShowMenu(false);
+        setShowMuteMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -290,6 +304,30 @@ export default function ChatPanel({
   }, []);
 
   const isRoom = selectedConv?.type === "room";
+
+  // Mention search
+  useEffect(() => {
+    if (!mentionSearch || mentionSearch.length < 1) {
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const friendsOnly = !isRoom;
+        const results = await api.searchUsers(mentionSearch, friendsOnly);
+        if (!cancelled) {
+          setMentionResults(results);
+          setShowMentionDropdown(results.length > 0);
+        }
+      } catch {
+        if (!cancelled) {
+          setMentionResults([]);
+          setShowMentionDropdown(false);
+        }
+      }
+    }, 200);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [mentionSearch, isRoom]);
 
   const buildBaseData = useCallback(
     (extra?: Partial<MessageSendData>): MessageSendData => ({
@@ -422,6 +460,63 @@ export default function ChatPanel({
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
+  const handleSelectMention = (name: string) => {
+    const atIndex = input.lastIndexOf("@");
+    if (atIndex >= 0) {
+      const before = input.slice(0, atIndex);
+      setInput(`${before}@${name} `);
+    }
+    setShowMentionDropdown(false);
+    setMentionSearch("");
+    setMentionResults([]);
+    inputRef.current?.focus();
+  };
+
+  const handleInputChange = (value: string) => {
+    setInput(value);
+    const atIndex = value.lastIndexOf("@");
+    if (atIndex >= 0 && (atIndex === 0 || value[atIndex - 1] === " ")) {
+      const query = value.slice(atIndex + 1);
+      if (query.length > 0 && !query.includes(" ")) {
+        setMentionSearch(query);
+        return;
+      }
+    }
+    setMentionSearch("");
+    setShowMentionDropdown(false);
+    setMentionResults([]);
+  };
+
+  const handleHideConversation = () => {
+    if (!selectedConv) return;
+    const convType = selectedConv.type === "room" ? "room" : "dm";
+    if (onHideConversation) {
+      onHideConversation(convType, selectedConv.id);
+    }
+    setShowMenu(false);
+  };
+
+  const handleLeaveRoom = () => {
+    if (!selectedConv || selectedConv.type !== "room") return;
+    if (!confirm("¿Seguro que quieres salir del grupo?")) return;
+    if (onLeaveRoom) {
+      onLeaveRoom(selectedConv.id);
+    }
+    setShowMenu(false);
+  };
+
+  const handleMuteRoom = async (duration: "8h" | "24h" | "forever" | "off") => {
+    if (!selectedConv || selectedConv.type !== "room") return;
+    try {
+      await api.muteRoom(selectedConv.id, duration);
+      setShowMuteMenu(false);
+      setShowMenu(false);
+      onRefresh?.();
+    } catch (err) {
+      console.error("Mute failed", err);
+    }
+  };
+
   const sendSticker = (sticker: string) => {
     onSend(buildBaseData({ body: sticker, kind: "sticker" }));
     setShowStickers(false);
@@ -472,39 +567,146 @@ export default function ChatPanel({
         </div>
         <div className="relative" ref={menuRef}>
           <button
-            onClick={() => setShowMenu(!showMenu)}
+            onClick={() => { setShowMenu(!showMenu); setShowMuteMenu(false); }}
             className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
           >
             <MaterialIcon name="more_vert" className="text-xl" />
           </button>
           {showMenu && (
-            <div className="absolute right-0 top-full mt-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-30 w-52">
-              <Link
-                href={`/profile/${selectedConv?.id}`}
-                onClick={() => setShowMenu(false)}
-                className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors"
-              >
-                <MaterialIcon name="person" className="text-xl" />
-                Ver perfil
-              </Link>
-              <button
-                onClick={() => setShowMenu(false)}
-                className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-              >
-                <MaterialIcon name="search" className="text-xl" />
-                Buscar en mensajes
-              </button>
-              <button
-                onClick={() => setShowMenu(false)}
-                className="flex items-center gap-3 px-4 py-2.5 text-body-md text-error hover:bg-error-container/30 transition-colors w-full text-left"
-              >
-                <MaterialIcon name="delete" className="text-xl" />
-                Eliminar conversacion
-              </button>
+            <div className="absolute right-0 top-full mt-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-30 w-56">
+              {selectedConv?.type === "room" ? (
+                <>
+                  <button
+                    onClick={() => { setShowMembers(true); setShowMenu(false); }}
+                    className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                  >
+                    <MaterialIcon name="group" className="text-xl" />
+                    Ver miembros
+                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowMuteMenu(!showMuteMenu)}
+                      className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                    >
+                      <MaterialIcon name="notifications_off" className="text-xl" />
+                      Silenciar grupo
+                      <MaterialIcon name="chevron_right" className="text-lg ml-auto" />
+                    </button>
+                    {showMuteMenu && (
+                      <div className="absolute left-full top-0 ml-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-40 w-48">
+                        <button
+                          onClick={() => handleMuteRoom("8h")}
+                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                        >
+                          <MaterialIcon name="schedule" className="text-lg" />
+                          8 horas
+                        </button>
+                        <button
+                          onClick={() => handleMuteRoom("24h")}
+                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                        >
+                          <MaterialIcon name="schedule" className="text-lg" />
+                          24 horas
+                        </button>
+                        <button
+                          onClick={() => handleMuteRoom("forever")}
+                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                        >
+                          <MaterialIcon name="block" className="text-lg" />
+                          Siempre
+                        </button>
+                        <div className="border-t border-outline-variant/20 my-1" />
+                        <button
+                          onClick={() => handleMuteRoom("off")}
+                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-primary hover:bg-surface-container-high transition-colors w-full text-left"
+                        >
+                          <MaterialIcon name="notifications_active" className="text-lg" />
+                          Activar notificaciones
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleLeaveRoom}
+                    className="flex items-center gap-3 px-4 py-2.5 text-body-md text-error hover:bg-error-container/30 transition-colors w-full text-left"
+                  >
+                    <MaterialIcon name="logout" className="text-xl" />
+                    Salir del grupo
+                  </button>
+                  <div className="border-t border-outline-variant/20 my-1" />
+                  <button
+                    onClick={handleHideConversation}
+                    className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface-variant hover:bg-surface-container-high transition-colors w-full text-left"
+                  >
+                    <MaterialIcon name="delete" className="text-xl" />
+                    Eliminar conversacion
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href={`/profile/${selectedConv?.id}`}
+                    onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors"
+                  >
+                    <MaterialIcon name="person" className="text-xl" />
+                    Ver perfil
+                  </Link>
+                  <button
+                    onClick={handleHideConversation}
+                    className="flex items-center gap-3 px-4 py-2.5 text-body-md text-error hover:bg-error-container/30 transition-colors w-full text-left"
+                  >
+                    <MaterialIcon name="delete" className="text-xl" />
+                    Eliminar conversacion
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Members Panel */}
+      {showMembers && roomMembers && (
+        <div className="border-b border-outline-variant/20 bg-surface-container-low max-h-64 overflow-y-auto">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-outline-variant/10">
+            <p className="text-label-sm font-semibold text-on-surface">
+              Miembros ({roomMembers.length})
+            </p>
+            <button
+              onClick={() => setShowMembers(false)}
+              className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant"
+            >
+              <MaterialIcon name="close" className="text-lg" />
+            </button>
+          </div>
+          <div className="divide-y divide-outline-variant/10">
+            {roomMembers.map((m) => (
+              <div key={m.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-container-high/50 transition-colors">
+                <Avatar
+                  src={m.user?.avatar_url}
+                  alt={m.user?.name}
+                  size="sm"
+                  initials={getInitials(m.user?.name || "?")}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-body-md text-on-surface truncate">
+                    {m.user?.name || "Usuario"}
+                  </p>
+                  <p className="text-label-sm text-on-surface-variant">
+                    {m.user?.house || ""}
+                  </p>
+                </div>
+                {m.role === "admin" && (
+                  <span className="text-label-sm bg-secondary-container/40 text-secondary px-2 py-0.5 rounded-full font-medium">
+                    Admin
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 no-scrollbar">
@@ -683,7 +885,7 @@ export default function ChatPanel({
             </div>
           )
         ) : (
-          <div className="flex items-center gap-2 bg-surface-container-low rounded-full px-4 py-2">
+          <div className="flex items-center gap-2 bg-surface-container-low rounded-full px-4 py-2 relative">
             <input
               ref={fileInputRef}
               type="file"
@@ -725,19 +927,49 @@ export default function ChatPanel({
               <MaterialIcon name="mic" className="text-xl" />
             </button>
 
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) =>
-                e.key === "Enter" &&
-                !e.shiftKey &&
-                (e.preventDefault(), handleSend())
-              }
-              placeholder={replyingTo ? "Escribe tu respuesta..." : "Escribe un mensaje..."}
-              className="flex-1 bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50"
-              disabled={uploading}
-            />
+            <div className="relative flex-1">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => handleInputChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!showMentionDropdown) handleSend();
+                  } else if (e.key === "Escape") {
+                    setShowMentionDropdown(false);
+                  }
+                }}
+                placeholder={replyingTo ? "Escribe tu respuesta..." : "Escribe un mensaje..."}
+                className="w-full bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50"
+                disabled={uploading}
+              />
+              {mentionResults.length > 0 && (
+                <div className="absolute bottom-full left-0 mb-2 w-64 bg-surface-container-highest rounded-xl shadow-xl py-1 z-30 max-h-48 overflow-y-auto">
+                  {mentionResults.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => handleSelectMention(u.name)}
+                      className="flex items-center gap-3 px-3 py-2 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                    >
+                      <Avatar
+                        src={u.avatar_url}
+                        alt={u.name}
+                        size="sm"
+                        initials={getInitials(u.name)}
+                      />
+                      <div>
+                        <p className="font-medium">{u.name}</p>
+                        {u.house && (
+                          <p className="text-label-sm text-on-surface-variant">{u.house}</p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <button
               onClick={handleSend}

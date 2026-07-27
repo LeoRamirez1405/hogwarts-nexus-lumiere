@@ -4,12 +4,62 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from ..database import get_db
-from ..models.post import Post, PostLike
+from ..models.post import Post, PostLike, PostRepost, PostComment
 from ..models.user import User
-from ..schemas.post import PostCreate, PostResponse
+from ..schemas.post import PostCreate, PostResponse, CommentCreate, CommentResponse
+from ..schemas.user import UserResponse
 from ..middleware.auth import get_current_user
 
 router = APIRouter()
+
+
+async def _build_post_response(
+    db: AsyncSession,
+    post: Post,
+    current_user: User,
+) -> PostResponse:
+    """Enrich a Post with like/repost/comment counts and the current user's state."""
+    likes_count = (
+        await db.execute(
+            select(func.count(PostLike.post_id)).where(PostLike.post_id == post.id)
+        )
+    ).scalar() or 0
+    liked_by_me = (
+        await db.execute(
+            select(PostLike).where(
+                PostLike.post_id == post.id,
+                PostLike.user_id == current_user.id,
+            )
+        )
+    ).scalar_one_or_none() is not None
+
+    reposts_count = (
+        await db.execute(
+            select(func.count(PostRepost.post_id)).where(PostRepost.post_id == post.id)
+        )
+    ).scalar() or 0
+    reposted_by_me = (
+        await db.execute(
+            select(PostRepost).where(
+                PostRepost.post_id == post.id,
+                PostRepost.user_id == current_user.id,
+            )
+        )
+    ).scalar_one_or_none() is not None
+
+    comments_count = (
+        await db.execute(
+            select(func.count(PostComment.id)).where(PostComment.post_id == post.id)
+        )
+    ).scalar() or 0
+
+    response = PostResponse.model_validate(post)
+    response.likes_count = likes_count
+    response.liked_by_me = liked_by_me
+    response.reposts_count = reposts_count
+    response.reposted_by_me = reposted_by_me
+    response.comments_count = comments_count
+    return response
 
 
 @router.get("/", response_model=List[PostResponse])
@@ -19,27 +69,60 @@ async def list_posts(
 ):
     result = await db.execute(select(Post).order_by(Post.created_at.desc()))
     posts = result.scalars().all()
+    return [await _build_post_response(db, post, current_user) for post in posts]
 
-    responses = []
-    for post in posts:
-        likes_result = await db.execute(
-            select(func.count(PostLike.post_id)).where(PostLike.post_id == post.id)
-        )
-        likes_count = likes_result.scalar() or 0
 
-        liked_result = await db.execute(
-            select(PostLike).where(
-                PostLike.post_id == post.id,
-                PostLike.user_id == current_user.id,
+@router.get("/user/{user_id}", response_model=List[PostResponse])
+async def list_user_feed(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Profile feed: posts authored by the user plus posts they've reposted,
+    ordered by most recent activity. Reposts carry `is_repost` / `reposted_by`."""
+    # Posts authored by the user
+    authored_result = await db.execute(
+        select(Post).where(Post.author_id == user_id)
+    )
+    authored = list(authored_result.scalars().all())
+
+    # Posts reposted by the user
+    reposts_result = await db.execute(
+        select(PostRepost).where(PostRepost.user_id == user_id)
+    )
+    reposts = list(reposts_result.scalars().all())
+
+    profile_user = (
+        await db.execute(select(User).where(User.id == user_id))
+    ).scalar_one_or_none()
+
+    # Build a list of (feed_time, is_repost, post, repost) so we can order them
+    entries = []
+    for post in authored:
+        entries.append((post.created_at, False, post, None))
+    for repost in reposts:
+        post = (
+            await db.execute(select(Post).where(Post.id == repost.post_id))
+        ).scalar_one_or_none()
+        if post is None:
+            continue
+        # Avoid showing a repost of your own post twice
+        if post.author_id == user_id:
+            continue
+        entries.append((repost.created_at, True, post, repost))
+
+    entries.sort(key=lambda e: e[0], reverse=True)
+
+    responses: List[PostResponse] = []
+    for feed_time, is_repost, post, repost in entries:
+        response = await _build_post_response(db, post, current_user)
+        if is_repost:
+            response.is_repost = True
+            response.reposted_by = (
+                UserResponse.model_validate(profile_user) if profile_user else None
             )
-        )
-        liked_by_me = liked_result.scalar_one_or_none() is not None
-
-        post_response = PostResponse.model_validate(post)
-        post_response.likes_count = likes_count
-        post_response.liked_by_me = liked_by_me
-        responses.append(post_response)
-
+            response.reposted_at = repost.created_at
+        responses.append(response)
     return responses
 
 
@@ -90,20 +173,88 @@ async def toggle_like(
 
     await db.commit()
 
-    likes_result = await db.execute(
-        select(func.count(PostLike.post_id)).where(PostLike.post_id == post_id)
-    )
-    likes_count = likes_result.scalar() or 0
+    return await _build_post_response(db, post, current_user)
 
-    liked_result = await db.execute(
-        select(PostLike).where(
-            PostLike.post_id == post_id,
-            PostLike.user_id == current_user.id,
+
+@router.post("/{post_id}/repost", response_model=PostResponse)
+async def toggle_repost(
+    post_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(Post).where(Post.id == post_id))
+    post = result.scalar_one_or_none()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    existing = await db.execute(
+        select(PostRepost).where(
+            PostRepost.post_id == post_id,
+            PostRepost.user_id == current_user.id,
         )
     )
-    liked_by_me = liked_result.scalar_one_or_none() is not None
+    repost = existing.scalar_one_or_none()
 
-    response = PostResponse.model_validate(post)
-    response.likes_count = likes_count
-    response.liked_by_me = liked_by_me
-    return response
+    if repost:
+        await db.delete(repost)
+    else:
+        db.add(PostRepost(post_id=post_id, user_id=current_user.id))
+
+    await db.commit()
+
+    return await _build_post_response(db, post, current_user)
+
+
+@router.get("/{post_id}/comments", response_model=List[CommentResponse])
+async def list_comments(
+    post_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(PostComment)
+        .where(PostComment.post_id == post_id)
+        .order_by(PostComment.created_at.asc())
+    )
+    comments = result.scalars().all()
+    responses = []
+    for c in comments:
+        resp = CommentResponse.model_validate(c)
+        if c.user:
+            resp.author = UserResponse.model_validate(c.user)
+        responses.append(resp)
+    return responses
+
+
+@router.post(
+    "/{post_id}/comments",
+    response_model=CommentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_comment(
+    post_id: str,
+    comment_data: CommentCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    body = comment_data.body.strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="Comment cannot be empty")
+
+    post = (
+        await db.execute(select(Post).where(Post.id == post_id))
+    ).scalar_one_or_none()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    comment = PostComment(
+        post_id=post_id,
+        user_id=current_user.id,
+        body=body,
+    )
+    db.add(comment)
+    await db.commit()
+    await db.refresh(comment)
+    resp = CommentResponse.model_validate(comment)
+    resp.author = UserResponse.model_validate(current_user)
+    return resp

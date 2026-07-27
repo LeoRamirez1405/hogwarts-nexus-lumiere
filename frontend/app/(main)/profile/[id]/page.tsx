@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuthStore } from "@/lib/authStore";
-import { api, User, Post } from "@/lib/api";
+import { api, User, Post, PostComment, Conversation, SharedPostMeta } from "@/lib/api";
 import { Avatar, GlassCard, Button, ProgressBar, Badge } from "@/components/ui";
 
 function MaterialIcon({
@@ -59,50 +59,62 @@ function formatRelative(dateStr: string): string {
   return d.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
 }
 
-interface Comment {
-  id: string;
-  author: string;
-  authorId: string;
-  body: string;
-  created_at: string;
+function initialsOf(name?: string): string {
+  return (name ?? "")
+    .split(" ")
+    .map((n) => n[0])
+    .join("");
 }
 
 function PostCard({
   post,
   onLike,
-  currentUserId,
-  profileUser,
+  onRepost,
+  onShare,
+  currentUser,
 }: {
   post: Post;
   onLike: (id: string) => void;
-  currentUserId?: string;
-  profileUser?: User;
+  onRepost: (id: string) => void;
+  onShare: (post: Post) => void;
+  currentUser?: User;
 }) {
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState("");
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<PostComment[]>([]);
+  const [commentsLoaded, setCommentsLoaded] = useState(false);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [sending, setSending] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [toast, setToast] = useState("");
 
-  const handleComment = () => {
-    if (!commentText.trim()) return;
-    const newComment: Comment = {
-      id: Date.now().toString(),
-      author: profileUser?.name || "Tu",
-      authorId: currentUserId || "",
-      body: commentText.trim(),
-      created_at: new Date().toISOString(),
-    };
-    setComments((prev) => [...prev, newComment]);
-    setCommentText("");
+  const displayedCommentCount = commentsLoaded
+    ? comments.length
+    : post.comments_count ?? 0;
+
+  const toggleComments = async () => {
+    const next = !showComments;
+    setShowComments(next);
+    if (next && !commentsLoaded) {
+      setLoadingComments(true);
+      try {
+        const data = await api.getComments(post.id);
+        setComments(data);
+        setCommentsLoaded(true);
+      } catch {}
+      setLoadingComments(false);
+    }
   };
 
-  const handleShare = () => {
-    const url = `${window.location.origin}/profile/${post.author_id}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setToast("Link copiado al portapapeles");
-      setTimeout(() => setToast(""), 2000);
-    });
+  const handleComment = async () => {
+    const text = commentText.trim();
+    if (!text || sending) return;
+    setSending(true);
+    try {
+      const created = await api.addComment(post.id, text);
+      setComments((prev) => [...prev, created]);
+      setCommentText("");
+    } catch {}
+    setSending(false);
   };
 
   const insertEmoji = (emoji: string) => {
@@ -112,9 +124,14 @@ function PostCard({
 
   return (
     <GlassCard className="p-6 relative">
-      {toast && (
-        <div className="absolute top-4 right-4 bg-primary text-on-primary px-4 py-2 rounded-xl text-label-sm shadow-lg z-10 animate-pulse">
-          {toast}
+      {post.is_repost && post.reposted_by && (
+        <div className="flex items-center gap-2 mb-3 pb-3 border-b border-outline-variant/10 text-label-sm text-on-surface-variant">
+          <MaterialIcon name="repeat" className="text-base text-success" />
+          <span>
+            {post.reposted_by.id === currentUser?.id
+              ? "Reposteaste"
+              : `${post.reposted_by.name} reposteó`}
+          </span>
         </div>
       )}
       <div className="flex items-start gap-3 mb-3">
@@ -159,20 +176,20 @@ function PostCard({
         <button
           onClick={() => onLike(post.id)}
           className={`flex items-center gap-2 text-label-sm transition-colors ${
-            post.liked
+            post.liked_by_me
               ? "text-error"
               : "text-on-surface-variant hover:text-error"
           }`}
         >
           <MaterialIcon
-            name={post.liked ? "favorite" : "favorite_border"}
+            name={post.liked_by_me ? "favorite" : "favorite_border"}
             className="text-lg"
-            filled={!!post.liked}
+            filled={!!post.liked_by_me}
           />
           {post.likes_count ?? 0}
         </button>
         <button
-          onClick={() => setShowComments(!showComments)}
+          onClick={toggleComments}
           className="flex items-center gap-2 text-label-sm text-on-surface-variant hover:text-primary transition-colors"
         >
           <MaterialIcon
@@ -180,11 +197,28 @@ function PostCard({
             className="text-lg"
             filled={showComments}
           />
-          {comments.length > 0 ? comments.length : "Comentar"}
+          {displayedCommentCount > 0 ? displayedCommentCount : "Comentar"}
         </button>
         <button
-          onClick={handleShare}
+          onClick={() => onRepost(post.id)}
+          className={`flex items-center gap-2 text-label-sm transition-colors ${
+            post.reposted_by_me
+              ? "text-success"
+              : "text-on-surface-variant hover:text-success"
+          }`}
+          title={post.reposted_by_me ? "Quitar repost" : "Repostear"}
+        >
+          <MaterialIcon
+            name="repeat"
+            className="text-lg"
+            filled={!!post.reposted_by_me}
+          />
+          {post.reposts_count ?? 0}
+        </button>
+        <button
+          onClick={() => onShare(post)}
           className="flex items-center gap-2 text-label-sm text-on-surface-variant hover:text-secondary transition-colors"
+          title="Compartir a un chat o grupo"
         >
           <MaterialIcon name="share" className="text-lg" />
           Compartir
@@ -193,25 +227,43 @@ function PostCard({
 
       {showComments && (
         <div className="mt-4 pt-4 border-t border-outline-variant/20 space-y-3">
+          {loadingComments && (
+            <p className="text-label-sm text-on-surface-variant">
+              Cargando comentarios...
+            </p>
+          )}
+          {!loadingComments && comments.length === 0 && (
+            <p className="text-label-sm text-on-surface-variant/70">
+              Aun no hay comentarios. Se el primero.
+            </p>
+          )}
           {comments.map((c) => (
-            <div key={c.id} className="flex items-start gap-2">
+            <Link
+              key={c.id}
+              href={`/profile/${c.user_id}`}
+              className="flex items-start gap-2 group"
+            >
               <Avatar
                 size="sm"
-                initials={c.author.split(" ").map((n) => n[0]).join("")}
+                src={c.author?.avatar_url}
+                alt={c.author?.name}
+                initials={initialsOf(c.author?.name)}
                 className="w-7! h-7!"
               />
               <div className="flex-1 bg-surface-container-low rounded-xl px-3 py-2">
-                <p className="text-label-sm font-semibold text-on-surface">
-                  {c.author}
+                <p className="text-label-sm font-semibold text-on-surface group-hover:text-primary transition-colors">
+                  {c.author?.name ?? "Usuario"}
                 </p>
                 <p className="text-body-md text-on-surface">{c.body}</p>
               </div>
-            </div>
+            </Link>
           ))}
           <div className="flex items-start gap-2 relative">
             <Avatar
               size="sm"
-              initials={currentUserId ? "Tu" : "?"}
+              src={currentUser?.avatar_url}
+              alt={currentUser?.name}
+              initials={initialsOf(currentUser?.name) || "?"}
               className="w-7! h-7!"
             />
             <div className="flex-1 relative">
@@ -245,7 +297,7 @@ function PostCard({
             </div>
             <button
               onClick={handleComment}
-              disabled={!commentText.trim()}
+              disabled={!commentText.trim() || sending}
               className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-30 transition-opacity"
             >
               <MaterialIcon name="send" className="text-lg" />
@@ -254,6 +306,172 @@ function PostCard({
         </div>
       )}
     </GlassCard>
+  );
+}
+
+function SharePostModal({
+  post,
+  onClose,
+}: {
+  post: Post;
+  onClose: () => void;
+}) {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sentIds, setSentIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getConversations()
+      .then((c) => {
+        if (!cancelled) setConversations(c);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const meta: SharedPostMeta = {
+    id: post.id,
+    author_id: post.author_id,
+    author_name: post.author?.name,
+    author_avatar: post.author?.avatar_url,
+    body: post.body,
+    image_url: post.image_url,
+    created_at: post.created_at,
+  };
+
+  const handleSend = async (conv: Conversation) => {
+    if (sendingId || sentIds.includes(conv.id)) return;
+    setSendingId(conv.id);
+    try {
+      const data = {
+        kind: "post" as const,
+        body: `Compartio una publicacion de ${post.author?.name ?? "un usuario"}`,
+        metadata: { post: meta },
+      };
+      if (conv.type === "room") {
+        await api.sendRoomMessage(conv.id, data);
+      } else {
+        await api.sendMessage({ ...data, receiver_id: conv.id });
+      }
+      setSentIds((prev) => [...prev, conv.id]);
+    } catch {}
+    setSendingId(null);
+  };
+
+  const filtered = search
+    ? conversations.filter((c) =>
+        c.name.toLowerCase().includes(search.toLowerCase())
+      )
+    : conversations;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20">
+          <h2 className="font-display text-title-md text-on-surface">
+            Compartir publicacion
+          </h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
+          >
+            <MaterialIcon name="close" className="text-xl" />
+          </button>
+        </div>
+
+        {/* Post preview */}
+        <div className="px-6 pt-4">
+          <div className="flex items-start gap-2 bg-surface-container-low rounded-xl p-3 border border-outline-variant/20">
+            <Avatar
+              size="sm"
+              src={post.author?.avatar_url}
+              alt={post.author?.name}
+              initials={initialsOf(post.author?.name)}
+              className="w-7! h-7!"
+            />
+            <div className="min-w-0">
+              <p className="text-label-sm font-semibold text-on-surface">
+                {post.author?.name ?? "Usuario"}
+              </p>
+              <p className="text-label-sm text-on-surface-variant line-clamp-2">
+                {post.body}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-3">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar chat o grupo..."
+            className="w-full px-4 py-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:border-primary/40 transition-colors"
+          />
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 pb-4 no-scrollbar">
+          {loading ? (
+            <p className="text-center text-label-sm text-on-surface-variant py-8">
+              Cargando conversaciones...
+            </p>
+          ) : filtered.length === 0 ? (
+            <p className="text-center text-label-sm text-on-surface-variant py-8">
+              No hay conversaciones
+            </p>
+          ) : (
+            filtered.map((conv) => {
+              const sent = sentIds.includes(conv.id);
+              return (
+                <div
+                  key={`${conv.type}-${conv.id}`}
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-surface-container-low transition-colors"
+                >
+                  <Avatar
+                    size="sm"
+                    src={conv.avatar_url}
+                    alt={conv.name}
+                    initials={initialsOf(conv.name)}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-body-md text-on-surface truncate">
+                      {conv.name}
+                    </p>
+                    <p className="text-label-sm text-on-surface-variant truncate">
+                      {conv.type === "room" ? "Grupo" : "Chat directo"}
+                    </p>
+                  </div>
+                  <Button
+                    variant={sent ? "ghost" : "primary"}
+                    size="sm"
+                    icon={sent ? "check" : "send"}
+                    onClick={() => handleSend(conv)}
+                    disabled={sent || sendingId === conv.id}
+                  >
+                    {sent ? "Enviado" : sendingId === conv.id ? "..." : "Enviar"}
+                  </Button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -280,6 +498,7 @@ export default function ProfilePage() {
   const [frStatus, setFrStatus] = useState<"none" | "pending_sent" | "pending_received" | "accepted" | "rejected">("none");
   const [currentFrId, setCurrentFrId] = useState<string | null>(null);
   const [frLoading, setFrLoading] = useState(false);
+  const [shareTarget, setShareTarget] = useState<Post | null>(null);
 
   const isOwn = authUser?.id === profileId;
 
@@ -288,16 +507,14 @@ export default function ProfilePage() {
     let cancelled = false;
     Promise.all([
       api.getUser(profileId),
-      api.getPosts(),
+      api.getProfileFeed(profileId),
       api.getUsers(),
       api.getFriendRequests(),
     ])
-      .then(([u, allPosts, allUsers, frs]) => {
+      .then(([u, feed, allUsers, frs]) => {
         if (cancelled) return;
         setProfile(u);
-        setPosts(
-          allPosts.filter((p) => p.author_id === profileId)
-        );
+        setPosts(feed);
         setFriends(
           allUsers.filter((u) => u.id !== profileId).slice(0, 9)
         );
@@ -335,8 +552,25 @@ export default function ProfilePage() {
           p.id === postId
             ? {
                 ...p,
-                liked: result.liked,
+                liked_by_me: result.liked_by_me,
                 likes_count: result.likes_count,
+              }
+            : p
+        )
+      );
+    } catch {}
+  }, []);
+
+  const handleRepost = useCallback(async (postId: string) => {
+    try {
+      const result = await api.repostPost(postId);
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                reposted_by_me: result.reposted_by_me,
+                reposts_count: result.reposts_count,
               }
             : p
         )
@@ -834,16 +1068,22 @@ export default function ProfilePage() {
           ) : (
             posts.map((post) => (
               <PostCard
-                key={post.id}
+                key={`${post.is_repost ? "r" : "p"}-${post.id}`}
                 post={post}
                 onLike={handleLike}
-                currentUserId={authUser?.id}
-                profileUser={profile}
+                onRepost={handleRepost}
+                onShare={setShareTarget}
+                currentUser={authUser ?? undefined}
               />
             ))
           )}
         </div>
       </div>
+
+      {/* Share / Send Post Modal */}
+      {shareTarget && (
+        <SharePostModal post={shareTarget} onClose={() => setShareTarget(null)} />
+      )}
 
       {/* Edit Profile Modal */}
       {showEdit && (

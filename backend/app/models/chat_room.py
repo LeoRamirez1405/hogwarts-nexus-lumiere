@@ -48,6 +48,7 @@ class ChatRoomMember(Base):
     room_id = Column(String, ForeignKey("chat_rooms.id"), nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     role = Column(String, default="member", nullable=False)  # member / admin
+    muted_until = Column(DateTime, nullable=True)  # None = not muted, datetime = muted until
     joined_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     room = relationship("ChatRoom", back_populates="members", lazy="selectin")
@@ -55,4 +56,21 @@ class ChatRoomMember(Base):
 
     __table_args__ = (
         UniqueConstraint("room_id", "user_id", name="uq_room_user"),
+    )
+
+
+class UserConversationPreference(Base):
+    __tablename__ = "user_conversation_preferences"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    conversation_type = Column(String, nullable=False)  # "dm" | "room"
+    conversation_id = Column(String, nullable=False)  # user_id for DM, room_id for room
+    hidden = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", lazy="selectin")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "conversation_type", "conversation_id", name="uq_user_conv_pref"),
     )

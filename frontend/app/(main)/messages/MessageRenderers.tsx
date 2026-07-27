@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Message, MessageReaction } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import {
@@ -235,6 +236,94 @@ export function DocumentView({
   );
 }
 
+export function PostShareView({
+  message,
+  isOwn,
+}: {
+  message: Message;
+  isOwn: boolean;
+}) {
+  const post = message.metadata?.post;
+  if (!post) return null;
+
+  const initials = (post.author_name ?? "")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2);
+
+  return (
+    <Link
+      href={`/profile/${post.author_id}`}
+      className={`block mt-1 rounded-xl overflow-hidden border w-72 max-w-full transition-colors ${
+        isOwn
+          ? "bg-white/10 border-white/25 hover:bg-white/15"
+          : "bg-white border-outline-variant/20 hover:bg-surface-container-low"
+      }`}
+    >
+      <div className="p-3">
+        <div className="flex items-center gap-2 mb-2">
+          {post.author_avatar ? (
+            <Image
+              src={post.author_avatar}
+              alt={post.author_name || "Autor"}
+              width={28}
+              height={28}
+              className="w-7 h-7 rounded-full object-cover"
+              unoptimized
+            />
+          ) : (
+            <div
+              className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold ${
+                isOwn ? "bg-white/25 text-white" : "bg-primary/10 text-primary"
+              }`}
+            >
+              {initials || "?"}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p
+              className={`text-label-sm font-semibold truncate ${
+                isOwn ? "text-white" : "text-on-surface"
+              }`}
+            >
+              {post.author_name ?? "Usuario"}
+            </p>
+            <p
+              className={`text-[10px] ${
+                isOwn ? "text-white/70" : "text-on-surface-variant"
+              }`}
+            >
+              Publicacion
+            </p>
+          </div>
+          <MaterialIcon
+            name="article"
+            className={isOwn ? "text-white/60" : "text-on-surface-variant"}
+          />
+        </div>
+        <p
+          className={`text-body-md wrap-break-word line-clamp-4 ${
+            isOwn ? "text-white/90" : "text-on-surface"
+          }`}
+        >
+          {post.body}
+        </p>
+      </div>
+      {post.image_url && (
+        <Image
+          src={post.image_url}
+          alt="Publicacion"
+          width={288}
+          height={160}
+          className="w-full h-32 object-cover"
+          unoptimized
+        />
+      )}
+    </Link>
+  );
+}
+
 function ReplyPreview({ message, onScrollToMessage }: { message: Message; onScrollToMessage?: (id: string) => void }) {
   if (!message.reply_to) return null;
   const r = message.reply_to;
@@ -246,6 +335,7 @@ function ReplyPreview({ message, onScrollToMessage }: { message: Message; onScro
   else if (r.kind === "image") preview = "Imagen";
   else if (r.kind === "video") preview = "Video";
   else if (r.kind === "document") preview = r.attachment_name || "Documento";
+  else if (r.kind === "post") preview = "Publicacion compartida";
   if (preview.length > 60) preview = preview.slice(0, 60) + "...";
 
   return (
@@ -432,6 +522,33 @@ function ReactionPicker({
 // Need api import for ReactionPicker
 import { api } from "@/lib/api";
 
+function MentionText({ text, isOwn }: { text: string; isOwn: boolean }) {
+  const mentionRegex = /@([A-Za-z\u00C0-\u017F]+(?: [A-Za-z\u00C0-\u017F]+)*)/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+  while ((match = mentionRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    parts.push(
+      <span
+        key={match.index}
+        className={`font-semibold ${
+          isOwn ? "text-white underline" : "text-primary underline"
+        }`}
+      >
+        @{match[1]}
+      </span>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return <>{parts}</>;
+}
+
 export function MessageBubble({
   message,
   isOwn,
@@ -471,6 +588,10 @@ export function MessageBubble({
             <PollView poll={message.poll} isOwn={isOwn} />
           )}
 
+          {kind === "post" && (
+            <PostShareView message={message} isOwn={isOwn} />
+          )}
+
           {kind === "sticker" && message.body && (
             <StickerView sticker={message.body} />
           )}
@@ -485,7 +606,9 @@ export function MessageBubble({
 
           {(kind === "text" || kind === "image" || kind === "video" || kind === "audio") &&
             message.body && (
-              <p className="text-body-md wrap-break-word">{message.body}</p>
+              <p className="text-body-md wrap-break-word">
+                <MentionText text={message.body} isOwn={isOwn} />
+              </p>
             )}
 
           {message.attachment_url &&

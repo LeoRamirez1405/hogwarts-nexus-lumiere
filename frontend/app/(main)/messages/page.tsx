@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuthStore } from "@/lib/authStore";
-import { api, Conversation, Message, MessageSendData, User } from "@/lib/api";
+import { api, Conversation, Message, MessageSendData, User, ChatRoomMemberResponse } from "@/lib/api";
 import { SearchBar } from "@/components/ui";
 import { MaterialIcon } from "./helpers";
 import ConversationItem from "./ConversationItem";
@@ -17,6 +17,7 @@ export default function MessagesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<"direct" | "room" | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [roomMembers, setRoomMembers] = useState<ChatRoomMemberResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showNewChat, setShowNewChat] = useState(false);
@@ -42,8 +43,15 @@ export default function MessagesPage() {
             ? await api.getRoomMessages(selectedId)
             : await api.getMessages(selectedId);
         if (!cancelled) setMessages(msgs);
+        if (selectedType === "room") {
+          const room = await api.getRoom(selectedId);
+          if (!cancelled) setRoomMembers(room.members || []);
+        } else {
+          if (!cancelled) setRoomMembers([]);
+        }
       } catch {
         if (!cancelled) setMessages([]);
+        if (!cancelled) setRoomMembers([]);
       }
     };
     fetchMessages();
@@ -86,6 +94,39 @@ export default function MessagesPage() {
         type: selectedConversation.type as "direct" | "room",
       }
     : null;
+
+  const handleHideConversation = async (convType: "dm" | "room", convId: string) => {
+    try {
+      await api.hideConversation(convType, convId);
+      setConversations((prev) => prev.filter((c) => c.id !== convId));
+      if (selectedId === convId) {
+        setSelectedId(null);
+        setSelectedType(null);
+        setMessages([]);
+        setRoomMembers([]);
+      }
+    } catch (err) {
+      console.error("Hide failed", err);
+    }
+  };
+
+  const handleLeaveRoom = async (roomId: string) => {
+    try {
+      const result = await api.leaveRoom(roomId);
+      if (result.room_deleted) {
+        setConversations((prev) => prev.filter((c) => c.id !== roomId));
+      } else {
+        setConversations((prev) => prev.filter((c) => c.id !== roomId));
+      }
+      setSelectedId(null);
+      setSelectedType(null);
+      setMessages([]);
+      setRoomMembers([]);
+    } catch (err) {
+      console.error("Leave failed", err);
+      alert(err instanceof Error ? err.message : "Error al salir del grupo");
+    }
+  };
 
   return (
     <div className="h-[calc(100vh-5rem)] md:h-[calc(100vh-5rem)] flex flex-col">
@@ -179,8 +220,12 @@ export default function MessagesPage() {
               onBack={() => {
                 setSelectedId(null);
                 setSelectedType(null);
+                setRoomMembers([]);
               }}
               showBack
+              roomMembers={selectedType === "room" ? roomMembers : undefined}
+              onHideConversation={handleHideConversation}
+              onLeaveRoom={handleLeaveRoom}
               onRefresh={() => {
                 if (selectedId) {
                   const fetchMessages = async () => {
@@ -190,6 +235,10 @@ export default function MessagesPage() {
                           ? await api.getRoomMessages(selectedId)
                           : await api.getMessages(selectedId);
                       setMessages(msgs);
+                      if (selectedType === "room") {
+                        const room = await api.getRoom(selectedId);
+                        setRoomMembers(room.members || []);
+                      }
                     } catch {}
                   };
                   fetchMessages();

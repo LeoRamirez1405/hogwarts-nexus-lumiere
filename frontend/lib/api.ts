@@ -195,6 +195,19 @@ export const api = {
   // Room management
   toggleRoomClosed: (roomId: string) =>
     request<ChatRoomResponse>(`/messages/rooms/${roomId}/toggle-close`, { method: "PUT" }),
+  hideConversation: (convType: "dm" | "room", convId: string) =>
+    request<{ ok: boolean }>(`/messages/conversations/${convType}/${convId}/hide`, { method: "POST" }),
+  unhideConversation: (convType: "dm" | "room", convId: string) =>
+    request<{ ok: boolean }>(`/messages/conversations/${convType}/${convId}/hide`, { method: "DELETE" }),
+  leaveRoom: (roomId: string) =>
+    request<{ ok: boolean; room_deleted?: boolean }>(`/messages/rooms/${roomId}/leave`, { method: "DELETE" }),
+  muteRoom: (roomId: string, duration: "8h" | "24h" | "forever" | "off") =>
+    request<{ ok: boolean; muted_until: string | null }>(`/messages/rooms/${roomId}/mute`, {
+      method: "PUT",
+      body: JSON.stringify({ duration }),
+    }),
+  searchUsers: (q: string, friendsOnly?: boolean) =>
+    request<UserSearchResult[]>(`/messages/users/search?q=${encodeURIComponent(q)}${friendsOnly ? "&friends_only=true" : ""}`),
 
   transcribeAudio: (blob: Blob): Promise<{ text: string }> => {
     const file = new File([blob], "voice.wav", { type: "audio/wav" });
@@ -203,11 +216,19 @@ export const api = {
 
   // Posts
   getPosts: () => request<Post[]>("/posts"),
+  getProfileFeed: (userId: string) => request<Post[]>(`/posts/user/${userId}`),
   createPost: (data: { body: string; image_url?: string }) =>
     request<Post>("/posts", { method: "POST", body: JSON.stringify(data) }),
   likePost: (id: string) =>
-    request<{ liked: boolean; likes_count: number }>(`/posts/${id}/like`, {
+    request<Post>(`/posts/${id}/like`, { method: "POST" }),
+  repostPost: (id: string) =>
+    request<Post>(`/posts/${id}/repost`, { method: "POST" }),
+  getComments: (postId: string) =>
+    request<PostComment[]>(`/posts/${postId}/comments`),
+  addComment: (postId: string, body: string) =>
+    request<PostComment>(`/posts/${postId}/comments`, {
       method: "POST",
+      body: JSON.stringify({ body }),
     }),
 
   // Transactions
@@ -330,6 +351,7 @@ export interface MessageMetadata {
   transcription?: string;
   size?: number;
   duration?: number;
+  post?: SharedPostMeta;
   [key: string]: unknown;
 }
 
@@ -339,7 +361,7 @@ export interface Message {
   receiver_id?: string;
   room_id?: string;
   reply_to_id?: string;
-  kind: "text" | "image" | "video" | "audio" | "document" | "sticker" | "poll" | "voice";
+  kind: "text" | "image" | "video" | "audio" | "document" | "sticker" | "poll" | "voice" | "post";
   body?: string;
   attachment_url?: string;
   attachment_type?: string;
@@ -375,8 +397,35 @@ export interface Post {
   body: string;
   image_url?: string;
   likes_count?: number;
-  liked?: boolean;
+  liked_by_me?: boolean;
+  reposts_count?: number;
+  reposted_by_me?: boolean;
+  comments_count?: number;
+  // Repost feed metadata (present when this feed item is a repost)
+  is_repost?: boolean;
+  reposted_by?: User;
+  reposted_at?: string;
   created_at: string;
+}
+
+export interface PostComment {
+  id: string;
+  post_id: string;
+  user_id: string;
+  author?: User;
+  body: string;
+  created_at: string;
+}
+
+// Shape stored in message.metadata.post when a post is shared into a chat
+export interface SharedPostMeta {
+  id: string;
+  author_id: string;
+  author_name?: string;
+  author_avatar?: string;
+  body: string;
+  image_url?: string;
+  created_at?: string;
 }
 
 export interface Transaction {
@@ -471,7 +520,7 @@ export interface MessageSendData {
   room_id?: string;
   reply_to_id?: string;
   body?: string;
-  kind?: "text" | "image" | "video" | "audio" | "document" | "sticker" | "poll" | "voice";
+  kind?: "text" | "image" | "video" | "audio" | "document" | "sticker" | "poll" | "voice" | "post";
   attachment_url?: string;
   attachment_type?: string;
   attachment_name?: string;
@@ -507,4 +556,11 @@ export interface PollResponse {
   total_votes: number;
   options: PollOptionResponse[];
   my_option_ids: string[];
+}
+
+export interface UserSearchResult {
+  id: string;
+  name: string;
+  avatar_url?: string;
+  house?: string;
 }

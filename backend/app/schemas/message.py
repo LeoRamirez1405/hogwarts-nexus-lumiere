@@ -25,6 +25,7 @@ class ChatRoomMemberResponse(BaseModel):
     room_id: str
     user_id: str
     role: str
+    muted_until: Optional[datetime] = None
     joined_at: datetime
     user: Optional[UserResponse] = None
 
@@ -160,3 +161,15 @@ class ConversationResponse(BaseModel):
     subtitle: Optional[str] = None  # e.g. "@house" or "N miembros"
     last_message: Optional[MessageResponse] = None
     unread_count: int = 0
+    hidden: bool = False
+
+
+class MuteRequest(BaseModel):
+    duration: str  # "8h" | "24h" | "forever" | "off"
+
+
+class UserSearchResult(BaseModel):
+    id: str
+    name: str
+    avatar_url: Optional[str] = None
+    house: Optional[str] = None
