@@ -1,10 +1,13 @@
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_, func, desc
 from sqlalchemy.orm import selectinload
 import json
+import io
+import tempfile
+import os
 
 from ..database import get_db
 from ..models.message import Message, Poll, PollOption, PollVote, MessageReaction
@@ -802,6 +805,52 @@ async def toggle_room_closed(
     )
     room.members = member_result.scalars().all()
     return serialize_room(room, current_user.id)
+
+
+@router.post("/transcribe")
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    import speech_recognition as sr
+    from pydub import AudioSegment
+
+    content = await file.read()
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="Empty audio file")
+
+    tmp_path = None
+    wav_path = None
+    try:
+        suffix = os.path.splitext(file.filename or "audio.webm")[1] or ".webm"
+        tmp_path = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+        tmp_path.write(content)
+        tmp_path.close()
+
+        wav_path = tmp_path.name + ".wav"
+        try:
+            audio = AudioSegment.from_file(tmp_path.name)
+            audio = audio.set_frame_rate(16000).set_channels(1)
+            audio.export(wav_path, format="wav")
+        except Exception:
+            wav_path = tmp_path.name
+
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(wav_path) as source:
+            audio_data = recognizer.record(source)
+
+        text = recognizer.recognize_google(audio_data, language="es-ES")
+        return {"text": text}
+
+    except sr.UnknownValueError:
+        raise HTTPException(status_code=422, detail="No se pudo reconocer el audio")
+    except sr.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Servicio de reconocimiento no disponible: {e}")
+    finally:
+        if tmp_path and os.path.exists(tmp_path.name):
+            os.unlink(tmp_path.name)
+        if wav_path and os.path.exists(wav_path) and (not tmp_path or wav_path != tmp_path.name):
+            os.unlink(wav_path)
 
 
 @router.get("/{user_id}", response_model=List[MessageResponse])

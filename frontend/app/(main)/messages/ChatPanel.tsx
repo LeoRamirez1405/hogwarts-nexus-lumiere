@@ -9,6 +9,49 @@ import { MaterialIcon, getInitials, STICKER_PACKS } from "./helpers";
 import { MessageBubble } from "./MessageRenderers";
 import PollCreator from "./PollCreator";
 
+async function blobToWav(blob: Blob): Promise<Blob> {
+  const audioCtx = new AudioContext();
+  const arrayBuffer = await blob.arrayBuffer();
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  const numChannels = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const format = 1;
+  const bitDepth = 16;
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numChannels * bytesPerSample;
+  const dataLength = audioBuffer.length * blockAlign;
+  const buffer = new ArrayBuffer(44 + dataLength);
+  const view = new DataView(buffer);
+  const writeStr = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+  writeStr(0, "RIFF");
+  view.setUint32(4, 36 + dataLength, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, format, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true);
+  writeStr(36, "data");
+  view.setUint32(40, dataLength, true);
+  const channels = [];
+  for (let i = 0; i < numChannels; i++) channels.push(audioBuffer.getChannelData(i));
+  let offset = 44;
+  for (let i = 0; i < audioBuffer.length; i++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      const sample = Math.max(-1, Math.min(1, channels[ch][i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      offset += 2;
+    }
+  }
+  audioCtx.close();
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
 export interface SelectedConv {
   id: string;
   name: string;
@@ -199,6 +242,7 @@ function useVoiceRecorder() {
     recording, elapsed, recordedBlob, isPlaying, transcribing,
     start, stopRecording, playPreview, pausePreview,
     startTranscription, stopTranscription, cleanup, transcriptRef,
+    setTranscribing,
   };
 }
 
@@ -333,21 +377,26 @@ export default function ChatPanel({
     setUploading(false);
   };
 
-  const handleTranscribeVoice = () => {
-    if (voice.transcribing) {
-      // Already listening — stop and send what we have
-      voice.stopTranscription();
-      const text = voice.transcriptRef.current.trim();
-      if (text) {
-        onSend(buildBaseData({ body: text, kind: "text" }));
+  const handleTranscribeVoice = async () => {
+    if (voice.transcribing) return;
+    const blob = voice.recordedBlob;
+    if (!blob) return;
+
+    voice.setTranscribing(true);
+    try {
+      const wavBlob = await blobToWav(blob);
+      const result = await api.transcribeAudio(wavBlob);
+      if (result.text.trim()) {
+        onSend(buildBaseData({ body: result.text.trim(), kind: "text" }));
         clearInputState();
         voice.cleanup();
       } else {
-        alert("No se detectó voz. Intenta hablar más alto o más cerca del micrófono.");
+        alert("No se pudo reconocer el audio. Intenta grabar de nuevo.");
+        voice.setTranscribing(false);
       }
-    } else {
-      // Start listening — discard audio blob, open fresh mic for speech recognition
-      voice.startTranscription();
+    } catch {
+      alert("Error al transcribir. Intenta de nuevo.");
+      voice.setTranscribing(false);
     }
   };
 
@@ -591,16 +640,8 @@ export default function ChatPanel({
             <div className="flex items-center gap-2 bg-secondary/10 rounded-full px-4 py-2 border border-secondary/30">
               <div className="w-3 h-3 rounded-full bg-secondary animate-pulse" />
               <span className="text-body-md text-on-surface font-medium">
-                Escuchando... habla ahora
+                Transcribiendo audio...
               </span>
-              <div className="flex-1" />
-              <button
-                onClick={handleTranscribeVoice}
-                className="w-9 h-9 flex items-center justify-center bg-secondary text-white rounded-full hover:opacity-90"
-                title="Detener y enviar texto"
-              >
-                <MaterialIcon name="stop" className="text-lg" />
-              </button>
             </div>
           ) : (
             <div className="flex items-center gap-2 bg-surface-container rounded-full px-4 py-2 border border-outline-variant/30">
@@ -626,7 +667,7 @@ export default function ChatPanel({
                 onClick={handleTranscribeVoice}
                 disabled={uploading}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/10 text-secondary hover:bg-secondary/20 transition-colors text-label-sm font-medium disabled:opacity-40"
-                title="Grabar voz y enviar como texto"
+                title="Convertir audio a texto"
               >
                 <MaterialIcon name="speech_to_text" className="text-lg" />
                 Transcribir

@@ -196,6 +196,16 @@ export const api = {
   toggleRoomClosed: (roomId: string) =>
     request<ChatRoomResponse>(`/messages/rooms/${roomId}/toggle-close`, { method: "PUT" }),
 
+  transcribeAudio: (blob: Blob): Promise<{ text: string }> => {
+    const formData = new FormData();
+    formData.append("file", blob, `voice-${Date.now()}.wav`);
+    return request("/messages/transcribe", {
+      method: "POST",
+      body: formData,
+      headers: {},
+    });
+  },
+
   // Posts
   getPosts: () => request<Post[]>("/posts"),
   createPost: (data: { body: string; image_url?: string }) =>

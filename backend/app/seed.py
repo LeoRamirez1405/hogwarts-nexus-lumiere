@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import select
 from .database import async_session
 from .models.user import User
@@ -400,7 +400,17 @@ async def seed_data():
         ]
         db.add_all(likes)
 
-        # Transactions
+        # Transactions (spread across current week, Mon-Sun, aligned to local frontend time)
+        now = datetime.now()
+        days_since_monday = now.weekday()  # Monday=0, Sunday=6
+        start_of_week = (now - timedelta(days=days_since_monday)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+
+        def day_of_week(offset: int, hour: int = 10) -> datetime:
+            d = start_of_week + timedelta(days=offset)
+            return d.replace(hour=hour, minute=(offset * 7) % 60, second=0, microsecond=0)
+
         transactions = [
             Transaction(
                 sender_id=admin.id,
@@ -409,6 +419,7 @@ async def seed_data():
                 type="transfer",
                 description="Welcome bonus to Nexus Lumiere",
                 status="confirmed",
+                created_at=day_of_week(0, 9),
             ),
             Transaction(
                 sender_id=admin.id,
@@ -417,6 +428,7 @@ async def seed_data():
                 type="transfer",
                 description="Academic excellence reward",
                 status="confirmed",
+                created_at=day_of_week(1, 11),
             ),
             Transaction(
                 sender_id=harry.id,
@@ -425,6 +437,7 @@ async def seed_data():
                 type="transfer",
                 description="For those Charms notes",
                 status="confirmed",
+                created_at=day_of_week(2, 15),
             ),
             Transaction(
                 sender_id=admin.id,
@@ -433,6 +446,7 @@ async def seed_data():
                 type="transfer",
                 description="Triwizard Tournament contribution",
                 status="completed",
+                created_at=day_of_week(3, 14),
             ),
             Transaction(
                 sender_id=hermione.id,
@@ -441,6 +455,7 @@ async def seed_data():
                 type="transfer",
                 description="For the Quibbler subscription",
                 status="confirmed",
+                created_at=day_of_week(4, 17),
             ),
             Transaction(
                 receiver_id=admin.id,
@@ -448,6 +463,7 @@ async def seed_data():
                 type="deposit",
                 description="Initial treasury deposit",
                 status="completed",
+                created_at=day_of_week(5, 10),
             ),
             Transaction(
                 sender_id=harry.id,
@@ -455,6 +471,7 @@ async def seed_data():
                 type="purchase",
                 description="Purchased Niffler from creature shop",
                 status="confirmed",
+                created_at=day_of_week(6, 18),
             ),
         ]
         db.add_all(transactions)
