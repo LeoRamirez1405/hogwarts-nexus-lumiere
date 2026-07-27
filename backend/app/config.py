@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     HUNGER_DECAY_PER_HOUR: float = 5.0
     HAPPINESS_DECAY_PER_HOUR: float = 3.0
 
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_CHAT_ID: str = ""
+
     class Config:
         env_file = ".env"
 

@@ -43,7 +43,7 @@ const RARITY_BG: Record<string, string> = {
 const PET_TYPE_LABELS: Record<PetType, string> = {
   avian: "Aves",
   beast: "Bestias",
-  critter: "Criaturas pequenas",
+  critter: "Criaturas pequeñas",
 };
 
 const MOOD_META: Record<string, { icon: string; label: string; color: string }> = {
@@ -238,7 +238,7 @@ export default function PetsPage() {
         {activeTab === "adopt" && (
           <>
             <h2 className="font-display text-headline-lg text-primary mb-6">
-              Criaturas Disponibles para Adopcion
+              Criaturas Disponibles para Adopción
             </h2>
 
           {loading ? (

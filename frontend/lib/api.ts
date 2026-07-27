@@ -313,6 +313,25 @@ export const api = {
   // Upload
   uploadFile: (file: File) =>
     uploadFile<{ url: string; type: string; original_name: string }>("/upload", file),
+
+  // Support
+  sendSupportReport: (type: string, description: string, screenshot?: File) => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const formData = new FormData();
+    formData.append("report_type", type);
+    formData.append("description", description);
+    if (screenshot) formData.append("screenshot", screenshot);
+
+    return fetch(`${API_BASE}/support`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Error al enviar");
+      return data;
+    });
+  },
 };
 
 // Types
