@@ -197,13 +197,8 @@ export const api = {
     request<ChatRoomResponse>(`/messages/rooms/${roomId}/toggle-close`, { method: "PUT" }),
 
   transcribeAudio: (blob: Blob): Promise<{ text: string }> => {
-    const formData = new FormData();
-    formData.append("file", blob, `voice-${Date.now()}.wav`);
-    return request("/messages/transcribe", {
-      method: "POST",
-      body: formData,
-      headers: {},
-    });
+    const file = new File([blob], "voice.wav", { type: "audio/wav" });
+    return uploadFile("/messages/transcribe", file);
   },
 
   // Posts
