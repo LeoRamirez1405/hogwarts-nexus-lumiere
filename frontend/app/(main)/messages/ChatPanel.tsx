@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/lib/authStore";
 import { api, Message, MessageSendData } from "@/lib/api";
-import { Avatar, Button } from "@/components/ui";
+import { Avatar } from "@/components/ui";
 import { MaterialIcon, getInitials, STICKER_PACKS } from "./helpers";
 import { MessageBubble } from "./MessageRenderers";
 import PollCreator from "./PollCreator";
@@ -14,6 +14,99 @@ export interface SelectedConv {
   name: string;
   avatar_url?: string;
   type?: "direct" | "room";
+}
+
+function useVoiceRecorder() {
+  const [recording, setRecording] = useState(false);
+  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+  const [elapsed, setElapsed] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  const cleanup = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+    chunksRef.current = [];
+    setElapsed(0);
+    setAudioChunks([]);
+    setRecording(false);
+  }, []);
+
+  const start = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      chunksRef.current = chunks;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      streamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      chunksRef.current = chunks;
+      setAudioChunks([]);
+      setElapsed(0);
+      setRecording(true);
+
+      intervalRef.current = setInterval(() => {
+        setElapsed((prev) => prev + 1);
+      }, 1000);
+
+      recorder.start();
+    } catch {
+      alert("No se pudo acceder al microfono");
+    }
+  }, []);
+
+  const stop = useCallback((): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      const recorder = mediaRecorderRef.current;
+      if (!recorder || recorder.state === "inactive") {
+        resolve(null);
+        cleanup();
+        return;
+      }
+
+      recorder.onstop = () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+        }
+        mediaRecorderRef.current = null;
+        setRecording(false);
+
+        const chunks = chunksRef.current;
+        if (chunks.length > 0) {
+          const blob = new Blob(chunks, { type: "audio/webm" });
+          setAudioChunks(chunks);
+          resolve(blob);
+        } else {
+          resolve(null);
+        }
+        chunksRef.current = [];
+        setElapsed(0);
+      };
+
+      recorder.stop();
+    });
+  }, [cleanup]);
+
+  return { recording, elapsed, audioChunks, start, stop, cleanup };
 }
 
 export default function ChatPanel({
@@ -37,16 +130,14 @@ export default function ChatPanel({
   const [uploading, setUploading] = useState(false);
   const [showStickers, setShowStickers] = useState(false);
   const [showPoll, setShowPoll] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const [hasRecording, setHasRecording] = useState(false);
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [transcribing, setTranscribing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user } = useAuthStore();
   const [stickerTab, setStickerTab] = useState("magicos");
+  const voice = useVoiceRecorder();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -64,19 +155,29 @@ export default function ChatPanel({
 
   const isRoom = selectedConv?.type === "room";
 
+  const buildBaseData = useCallback(
+    (extra?: Partial<MessageSendData>): MessageSendData => ({
+      receiver_id: isRoom ? undefined : selectedConv?.id,
+      room_id: isRoom ? selectedConv?.id : undefined,
+      ...(replyingTo ? { reply_to_id: replyingTo.id } : {}),
+      ...extra,
+    }),
+    [isRoom, selectedConv, replyingTo]
+  );
+
+  const clearInputState = useCallback(() => {
+    setInput("");
+    setAttachment(null);
+    setReplyingTo(null);
+    setShowStickers(false);
+    setShowPoll(false);
+  }, []);
+
   const handleSend = () => {
     const trimmed = input.trim();
     if (!trimmed && !attachment) return;
 
-    const data: MessageSendData = {
-      receiver_id: isRoom ? undefined : selectedConv?.id,
-      room_id: isRoom ? selectedConv?.id : undefined,
-      body: trimmed || " ",
-    };
-
-    if (replyingTo) {
-      data.reply_to_id = replyingTo.id;
-    }
+    const data = buildBaseData({ body: trimmed || " " });
 
     if (attachment) {
       data.attachment_url = attachment.url;
@@ -92,11 +193,7 @@ export default function ChatPanel({
     }
 
     onSend(data);
-    setInput("");
-    setAttachment(null);
-    setReplyingTo(null);
-    setShowStickers(false);
-    setShowPoll(false);
+    clearInputState();
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,43 +215,10 @@ export default function ChatPanel({
     e.target.value = "";
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
+  const handleSendVoice = async () => {
+    const blob = await voice.stop();
+    if (!blob) return;
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-
-      recorder.onstop = () => {
-        setAudioChunks(chunks);
-        setHasRecording(true);
-        setRecording(false);
-        stream.getTracks().forEach((t) => t.stop());
-      };
-
-      setMediaRecorder(recorder);
-      setRecording(true);
-      setHasRecording(false);
-      setAudioChunks([]);
-      recorder.start();
-    } catch (err) {
-      console.error("Recording failed", err);
-      alert("No se pudo acceder al microfono");
-    }
-  };
-
-  const stopRecording = () => {
-    if (!mediaRecorder) return;
-    mediaRecorder.stop();
-  };
-
-  const sendVoiceMessage = async () => {
-    if (audioChunks.length === 0) return;
-
-    const blob = new Blob(audioChunks, { type: "audio/webm" });
     const file = new File([blob], `voice-${Date.now()}.webm`, {
       type: "audio/webm",
     });
@@ -163,33 +227,129 @@ export default function ChatPanel({
     try {
       const result = await api.uploadFile(file);
       onSend({
-        receiver_id: isRoom ? undefined : selectedConv?.id,
-        room_id: isRoom ? selectedConv?.id : undefined,
-        body: " ",
-        attachment_url: result.url,
-        attachment_type: "audio/webm",
-        attachment_name: file.name,
-        kind: "voice",
-        metadata: { duration: 0 },
+        ...buildBaseData({
+          body: " ",
+          attachment_url: result.url,
+          attachment_type: "audio/webm",
+          attachment_name: file.name,
+          kind: "voice",
+          metadata: { duration: voice.elapsed },
+        }),
       });
-      setAudioChunks([]);
+      clearInputState();
     } catch (err) {
       console.error("Voice upload failed", err);
     }
     setUploading(false);
   };
 
-  const sendSticker = (sticker: string) => {
-    const data: MessageSendData = {
-      receiver_id: isRoom ? undefined : selectedConv?.id,
-      room_id: isRoom ? selectedConv?.id : undefined,
-      body: sticker,
-      kind: "sticker",
-    };
-    if (replyingTo) {
-      data.reply_to_id = replyingTo.id;
+  const handleTranscribeVoice = async () => {
+    const SpeechRecognition =
+      typeof window !== "undefined"
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (window as any).SpeechRecognition ||
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (window as any).webkitSpeechRecognition
+        : null;
+
+    if (!SpeechRecognition) {
+      alert("Tu navegador no soporta transcripcion de voz. Intenta con Chrome o Edge.");
+      return;
     }
-    onSend(data);
+
+    setTranscribing(true);
+    const blob = await voice.stop();
+    if (!blob) {
+      setTranscribing(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "es-ES";
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onresult = (event: { results: SpeechRecognitionResultList }) => {
+      let text = "";
+      for (let i = event.results.length - 1; i >= 0; i--) {
+        if (event.results[i].isFinal) {
+          text += event.results[i][0].transcript;
+        }
+      }
+      if (text.trim()) {
+        const data = buildBaseData({ body: text.trim(), kind: "text" });
+        onSend(data);
+        clearInputState();
+      }
+      setTranscribing(false);
+    };
+
+    recognition.onerror = () => {
+      const file = new File([blob], `voice-${Date.now()}.webm`, {
+        type: "audio/webm",
+      });
+      setUploading(true);
+      api
+        .uploadFile(file)
+        .then((result) => {
+          onSend({
+            ...buildBaseData({
+              body: " ",
+              attachment_url: result.url,
+              attachment_type: "audio/webm",
+              attachment_name: file.name,
+              kind: "voice",
+              metadata: { duration: voice.elapsed },
+            }),
+          });
+          clearInputState();
+        })
+        .catch(() => {})
+        .finally(() => setUploading(false));
+      setTranscribing(false);
+    };
+
+    recognition.onend = () => {
+      setTranscribing(false);
+    };
+
+    try {
+      const tempRecorder = new MediaRecorder(blob as unknown as MediaStream);
+      recognition.start();
+      setTimeout(() => recognition.stop(), 500);
+      void tempRecorder;
+    } catch {
+      const file = new File([blob], `voice-${Date.now()}.webm`, {
+        type: "audio/webm",
+      });
+      setUploading(true);
+      try {
+        const result = await api.uploadFile(file);
+        onSend({
+          ...buildBaseData({
+            body: " ",
+            attachment_url: result.url,
+            attachment_type: "audio/webm",
+            attachment_name: file.name,
+            kind: "voice",
+            metadata: { duration: voice.elapsed },
+          }),
+        });
+        clearInputState();
+      } catch {}
+      setUploading(false);
+      setTranscribing(false);
+    }
+  };
+
+  const formatElapsed = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const sendSticker = (sticker: string) => {
+    onSend(buildBaseData({ body: sticker, kind: "sticker" }));
     setShowStickers(false);
     setReplyingTo(null);
   };
@@ -199,17 +359,13 @@ export default function ChatPanel({
     options: string[],
     multiChoice: boolean
   ) => {
-    const data: MessageSendData = {
-      receiver_id: isRoom ? undefined : selectedConv?.id,
-      room_id: isRoom ? selectedConv?.id : undefined,
-      body: "",
-      kind: "poll",
-      poll: { question, options, multi_choice: multiChoice },
-    };
-    if (replyingTo) {
-      data.reply_to_id = replyingTo.id;
-    }
-    onSend(data);
+    onSend(
+      buildBaseData({
+        body: "",
+        kind: "poll",
+        poll: { question, options, multi_choice: multiChoice },
+      })
+    );
     setShowPoll(false);
     setReplyingTo(null);
   };
@@ -388,138 +544,99 @@ export default function ChatPanel({
           <PollCreator onCreate={handlePollCreate} onCancel={() => setShowPoll(false)} />
         )}
 
-        {recording && (
-          <div className="mb-2 flex items-center gap-3 bg-primary-container/20 rounded-xl px-4 py-3 border border-primary/30">
-            <MaterialIcon name="mic" className="text-primary text-xl animate-pulse" />
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-body-md text-on-surface">
-                  Grabando voz...
-                </span>
-                <span className="text-label-sm text-primary font-mono">
-                  EN VIVO
-                </span>
-              </div>
-            </div>
-            <Button variant="secondary" size="sm" icon="stop" onClick={stopRecording}>
-              Detener
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              icon="send"
-              onClick={sendVoiceMessage}
-              disabled={audioChunks.length === 0 || uploading}
+        {/* Input bar - normal or recording mode */}
+        {voice.recording ? (
+          <div className="flex items-center gap-2 bg-primary-container/10 rounded-full px-4 py-2 border border-primary/30">
+            <div className="w-3 h-3 rounded-full bg-error animate-pulse" />
+            <span className="font-mono text-body-md text-on-surface tabular-nums">
+              {formatElapsed(voice.elapsed)}
+            </span>
+            <div className="flex-1" />
+            <span className="text-label-sm text-on-surface-variant">
+              {transcribing ? "Transcribiendo..." : ""}
+            </span>
+            <button
+              onClick={handleTranscribeVoice}
+              disabled={transcribing || uploading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/10 text-secondary hover:bg-secondary/20 transition-colors text-label-sm font-medium disabled:opacity-40"
             >
-              Enviar
-            </Button>
-          </div>
-        )}
-
-        {!recording && hasRecording && (
-          <div className="mb-2 flex items-center gap-3 bg-secondary-container/20 rounded-xl px-4 py-3 border border-secondary/30">
-            <MaterialIcon name="mic" className="text-secondary text-xl" />
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-body-md text-on-surface">
-                  Nota de voz lista
-                </span>
-                <span className="text-label-sm text-secondary font-mono">
-                  LISTO
-                </span>
-              </div>
-            </div>
-            <Button
-              variant="primary"
-              size="sm"
-              icon="send"
-              onClick={sendVoiceMessage}
+              <MaterialIcon name="speech_to_text" className="text-lg" />
+              Transcribir
+            </button>
+            <button
+              onClick={handleSendVoice}
               disabled={uploading}
+              className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full hover:opacity-90 disabled:opacity-40"
             >
-              Enviar nota
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              icon="delete"
-              onClick={() => { setHasRecording(false); setAudioChunks([]); }}
+              <MaterialIcon name="send" className="text-lg" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 bg-surface-container-low rounded-full px-4 py-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+              className="hidden"
+              onChange={handleFileSelect}
+              disabled={uploading}
+            />
+
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors disabled:opacity-40"
             >
-              Cancelar
-            </Button>
+              <MaterialIcon name="add_circle" className="text-xl" />
+            </button>
+
+            <button
+              onClick={() => setShowStickers(!showStickers)}
+              className="p-1 rounded-full text-on-surface-variant hover:text-secondary transition-colors"
+              title="Stickers"
+            >
+              <MaterialIcon name="emoji_emotions" className="text-xl" />
+            </button>
+
+            <button
+              onClick={() => setShowPoll(!showPoll)}
+              className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors"
+              title="Crear encuesta"
+            >
+              <MaterialIcon name="ballot" className="text-xl" />
+            </button>
+
+            <button
+              onClick={voice.start}
+              className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors"
+              title="Grabar voz"
+            >
+              <MaterialIcon name="mic" className="text-xl" />
+            </button>
+
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) =>
+                e.key === "Enter" &&
+                !e.shiftKey &&
+                (e.preventDefault(), handleSend())
+              }
+              placeholder={replyingTo ? "Escribe tu respuesta..." : "Escribe un mensaje..."}
+              className="flex-1 bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50"
+              disabled={uploading}
+            />
+
+            <button
+              onClick={handleSend}
+              disabled={(!input.trim() && !attachment) || uploading}
+              className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full transition-all hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <MaterialIcon name="send" className="text-lg" />
+            </button>
           </div>
         )}
-
-        <div className="flex items-center gap-2 bg-surface-container-low rounded-full px-4 py-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
-            className="hidden"
-            onChange={handleFileSelect}
-            disabled={uploading}
-          />
-
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors disabled:opacity-40"
-          >
-            <MaterialIcon name="add_circle" className="text-xl" />
-          </button>
-
-          <button
-            onClick={() => setShowStickers(!showStickers)}
-            className="p-1 rounded-full text-on-surface-variant hover:text-secondary transition-colors"
-            title="Stickers"
-          >
-            <MaterialIcon name="emoji_emotions" className="text-xl" />
-          </button>
-
-          <button
-            onClick={() => setShowPoll(!showPoll)}
-            className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors"
-            title="Crear encuesta"
-          >
-            <MaterialIcon name="ballot" className="text-xl" />
-          </button>
-
-          <button
-            onClick={recording ? stopRecording : startRecording}
-            className={`p-1 rounded-full transition-colors ${
-              recording
-                ? "bg-error text-on-error animate-pulse"
-                : "text-on-surface-variant hover:text-primary"
-            }`}
-            title={recording ? "Detener grabacion" : "Grabar voz"}
-          >
-            <MaterialIcon
-              name={recording ? "stop" : "mic"}
-              className="text-xl"
-            />
-          </button>
-
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) =>
-              e.key === "Enter" &&
-              !e.shiftKey &&
-              (e.preventDefault(), handleSend())
-            }
-            placeholder={replyingTo ? "Escribe tu respuesta..." : "Escribe un mensaje..."}
-            className="flex-1 bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50"
-            disabled={uploading}
-          />
-
-          <button
-            onClick={handleSend}
-            disabled={(!input.trim() && !attachment) || uploading}
-            className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full transition-all hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none"
-          >
-            <MaterialIcon name="send" className="text-lg" />
-          </button>
-        </div>
       </div>
     </div>
   );
