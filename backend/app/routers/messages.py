@@ -751,7 +751,7 @@ async def remove_poll_vote(
     return {"ok": True}
 
 
-@router.post("/messages/{message_id}/reactions", response_model=MessageReactionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{message_id}/reactions", response_model=MessageReactionResponse, status_code=status.HTTP_201_CREATED)
 async def add_reaction(
     message_id: str,
     reaction_data: ReactionCreate,
@@ -795,7 +795,7 @@ async def add_reaction(
     )
 
 
-@router.delete("/messages/{message_id}/reactions/{emoji}", status_code=204)
+@router.delete("/{message_id}/reactions/{emoji}", status_code=204)
 async def remove_reaction(
     message_id: str,
     emoji: str,
