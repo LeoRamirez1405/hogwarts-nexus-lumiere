@@ -23,6 +23,10 @@ async function request<T>(
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }));
+    if (res.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    }
     throw new Error(error.detail || "Request failed");
   }
 
@@ -53,6 +57,10 @@ async function uploadFile<T>(
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }));
+    if (res.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    }
     throw new Error(error.detail || "Upload failed");
   }
 
