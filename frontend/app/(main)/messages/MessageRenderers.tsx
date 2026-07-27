@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Message, MessageReaction } from "@/lib/api";
+import { Message, MessageReaction, ChatRoomMemberResponse } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import {
   MaterialIcon,
@@ -522,7 +522,7 @@ function ReactionPicker({
 // Need api import for ReactionPicker
 import { api } from "@/lib/api";
 
-function MentionText({ text, isOwn }: { text: string; isOwn: boolean }) {
+function MentionText({ text, isOwn, members }: { text: string; isOwn: boolean; members?: ChatRoomMemberResponse[] }) {
   const mentionRegex = /@([A-Za-z\u00C0-\u017F]+(?: [A-Za-z\u00C0-\u017F]+)*)/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
@@ -531,16 +531,35 @@ function MentionText({ text, isOwn }: { text: string; isOwn: boolean }) {
     if (match.index > lastIndex) {
       parts.push(text.slice(lastIndex, match.index));
     }
-    parts.push(
+    const mentionedName = match[1];
+    const member = members?.find(
+      (m) => m.user?.name?.toLowerCase() === mentionedName.toLowerCase()
+    );
+    const userId = member?.user_id;
+    const mentionContent = (
       <span
-        key={match.index}
-        className={`font-semibold ${
+        className={`font-semibold cursor-pointer hover:opacity-80 ${
           isOwn ? "text-white underline" : "text-primary underline"
         }`}
       >
-        @{match[1]}
+        @{mentionedName}
       </span>
     );
+    if (userId) {
+      parts.push(
+        <Link
+          key={match.index}
+          href={`/profile/${userId}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {mentionContent}
+        </Link>
+      );
+    } else {
+      parts.push(
+        <span key={match.index}>{mentionContent}</span>
+      );
+    }
     lastIndex = match.index + match[0].length;
   }
   if (lastIndex < text.length) {
@@ -555,12 +574,14 @@ export function MessageBubble({
   onReply,
   onReactionChange,
   onScrollToMessage,
+  members,
 }: {
   message: Message;
   isOwn: boolean;
   onReply?: (msg: Message) => void;
   onReactionChange?: () => void;
   onScrollToMessage?: (id: string) => void;
+  members?: ChatRoomMemberResponse[];
 }) {
   const kind = message.kind || "text";
 
@@ -607,7 +628,7 @@ export function MessageBubble({
           {(kind === "text" || kind === "image" || kind === "video" || kind === "audio") &&
             message.body && (
               <p className="text-body-md wrap-break-word">
-                <MentionText text={message.body} isOwn={isOwn} />
+                <MentionText text={message.body} isOwn={isOwn} members={members} />
               </p>
             )}
 
