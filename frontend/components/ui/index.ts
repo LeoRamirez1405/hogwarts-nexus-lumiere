@@ -11,3 +11,4 @@ export { default as FAB } from "./FAB";
 export { default as LanguageSelector } from "./LanguageSelector";
 export { default as LevelUpCelebration } from "./LevelUpCelebration";
 export { MaterialIcon } from "./MaterialIcon";
+export { default as ListFooter } from "./ListFooter";

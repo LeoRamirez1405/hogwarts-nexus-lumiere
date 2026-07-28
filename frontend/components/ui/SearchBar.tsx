@@ -6,6 +6,7 @@ interface SearchBarProps {
   onChange?: (value: string) => void;
   size?: "sm" | "md";
   variant?: "light" | "dark";
+  className?: string;
 }
 
 const sizeClasses: Record<NonNullable<SearchBarProps["size"]>, string> = {
@@ -24,10 +25,11 @@ export default function SearchBar({
   onChange,
   size = "md",
   variant = "light",
+  className = "",
 }: SearchBarProps) {
   return (
     <div
-      className={`relative flex items-center rounded-full border ${sizeClasses[size]} ${variantClasses[variant].wrapper}`}
+      className={`relative flex items-center rounded-full border ${sizeClasses[size]} ${variantClasses[variant].wrapper} ${className}`}
     >
       <span
         className={`material-symbols-outlined ${variantClasses[variant].icon} mr-2 text-[1.2em]`}

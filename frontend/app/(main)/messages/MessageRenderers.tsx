@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Message, MessageReaction, ChatRoomMemberResponse } from "@/lib/api";
+import { mediaSrc } from "@/lib/media";
 import { useAuthStore } from "@/lib/authStore";
 import {
   MaterialIcon,
@@ -265,7 +266,7 @@ export function PostShareView({
         <div className="flex items-center gap-2 mb-2">
           {post.author_avatar ? (
             <Image
-              src={post.author_avatar}
+              src={mediaSrc(post.author_avatar)}
               alt={post.author_name || "Autor"}
               width={28}
               height={28}
@@ -312,7 +313,7 @@ export function PostShareView({
       </div>
       {post.image_url && (
         <Image
-          src={post.image_url}
+          src={mediaSrc(post.image_url)}
           alt="Publicacion"
           width={288}
           height={160}
@@ -639,7 +640,7 @@ export function MessageBubble({
               <div className="mt-2">
                 {kind.startsWith("image") ? (
                   <Image
-                    src={message.attachment_url}
+                    src={mediaSrc(message.attachment_url)}
                     alt="Adjunto"
                     width={300}
                     height={200}
@@ -648,13 +649,13 @@ export function MessageBubble({
                   />
                 ) : kind.startsWith("video") ? (
                   <video
-                    src={message.attachment_url}
+                    src={mediaSrc(message.attachment_url)}
                     controls
                     className="rounded-xl max-h-48 w-full"
                   />
                 ) : kind.startsWith("audio") ? (
                   <audio
-                    src={message.attachment_url}
+                    src={mediaSrc(message.attachment_url)}
                     controls
                     className="w-full mt-1"
                   />

@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack --experimental-https --experimental-https-cert ./certificates/localhost.pem --experimental-https-key ./certificates/localhost-key.pem",
+    "dev:http": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

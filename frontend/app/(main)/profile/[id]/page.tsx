@@ -17,6 +17,7 @@ import {
 } from "@/components/domain/Profile";
 import { MaterialIcon, GlassCard, Avatar, Button } from "@/components/ui";
 import ProfileDetails from "./ProfileDetails";
+import { useImageUpload } from "@/hooks/useFileUpload";
 
 export default function ProfilePage() {
   const params = useParams();
@@ -31,14 +32,17 @@ export default function ProfilePage() {
   const [postText, setPostText] = useState("");
   const [posting, setPosting] = useState(false);
   const [postImageUrl, setPostImageUrl] = useState("");
-  const [uploadingPostImage, setUploadingPostImage] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [shareTarget, setShareTarget] = useState<Post | null>(null);
   const [showAllFriends, setShowAllFriends] = useState(false);
   const [frStatus, setFrStatus] = useState<"none" | "pending_sent" | "pending_received" | "accepted" | "rejected">("none");
   const [currentFrId, setCurrentFrId] = useState<string | null>(null);
   const [frLoading, setFrLoading] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { handleFileSelect: handlePostImageUpload, uploading: uploadingPostImage } = useImageUpload({
+    onSuccess: (result) => setPostImageUrl(result.url),
+  });
 
   const isOwn = authUser?.id === profileId;
 
@@ -159,20 +163,6 @@ export default function ProfilePage() {
     setShowEdit(false);
   };
 
-  const handlePostImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingPostImage(true);
-    try {
-      const result = await api.uploadFile(file);
-      setPostImageUrl(result.url);
-    } catch {
-      // error handled by api
-    }
-    setUploadingPostImage(false);
-    e.target.value = "";
-  };
-
   const handleSendFriendRequest = async () => {
     if (!profile || !authUser) return;
     setFrLoading(true);
@@ -291,7 +281,7 @@ export default function ProfilePage() {
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
-                    className="hidden"
+                    className="absolute opacity-0 w-0 h-0 pointer-events-none"
                     onChange={handlePostImageUpload}
                     disabled={uploadingPostImage}
                   />

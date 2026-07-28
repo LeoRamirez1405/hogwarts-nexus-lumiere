@@ -53,6 +53,7 @@ class UserCreatureResponse(BaseModel):
     mood: str = "bien"
     age_days: int = 0
     stage: str = "cria"
+    is_critical: bool = False
     for_sale: bool = False
     sale_price: Optional[int] = None
     adopted_at: datetime

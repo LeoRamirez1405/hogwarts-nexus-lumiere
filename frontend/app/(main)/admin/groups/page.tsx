@@ -10,7 +10,9 @@ import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import ListFooter from "@/components/ui/ListFooter";
 import Image from "next/image";
+import { useCollapsibleList } from "@/hooks/useCollapsibleList";
 
 function MaterialIcon({
   name,
@@ -274,6 +276,8 @@ export default function AdminGroupsPage() {
       r.description?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const { visibleItems: visibleRooms, ...roomList } = useCollapsibleList(filteredRooms, 10);
+
   const filteredUsers = allUsers.filter(
     (u) =>
       u.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
@@ -321,9 +325,91 @@ export default function AdminGroupsPage() {
             size="md"
           />
         </div>
-        <div className="overflow-x-auto">
+
+        {/* MOBILE: Cards */}
+        <div className="md:hidden divide-y divide-outline-variant/10">
+          {loading ? (
+            <div className="p-12 text-center">
+              <div className="flex flex-col items-center gap-3">
+                <MaterialIcon name="progress_activity" className="text-4xl text-outline-variant animate-spin mb-3" />
+                <p className="text-on-surface-variant text-body-md">Cargando grupos...</p>
+              </div>
+            </div>
+          ) : filteredRooms.length === 0 ? (
+            <div className="p-12 text-center">
+              <MaterialIcon name="groups" className="text-5xl text-outline-variant mb-3 block mx-auto" />
+              <p className="text-on-surface-variant text-body-md">
+                {search ? "Sin resultados" : "No hay grupos creados aun"}
+              </p>
+            </div>
+          ) : (
+            <>
+            <div className={roomList.expanded ? "max-h-[70vh] overflow-y-auto" : ""}>
+            {visibleRooms.map((room) => (
+              <div key={room.id} className="p-4 hover:bg-surface-container-low/50 transition-colors border-b border-outline-variant/10 last:border-0">
+                <div className="flex items-start gap-3">
+                  <Avatar src={room.avatar_url} alt={room.name} size="sm" initials={getInitials(room.name)} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-body-md text-on-surface font-medium truncate">{room.name}</p>
+                    {room.description && (
+                      <p className="text-label-sm text-on-surface-variant truncate">{room.description}</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <Badge variant="count">{room.member_count}</Badge>
+                      <span className="text-label-sm text-on-surface-variant">miembros</span>
+                      {room.closed ? (
+                        <Badge variant="tag" color="error">
+                          <MaterialIcon name="lock" className="text-xs mr-1" />
+                          Cerrado
+                        </Badge>
+                      ) : (
+                        <Badge variant="tag" color="success">
+                          <MaterialIcon name="lock_open" className="text-xs mr-1" />
+                          Abierto
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-label-sm text-on-surface-variant mt-1">
+                      Creado {formatDate(room.created_at)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-1 mt-3">
+                  <button
+                    onClick={() => handleToggleClose(room.id)}
+                    className={`w-10 h-10 inline-flex items-center justify-center rounded-full transition-colors ${
+                      room.closed
+                        ? "hover:bg-green-100 text-green-600"
+                        : "hover:bg-amber-100 text-amber-600"
+                    }`}
+                    title={room.closed ? "Reabrir grupo" : "Cerrar grupo"}
+                  >
+                    <MaterialIcon name={room.closed ? "lock_open" : "lock"} className="text-lg" />
+                  </button>
+                  <button onClick={() => openEdit(room)} className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors" title="Editar">
+                    <MaterialIcon name="edit" className="text-lg" />
+                  </button>
+                  <button onClick={() => openMembers(room)} className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors" title="Miembros">
+                    <MaterialIcon name="group" className="text-lg" />
+                  </button>
+                  <button onClick={() => handleDeleteRoom(room.id)} className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-error transition-colors" title="Eliminar">
+                    <MaterialIcon name="delete" className="text-lg" />
+                  </button>
+                </div>
+              </div>
+            ))}
+            </div>
+            <div className="p-2">
+              <ListFooter {...roomList} onToggle={roomList.toggle} />
+            </div>
+            </>
+          )}
+        </div>
+
+        {/* DESKTOP: Table */}
+        <div className={`hidden md:block overflow-x-auto ${roomList.expanded ? "max-h-[70vh] overflow-y-auto" : ""}`}>
           <table className="w-full text-left">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-surface-container">
               <tr className="border-b border-outline-variant/20">
                 <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium">
                   Grupo
@@ -365,7 +451,7 @@ export default function AdminGroupsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredRooms.map((room) => (
+                visibleRooms.map((room) => (
                   <tr key={room.id} className="border-b border-outline-variant/10 last:border-0 hover:bg-surface-container-low/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -433,6 +519,9 @@ export default function AdminGroupsPage() {
             </tbody>
           </table>
         </div>
+        <div className="hidden md:block">
+          <ListFooter {...roomList} onToggle={roomList.toggle} />
+        </div>
       </GlassCard>
 
       {/* Create Room Modal */}
@@ -445,7 +534,8 @@ export default function AdminGroupsPage() {
                 ref={createAvatarRef}
                 type="file"
                 accept="image/*"
-                className="hidden"
+                capture="environment"
+                className="absolute opacity-0 w-0 h-0 pointer-events-none"
                 onChange={(e) => handleAvatarUpload(e, "create")}
               />
               <button
@@ -566,7 +656,8 @@ export default function AdminGroupsPage() {
                 ref={editAvatarRef}
                 type="file"
                 accept="image/*"
-                className="hidden"
+                capture="environment"
+                className="absolute opacity-0 w-0 h-0 pointer-events-none"
                 onChange={(e) => handleAvatarUpload(e, "edit")}
               />
               <button

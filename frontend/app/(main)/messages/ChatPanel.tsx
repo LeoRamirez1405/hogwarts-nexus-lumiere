@@ -645,10 +645,11 @@ export default function ChatPanel({
     setShowMenu(false);
   };
 
-  const handleMuteRoom = async (duration: "8h" | "24h" | "forever" | "off") => {
-    if (!selectedConv || selectedConv.type !== "room") return;
+  const handleMuteConversation = async (duration: "8h" | "24h" | "forever" | "off") => {
+    if (!selectedConv) return;
+    const convType = selectedConv.type === "room" ? "room" : "dm";
     try {
-      await api.muteRoom(selectedConv.id, duration);
+      await api.muteConversation(convType, selectedConv.id, duration);
       setShowMuteMenu(false);
       setShowMenu(false);
       onRefresh?.();
@@ -682,7 +683,7 @@ export default function ChatPanel({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-outline-variant/20 bg-surface/80 backdrop-blur-sm">
+      <div className="relative z-50 flex items-center gap-3 px-4 py-3 border-b border-outline-variant/20 bg-surface/80 backdrop-blur-sm">
         {showBack && (
           <button
             onClick={onBack}
@@ -713,7 +714,7 @@ export default function ChatPanel({
             <MaterialIcon name="more_vert" className="text-xl" />
           </button>
           {showMenu && (
-            <div className="absolute right-0 top-full mt-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-30 w-56">
+            <div className="absolute right-0 top-full mt-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-50 w-56">
               {selectedConv?.type === "room" ? (
                 <>
                   <button
@@ -729,27 +730,27 @@ export default function ChatPanel({
                       className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
                     >
                       <MaterialIcon name="notifications_off" className="text-xl" />
-                      Silenciar grupo
+                      Silenciar notificaciones
                       <MaterialIcon name="chevron_right" className="text-lg ml-auto" />
                     </button>
                     {showMuteMenu && (
-                      <div className="absolute left-full top-0 ml-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-40 w-48">
+                      <div className="absolute left-full top-0 ml-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-50 w-48">
                         <button
-                          onClick={() => handleMuteRoom("8h")}
+                          onClick={() => handleMuteConversation("8h")}
                           className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
                         >
                           <MaterialIcon name="schedule" className="text-lg" />
                           8 horas
                         </button>
                         <button
-                          onClick={() => handleMuteRoom("24h")}
+                          onClick={() => handleMuteConversation("24h")}
                           className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
                         >
                           <MaterialIcon name="schedule" className="text-lg" />
                           24 horas
                         </button>
                         <button
-                          onClick={() => handleMuteRoom("forever")}
+                          onClick={() => handleMuteConversation("forever")}
                           className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
                         >
                           <MaterialIcon name="block" className="text-lg" />
@@ -757,7 +758,7 @@ export default function ChatPanel({
                         </button>
                         <div className="border-t border-outline-variant/20 my-1" />
                         <button
-                          onClick={() => handleMuteRoom("off")}
+                          onClick={() => handleMuteConversation("off")}
                           className="flex items-center gap-3 px-4 py-2.5 text-body-md text-primary hover:bg-surface-container-high transition-colors w-full text-left"
                         >
                           <MaterialIcon name="notifications_active" className="text-lg" />
@@ -792,6 +793,49 @@ export default function ChatPanel({
                     <MaterialIcon name="person" className="text-xl" />
                     Ver perfil
                   </Link>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowMuteMenu(!showMuteMenu)}
+                      className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                    >
+                      <MaterialIcon name="notifications_off" className="text-xl" />
+                      Silenciar notificaciones
+                      <MaterialIcon name="chevron_right" className="text-lg ml-auto" />
+                    </button>
+                    {showMuteMenu && (
+                      <div className="absolute left-full top-0 ml-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-50 w-48">
+                        <button
+                          onClick={() => handleMuteConversation("8h")}
+                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                        >
+                          <MaterialIcon name="schedule" className="text-lg" />
+                          8 horas
+                        </button>
+                        <button
+                          onClick={() => handleMuteConversation("24h")}
+                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                        >
+                          <MaterialIcon name="schedule" className="text-lg" />
+                          24 horas
+                        </button>
+                        <button
+                          onClick={() => handleMuteConversation("forever")}
+                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                        >
+                          <MaterialIcon name="block" className="text-lg" />
+                          Siempre
+                        </button>
+                        <div className="border-t border-outline-variant/20 my-1" />
+                        <button
+                          onClick={() => handleMuteConversation("off")}
+                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-primary hover:bg-surface-container-high transition-colors w-full text-left"
+                        >
+                          <MaterialIcon name="notifications_active" className="text-lg" />
+                          Activar notificaciones
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <button
                     onClick={handleHideConversation}
                     className="flex items-center gap-3 px-4 py-2.5 text-body-md text-error hover:bg-error-container/30 transition-colors w-full text-left"
@@ -1133,7 +1177,7 @@ export default function ChatPanel({
               ref={fileInputRef}
               type="file"
               accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
-              className="hidden"
+              className="absolute opacity-0 w-0 h-0 pointer-events-none"
               onChange={handleFileSelect}
               disabled={uploading}
             />

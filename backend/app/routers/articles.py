@@ -1,7 +1,7 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func, or_
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
@@ -55,10 +55,32 @@ async def notify_subscribers(db: AsyncSession, article: Article, notification_ty
 async def list_articles(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    search: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    featured_only: Optional[bool] = Query(False),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ):
-    result = await db.execute(
-        select(Article).options(selectinload(Article.author)).order_by(Article.created_at.desc())
-    )
+    query = select(Article).options(selectinload(Article.author))
+    
+    if search:
+        search_term = f"%{search}%"
+        query = query.where(
+            or_(
+                Article.title.ilike(search_term),
+                Article.body.ilike(search_term),
+            )
+        )
+    
+    if category:
+        query = query.where(Article.category == category)
+    
+    if featured_only:
+        query = query.where(Article.featured == True)
+    
+    query = query.order_by(Article.created_at.desc()).limit(limit).offset(offset)
+    
+    result = await db.execute(query)
     articles = result.scalars().all()
 
     # Get user's subscriptions
@@ -72,6 +94,18 @@ async def list_articles(
         article.subscribed = article.id in subscribed_ids
 
     return articles
+
+
+@router.get("/categories", response_model=List[str])
+async def get_article_categories(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Article.category).distinct().where(Article.category.isnot(None))
+    )
+    categories = result.scalars().all()
+    return sorted([c for c in categories if c])
 
 
 @router.get("/{article_id}", response_model=ArticleResponse)

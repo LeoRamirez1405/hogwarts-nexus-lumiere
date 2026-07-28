@@ -51,6 +51,8 @@ class N:
     FRIEND_ACCEPTED = "friend_accepted"
     # Pets
     PET_NEEDS_ATTENTION = "pet_needs_attention"
+    PET_ESCAPE_WARNING = "pet_escape_warning"
+    PET_ESCAPED = "pet_escaped"
     PET_AGING = "pet_aging"
     PET_FAREWELL = "pet_farewell"
     PET_SOLD = "pet_sold"

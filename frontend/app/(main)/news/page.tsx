@@ -12,7 +12,6 @@ import {
   ArticleCard,
   AnnouncementsSidebar,
   ClassifiedsSidebar,
-  MoreArticlesSidebar,
   ForumThreads,
   NewThreadModal,
 } from "@/components/domain/News";
@@ -37,6 +36,7 @@ interface Thread {
   voteCount: number;
   userVote: 0 | 1 | -1;
   commentCount: number;
+  author_id: string;
 }
 
 function toThread(f: ForumThread): Thread {
@@ -48,6 +48,7 @@ function toThread(f: ForumThread): Thread {
     voteCount: f.vote_count,
     userVote: (f.my_vote as 0 | 1 | -1) ?? 0,
     commentCount: f.comment_count,
+    author_id: f.author?.id ?? "",
   };
 }
 
@@ -116,6 +117,19 @@ export default function NewsPage() {
       try {
         const created = await api.createThread(data);
         setThreads((prev) => [toThread(created), ...prev]);
+      } catch {
+        // ignore
+      }
+    },
+    [authUser]
+  );
+
+  const handleDeleteThread = useCallback(
+    async (threadId: string) => {
+      if (!authUser) return;
+      try {
+        await api.deleteThread(threadId);
+        setThreads((prev) => prev.filter((t) => t.id !== threadId));
       } catch {
         // ignore
       }
@@ -244,8 +258,6 @@ export default function NewsPage() {
               {/* Classified Ads */}
               <ClassifiedsSidebar classifieds={classifieds} />
 
-              {/* More articles */}
-              <MoreArticlesSidebar articles={articles} featuredId={featured?.id} />
             </div>
           </div>
 
@@ -303,10 +315,20 @@ export default function NewsPage() {
 
           {/* ===== MOBILE: BENTO HEADLINES ===== */}
           <div className="md:hidden">
-            <h2 className="font-display text-title-md text-on-surface mb-4 flex items-center gap-2">
-              <MaterialIcon name="bolt" className="text-secondary" filled />
-              Titulares
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display text-title-md text-on-surface flex items-center gap-2">
+                <MaterialIcon name="bolt" className="text-secondary" filled />
+                Titulares
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/news/all")}
+                className="text-primary font-medium"
+              >
+                Ver todos
+              </Button>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               {articles.slice(0, 4).map((a) => (
                 <Link key={a.id} href={`/news/${a.id}`} className="block">
@@ -326,6 +348,12 @@ export default function NewsPage() {
                 </Link>
               ))}
             </div>
+          </div>
+
+          {/* ===== MOBILE: ANNOUNCEMENTS & CLASSIFIEDS ===== */}
+          <div className="md:hidden space-y-6">
+            <AnnouncementsSidebar announcements={announcements} />
+            <ClassifiedsSidebar classifieds={classifieds} />
           </div>
 
           {/* ===== DESKTOP: ALL ARTICLES GRID ===== */}
@@ -356,6 +384,14 @@ export default function NewsPage() {
                 >
                   Destacadas
                 </button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push("/news/all")}
+                  className="text-primary font-medium"
+                >
+                  Ver todos
+                </Button>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -400,6 +436,8 @@ export default function NewsPage() {
               threads={threads}
               votedThread={votedThread}
               onVote={handleVote}
+              onDeleteThread={handleDeleteThread}
+              currentUserId={authUser?.id}
             />
           </div>
 

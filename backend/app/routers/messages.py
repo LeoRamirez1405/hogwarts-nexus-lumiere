@@ -206,18 +206,26 @@ def serialize_room(room: ChatRoom, user_id: str) -> ChatRoomResponse:
 async def build_conversations(
     db: AsyncSession, current_user: User
 ) -> List[ConversationResponse]:
-    # Get hidden conversation IDs for this user
+    # Get hidden conversation IDs and DM mute status for this user
     prefs_result = await db.execute(
         select(UserConversationPreference).where(
             and_(
                 UserConversationPreference.user_id == current_user.id,
-                UserConversationPreference.hidden == True,
             )
         )
     )
-    hidden_prefs = prefs_result.scalars().all()
-    hidden_dm_ids = {p.conversation_id for p in hidden_prefs if p.conversation_type == "dm"}
-    hidden_room_ids = {p.conversation_id for p in hidden_prefs if p.conversation_type == "room"}
+    all_prefs = prefs_result.scalars().all()
+    hidden_dm_ids = {p.conversation_id for p in all_prefs if p.hidden and p.conversation_type == "dm"}
+    hidden_room_ids = {p.conversation_id for p in all_prefs if p.hidden and p.conversation_type == "room"}
+    # map dm-user-id -> muted_until (only if still active)
+    muted_dm: dict[str, Optional[datetime]] = {}
+    for p in all_prefs:
+        if p.conversation_type == "dm" and p.muted_until is not None:
+            if p.muted_until > datetime.utcnow():
+                muted_dm[p.conversation_id] = p.muted_until
+            elif p.muted_until <= datetime.utcnow():
+                # expired mute: clear it lazily
+                p.muted_until = None
 
     result = await db.execute(
         select(Message)
@@ -268,6 +276,7 @@ async def build_conversations(
             )
             other = other_result.scalar_one_or_none()
             if other:
+                dm_is_muted = other_id in muted_dm
                 dm_map[other_id] = ConversationResponse(
                     type="direct",
                     id=other.id,
@@ -276,6 +285,7 @@ async def build_conversations(
                     subtitle=other.house,
                     last_message=await serialize_message(db, msg, current_user.id),
                     unread_count=0,
+                    is_muted=dm_is_muted,
                 )
         if msg.receiver_id == current_user.id and not msg.read:
             dm_map[other_id].unread_count += 1
@@ -1249,6 +1259,56 @@ async def mute_room(
 
     await db.commit()
     return {"ok": True, "muted_until": member.muted_until.isoformat() if member.muted_until else None}
+
+
+@router.put("/conversations/{conv_type}/{conv_id}/mute")
+async def mute_conversation(
+    conv_type: str,
+    conv_id: str,
+    mute_data: MuteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if conv_type not in ("dm", "room"):
+        raise HTTPException(status_code=400, detail="conv_type must be 'dm' or 'room'")
+
+    if duration := mute_data.duration:
+        if duration == "off":
+            muted_until = None
+        elif duration == "8h":
+            muted_until = datetime.utcnow() + timedelta(hours=8)
+        elif duration == "24h":
+            muted_until = datetime.utcnow() + timedelta(hours=24)
+        elif duration == "forever":
+            muted_until = datetime(2099, 12, 31, 23, 59, 59)
+        else:
+            raise HTTPException(status_code=400, detail="Invalid duration. Use: 8h, 24h, forever, off")
+    else:
+        raise HTTPException(status_code=400, detail="duration is required")
+
+    existing = await db.execute(
+        select(UserConversationPreference).where(
+            and_(
+                UserConversationPreference.user_id == current_user.id,
+                UserConversationPreference.conversation_type == conv_type,
+                UserConversationPreference.conversation_id == conv_id,
+            )
+        )
+    )
+    pref = existing.scalar_one_or_none()
+    if pref:
+        pref.muted_until = muted_until
+    else:
+        pref = UserConversationPreference(
+            user_id=current_user.id,
+            conversation_type=conv_type,
+            conversation_id=conv_id,
+            muted_until=muted_until,
+        )
+        db.add(pref)
+
+    await db.commit()
+    return {"ok": True, "muted_until": muted_until.isoformat() if muted_until else None}
 
 
 @router.get("/users/search", response_model=List[UserSearchResult])

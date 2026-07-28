@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState, ChangeEvent } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { api, User } from "@/lib/api";
 import { Button, MaterialIcon } from "@/components/ui";
+import { useImageUpload } from "@/hooks/useFileUpload";
 
 interface EditProfileModalProps {
   profile: User;
@@ -27,7 +28,6 @@ export function EditProfileModal({
     house: profile?.house ?? "",
   });
   const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [currentPass, setCurrentPass] = useState("");
   const [newPass, setNewPass] = useState("");
@@ -35,6 +35,12 @@ export function EditProfileModal({
   const [passMsg, setPassMsg] = useState<string | null>(null);
   const [passSaving, setPassSaving] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const { handleFileSelect, uploading } = useImageUpload({
+    onSuccess: (result) => {
+      setEditForm((p) => ({ ...p, avatar_url: result.url }));
+    },
+  });
 
   if (!isOpen) return null;
 
@@ -54,20 +60,6 @@ export function EditProfileModal({
     setSaving(false);
   };
 
-  const handleAvatarUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingAvatar(true);
-    try {
-      const result = await api.uploadFile(file);
-      setEditForm((p) => ({ ...p, avatar_url: result.url }));
-    } catch {
-      // error handled by api
-    }
-    setUploadingAvatar(false);
-    e.target.value = "";
-  };
-
   const handleChangePassword = async () => {
     if (!currentPass || !newPass) return;
     if (newPass !== confirmPass) { setPassMsg("Las contrasenas no coinciden"); return; }
@@ -78,8 +70,8 @@ export function EditProfileModal({
       await api.changePassword(currentPass, newPass);
       setPassMsg("Contrasena actualizada");
       setCurrentPass(""); setNewPass(""); setConfirmPass("");
-    } catch (e: any) {
-      setPassMsg(e?.message || "Error al cambiar contrasena");
+    } catch (e: unknown) {
+      setPassMsg(e instanceof Error ? e.message : "Error al cambiar contrasena");
     }
     setPassSaving(false);
   };
@@ -144,17 +136,17 @@ export function EditProfileModal({
                   ref={avatarInputRef}
                   type="file"
                   accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarUpload}
+                  className="absolute opacity-0 w-0 h-0 pointer-events-none"
+                  onChange={handleFileSelect}
                 />
                 <Button
                   variant="secondary"
                   size="sm"
                   icon="upload"
                   onClick={() => avatarInputRef.current?.click()}
-                  disabled={uploadingAvatar}
+                  disabled={uploading}
                 >
-                  {uploadingAvatar ? "Subiendo..." : "Seleccionar archivo"}
+                  {uploading ? "Subiendo..." : "Seleccionar archivo"}
                 </Button>
                 {editForm.avatar_url && (
                   <Button

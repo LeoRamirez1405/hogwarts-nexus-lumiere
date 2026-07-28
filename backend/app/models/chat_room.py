@@ -68,6 +68,7 @@ class UserConversationPreference(Base):
     conversation_type = Column(String, nullable=False)  # "dm" | "room"
     conversation_id = Column(String, nullable=False)  # user_id for DM, room_id for room
     hidden = Column(Boolean, default=False, nullable=False)
+    muted_until = Column(DateTime, nullable=True)  # None = not muted, datetime = muted until
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     user = relationship("User", lazy="selectin")

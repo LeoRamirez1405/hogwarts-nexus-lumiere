@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import GlassCard from "@/components/ui/GlassCard";
 import SearchBar from "@/components/ui/SearchBar";
 import Avatar from "@/components/ui/Avatar";
+import ListFooter from "@/components/ui/ListFooter";
+import { useCollapsibleList } from "@/hooks/useCollapsibleList";
 
 function MaterialIcon({
   name,
@@ -126,6 +128,8 @@ export default function AdminTransactionsPage() {
     const matchesFilter = filter === "all" || tx.type === filter;
     return matchesSearch && matchesFilter;
   });
+
+  const { visibleItems: visibleTx, ...txList } = useCollapsibleList(filtered, 15);
 
   const now = new Date();
   const dayOfWeek = (now.getDay() + 6) % 7;
@@ -264,62 +268,51 @@ export default function AdminTransactionsPage() {
           ))}
         </div>
       ) : (
-        <GlassCard>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-outline-variant/20">
-                  <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium">
-                    Tipo
-                  </th>
-                  <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden md:table-cell">
-                    Usuario
-                  </th>
-                  <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden md:table-cell">
-                    Descripción
-                  </th>
-                  <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden sm:table-cell">
-                    Fecha
-                  </th>
-                  <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium text-right">
-                    Monto
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((tx) => {
-                  const { icon, color } = txIcon(tx.type);
-                  const isCredit = tx.type === "deposit" || (tx.type === "transfer" && tx.receiver_id);
-                  return (
-                    <tr
-                      key={tx.id}
-                      className="border-b border-outline-variant/10 last:border-0 hover:bg-surface-container-low/50 transition-colors"
+        <>
+          {/* MOBILE: Cards */}
+          <div className="md:hidden space-y-3">
+            {visibleTx.map((tx) => {
+              const { icon, color } = txIcon(tx.type);
+              const isCredit = tx.type === "deposit" || (tx.type === "transfer" && tx.receiver_id);
+              return (
+                <GlassCard key={tx.id} className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${color}`}
                     >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${color}`}
-                          >
-                            <MaterialIcon name={icon} className="text-lg" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-body-md text-on-surface capitalize">
-                              {tx.type}
-                            </p>
-                            <p className="text-label-sm text-on-surface-variant md:hidden truncate max-w-[200px]">
-                              {tx.description || "-"}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 hidden md:table-cell">
+                      <MaterialIcon name={icon} className="text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-body-md font-medium text-on-surface">
+                          {tx.type === "deposit"
+                            ? "Deposito"
+                            : tx.type === "withdrawal"
+                              ? "Retiro"
+                              : tx.type === "transfer"
+                                ? "Transferencia"
+                                : "Compra"}
+                        </p>
+                        <p
+                          className={`font-display text-title-md shrink-0 ${
+                            isCredit ? "text-success" : "text-error"
+                          }`}
+                        >
+                          {isCredit ? "+" : "-"}
+                          {formatAmount(tx.amount)}
+                        </p>
+                      </div>
+                      <div className="mt-2">
                         {tx.type === "transfer" && tx.sender && tx.receiver ? (
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <Avatar
                               initials={tx.sender.name.charAt(0).toUpperCase()}
                               src={tx.sender.avatar_url}
                               size="sm"
                             />
+                            <p className="text-body-sm text-on-surface truncate">
+                              {tx.sender.name}
+                            </p>
                             <MaterialIcon
                               name="arrow_forward"
                               className="text-outline-variant text-sm"
@@ -329,9 +322,9 @@ export default function AdminTransactionsPage() {
                               src={tx.receiver.avatar_url}
                               size="sm"
                             />
-                            <span className="text-label-sm text-on-surface-variant ml-1">
-                              {tx.sender.name} → {tx.receiver.name}
-                            </span>
+                            <p className="text-body-sm text-on-surface truncate">
+                              {tx.receiver.name}
+                            </p>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
@@ -340,52 +333,164 @@ export default function AdminTransactionsPage() {
                               src={getActorAvatar(tx)}
                               size="sm"
                             />
-                            <p className="text-body-md text-on-surface truncate max-w-[150px]">
+                            <p className="text-body-sm text-on-surface truncate">
                               {getActorName(tx)}
                             </p>
                           </div>
                         )}
-                      </td>
-                      <td className="px-6 py-4 hidden md:table-cell">
-                        <p className="text-label-sm text-on-surface-variant truncate max-w-[200px]">
-                          {tx.description || "—"}
+                      </div>
+                      {tx.description && (
+                        <p className="text-label-sm text-on-surface-variant truncate mt-1">
+                          {tx.description}
                         </p>
-                      </td>
-                      <td className="px-6 py-4 hidden sm:table-cell">
-                        <p className="text-label-sm text-on-surface-variant">
-                          {formatTime(tx.created_at)}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <p
-                          className={`font-display text-title-md ${
-                            isCredit ? "text-success" : "text-error"
-                          }`}
-                        >
-                          {isCredit ? "+" : "-"}
-                          {formatAmount(tx.amount)}
+                      )}
+                      <p className="text-label-sm text-on-surface-variant mt-1">
+                        {formatTime(tx.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                </GlassCard>
+              );
+            })}
+            {filtered.length === 0 && (
+              <GlassCard className="p-12 text-center">
+                <MaterialIcon
+                  name="receipt_long"
+                  className="text-5xl text-outline-variant mb-3 block mx-auto"
+                />
+                <p className="text-on-surface-variant text-body-md">
+                  No hay transacciones
+                </p>
+              </GlassCard>
+            )}
+            <ListFooter {...txList} onToggle={txList.toggle} />
+          </div>
+
+          {/* DESKTOP: Table */}
+          <GlassCard className="hidden md:block">
+            <div className={`overflow-x-auto ${txList.expanded ? "max-h-[70vh] overflow-y-auto" : ""}`}>
+              <table className="w-full text-left">
+                <thead className="sticky top-0 z-10 bg-surface-container">
+                  <tr className="border-b border-outline-variant/20">
+                    <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium">
+                      Tipo
+                    </th>
+                    <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden md:table-cell">
+                      Usuario
+                    </th>
+                    <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden md:table-cell">
+                      Descripción
+                    </th>
+                    <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden sm:table-cell">
+                      Fecha
+                    </th>
+                    <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium text-right">
+                      Monto
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleTx.map((tx) => {
+                    const { icon, color } = txIcon(tx.type);
+                    const isCredit = tx.type === "deposit" || (tx.type === "transfer" && tx.receiver_id);
+                    return (
+                      <tr
+                        key={tx.id}
+                        className="border-b border-outline-variant/10 last:border-0 hover:bg-surface-container-low/50 transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${color}`}
+                            >
+                              <MaterialIcon name={icon} className="text-lg" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-body-md text-on-surface capitalize">
+                                {tx.type}
+                              </p>
+                              <p className="text-label-sm text-on-surface-variant md:hidden truncate max-w-[200px]">
+                                {tx.description || "-"}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 hidden md:table-cell">
+                          {tx.type === "transfer" && tx.sender && tx.receiver ? (
+                            <div className="flex items-center gap-1">
+                              <Avatar
+                                initials={tx.sender.name.charAt(0).toUpperCase()}
+                                src={tx.sender.avatar_url}
+                                size="sm"
+                              />
+                              <MaterialIcon
+                                name="arrow_forward"
+                                className="text-outline-variant text-sm"
+                              />
+                              <Avatar
+                                initials={tx.receiver.name.charAt(0).toUpperCase()}
+                                src={tx.receiver.avatar_url}
+                                size="sm"
+                              />
+                              <span className="text-label-sm text-on-surface-variant ml-1">
+                                {tx.sender.name} → {tx.receiver.name}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Avatar
+                                initials={getInitials(getActorName(tx))}
+                                src={getActorAvatar(tx)}
+                                size="sm"
+                              />
+                              <p className="text-body-md text-on-surface truncate max-w-[150px]">
+                                {getActorName(tx)}
+                              </p>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 hidden md:table-cell">
+                          <p className="text-label-sm text-on-surface-variant truncate max-w-[200px]">
+                            {tx.description || "—"}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4 hidden sm:table-cell">
+                          <p className="text-label-sm text-on-surface-variant">
+                            {formatTime(tx.created_at)}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <p
+                            className={`font-display text-title-md ${
+                              isCredit ? "text-success" : "text-error"
+                            }`}
+                          >
+                            {isCredit ? "+" : "-"}
+                            {formatAmount(tx.amount)}
+                          </p>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center">
+                        <MaterialIcon
+                          name="receipt_long"
+                          className="text-5xl text-outline-variant mb-3 block mx-auto"
+                        />
+                        <p className="text-on-surface-variant text-body-md">
+                          No hay transacciones
                         </p>
                       </td>
                     </tr>
-                  );
-                })}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center">
-                      <MaterialIcon
-                        name="receipt_long"
-                        className="text-5xl text-outline-variant mb-3 block mx-auto"
-                      />
-                      <p className="text-on-surface-variant text-body-md">
-                        No hay transacciones
-                      </p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </GlassCard>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <ListFooter {...txList} onToggle={txList.toggle} />
+          </GlassCard>
+        </>
       )}
     </div>
   );

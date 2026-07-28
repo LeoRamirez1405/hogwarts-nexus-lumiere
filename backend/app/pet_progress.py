@@ -60,6 +60,31 @@ def pet_needs_farewell_warning(adopted_at: datetime) -> bool:
     return pet_life_fraction(adopted_at) >= settings.PET_FAREWELL_WARN_FRACTION
 
 
+def pet_is_critical(uc) -> bool:
+    """Either hunger OR happiness at 0."""
+    return uc.hunger == 0 or uc.happiness == 0
+
+
+def pet_needs_attention_warning(uc) -> bool:
+    """Either stat <= 20 and attention_warned is False."""
+    return (uc.hunger <= 20 or uc.happiness <= 20) and not uc.attention_warned
+
+
+def pet_needs_escape_warning(uc) -> bool:
+    """Either stat at 0 and escaped_warned is False."""
+    return (uc.hunger == 0 or uc.happiness == 0) and not uc.escaped_warned
+
+
+def pet_should_escape(uc) -> bool:
+    """Either stat at 0 for >= PET_ESCAPE_GRACE_HOURS."""
+    if uc.last_critical_at is None:
+        return False
+    if not (uc.hunger == 0 or uc.happiness == 0):
+        return False
+    hours = (datetime.utcnow() - uc.last_critical_at).total_seconds() / 3600.0
+    return hours >= settings.PET_ESCAPE_GRACE_HOURS
+
+
 def _level_from_score(score: float, max_level: int, base: float) -> int:
     """Highest level whose cumulative (quadratic) threshold is met.
 

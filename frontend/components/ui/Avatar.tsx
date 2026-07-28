@@ -1,6 +1,7 @@
 "use client";
 import { HTMLAttributes } from "react";
 import Image from "next/image";
+import { mediaSrc, isProxiedUpload } from "@/lib/media";
 
 type Size = "xs" | "sm" | "md" | "lg" | "xl";
 
@@ -33,10 +34,6 @@ const statusColors: Record<NonNullable<AvatarProps["status"]>, string> = {
   offline: "bg-outline",
 };
 
-function isLocalUpload(src?: string): boolean {
-  return src?.startsWith("http://localhost:8000/uploads/") ?? false;
-}
-
 export default function Avatar({
   src,
   alt,
@@ -54,11 +51,11 @@ export default function Avatar({
     >
       {src ? (
         <Image
-          src={src}
+          src={mediaSrc(src)}
           alt={alt ?? ""}
           fill
           className="object-cover"
-          unoptimized={isLocalUpload(src)}
+          unoptimized={isProxiedUpload(src)}
         />
       ) : (
         <span className="text-on-surface-variant font-medium text-[0.85em] select-none">

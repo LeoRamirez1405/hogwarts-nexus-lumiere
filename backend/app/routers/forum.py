@@ -163,6 +163,19 @@ async def vote_thread(
     return await _thread_response(db, thread, current_user)
 
 
+@router.delete("/{thread_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_thread(
+    thread_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    thread = await _get_thread(db, thread_id)
+    if thread.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Solo el autor puede eliminar el debate")
+    await db.delete(thread)
+    await db.commit()
+
+
 @router.get("/{thread_id}/comments", response_model=List[ForumCommentResponse])
 async def list_thread_comments(
     thread_id: str,

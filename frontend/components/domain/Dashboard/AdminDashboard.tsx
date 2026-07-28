@@ -26,11 +26,11 @@ function KPICard({ label, value, icon, bg, text }: {
   return (
     <GlassCard glow className="overflow-hidden">
       <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">
+        <div className="flex items-start justify-between mb-4 gap-2">
+          <span className="text-label-sm text-on-surface-variant uppercase tracking-wider flex-1 min-w-0 pr-2">
             {label}
           </span>
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${bg} ${text}`}>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${bg} ${text} shrink-0 mt-0.5`}>
             <MaterialIcon name={icon} className="text-xl" />
           </div>
         </div>
@@ -101,17 +101,17 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
   }, []);
 
   const kpis = [
-    { label: "Total Usuarios", value: data.total_users ?? 0, icon: "people", bg: "bg-primary", text: "text-on-primary" },
-    { label: "Total Productos", value: data.total_products ?? 0, icon: "inventory_2", bg: "bg-secondary", text: "text-on-secondary" },
-    { label: "Total Articulos", value: data.total_articles ?? 0, icon: "article", bg: "bg-tertiary", text: "text-on-tertiary" },
-    { label: "Total Criaturas", value: data.total_creatures ?? 0, icon: "pets", bg: "bg-success", text: "text-on-success" },
-    { label: "Total Zerines en Circulacion", value: data.total_zerines_in_circulation ?? 0, icon: "diamond", bg: "crystal-gradient inner-glow-gold", text: "text-on-primary" },
-    { label: "Transacciones Recientes", value: data.recent_transactions?.length ?? 0, icon: "receipt_long", bg: "bg-surface-container", text: "text-on-surface" },
+    { label: "Usuarios", value: data.total_users ?? 0, icon: "people", bg: "bg-primary", text: "text-on-primary" },
+    { label: "Productos", value: data.total_products ?? 0, icon: "inventory_2", bg: "bg-secondary", text: "text-on-secondary" },
+    { label: "Articulos", value: data.total_articles ?? 0, icon: "article", bg: "bg-tertiary", text: "text-on-tertiary" },
+    { label: "Criaturas", value: data.total_creatures ?? 0, icon: "pets", bg: "bg-success", text: "text-on-success" },
+    { label: "Zerines en Circulacion", value: data.total_zerines_in_circulation ?? 0, icon: "diamond", bg: "crystal-gradient inner-glow-gold", text: "text-on-primary" },
+    { label: "Canjes Semanales", value: data.recent_transactions?.length ?? 0, icon: "receipt_long", bg: "bg-surface-container", text: "text-on-surface" },
   ];
 
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-6">
         {kpis.map((kpi) => (
           <KPICard key={kpi.label} {...kpi} />
         ))}

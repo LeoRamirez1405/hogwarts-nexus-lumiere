@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     PET_ATTENTION_HAPPINESS: int = 20
     PET_CARE_SWEEP_HOURS: int = 6
 
+    # Critical state: either hunger OR happiness at 0.
+    # If either stays at 0 for PET_ESCAPE_GRACE_HOURS, the pet escapes.
+    PET_ESCAPE_GRACE_HOURS: float = 6.0
+    # Visual critical threshold: pulse animation when either stat <= this value.
+    PET_CRITICAL_THRESHOLD: int = 10
+
     # Cloudinary settings for file uploads
     CLOUDINARY_CLOUD_NAME: str = os.getenv("CLOUDINARY_CLOUD_NAME", "")
     CLOUDINARY_API_KEY: str = os.getenv("CLOUDINARY_API_KEY", "")

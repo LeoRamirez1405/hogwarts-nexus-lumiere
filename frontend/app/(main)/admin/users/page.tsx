@@ -9,6 +9,8 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
+import ListFooter from "@/components/ui/ListFooter";
+import { useCollapsibleList } from "@/hooks/useCollapsibleList";
 
 function MaterialIcon({
   name,
@@ -88,6 +90,8 @@ export default function AdminUsersPage() {
       (!houseFilter || u.house === houseFilter)
   );
 
+  const { visibleItems: visibleUsers, ...userList } = useCollapsibleList(filtered, 12);
+
   const handleSave = async () => {
     if (!editUser) return;
     setSaving(true);
@@ -130,8 +134,8 @@ export default function AdminUsersPage() {
       setNewPassword("");
       setNewHouse("");
       setNewRole("user");
-    } catch (e: any) {
-      alert(e?.message || "Error al crear usuario");
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Error al crear usuario");
     }
     setCreating(false);
   };
@@ -147,8 +151,8 @@ export default function AdminUsersPage() {
       setPointsUser(null);
       setPointsValue("");
       setPointsReason("");
-    } catch (e: any) {
-      alert(e?.message || "Error al ajustar puntos");
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Error al ajustar puntos");
     }
     setAdjusting(false);
   };
@@ -164,8 +168,8 @@ export default function AdminUsersPage() {
       setResetUser(null);
       setResetPass("");
       setResetConfirm("");
-    } catch (e: any) {
-      alert(e?.message || "Error al restablecer contrasena");
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Error al restablecer contrasena");
     }
     setResetting(false);
   };
@@ -183,8 +187,37 @@ export default function AdminUsersPage() {
             {users.length} usuarios registrados
           </p>
         </div>
-        <div className="flex gap-3">
-          <div className="w-full md:w-80">
+        {/* Mobile: search arriba, controles debajo */}
+        <div className="flex flex-col gap-3 md:hidden w-full">
+          <div className="w-full">
+            <SearchBar
+              placeholder="Buscar por nombre o email..."
+              value={search}
+              onChange={setSearch}
+              size="md"
+            />
+          </div>
+          <div className="flex gap-3">
+            <select
+              value={houseFilter}
+              onChange={(e) => setHouseFilter(e.target.value)}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
+            >
+              <option value="">Todas las casas</option>
+              {HOUSES.map((h) => <option key={h} value={h}>{h}</option>)}
+            </select>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-full font-medium text-label-sm hover:opacity-90 transition-all active:scale-95 whitespace-nowrap"
+            >
+              <MaterialIcon name="person_add" className="text-[1.2em]" />
+              Crear
+            </button>
+          </div>
+        </div>
+        {/* Desktop: todo en una fila */}
+        <div className="hidden md:flex gap-3">
+          <div className="w-80">
             <SearchBar
               placeholder="Buscar por nombre o email..."
               value={search}
@@ -225,10 +258,116 @@ export default function AdminUsersPage() {
           ))}
         </div>
       ) : (
-        <GlassCard>
-          <div className="overflow-x-auto">
+        <>
+          {/* MOBILE: Cards */}
+          <div className={`md:hidden space-y-4 ${userList.expanded ? "max-h-[70vh] overflow-y-auto" : ""}`}>
+            {visibleUsers.map((u) => (
+              <GlassCard key={u.id} className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-display text-title-md shrink-0">
+                    {u.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-body-md font-medium text-on-surface truncate">{u.name}</p>
+                    <p className="text-label-sm text-on-surface-variant truncate">{u.email}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <Badge
+                        variant="tag"
+                        color={u.role === "admin" ? "secondary" : "default"}
+                      >
+                        {u.role}
+                      </Badge>
+                      {u.house && (
+                        <Badge variant="tag" color="default">{u.house}</Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-outline-variant/10">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-label-sm text-on-surface-variant">Zerines</span>
+                    <span className="text-body-md text-on-surface font-medium">
+                      💎 {u.zerines.toLocaleString()}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setPointsUser(u);
+                      setPointsValue("");
+                      setPointsReason("");
+                    }}
+                    className="flex flex-col items-center text-primary"
+                  >
+                    <span className="text-label-sm text-on-surface-variant">Pts Casa</span>
+                    <span className="text-body-md font-medium">
+                      {(u.house_points || 0).toLocaleString()}
+                    </span>
+                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        setEditUser(u);
+                        setEditName(u.name);
+                        setEditRole(u.role);
+                        setEditZerines(u.zerines.toString());
+                      }}
+                      className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
+                    >
+                      <MaterialIcon name="edit" className="text-lg" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setResetUser(u);
+                        setResetPass("");
+                        setResetConfirm("");
+                      }}
+                      className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-secondary transition-colors"
+                      title="Restablecer contrasena"
+                    >
+                      <MaterialIcon name="lock_reset" className="text-lg" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPointsUser(u);
+                        setPointsValue("");
+                        setPointsReason("");
+                      }}
+                      className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-secondary transition-colors"
+                      title="Asignar puntos de casa"
+                    >
+                      <MaterialIcon name="workspace_premium" className="text-lg" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(u.id)}
+                      className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
+                    >
+                      <MaterialIcon name="delete" className="text-lg" />
+                    </button>
+                  </div>
+                </div>
+              </GlassCard>
+            ))}
+            {visibleUsers.length === 0 && filtered.length === 0 && (
+              <GlassCard className="p-12 text-center">
+                <MaterialIcon
+                  name="people"
+                  className="text-5xl text-outline-variant mb-3 block mx-auto"
+                />
+                <p className="text-on-surface-variant text-body-md">
+                  No se encontraron usuarios
+                </p>
+              </GlassCard>
+            )}
+          </div>
+          <div className="md:hidden">
+            <ListFooter {...userList} onToggle={userList.toggle} />
+          </div>
+
+          {/* DESKTOP: Table */}
+          <GlassCard className="hidden md:block">
+            <div className={`overflow-x-auto ${userList.expanded ? "max-h-[70vh] overflow-y-auto" : ""}`}>
             <table className="w-full text-left">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-surface-container">
                 <tr className="border-b border-outline-variant/20">
                   <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium">
                     Usuario
@@ -251,7 +390,7 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((u) => (
+                {visibleUsers.map((u) => (
                   <tr
                     key={u.id}
                     className="border-b border-outline-variant/10 last:border-0 hover:bg-surface-container-low/50 transition-colors"
@@ -349,7 +488,7 @@ export default function AdminUsersPage() {
                     </td>
                   </tr>
                 ))}
-                {filtered.length === 0 && (
+                {visibleUsers.length === 0 && filtered.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center">
                       <MaterialIcon
@@ -365,7 +504,11 @@ export default function AdminUsersPage() {
               </tbody>
             </table>
           </div>
+          <div className="hidden md:block">
+            <ListFooter {...userList} onToggle={userList.toggle} />
+          </div>
         </GlassCard>
+        </>
       )}
 
       {/* Edit Modal */}

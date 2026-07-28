@@ -202,7 +202,7 @@ export default function FlourishBlottsPage() {
                   size="md"
                 />
               </div>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar flex-nowrap pb-2 sm:pb-0 w-full min-w-0">
                 {FILTERS.map((f) => (
                   <button
                     key={f}

@@ -371,3 +371,17 @@ body {
   animation: highlight-pulse 1s ease-out 1;
   border-radius: 1rem;
 }
+
+/* ===== PET CRITICAL PULSE ===== */
+@keyframes pulse-critical {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(186, 26, 26, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(186, 26, 26, 0);
+  }
+}
+
+.animate-pulse-critical {
+  animation: pulse-critical 2s ease-in-out infinite;
+}

@@ -51,10 +51,13 @@ def _upload_cloudinary(content: bytes, filename: str) -> str:
 def _upload_local(content: bytes, filename: str) -> str:
     dest = UPLOAD_DIR / filename
     dest.write_bytes(content)
-    # Return an absolute URL to the backend so the frontend (served from a
-    # different origin/port) can load it. Served as static files under
-    # /uploads (see main.py). PUBLIC_BASE_URL lets deployments override the host.
-    base = os.getenv("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
+    # Devolver una URL RELATIVA y portable ("/uploads/<archivo>") en vez de una
+    # absoluta con "localhost". Una URL absoluta a localhost rompe fuera del PC
+    # (en el movil "localhost" es el propio movil) y provoca contenido mixto
+    # http-en-https. El frontend la sirve same-origin via el proxy (ver mediaSrc
+    # en lib/media.ts y el rewrite /api en next.config.ts). PUBLIC_BASE_URL sigue
+    # disponible por si un despliegue necesita forzar un host absoluto.
+    base = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
     return f"{base}/uploads/{filename}"
 
 

@@ -21,6 +21,8 @@ from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
 from ..utils.magic_level import get_magic_level
 from .. import pet_progress
+from ..notifications_service import N
+from ..notifications_service import N
 
 router = APIRouter()
 
@@ -89,23 +91,46 @@ async def _process_aging(db: AsyncSession, uc: UserCreature) -> bool:
     return False
 
 
-def _settle_decay(uc: UserCreature) -> None:
+def _settle_decay(uc: UserCreature) -> bool:
     """Apply elapsed-time hunger/happiness decay in place (clamped at 0).
 
     Idempotent per call: advances `last_decay_at` to now. Safe to call before
     any read or mutation so stored stats always reflect the current moment.
+
+    Also handles:
+    - Attention warning when either stat ≤ 20
+    - Escape warning when either stat hits 0
+    - Escape when either stat stays at 0 for PET_ESCAPE_GRACE_HOURS
+
+    Returns True if pet escaped.
     """
     now = datetime.utcnow()
     last = uc.last_decay_at or uc.adopted_at or now
     hours = (now - last).total_seconds() / 3600.0
     if hours <= 0:
         uc.last_decay_at = now
-        return
+        return False
     hunger_loss = hours * settings.HUNGER_DECAY_PER_HOUR
     happiness_loss = hours * settings.HAPPINESS_DECAY_PER_HOUR
     uc.hunger = max(0, int(round(uc.hunger - hunger_loss)))
     uc.happiness = max(0, int(round(uc.happiness - happiness_loss)))
+
+    # Attention warning: either stat ≤ 20
+    if pet_progress.pet_needs_attention_warning(uc):
+        uc.attention_warned = True
+
+    # Escape warning: either stat hit 0
+    if pet_progress.pet_needs_escape_warning(uc):
+        uc.escaped_warned = True
+        if uc.last_critical_at is None:
+            uc.last_critical_at = now
+
+    # Escape: either stat at 0 for grace period
+    if pet_progress.pet_should_escape(uc):
+        return True
+
     uc.last_decay_at = now
+    return False
 
 
 @router.get("/", response_model=List[CreatureResponse])
@@ -131,7 +156,18 @@ async def my_creatures(
         retired = await _process_aging(db, uc)
         if retired:
             continue
-        _settle_decay(uc)
+        escaped = _settle_decay(uc)
+        if escaped:
+            name = uc.pet_name or (uc.creature.name if uc.creature else "Tu mascota")
+            db.add(Notification(
+                user_id=uc.user_id,
+                type=N.PET_ESCAPED,
+                title="Tu mascota se ha escapado",
+                body=f"{name} ha aprovechado un descuido y ha salido corriendo. Se ha ido para siempre.",
+                related_id=uc.creature_id,
+            ))
+            await db.delete(uc)
+            continue
         alive.append(uc)
     await db.commit()
     return alive
@@ -397,6 +433,8 @@ async def feed_creature(
         user_creature.level += 1
     current_user.care_actions += 1
     user_creature.attention_warned = False  # cared for → re-arm the reminder
+    user_creature.escaped_warned = False
+    user_creature.last_critical_at = None
 
     await db.commit()
     await db.refresh(user_creature)
@@ -423,6 +461,8 @@ async def play_creature(
         user_creature.level += 1
     current_user.care_actions += 1
     user_creature.attention_warned = False  # cared for → re-arm the reminder
+    user_creature.escaped_warned = False
+    user_creature.last_critical_at = None
 
     await db.commit()
     await db.refresh(user_creature)

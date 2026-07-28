@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { api, Post, PostComment, User } from "@/lib/api";
+import { mediaSrc } from "@/lib/media";
 import { GlassCard, Avatar, MaterialIcon } from "@/components/ui";
 
 interface PostCardProps {
@@ -133,7 +134,7 @@ export function PostCard({
       {post.image_url && (
         <div className="mb-4 rounded-xl overflow-hidden">
           <Image
-            src={post.image_url}
+            src={mediaSrc(post.image_url)}
             alt="Post"
             width={600}
             height={400}

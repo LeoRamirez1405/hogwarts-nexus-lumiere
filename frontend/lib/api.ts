@@ -134,7 +134,7 @@ export const api = {
 
   // Products
   getProducts: (shop?: string) =>
-    request<Product[]>(`/products${shop ? `?shop=${shop}` : ""}`),
+    request<Product[]>(`/products/${shop ? `?shop=${shop}` : ""}`),
   getProduct: (id: string) => request<Product>(`/products/${id}`),
   getPopularProducts: (shop: string, limit?: number) =>
     request<Product[]>(`/products/popular/${shop}${limit ? `?limit=${limit}` : ""}`),
@@ -145,17 +145,21 @@ export const api = {
     }),
   getMyPurchases: () => request<UserProduct[]>("/products/my-purchases"),
   createProduct: (data: Partial<Product>) =>
-    request<Product>("/products", { method: "POST", body: JSON.stringify(data) }),
+    request<Product>("/products/", { method: "POST", body: JSON.stringify(data) }),
   updateProduct: (id: string, data: Partial<Product>) =>
     request<Product>(`/products/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteProduct: (id: string) =>
     request<void>(`/products/${id}`, { method: "DELETE" }),
 
   // Articles
-  getArticles: () => request<Article[]>("/articles"),
+  getArticles: (params?: Record<string, string>) => {
+    const searchParams = new URLSearchParams(params);
+    return request<Article[]>(`/articles/?${searchParams.toString()}`);
+  },
+  getArticleCategories: () => request<string[]>("/articles/categories"),
   getArticle: (id: string) => request<Article>(`/articles/${id}`),
   createArticle: (data: Partial<Article>) =>
-    request<Article>("/articles", { method: "POST", body: JSON.stringify(data) }),
+    request<Article>("/articles/", { method: "POST", body: JSON.stringify(data) }),
   updateArticle: (id: string, data: Partial<Article>) =>
     request<Article>(`/articles/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteArticle: (id: string) =>
@@ -167,9 +171,9 @@ export const api = {
   getMySubscriptions: () => request<Article[]>("/articles/my/subscriptions"),
 
   // Announcements
-  getAnnouncements: () => request<Announcement[]>("/announcements"),
+  getAnnouncements: () => request<Announcement[]>("/announcements/"),
   createAnnouncement: (data: Partial<Announcement>) =>
-    request<Announcement>("/announcements", {
+    request<Announcement>("/announcements/", {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -182,9 +186,9 @@ export const api = {
     request<void>(`/announcements/${id}`, { method: "DELETE" }),
 
   // Classifieds
-  getClassifieds: () => request<Classified[]>("/classifieds"),
+  getClassifieds: () => request<Classified[]>("/classifieds/"),
   createClassified: (data: Partial<Classified>) =>
-    request<Classified>("/classifieds", {
+    request<Classified>("/classifieds/", {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -197,7 +201,7 @@ export const api = {
     request<void>(`/classifieds/${id}`, { method: "DELETE" }),
 
   // Notifications
-  getNotifications: () => request<Notification[]>("/notifications"),
+  getNotifications: () => request<Notification[]>("/notifications/"),
   getUnreadNotificationCount: () =>
     request<{ count: number }>("/notifications/unread-count"),
   markNotificationRead: (id: string) =>
@@ -240,12 +244,14 @@ export const api = {
     request<{ subscribed: boolean }>(`/forum/${id}/subscribe`, { method: "POST" }),
   unsubscribeThread: (id: string) =>
     request<void>(`/forum/${id}/subscribe`, { method: "DELETE" }),
+  deleteThread: (id: string) =>
+    request<void>(`/forum/${id}`, { method: "DELETE" }),
 
   // Creatures
-  getCreatures: () => request<Creature[]>("/creatures"),
+  getCreatures: () => request<Creature[]>("/creatures/"),
   getCreature: (id: string) => request<Creature>(`/creatures/${id}`),
   createCreature: (data: Partial<Creature>) =>
-    request<Creature>("/creatures", { method: "POST", body: JSON.stringify(data) }),
+    request<Creature>("/creatures/", { method: "POST", body: JSON.stringify(data) }),
   updateCreature: (id: string, data: Partial<Creature>) =>
     request<Creature>(`/creatures/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteCreature: (id: string) =>
@@ -280,14 +286,14 @@ export const api = {
 
   // Pet items (food / toys)
   getPetItems: (params?: { kind?: string; pet_type?: string }) =>
-    request<PetItem[]>(`/pet-items${buildQuery(params ?? {})}`),
+    request<PetItem[]>(`/pet-items/${buildQuery(params ?? {})}`),
   getPetInventory: () => request<UserPetItem[]>("/pet-items/inventory"),
   buyPetItem: (id: string, quantity = 1) =>
     request<UserPetItem>(`/pet-items/${id}/buy${buildQuery({ quantity })}`, {
       method: "POST",
     }),
   createPetItem: (data: Partial<PetItem>) =>
-    request<PetItem>("/pet-items", { method: "POST", body: JSON.stringify(data) }),
+    request<PetItem>("/pet-items/", { method: "POST", body: JSON.stringify(data) }),
   updatePetItem: (id: string, data: Partial<PetItem>) =>
     request<PetItem>(`/pet-items/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deletePetItem: (id: string) =>
@@ -298,7 +304,7 @@ export const api = {
   getMessages: (userId: string, limit?: number, before?: string) =>
     request<MessagePage>(`/messages/${userId}${buildQuery({ limit, before })}`),
   sendMessage: (data: MessageSendData) =>
-    request<Message>("/messages", { method: "POST", body: JSON.stringify(data) }),
+    request<Message>("/messages/", { method: "POST", body: JSON.stringify(data) }),
   getRooms: (all?: boolean) => request<ChatRoomBrief[]>(`/messages/rooms${all ? "?all=true" : ""}`),
   getRoom: (roomId: string) => request<ChatRoomResponse>(`/messages/rooms/${roomId}`),
   getRoomMessages: (roomId: string, limit?: number, before?: string) =>
@@ -358,6 +364,11 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ duration }),
     }),
+  muteConversation: (convType: "dm" | "room", convId: string, duration: "8h" | "24h" | "forever" | "off") =>
+    request<{ ok: boolean; muted_until: string | null }>(`/messages/conversations/${convType}/${convId}/mute`, {
+      method: "PUT",
+      body: JSON.stringify({ duration }),
+    }),
   searchUsers: (q: string, friendsOnly?: boolean) =>
     request<UserSearchResult[]>(`/messages/users/search?q=${encodeURIComponent(q)}${friendsOnly ? "&friends_only=true" : ""}`),
 
@@ -367,10 +378,10 @@ export const api = {
   },
 
   // Posts
-  getPosts: () => request<Post[]>("/posts"),
+  getPosts: () => request<Post[]>("/posts/"),
   getProfileFeed: (userId: string) => request<Post[]>(`/posts/user/${userId}`),
   createPost: (data: { body: string; image_url?: string }) =>
-    request<Post>("/posts", { method: "POST", body: JSON.stringify(data) }),
+    request<Post>("/posts/", { method: "POST", body: JSON.stringify(data) }),
   likePost: (id: string) =>
     request<Post>(`/posts/${id}/like`, { method: "POST" }),
   repostPost: (id: string) =>
@@ -384,7 +395,7 @@ export const api = {
     }),
 
   // Transactions
-  getTransactions: () => request<Transaction[]>("/transactions"),
+  getTransactions: () => request<Transaction[]>("/transactions/"),
   getAllTransactionsAdmin: () => request<Transaction[]>("/transactions/admin/all"),
   deposit: (amount: number, description?: string) =>
     request<Transaction>("/transactions/deposit", {
@@ -403,13 +414,13 @@ export const api = {
     }),
 
   // Dashboard
-  getDashboard: () => request<DashboardData>("/dashboard"),
+  getDashboard: () => request<DashboardData>("/dashboard/"),
 
   // Friend Requests
-  getFriendRequests: () => request<FriendRequest[]>("/friend-requests"),
+  getFriendRequests: () => request<FriendRequest[]>("/friend-requests/"),
   getFriends: (userId: string) => request<User[]>(`/friend-requests/friends/${userId}`),
   sendFriendRequest: (receiver_id: string) =>
-    request<FriendRequest>("/friend-requests", { method: "POST", body: JSON.stringify({ receiver_id }) }),
+    request<FriendRequest>("/friend-requests/", { method: "POST", body: JSON.stringify({ receiver_id }) }),
   acceptFriendRequest: (id: string) =>
     request<FriendRequest>(`/friend-requests/${id}/accept`, { method: "PUT" }),
   rejectFriendRequest: (id: string) =>
@@ -606,6 +617,7 @@ export interface UserCreature {
   stage: string;
   for_sale: boolean;
   sale_price?: number | null;
+  is_critical?: boolean;
   adopted_at: string;
 }
 
@@ -708,6 +720,7 @@ export interface Conversation {
   zerines?: number;
   last_message?: Message;
   unread_count: number;
+  is_muted?: boolean;
 }
 
 export interface Post {

@@ -65,7 +65,66 @@ export default function AdminArticlesPage() {
         </div>
       </div>
 
-      <TabGroup tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+      {/* Desktop: tabs en una fila */}
+      <div className="hidden md:block">
+        <TabGroup tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+      </div>
+
+      {/* Mobile: Articulos arriba centrado, Anuncios+Clasificados abajo */}
+      <div className="md:hidden space-y-3">
+        <div className="flex justify-center">
+          {(() => {
+            const tab = TABS[0];
+            const isActive = tab.id === activeTab;
+            return (
+              <button
+                onClick={() => setActiveTab(tab.id)}
+                className={`inline-flex items-center gap-2 rounded-full px-8 py-2 text-body-md font-medium transition-all duration-200 ${
+                  isActive
+                    ? "bg-primary text-on-primary"
+                    : "text-on-surface-variant hover:bg-surface-container-high"
+                }`}
+              >
+                {tab.icon && (
+                  <span
+                    className="material-symbols-outlined text-[1.1em]"
+                    style={{ fontVariationSettings: '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24' }}
+                  >
+                    {tab.icon}
+                  </span>
+                )}
+                {tab.label}
+              </button>
+            );
+          })()}
+        </div>
+        <div className="flex gap-2">
+          {TABS.slice(1).map((tab) => {
+            const isActive = tab.id === activeTab;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-body-md font-medium transition-all duration-200 ${
+                  isActive
+                    ? "bg-primary text-on-primary"
+                    : "text-on-surface-variant hover:bg-surface-container-high"
+                }`}
+              >
+                {tab.icon && (
+                  <span
+                    className="material-symbols-outlined text-[1.1em]"
+                    style={{ fontVariationSettings: '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24' }}
+                  >
+                    {tab.icon}
+                  </span>
+                )}
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {loading ? (
         <div className="space-y-4">

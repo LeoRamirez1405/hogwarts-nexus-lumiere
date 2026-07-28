@@ -60,8 +60,11 @@ export function PetCard({
 
   const displayName = uc.pet_name || uc.creature?.name || "Sin nombre";
 
+  // Backend flags pet as critical when either hunger or happiness <= PET_CRITICAL_THRESHOLD
+  const isCritical = uc.is_critical === true;
+
   return (
-    <div className="bg-white border border-outline-variant/30 rounded-3xl p-6">
+    <div className={`bg-white border border-outline-variant/30 rounded-3xl p-6 ${isCritical ? 'animate-pulse-critical' : ''}`}>
       {/* Header */}
       <div className="flex items-center gap-4 mb-4">
         <Avatar

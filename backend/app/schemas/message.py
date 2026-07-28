@@ -177,6 +177,7 @@ class ConversationResponse(BaseModel):
     last_message: Optional[MessageResponse] = None
     unread_count: int = 0
     hidden: bool = False
+    is_muted: bool = False
 
 
 class MuteRequest(BaseModel):

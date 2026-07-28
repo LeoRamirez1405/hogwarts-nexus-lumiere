@@ -29,7 +29,7 @@ export default function ConversationItem({
         size="sm"
         initials={getInitials(conversation.name)}
       />
-      <div className="flex-1 min-w-0">
+<div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
           <span
             className={`text-body-md truncate ${
@@ -46,7 +46,14 @@ export default function ConversationItem({
                 filled
               />
             )}
-         </span>
+            {conversation.is_muted && (
+              <MaterialIcon
+                name="notifications_off"
+                className="text-xs ml-1 text-on-surface-variant"
+                filled
+              />
+            )}
+          </span>
           <span className="text-label-sm text-on-surface-variant ml-2 shrink-0">
             {conversation.last_message
               ? formatTimestamp(conversation.last_message.created_at)

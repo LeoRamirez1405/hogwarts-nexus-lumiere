@@ -328,7 +328,8 @@ export default function AdminCreaturesPage() {
                       ref={imageInputRef}
                       type="file"
                       accept="image/*"
-                      className="hidden"
+                      capture="environment"
+                      className="absolute opacity-0 w-0 h-0 pointer-events-none"
                       onChange={handleImageUpload}
                       disabled={uploadingImage}
                     />
