@@ -68,6 +68,7 @@ export default function AdminGroupsPage() {
   const [showEdit, setShowEdit] = useState<string | null>(null);
   const [showMembers, setShowMembers] = useState<string | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allUsersMap, setAllUsersMap] = useState<Record<string, User>>({});
   const [newRoom, setNewRoom] = useState({
     name: "",
     description: "",
@@ -94,6 +95,13 @@ export default function AdminGroupsPage() {
         api.getUsers(),
       ]);
       setRooms(roomsData);
+      const usersIncludingCurrent = [...usersData];
+      if (user && !usersData.some((u) => u.id === user.id)) {
+        usersIncludingCurrent.push(user);
+      }
+      const userMap: Record<string, User> = {};
+      usersIncludingCurrent.forEach((u) => { userMap[u.id] = u; });
+      setAllUsersMap(userMap);
       setAllUsers(usersData.filter((u) => u.id !== user?.id));
     } catch (e) {
       console.error("Error loading data", e);
@@ -110,19 +118,27 @@ export default function AdminGroupsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const [roomsData, usersData] = await Promise.all([
-          api.getRooms(true),
-          api.getUsers(),
-        ]);
+        const roomsData = await api.getRooms(true);
+        if (!cancelled) setRooms(roomsData);
+      } catch (e) {
+        console.error("Error loading rooms", e);
+      }
+      try {
+        const usersData = await api.getUsers();
         if (!cancelled) {
-          setRooms(roomsData);
+          const usersIncludingCurrent = [...usersData];
+          if (user && !usersData.some((u) => u.id === user.id)) {
+            usersIncludingCurrent.push(user);
+          }
+          const userMap: Record<string, User> = {};
+          usersIncludingCurrent.forEach((u) => { userMap[u.id] = u; });
+          setAllUsersMap(userMap);
           setAllUsers(usersData.filter((u) => u.id !== user?.id));
         }
       } catch (e) {
-        console.error("Error loading data", e);
-      } finally {
-        if (!cancelled) setLoading(false);
+        console.error("Error loading users", e);
       }
+      if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [user, router]);
@@ -381,7 +397,7 @@ export default function AdminGroupsPage() {
                     </td>
                     <td className="px-6 py-4 hidden lg:table-cell">
                       <p className="text-label-sm text-on-surface-variant">
-                        {allUsers.find((u) => u.id === room.created_by)?.name || room.created_by.slice(0, 8)}
+                        {allUsersMap[room.created_by]?.name || room.created_by.slice(0, 8)}
                       </p>
                     </td>
                     <td className="px-6 py-4">

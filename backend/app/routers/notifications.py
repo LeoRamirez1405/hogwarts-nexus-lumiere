@@ -1,5 +1,6 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
@@ -73,3 +74,34 @@ async def mark_all_notifications_read(
         .values(read="true")
     )
     await db.commit()
+
+
+class ReadBatchRequest(BaseModel):
+    ids: List[str]
+
+
+@router.post("/read-batch")
+async def mark_notifications_read_batch(
+    payload: ReadBatchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mark a specific set of the caller's notifications as read.
+
+    Used by the client to auto-clear notifications when the user reaches the
+    place a notification points to (by clicking it, or by navigating there on
+    their own). Scoped to the current user so ids from others are ignored.
+    """
+    if not payload.ids:
+        return {"updated": 0}
+    result = await db.execute(
+        update(Notification)
+        .where(
+            Notification.user_id == current_user.id,
+            Notification.id.in_(payload.ids),
+            Notification.read == "false",
+        )
+        .values(read="true")
+    )
+    await db.commit()
+    return {"updated": result.rowcount or 0}

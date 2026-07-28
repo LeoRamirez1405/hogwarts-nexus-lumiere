@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuthStore } from "@/lib/authStore";
+import { useNotificationStore } from "@/lib/notificationStore";
 import { api, Conversation, Message, MessagePage, MessageSendData, User, ChatRoomMemberResponse } from "@/lib/api";
 import { SearchBar } from "@/components/ui";
 import { MaterialIcon } from "./helpers";
@@ -18,6 +19,8 @@ const byCreatedAsc = (a: Message, b: Message) =>
 
 export default function MessagesPage() {
   const { user: authUser, token } = useAuthStore();
+  const markNotifsReadMatching = useNotificationStore((s) => s.markReadMatching);
+  const storeNotifications = useNotificationStore((s) => s.notifications);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -75,13 +78,22 @@ export default function MessagesPage() {
     const params = new URLSearchParams(window.location.search);
     const room = params.get("room");
     const msg = params.get("msg");
-    if (!room) return;
-    window.history.replaceState(null, "", "/messages");
-    queueMicrotask(() => {
-      setSelectedId(room);
-      setSelectedType("room");
-      if (msg) setTargetMessageId(msg);
-    });
+    const userId = params.get("user") || params.get("dm");
+    if (room) {
+      window.history.replaceState(null, "", "/messages");
+      queueMicrotask(() => {
+        setSelectedId(room);
+        setSelectedType("room");
+        if (msg) setTargetMessageId(msg);
+      });
+    } else if (userId) {
+      window.history.replaceState(null, "", "/messages");
+      queueMicrotask(() => {
+        // Check if an existing direct conversation exists with this user.
+        setSelectedId(userId);
+        setSelectedType("direct");
+      });
+    }
   }, []);
 
   // Load a conversation from scratch when the selection changes.
@@ -138,6 +150,23 @@ export default function MessagesPage() {
       cancelled = true;
     };
   }, [selectedId, selectedType, fetchPage]);
+
+  // Opening a conversation clears its related notifications (DM message, room
+  // mention, or being added to a group) — so reaching the chat counts as
+  // attending the notification even without clicking it in the bell.
+  useEffect(() => {
+    if (!selectedId || !selectedType) return;
+    const id = selectedId;
+    const type = selectedType;
+    markNotifsReadMatching((n) => {
+      if (type === "direct") return n.type === "dm_message" && n.related_id === id;
+      if (n.type === "group_added") return n.related_id === id;
+      if (n.type === "mention") return (n.related_id ?? "").split(":")[0] === id;
+      return false;
+    });
+    // `storeNotifications` in deps so this re-runs once the store finishes
+    // loading (the conversation may open before notifications are fetched).
+  }, [selectedId, selectedType, markNotifsReadMatching, storeNotifications]);
 
   // Lazy-load an older page and prepend it.
   const loadOlder = useCallback(async () => {

@@ -1,5 +1,7 @@
 "use client";
 
+type Variant = "light" | "dark";
+
 interface Tab {
   id: string;
   label: string;
@@ -10,21 +12,26 @@ interface TabGroupProps {
   tabs: Tab[];
   activeTab: string;
   onChange: (tabId: string) => void;
+  variant?: Variant;
 }
 
-export default function TabGroup({ tabs, activeTab, onChange }: TabGroupProps) {
+export default function TabGroup({ tabs, activeTab, onChange, variant = "light" }: TabGroupProps) {
   return (
     <div className="flex flex-row gap-2 flex-wrap">
       {tabs.map((tab) => {
         const isActive = tab.id === activeTab;
+        const activeStyles = variant === "dark"
+          ? "bg-secondary text-on-secondary"
+          : "bg-primary text-on-primary";
+        const inactiveStyles = variant === "dark"
+          ? "text-secondary hover:bg-inverse-surface/30"
+          : "text-on-surface-variant hover:bg-surface-container-high";
         return (
           <button
             key={tab.id}
             onClick={() => onChange(tab.id)}
             className={`inline-flex items-center gap-2 rounded-full px-6 py-2 text-body-md font-medium transition-all duration-200 ${
-              isActive
-                ? "bg-primary text-on-primary"
-                : "text-on-surface-variant hover:bg-surface-container-high"
+              isActive ? activeStyles : inactiveStyles
             }`}
           >
             {tab.icon && (

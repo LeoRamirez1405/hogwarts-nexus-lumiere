@@ -158,7 +158,10 @@ export default function ArticleDetailPage() {
         </h1>
 
         {article.author && (
-          <div className="flex items-center justify-center gap-3 mb-8">
+          <Link
+            href={`/profile/${article.author.id}`}
+            className="flex items-center justify-center gap-3 mb-8 hover:opacity-80 transition-opacity"
+          >
             <Avatar
               src={article.author.avatar_url}
               alt={article.author.name}
@@ -169,14 +172,14 @@ export default function ArticleDetailPage() {
                 .join("")}
             />
             <div className="text-left">
-              <p className="text-body-md font-semibold text-on-surface">
+              <p className="text-body-md font-semibold text-on-surface hover:text-primary transition-colors">
                 {article.author.name}
               </p>
               <p className="text-label-sm text-on-surface-variant">
                 Corresponsal &middot; {timeAgo(article.created_at)}
               </p>
             </div>
-          </div>
+          </Link>
         )}
 
         {article.image_url && (

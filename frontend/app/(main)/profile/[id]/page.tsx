@@ -227,8 +227,6 @@ export default function ProfilePage() {
 
   if (!profile) return null;
 
-  const zerinesNext = 2000;
-
   return (
     <div className="space-y-8 pb-16">
       <ProfileHeader
@@ -264,7 +262,7 @@ export default function ProfilePage() {
 
           <FriendsGrid friends={friends} onShowAll={() => setShowAllFriends(true)} />
 
-          <ZerinesProgress zerines={profile.zerines} nextLevelThreshold={zerinesNext} />
+          <ZerinesProgress zerines={profile.zerines} />
         </div>
 
         {/* Right Column (Posts) */}

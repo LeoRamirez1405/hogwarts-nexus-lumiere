@@ -63,6 +63,7 @@ def _run_migrations(sync_conn):
         ("user_creatures", "farewell_warned", "BOOLEAN NOT NULL DEFAULT 0"),
         ("user_creatures", "for_sale", "BOOLEAN NOT NULL DEFAULT 0"),
         ("user_creatures", "sale_price", "INTEGER"),
+        ("users", "house_points", "INTEGER NOT NULL DEFAULT 0"),
         ("users", "care_actions", "INTEGER NOT NULL DEFAULT 0"),
         ("users", "items_purchased", "INTEGER NOT NULL DEFAULT 0"),
         ("users", "status", "VARCHAR(80)"),

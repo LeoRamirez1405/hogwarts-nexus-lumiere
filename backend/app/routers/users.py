@@ -9,11 +9,14 @@ from ..models.user import User
 from ..schemas.user import (
     UserResponse,
     UserUpdate,
+    AdminCreateUser,
     AdminTitleUpdate,
+    HousePointsAdjust,
     MagicLevelInfo,
     HousePoints,
+    AdminResetPassword,
 )
-from ..middleware.auth import get_current_user
+from ..middleware.auth import get_current_user, hash_password
 from ..middleware.roles import require_role
 from ..utils.magic_level import get_magic_level
 
@@ -42,10 +45,45 @@ async def get_house_points(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(func.coalesce(func.sum(User.zerines), 0)).where(User.house == house)
+        select(func.coalesce(func.sum(User.house_points), 0)).where(User.house == house)
     )
     points = result.scalar()
     return HousePoints(house=house, points=points)
+
+
+@router.get("/houses/all-points")
+async def get_all_house_points(
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(User.house, func.coalesce(func.sum(User.house_points), 0))
+        .where(User.house.isnot(None))
+        .group_by(User.house)
+    )
+    return {row[0]: row[1] for row in result.all()}
+
+
+@router.post("/", response_model=UserResponse)
+async def create_user(
+    data: AdminCreateUser,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    existing = await db.execute(select(User).where(User.email == data.email))
+    if existing.scalar_one_or_none():
+        raise HTTPException(400, "El email ya esta registrado")
+
+    user = User(
+        name=data.name,
+        email=data.email,
+        password_hash=hash_password(data.password),
+        house=data.house,
+        role=data.role,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return _enrich_user(user)
 
 
 @router.get("/{user_id}", response_model=UserResponse)
@@ -116,6 +154,42 @@ async def set_user_title(
         )
 
     user.official_title = data.official_title
+    await db.commit()
+    await db.refresh(user)
+    return _enrich_user(user)
+
+
+@router.post("/{user_id}/house-points", response_model=UserResponse)
+async def adjust_house_points(
+    user_id: str,
+    data: HousePointsAdjust,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+
+    user.house_points = max(0, (user.house_points or 0) + data.points)
+    await db.commit()
+    await db.refresh(user)
+    return _enrich_user(user)
+
+
+@router.post("/{user_id}/reset-password", response_model=UserResponse)
+async def admin_reset_password(
+    user_id: str,
+    data: AdminResetPassword,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+
+    user.password_hash = hash_password(data.new_password)
     await db.commit()
     await db.refresh(user)
     return _enrich_user(user)

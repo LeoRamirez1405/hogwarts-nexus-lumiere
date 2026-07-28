@@ -16,6 +16,7 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     role = Column(String, default="user", nullable=False)  # admin / user
     zerines = Column(Integer, default=0, nullable=False)
+    house_points = Column(Integer, default=0, nullable=False)
     avatar_url = Column(String, nullable=True)
     house = Column(String, nullable=True)
     bio = Column(Text, nullable=True)

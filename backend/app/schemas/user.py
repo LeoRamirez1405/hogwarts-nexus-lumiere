@@ -26,10 +26,33 @@ class UserUpdate(BaseModel):
     wand: Optional[str] = None
     location: Optional[str] = None
     zerines: Optional[int] = None
+    house_points: Optional[int] = None
+
+
+class AdminCreateUser(BaseModel):
+    name: str
+    email: str
+    password: str
+    house: Optional[str] = None
+    role: str = "user"
 
 
 class AdminTitleUpdate(BaseModel):
     official_title: Optional[str] = None
+
+
+class HousePointsAdjust(BaseModel):
+    points: int
+    reason: Optional[str] = None
+
+
+class ChangePassword(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class AdminResetPassword(BaseModel):
+    new_password: str
 
 
 class MagicLevelInfo(BaseModel):
@@ -51,6 +74,7 @@ class UserResponse(BaseModel):
     email: str
     role: str
     zerines: int
+    house_points: int = 0
     avatar_url: Optional[str] = None
     house: Optional[str] = None
     bio: Optional[str] = None

@@ -106,6 +106,6 @@ def get_house_points(db, house: str) -> int:
     from ..models.user import User
 
     result = db.execute(
-        select(func.coalesce(func.sum(User.zerines), 0)).where(User.house == house)
+        select(func.coalesce(func.sum(User.house_points), 0)).where(User.house == house)
     )
     return result.scalar()

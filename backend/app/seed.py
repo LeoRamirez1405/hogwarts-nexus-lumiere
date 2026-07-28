@@ -27,9 +27,10 @@ async def seed_data():
             password_hash=hash_password("admin123"),
             role="admin",
             zerines=50000,
+            house_points=500,
             house="Gryffindor",
             bio="Headmaster of Hogwarts School of Witchcraft and Wizardry",
-            avatar_url="/placeholder-avatar.svg",
+            avatar_url=None,
             created_at=datetime.now() - timedelta(days=1825),
         )
 
@@ -39,9 +40,10 @@ async def seed_data():
             password_hash=hash_password("user123"),
             role="user",
             zerines=14205,
+            house_points=320,
             house="Gryffindor",
             bio="Brightest witch of her age. Prefect and co-founder of Dumbledore's Army.",
-            avatar_url="/placeholder-avatar.svg",
+            avatar_url=None,
             created_at=datetime.now() - timedelta(days=730),
         )
 
@@ -51,9 +53,10 @@ async def seed_data():
             password_hash=hash_password("user123"),
             role="user",
             zerines=8750,
+            house_points=180,
             house="Ravenclaw",
             bio="Believer in the extraordinary. Editor of The Quibbler.",
-            avatar_url="/placeholder-avatar.svg",
+            avatar_url=None,
             created_at=datetime.now() - timedelta(days=420),
         )
 
@@ -63,9 +66,10 @@ async def seed_data():
             password_hash=hash_password("user123"),
             role="user",
             zerines=12300,
+            house_points=250,
             house="Hufflepuff",
             bio="True Hufflepuff. Triwizard Champion and all-around good person.",
-            avatar_url="/placeholder-avatar.svg",
+            avatar_url=None,
             created_at=datetime.now() - timedelta(days=210),
         )
 
@@ -75,9 +79,10 @@ async def seed_data():
             password_hash=hash_password("user123"),
             role="user",
             zerines=22100,
+            house_points=410,
             house="Gryffindor",
             bio="The Boy Who Lived. Savior of the Wizarding World.",
-            avatar_url="/placeholder-avatar.svg",
+            avatar_url=None,
             created_at=datetime.now() - timedelta(days=95),
         )
 
@@ -92,7 +97,7 @@ async def seed_data():
                 price=850,
                 category="Artifacts",
                 shop="borgin",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 stock=3,
             ),
             Product(
@@ -101,7 +106,7 @@ async def seed_data():
                 price=1200,
                 category="Dark Arts",
                 shop="borgin",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 stock=5,
             ),
             Product(
@@ -110,7 +115,7 @@ async def seed_data():
                 price=2500,
                 category="Relics",
                 shop="borgin",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 stock=1,
             ),
             Product(
@@ -119,7 +124,7 @@ async def seed_data():
                 price=3000,
                 category="Hogwarts",
                 shop="borgin",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 stock=2,
             ),
             Product(
@@ -128,7 +133,7 @@ async def seed_data():
                 price=450,
                 category="Writing",
                 shop="borgin",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 stock=10,
             ),
         ]
@@ -141,7 +146,7 @@ async def seed_data():
                 price=250,
                 category="Books",
                 shop="flourish",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 stock=20,
             ),
             Product(
@@ -150,7 +155,7 @@ async def seed_data():
                 price=420,
                 category="Books",
                 shop="flourish",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 stock=15,
             ),
             Product(
@@ -159,7 +164,7 @@ async def seed_data():
                 price=180,
                 category="Herbology",
                 shop="flourish",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 stock=25,
             ),
             Product(
@@ -168,7 +173,7 @@ async def seed_data():
                 price=95,
                 category="Books",
                 shop="flourish",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 stock=30,
             ),
             Product(
@@ -177,7 +182,7 @@ async def seed_data():
                 price=310,
                 category="Beasts",
                 shop="flourish",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 stock=18,
             ),
         ]
@@ -193,7 +198,7 @@ async def seed_data():
                 price=450,
                 required_user_level=4,
                 ability="Renacer de las cenizas una vez al dia.",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
             ),
             Creature(
                 name="Niffler",
@@ -202,7 +207,7 @@ async def seed_data():
                 pet_type="critter",
                 price=320,
                 ability="Encuentra Zerines perdidos (+10% al cuidar).",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
             ),
             Creature(
                 name="Hedwig the Owl",
@@ -212,7 +217,7 @@ async def seed_data():
                 price=600,
                 required_sanctuary_level=5,
                 ability="Entrega mensajes en la medianoche (+25% felicidad al jugar).",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
             ),
             Creature(
                 name="Toad",
@@ -220,7 +225,7 @@ async def seed_data():
                 rarity="common",
                 pet_type="critter",
                 price=200,
-                image_url="/placeholder-generic.svg",
+                image_url=None,
             ),
             Creature(
                 name="Buckbeak the Hippogriff",
@@ -231,7 +236,7 @@ async def seed_data():
                 required_user_level=6,
                 required_sanctuary_level=8,
                 ability="Vuelo majestuoso: doble de Zerines al cuidar.",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
             ),
         ]
         db.add_all(creatures)
@@ -257,7 +262,7 @@ async def seed_data():
                 ),
                 author_id=hermione.id,
                 category="Magical Creatures",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 featured=True,
             ),
             Article(
@@ -269,7 +274,7 @@ async def seed_data():
                 ),
                 author_id=harry.id,
                 category="Hobbies",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 featured=False,
             ),
             Article(
@@ -282,7 +287,7 @@ async def seed_data():
                 ),
                 author_id=luna.id,
                 category="Potions",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 featured=False,
             ),
             Article(
@@ -296,7 +301,7 @@ async def seed_data():
                 ),
                 author_id=admin.id,
                 category="History",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 featured=False,
             ),
             Article(
@@ -309,7 +314,7 @@ async def seed_data():
                 ),
                 author_id=cedric.id,
                 category="Exploration",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
                 featured=False,
             ),
         ]
@@ -404,22 +409,22 @@ async def seed_data():
             Post(
                 author_id=harry.id,
                 body="Just had the most amazing Quidditch practice! The new Firebolt is incredible. Anyone up for a match this weekend? 🧹⚡",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
             ),
             Post(
                 author_id=hermione.id,
                 body="Studying for N.E.W.T.s in the library. If anyone needs help with Charms, I'll be here until closing.",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
             ),
             Post(
                 author_id=luna.id,
                 body="Good morning! The Nargles were particularly active near the mistletoe today. Has anyone seen my Spectrespecs? 🦋",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
             ),
             Post(
                 author_id=cedric.id,
                 body="Hufflepuff common room is so cozy today. Made some hot chocolate for everyone! Come and get some 🍫",
-                image_url="/placeholder-generic.svg",
+                image_url=None,
             ),
             Post(
                 author_id=admin.id,
@@ -614,7 +619,7 @@ async def seed_pet_supplies():
                     price=price,
                     restore_amount=restore,
                     pack_size=pack,
-                    image_url="/placeholder-generic.svg",
+                    image_url=None,
                 )
                 for (name, desc, kind, pet_type, price, restore, pack) in _PET_SUPPLIES
             ])

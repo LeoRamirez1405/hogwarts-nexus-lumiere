@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Product } from "@/lib/api";
 import { getFallbackForProduct } from "@/lib/fallbacks";
 import { useTheme } from "@/lib/useTheme";
+import { ZerineDisplay } from "@/components/ui";
 
 interface BookCardProps {
   product: Product;
@@ -39,9 +40,7 @@ export function BookCard({ product, onAddToCart }: BookCardProps) {
         {product.description}
       </p>
       <div className="flex items-center justify-between">
-        <span className="text-on-surface-variant text-label-sm uppercase tracking-wider font-semibold">
-          {product.price} 💎
-        </span>
+        <ZerineDisplay amount={product.price} variant="price" iconStyle="icon" />
         <button
           onClick={() => onAddToCart(product)}
           className="border border-primary text-primary rounded-full px-6 py-2 text-label-sm font-bold hover:bg-primary hover:text-on-primary transition-all active:scale-95"

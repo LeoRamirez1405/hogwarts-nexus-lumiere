@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/authStore";
 import { User } from "@/lib/api";
 import Avatar from "@/components/ui/Avatar";
@@ -141,6 +141,16 @@ function SidebarContent({
   user: User | null;
   onNavigate?: () => void;
 }) {
+  const router = useRouter();
+  const logout = useAuthStore((s) => s.logout);
+
+  const handleLogout = () => {
+    if (confirm("¿Seguro que quieres cerrar sesión?")) {
+      logout();
+      router.push("/login");
+    }
+  };
+
   return (
     <>
       {/* TOP: User info */}
@@ -217,6 +227,13 @@ function SidebarContent({
           <span className="text-body-md">Soporte</span>
         </Link>
 
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-4 py-3 px-8 text-error hover:bg-error/10 rounded-xl mx-0 transition-all duration-200 hover:translate-x-1"
+        >
+          <MaterialIcon name="logout" className="text-xl" />
+          <span className="text-body-md">Cerrar sesion</span>
+        </button>
       </div>
     </>
   );

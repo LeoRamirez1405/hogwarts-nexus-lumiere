@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .models.article_subscription import Notification
 from .models.user import User
 from .models.post import PostLike
+from .models.friend_request import FriendRequest
 
 
 class N:
@@ -55,6 +56,7 @@ class N:
     PET_SOLD = "pet_sold"
     # Broadcast
     ANNOUNCEMENT = "announcement"
+    FRIEND_POST = "friend_post"
 
 
 async def notify(
@@ -197,3 +199,42 @@ async def resolve_mentions(db: AsyncSession, body: Optional[str]) -> List[User]:
             seen.add(mentioned.id)
             found.append(mentioned)
     return found
+
+
+async def notify_friends_of_post(
+    db: AsyncSession, post, actor: User
+) -> int:
+    """Notify all friends of the post author about the new post."""
+    result = await db.execute(
+        select(FriendRequest.sender_id).where(
+            FriendRequest.receiver_id == actor.id,
+            FriendRequest.status == "accepted",
+        )
+    )
+    friend_ids = set(result.scalars().all())
+    result2 = await db.execute(
+        select(FriendRequest.receiver_id).where(
+            FriendRequest.sender_id == actor.id,
+            FriendRequest.status == "accepted",
+        )
+    )
+    friend_ids.update(result2.scalars().all())
+
+    count = 0
+    body = (post.body or "")[:140]
+    for fid in friend_ids:
+        if fid == actor.id:
+            continue
+        db.add(
+            Notification(
+                user_id=fid,
+                type=N.FRIEND_POST,
+                title=f"{actor.name} publicó algo nuevo",
+                body=body,
+                related_id=post.id,
+                actor_id=actor.id,
+                read="false",
+            )
+        )
+        count += 1
+    return count

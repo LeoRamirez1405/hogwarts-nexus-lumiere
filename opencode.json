@@ -27,11 +27,6 @@
       "type": "local",
       "command": ["npx", "-y", "@modelcontextprotocol/server-memory"],
       "enabled": true
-    },
-    "exa": {
-      "type": "remote",
-      "url": "https://mcp.exa.ai/mcp?exaApiKey={env:EXA_API_KEY}&tools=web_search_exa,web_search_advanced_exa,get_code_context_exa,crawling_exa,company_research_exa,people_search_exa,deep_researcher_start,deep_researcher_check,deep_search_exa",
-      "enabled": true
     }
   },
   "plugin": [".opencode/plugins/graphify.js"]

@@ -269,7 +269,7 @@ export default function AdminCreaturesPage() {
               </div>
               <div>
                 <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Descripcion</label>
-                <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors min-h-[100px] resize-none" />
+                <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors min-h-25 resize-none" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

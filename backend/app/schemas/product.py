@@ -39,3 +39,15 @@ class ProductResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UserProductResponse(BaseModel):
+    id: str
+    user_id: str
+    product_id: str
+    product: Optional[ProductResponse] = None
+    quantity: int
+    purchased_at: datetime
+
+    class Config:
+        from_attributes = True

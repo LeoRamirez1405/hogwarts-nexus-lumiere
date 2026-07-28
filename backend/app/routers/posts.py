@@ -9,7 +9,7 @@ from ..models.user import User
 from ..schemas.post import PostCreate, PostResponse, CommentCreate, CommentResponse
 from ..schemas.user import UserResponse
 from ..middleware.auth import get_current_user
-from ..notifications_service import notify, notify_like, resolve_mentions, N
+from ..notifications_service import notify, notify_like, notify_friends_of_post, resolve_mentions, N
 
 router = APIRouter()
 
@@ -139,6 +139,11 @@ async def create_post(
         image_url=post_data.image_url,
     )
     db.add(post)
+    await db.commit()
+    await db.refresh(post)
+
+    # Notify friends about the new post.
+    await notify_friends_of_post(db, post, current_user)
     await db.commit()
     await db.refresh(post)
 

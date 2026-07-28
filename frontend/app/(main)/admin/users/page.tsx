@@ -33,6 +33,8 @@ function MaterialIcon({
   );
 }
 
+const HOUSES = ["Gryffindor", "Slytherin", "Ravenclaw", "Hufflepuff"];
+
 export default function AdminUsersPage() {
   const { user } = useAuthStore();
   const router = useRouter();
@@ -44,6 +46,28 @@ export default function AdminUsersPage() {
   const [editRole, setEditRole] = useState<"admin" | "user">("user");
   const [editZerines, setEditZerines] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Create user modal
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newHouse, setNewHouse] = useState("");
+  const [newRole, setNewRole] = useState<"admin" | "user">("user");
+  const [creating, setCreating] = useState(false);
+
+  // House points modal
+  const [pointsUser, setPointsUser] = useState<User | null>(null);
+  const [pointsValue, setPointsValue] = useState("");
+  const [pointsReason, setPointsReason] = useState("");
+  const [adjusting, setAdjusting] = useState(false);
+  const [houseFilter, setHouseFilter] = useState<string>("");
+
+  // Reset password modal
+  const [resetUser, setResetUser] = useState<User | null>(null);
+  const [resetPass, setResetPass] = useState("");
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     if (user?.role !== "admin") {
@@ -59,8 +83,9 @@ export default function AdminUsersPage() {
 
   const filtered = users.filter(
     (u) =>
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase())
+      (u.name.toLowerCase().includes(search.toLowerCase()) ||
+       u.email.toLowerCase().includes(search.toLowerCase())) &&
+      (!houseFilter || u.house === houseFilter)
   );
 
   const handleSave = async () => {
@@ -86,6 +111,65 @@ export default function AdminUsersPage() {
     } catch {}
   };
 
+  const handleCreate = async () => {
+    if (!newName.trim() || !newEmail.trim() || !newPassword.trim()) return;
+    setCreating(true);
+    try {
+      await api.createUser({
+        name: newName.trim(),
+        email: newEmail.trim(),
+        password: newPassword,
+        house: newHouse || undefined,
+        role: newRole,
+      });
+      const refreshed = await api.getUsers();
+      setUsers(refreshed);
+      setShowCreate(false);
+      setNewName("");
+      setNewEmail("");
+      setNewPassword("");
+      setNewHouse("");
+      setNewRole("user");
+    } catch (e: any) {
+      alert(e?.message || "Error al crear usuario");
+    }
+    setCreating(false);
+  };
+
+  const handleAdjustPoints = async () => {
+    if (!pointsUser) return;
+    const pts = parseInt(pointsValue);
+    if (!pts) return;
+    setAdjusting(true);
+    try {
+      const updated = await api.adjustHousePoints(pointsUser.id, pts, pointsReason || undefined);
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+      setPointsUser(null);
+      setPointsValue("");
+      setPointsReason("");
+    } catch (e: any) {
+      alert(e?.message || "Error al ajustar puntos");
+    }
+    setAdjusting(false);
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetUser) return;
+    if (resetPass.length < 4) { alert("Minimo 4 caracteres"); return; }
+    if (resetPass !== resetConfirm) { alert("Las contrasenas no coinciden"); return; }
+    setResetting(true);
+    try {
+      await api.adminResetPassword(resetUser.id, resetPass);
+      alert("Contrasena restablecida");
+      setResetUser(null);
+      setResetPass("");
+      setResetConfirm("");
+    } catch (e: any) {
+      alert(e?.message || "Error al restablecer contrasena");
+    }
+    setResetting(false);
+  };
+
   if (user?.role !== "admin") return null;
 
   return (
@@ -99,13 +183,30 @@ export default function AdminUsersPage() {
             {users.length} usuarios registrados
           </p>
         </div>
-        <div className="w-full md:w-80">
-          <SearchBar
-            placeholder="Buscar por nombre o email..."
-            value={search}
-            onChange={setSearch}
-            size="md"
-          />
+        <div className="flex gap-3">
+          <div className="w-full md:w-80">
+            <SearchBar
+              placeholder="Buscar por nombre o email..."
+              value={search}
+              onChange={setSearch}
+              size="md"
+            />
+          </div>
+          <select
+            value={houseFilter}
+            onChange={(e) => setHouseFilter(e.target.value)}
+            className="px-4 py-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
+          >
+            <option value="">Todas las casas</option>
+            {HOUSES.map((h) => <option key={h} value={h}>{h}</option>)}
+          </select>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-full font-medium text-label-sm hover:opacity-90 transition-all active:scale-95 whitespace-nowrap"
+          >
+            <MaterialIcon name="person_add" className="text-[1.2em]" />
+            Crear Usuario
+          </button>
         </div>
       </div>
 
@@ -133,13 +234,16 @@ export default function AdminUsersPage() {
                     Usuario
                   </th>
                   <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden md:table-cell">
-                    Email
+                    Casa
                   </th>
                   <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium">
                     Rol
                   </th>
                   <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden sm:table-cell">
                     Zerines
+                  </th>
+                  <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium hidden sm:table-cell">
+                    Pts Casa
                   </th>
                   <th className="text-label-sm text-on-surface-variant uppercase tracking-wider px-6 py-4 font-medium">
                     Acciones
@@ -168,9 +272,11 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 hidden md:table-cell">
-                      <p className="text-body-md text-on-surface-variant">
-                        {u.email}
-                      </p>
+                      {u.house ? (
+                        <Badge variant="tag" color="default">{u.house}</Badge>
+                      ) : (
+                        <span className="text-on-surface-variant text-label-sm">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <Badge
@@ -184,6 +290,19 @@ export default function AdminUsersPage() {
                       <p className="text-body-md text-on-surface font-medium">
                         {u.zerines.toLocaleString()}
                       </p>
+                    </td>
+                    <td className="px-6 py-4 hidden sm:table-cell">
+                      <button
+                        onClick={() => {
+                          setPointsUser(u);
+                          setPointsValue("");
+                          setPointsReason("");
+                        }}
+                        className="text-body-md text-primary font-medium hover:underline cursor-pointer"
+                        title="Asignar puntos de casa"
+                      >
+                        {(u.house_points || 0).toLocaleString()}
+                      </button>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
@@ -199,6 +318,28 @@ export default function AdminUsersPage() {
                           <MaterialIcon name="edit" className="text-lg" />
                         </button>
                         <button
+                          onClick={() => {
+                            setResetUser(u);
+                            setResetPass("");
+                            setResetConfirm("");
+                          }}
+                          className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-secondary transition-colors"
+                          title="Restablecer contrasena"
+                        >
+                          <MaterialIcon name="lock_reset" className="text-lg" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPointsUser(u);
+                            setPointsValue("");
+                            setPointsReason("");
+                          }}
+                          className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-secondary transition-colors"
+                          title="Asignar puntos de casa"
+                        >
+                          <MaterialIcon name="workspace_premium" className="text-lg" />
+                        </button>
+                        <button
                           onClick={() => handleDelete(u.id)}
                           className="p-2 rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
                         >
@@ -210,7 +351,7 @@ export default function AdminUsersPage() {
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center">
+                    <td colSpan={6} className="px-6 py-12 text-center">
                       <MaterialIcon
                         name="people"
                         className="text-5xl text-outline-variant mb-3 block mx-auto"
@@ -300,6 +441,237 @@ export default function AdminUsersPage() {
                 className="flex-1"
               >
                 {saving ? "Guardando..." : "Guardar"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Create User Modal */}
+      {showCreate && (
+        <Modal open onClose={() => setShowCreate(false)}>
+          <div className="p-6 space-y-5">
+            <h2 className="font-display text-headline-lg text-on-surface">
+              Crear Usuario
+            </h2>
+            <p className="text-on-surface-variant text-body-md">
+              Crea una cuenta para un nuevo usuario. Podra cambiar su contrasena al iniciar sesion.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
+                  Nombre completo
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="e.g. Neville Longbottom"
+                  className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="e.g. neville@nexus.com"
+                  className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
+                  Contrasena temporal
+                </label>
+                <input
+                  type="text"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="El usuario debera cambiarla despues"
+                  className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
+                  Casa
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {HOUSES.map((h) => (
+                    <button
+                      key={h}
+                      onClick={() => setNewHouse(newHouse === h ? "" : h)}
+                      className={`py-2.5 rounded-xl font-medium text-label-sm border transition-all ${
+                        newHouse === h
+                          ? "bg-primary text-on-primary border-primary"
+                          : "bg-surface-container-low text-on-surface-variant border-outline-variant/20 hover:bg-surface-container-high"
+                      }`}
+                    >
+                      {h}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
+                  Rol
+                </label>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setNewRole("user")}
+                    className={`flex-1 py-3 rounded-xl font-medium text-body-md border transition-all ${
+                      newRole === "user"
+                        ? "bg-primary text-on-primary border-primary"
+                        : "bg-surface-container-low text-on-surface-variant border-outline-variant/20 hover:bg-surface-container-high"
+                    }`}
+                  >
+                    Usuario
+                  </button>
+                  <button
+                    onClick={() => setNewRole("admin")}
+                    className={`flex-1 py-3 rounded-xl font-medium text-body-md border transition-all ${
+                      newRole === "admin"
+                        ? "bg-secondary text-on-secondary border-secondary"
+                        : "bg-surface-container-low text-on-surface-variant border-outline-variant/20 hover:bg-surface-container-high"
+                    }`}
+                  >
+                    Admin
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => setShowCreate(false)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleCreate}
+                disabled={creating || !newName.trim() || !newEmail.trim() || !newPassword.trim()}
+                className="flex-1"
+              >
+                {creating ? "Creando..." : "Crear Usuario"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* House Points Modal */}
+      {pointsUser && (
+        <Modal open onClose={() => setPointsUser(null)}>
+          <div className="p-6 space-y-5">
+            <div className="flex items-center gap-3">
+              <MaterialIcon name="workspace_premium" className="text-secondary text-2xl" filled />
+              <h2 className="font-display text-headline-lg text-on-surface">
+                Puntos de Casa
+              </h2>
+            </div>
+            <p className="text-on-surface-variant text-body-md">
+              Asignar puntos de casa a <strong>{pointsUser.name}</strong>
+              {pointsUser.house && <> ({pointsUser.house})</>}
+            </p>
+            <p className="text-label-sm text-on-surface-variant">
+              Puntos actuales: <strong>{(pointsUser.house_points || 0).toLocaleString()}</strong>
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
+                  Puntos (positivo = sumar, negativo = restar)
+                </label>
+                <input
+                  type="number"
+                  autoFocus
+                  value={pointsValue}
+                  onChange={(e) => setPointsValue(e.target.value)}
+                  placeholder="e.g. 50 o -10"
+                  className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
+                  Razon (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={pointsReason}
+                  onChange={(e) => setPointsReason(e.target.value)}
+                  placeholder="e.g. Excelente en clase de pociones"
+                  className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => setPointsUser(null)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleAdjustPoints}
+                disabled={adjusting || !parseInt(pointsValue)}
+                className="flex-1"
+              >
+                {adjusting ? "Guardando..." : "Aplicar Puntos"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Reset Password Modal */}
+      {resetUser && (
+        <Modal open onClose={() => setResetUser(null)}>
+          <div className="p-6">
+            <h3 className="font-display text-title-md text-on-surface mb-4">
+              Restablecer contrasena
+            </h3>
+            <p className="text-on-surface-variant text-body-md mb-6">
+              Establecer nueva contrasena para <strong>{resetUser.name}</strong>
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
+                  Nueva contrasena
+                </label>
+                <input
+                  type="password"
+                  autoFocus
+                  value={resetPass}
+                  onChange={(e) => setResetPass(e.target.value)}
+                  placeholder="Minimo 4 caracteres"
+                  className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
+                  Confirmar contrasena
+                </label>
+                <input
+                  type="password"
+                  value={resetConfirm}
+                  onChange={(e) => setResetConfirm(e.target.value)}
+                  placeholder="Repetir contrasena"
+                  className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <Button variant="secondary" onClick={() => setResetUser(null)} className="flex-1">
+                Cancelar
+              </Button>
+              <Button variant="primary" onClick={handleResetPassword} disabled={resetting || resetPass.length < 4} className="flex-1">
+                {resetting ? "Restableciendo..." : "Restablecer contrasena"}
               </Button>
             </div>
           </div>

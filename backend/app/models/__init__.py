@@ -1,5 +1,6 @@
 from .user import User
 from .product import Product
+from .user_product import UserProduct
 from .article import Article, ArticleComment
 from .creature import Creature
 from .user_creature import UserCreature

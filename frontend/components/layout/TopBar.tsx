@@ -4,8 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/authStore";
-import { api, Notification } from "@/lib/api";
-import { notificationMeta } from "@/lib/notificationMeta";
+import { Notification } from "@/lib/api";
+import { useNotificationStore } from "@/lib/notificationStore";
+import { notificationMeta, autoClearedByPath } from "@/lib/notificationMeta";
 import Avatar from "@/components/ui/Avatar";
 
 interface TopBarProps {
@@ -53,66 +54,67 @@ function MaterialIcon({
 export default function TopBar({ onMenuToggle }: TopBarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loadingNotifs, setLoadingNotifs] = useState(true);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const {
+    notifications,
+    loading: loadingNotifs,
+    load: loadNotifications,
+    markRead,
+    markAllRead,
+    markReadMatching,
+  } = useNotificationStore();
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setShowNotifications(false);
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const handleLogout = () => {
+    if (confirm("¿Seguro que quieres cerrar sesión?")) {
+      logout();
+      router.push("/login");
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
-    let active = true;
-    const load = () => {
-      api.getNotifications()
-        .then((n) => {
-          if (active) setNotifications(n);
-        })
-        .catch(() => {})
-        .finally(() => {
-          if (active) setLoadingNotifs(false);
-        });
-    };
-    load();
+    loadNotifications();
     // Light polling so fresh notifications trickle in without a page reload.
-    const id = setInterval(load, 45000);
-    return () => {
-      active = false;
-      clearInterval(id);
-    };
-  }, [user]);
+    const id = setInterval(loadNotifications, 45000);
+    return () => clearInterval(id);
+  }, [user, loadNotifications]);
+
+  // Auto-clear: reaching the place a notification points to marks it read,
+  // even without clicking it. Messages are handled by the messages page itself.
+  useEffect(() => {
+    if (!user) return;
+    markReadMatching((n) => autoClearedByPath(n, pathname));
+  }, [user, pathname, notifications, markReadMatching]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const unreadLabel = unreadCount > 99 ? "+99" : String(unreadCount);
 
   const handleNotificationClick = async (notif: Notification) => {
-    if (!notif.read) {
-      try {
-        await api.markNotificationRead(notif.id);
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
-        );
-      } catch {}
-    }
+    await markRead(notif.id);
     setShowNotifications(false);
     const dest = notificationMeta(notif.type).route(notif);
     if (dest) router.push(dest);
   };
 
   const markAllAsRead = async () => {
-    try {
-      await api.markAllNotificationsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    } catch {}
+    await markAllRead();
   };
 
   return (
@@ -264,15 +266,55 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             )}
           </div>
 
-          {/* Avatar */}
-          <Link href="/profile" className="flex-shrink-0">
-            <Avatar
-              src={user?.avatar_url ?? undefined}
-              alt={user?.name ?? "Usuario"}
-              size="sm"
-              initials={user?.name?.charAt(0).toUpperCase() ?? "?"}
-            />
-          </Link>
+          {/* Avatar + user menu */}
+          <div className="relative flex-shrink-0" ref={userMenuRef}>
+            <button
+              onClick={() => setShowUserMenu((v) => !v)}
+              className="flex items-center gap-2 rounded-full hover:opacity-80 transition-opacity"
+            >
+              <Avatar
+                src={user?.avatar_url ?? undefined}
+                alt={user?.name ?? "Usuario"}
+                size="sm"
+                initials={user?.name?.charAt(0).toUpperCase() ?? "?"}
+              />
+            </button>
+            {showUserMenu && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-surface rounded-2xl shadow-xl border border-outline-variant/20 overflow-hidden z-50">
+                <div className="px-4 py-3 border-b border-outline-variant/20">
+                  <p className="font-display text-body-md text-on-surface truncate">
+                    {user?.name ?? "Usuario"}
+                  </p>
+                  <p className="text-label-sm text-on-surface-variant truncate">
+                    {user?.email}
+                  </p>
+                </div>
+                <Link
+                  href="/profile"
+                  onClick={() => setShowUserMenu(false)}
+                  className="flex items-center gap-3 px-4 py-3 text-body-md text-on-surface hover:bg-surface-container-high transition-colors"
+                >
+                  <MaterialIcon name="person" className="text-lg" />
+                  Mi Perfil
+                </Link>
+                <Link
+                  href="/settings"
+                  onClick={() => setShowUserMenu(false)}
+                  className="flex items-center gap-3 px-4 py-3 text-body-md text-on-surface hover:bg-surface-container-high transition-colors"
+                >
+                  <MaterialIcon name="settings" className="text-lg" />
+                  Configuracion
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-body-md text-error hover:bg-error/10 transition-colors"
+                >
+                  <MaterialIcon name="logout" className="text-lg" />
+                  Cerrar sesion
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>

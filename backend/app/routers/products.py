@@ -6,8 +6,9 @@ from sqlalchemy import select, func
 from ..database import get_db
 from ..models.product import Product
 from ..models.user import User
+from ..models.user_product import UserProduct
 from ..models.transaction import Transaction
-from ..schemas.product import ProductCreate, ProductUpdate, ProductResponse
+from ..schemas.product import ProductCreate, ProductUpdate, ProductResponse, UserProductResponse
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
 
@@ -69,6 +70,13 @@ async def purchase_product(
     product.stock -= quantity
     product.weekly_sales += quantity
 
+    user_product = UserProduct(
+        user_id=current_user.id,
+        product_id=product_id,
+        quantity=quantity,
+    )
+    db.add(user_product)
+
     transaction = Transaction(
         sender_id=current_user.id,
         amount=total,
@@ -80,6 +88,19 @@ async def purchase_product(
     await db.commit()
     await db.refresh(product)
     return product
+
+
+@router.get("/my-purchases", response_model=List[UserProductResponse])
+async def my_purchases(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(UserProduct)
+        .where(UserProduct.user_id == current_user.id)
+        .order_by(UserProduct.purchased_at.desc())
+    )
+    return result.scalars().all()
 
 
 @router.get("/{product_id}", response_model=ProductResponse)

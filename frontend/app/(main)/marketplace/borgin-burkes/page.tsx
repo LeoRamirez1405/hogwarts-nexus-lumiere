@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { api, Product } from "@/lib/api";
+import Image from "next/image";
+import { api, Product, UserProduct } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
-import { SearchBar, MaterialIcon } from "@/components/ui";
+import { SearchBar, MaterialIcon, TabGroup } from "@/components/ui";
 import { ArtifactCard, HeroCarousel, CartSidebar, SuccessTicket } from "@/components/domain/BorginBurkes";
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
@@ -25,6 +26,7 @@ export default function BorginBurkesPage() {
   const { user, setUser } = useAuthStore();
   const { items, addItem, removeItem, clearCart, toggleCart, isOpen, getTotal, getCount } = useCartStore();
   const [products, setProducts] = useState<Product[]>([]);
+  const [myPurchases, setMyPurchases] = useState<UserProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("Todos");
@@ -34,6 +36,7 @@ export default function BorginBurkesPage() {
   const [slides, setSlides] = useState<SlideType[]>([]);
   const [isJumping, setIsJumping] = useState(false);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
+  const [activeTab, setActiveTab] = useState("catalog");
   const catalogRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -47,18 +50,19 @@ export default function BorginBurkesPage() {
   });
 
   useEffect(() => {
-    api
-      .getProducts("borgin")
-      .then((allProducts) => {
-        setProducts(allProducts);
-        const shuffled = [...allProducts].sort(() => 0.5 - Math.random());
-        const featured = shuffled.slice(0, 3);
-        const newSlides: SlideType[] = featured.map((p) => ({ type: "product", product: p }));
-        newSlides.push({ type: "info" });
-        setSlides(newSlides);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      api.getProducts("borgin"),
+      api.getMyPurchases(),
+    ]).then(([allProducts, purchases]) => {
+      setProducts(allProducts);
+      setMyPurchases(purchases.filter(p => p.product?.shop === "borgin"));
+      const shuffled = [...allProducts].sort(() => 0.5 - Math.random());
+      const featured = shuffled.slice(0, 3);
+      const newSlides: SlideType[] = featured.map((p) => ({ type: "product", product: p }));
+      newSlides.push({ type: "info" });
+      setSlides(newSlides);
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
 
   const displaySlides = slides.length > 0
@@ -122,8 +126,12 @@ export default function BorginBurkesPage() {
       clearCart();
       setTicketId(Date.now().toString(36).toUpperCase());
       setShowSuccess(true);
-      const updated = await api.getProducts("borgin");
-      setProducts(updated);
+      const [updatedProducts, updatedPurchases] = await Promise.all([
+        api.getProducts("borgin"),
+        api.getMyPurchases(),
+      ]);
+      setProducts(updatedProducts);
+      setMyPurchases(updatedPurchases.filter(p => p.product?.shop === "borgin"));
       const updatedUser = await api.getMe();
       setUser(updatedUser);
     } catch (err: unknown) {
@@ -173,84 +181,202 @@ export default function BorginBurkesPage() {
         onAddToCart={handleAddToCart}
       />
 
-      {/* Search & Filters */}
+      {/* Tabs */}
       <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-wrap">
-          <div className="w-full sm:w-80 shrink-0">
-            <SearchBar
-              placeholder="Buscar artefactos..."
-              value={search}
-              onChange={setSearch}
-              size="md"
-              variant="dark"
-            />
-          </div>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar flex-nowrap pb-2 sm:pb-0">
-            {BORGIN_FILTERS.map((f) => (
-              <button
-                key={f}
-                onClick={() => setActiveFilter(f)}
-                className={`px-4 py-2 rounded-full text-label-sm font-medium whitespace-nowrap transition-all ${
-                  activeFilter === f
-                    ? "bg-secondary text-on-secondary"
-                    : "bg-inverse-surface text-surface-dim hover:bg-surface-container-highest"
-                }`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {getCount() > 0 && (
-          <div className="flex justify-end mt-4">
-            <button
-              onClick={toggleCart}
-              className="relative flex items-center gap-2 crystal-gradient text-on-primary px-4 py-2 rounded-full font-medium text-label-sm hover:opacity-90 transition-all"
-            >
-              <MaterialIcon name="shopping_cart" className="text-[1.1em]" />
-              Cesta Oscura ({getCount()})
-            </button>
-          </div>
-        )}
+        <TabGroup
+          tabs={[
+            { id: "catalog", label: "Catalogo", icon: "inventory_2" },
+            { id: "library", label: "Mis Articulos", icon: "auto_awesome" },
+          ]}
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          variant="dark"
+        />
       </div>
 
-      {/* Catalog Grid */}
-      <div ref={catalogRef} className="max-w-7xl mx-auto">
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-[#2a2828] border border-secondary/20 rounded-3xl p-6 animate-pulse">
-                <div className="h-64 bg-[#1c1b1b] rounded-2xl mb-4" />
-                <div className="h-4 bg-[#1c1b1b] rounded w-1/3 mb-2" />
-                <div className="h-6 bg-[#1c1b1b] rounded w-2/3 mb-2" />
-                <div className="h-4 bg-[#1c1b1b] rounded w-full mb-4" />
-                <div className="h-5 bg-[#1c1b1b] rounded w-1/4" />
+      {activeTab === "catalog" && (
+        <>
+          {/* Search & Filters */}
+          <div className="max-w-7xl mx-auto mb-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-wrap">
+              <div className="w-full sm:w-80 shrink-0">
+                <SearchBar
+                  placeholder="Buscar artefactos..."
+                  value={search}
+                  onChange={setSearch}
+                  size="md"
+                  variant="dark"
+                />
               </div>
-            ))}
+              <div className="flex gap-2 overflow-x-auto no-scrollbar flex-nowrap pb-2 sm:pb-0">
+                {BORGIN_FILTERS.map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setActiveFilter(f)}
+                    className={`px-4 py-2 rounded-full text-label-sm font-medium whitespace-nowrap transition-all ${
+                      activeFilter === f
+                        ? "bg-secondary text-on-secondary"
+                        : "bg-inverse-surface text-surface-dim hover:bg-surface-container-highest"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {getCount() > 0 && (
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={toggleCart}
+                  className="relative flex items-center gap-2 crystal-gradient text-on-primary px-4 py-2 rounded-full font-medium text-label-sm hover:opacity-90 transition-all"
+                >
+                  <MaterialIcon name="shopping_cart" className="text-[1.1em]" />
+                  Cesta Oscura ({getCount()})
+                </button>
+              </div>
+            )}
           </div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-20">
-            <MaterialIcon
-              name="storefront"
-              className="text-surface-dim text-6xl block mb-4"
-            />
-            <p className="text-surface-dim text-body-md">
-              No hay artefactos que coincidan con tu búsqueda.
-            </p>
+
+          {/* Catalog Grid */}
+          <div ref={catalogRef} className="max-w-7xl mx-auto">
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="bg-[#2a2828] border border-secondary/20 rounded-3xl p-6 animate-pulse">
+                    <div className="h-64 bg-[#1c1b1b] rounded-2xl mb-4" />
+                    <div className="h-4 bg-[#1c1b1b] rounded w-1/3 mb-2" />
+                    <div className="h-6 bg-[#1c1b1b] rounded w-2/3 mb-2" />
+                    <div className="h-4 bg-[#1c1b1b] rounded w-full mb-4" />
+                    <div className="h-5 bg-[#1c1b1b] rounded w-1/4" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="text-center py-20">
+                <MaterialIcon
+                  name="storefront"
+                  className="text-surface-dim text-6xl block mb-4"
+                />
+                <p className="text-surface-dim text-body-md">
+                  No hay artefactos que coincidan con tu búsqueda.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredProducts.map((product) => (
+                  <ArtifactCard
+                    key={product.id}
+                    product={product}
+                    onAddToCart={handleAddToCart}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredProducts.map((product) => (
-              <ArtifactCard
-                key={product.id}
-                product={product}
-                onAddToCart={handleAddToCart}
+        </>
+      )}
+
+      {/* ===== MIS ARTICULOS ===== */}
+      {activeTab === "library" && (
+        <div className="max-w-7xl mx-auto">
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-[#2a2828] border border-secondary/20 rounded-3xl p-6 animate-pulse">
+                  <div className="h-48 bg-[#1c1b1b] rounded-2xl mb-4" />
+                  <div className="h-4 bg-[#1c1b1b] rounded w-2/3 mb-2" />
+                  <div className="h-3 bg-[#1c1b1b] rounded w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : myPurchases.length === 0 ? (
+            <div className="text-center py-20">
+              <MaterialIcon
+                name="collections"
+                className="text-surface-dim text-6xl block mb-4"
               />
-            ))}
-          </div>
-        )}
-      </div>
+              <p className="text-surface-dim text-body-md mb-2">
+                Tu coleccion esta vacia.
+              </p>
+              <p className="text-surface-dim text-body-sm mb-6">
+                Explora el catalogo y adquiere tu primer artefacto.
+              </p>
+              <button
+                onClick={() => setActiveTab("catalog")}
+                className="px-6 py-3 rounded-full crystal-gradient text-on-primary font-medium text-label-sm hover:opacity-90 transition-all inline-flex items-center gap-2"
+              >
+                <MaterialIcon name="inventory_2" className="text-[1.1em]" />
+                Ver Catalogo
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="text-surface-dim text-body-sm mb-6">
+                {myPurchases.length} {myPurchases.length === 1 ? "articulo comprado" : "articulos comprados"}
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {myPurchases.map((up) => (
+                  <div
+                    key={up.id}
+                    className="bg-[#2a2828] border border-secondary/20 rounded-3xl overflow-hidden group hover:-translate-y-1 transition-all duration-300"
+                  >
+                    <div className="relative h-48 overflow-hidden">
+                      {up.product?.image_url ? (
+                        <Image
+                          src={up.product.image_url}
+                          alt={up.product?.name ?? "Artefacto"}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-500"
+                          unoptimized={up.product.image_url.startsWith("http://localhost:8000/uploads/")}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-[#1c1b1b] flex items-center justify-center">
+                          <MaterialIcon name="inventory_2" className="text-5xl text-secondary/30" />
+                        </div>
+                      )}
+                      <span className="absolute top-3 right-3 bg-green-600/90 text-white backdrop-blur-sm px-3 py-1 rounded-full text-label-sm font-bold flex items-center gap-1">
+                        <MaterialIcon name="check" className="text-[1em]" filled />
+                        Comprado
+                      </span>
+                    </div>
+                    <div className="p-5">
+                      {up.product?.category && (
+                        <span className="text-label-sm text-secondary font-medium uppercase tracking-wider">
+                          {up.product.category}
+                        </span>
+                      )}
+                      <h3 className="font-display text-title-md text-surface mt-1 mb-1 line-clamp-2">
+                        {up.product?.name ?? "Artefacto sin nombre"}
+                      </h3>
+                      {up.product?.description && (
+                        <p className="text-body-sm text-surface-dim line-clamp-2 mb-3">
+                          {up.product.description}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between text-label-sm text-surface-dim">
+                        <span>
+                          {up.quantity > 1 ? `x${up.quantity} ` : ""}
+                          <span className="font-bold text-secondary">
+                            💎 {((up.product?.price ?? 0) * up.quantity).toLocaleString()}
+                          </span>
+                        </span>
+                        <span>
+                          {new Date(up.purchased_at).toLocaleDateString("es-ES", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Cart Sidebar */}
       <CartSidebar

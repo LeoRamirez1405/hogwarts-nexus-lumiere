@@ -30,6 +30,7 @@ interface PetCardProps {
   onListForSale: (ucId: string, price: number) => void;
   onUnlist: (ucId: string) => void;
   onToggleSale: (id: string) => void;
+  onGoToShop: () => void;
   sellFor: string | null;
   sellPrice: string;
   setSellPrice: (price: string) => void;
@@ -50,6 +51,7 @@ export function PetCard({
   onListForSale,
   onUnlist,
   onToggleSale,
+  onGoToShop,
   sellFor,
   sellPrice,
   setSellPrice,
@@ -137,7 +139,7 @@ export function PetCard({
                 No tienes {isFeedOpen ? "comida" : "juguetes"} para este tipo.
               </p>
               <button
-                onClick={() => { }}
+                onClick={onGoToShop}
                 className="text-primary text-label-sm font-bold hover:underline"
               >
                 Ir a la Tienda
@@ -192,7 +194,7 @@ export function PetCard({
             <button onClick={() => onListForSale(uc.id, parseInt(sellPrice) || 0)} disabled={!(parseInt(sellPrice) > 0)} className="px-3 py-1.5 rounded-lg bg-primary text-on-primary text-label-sm font-bold disabled:opacity-40">
               Publicar
             </button>
-            <button onClick={() => { onToggleSale(uc.id); setSellPrice(""); }} className="text-label-sm text-on-surface-variant">
+            <button onClick={() => { onToggleSale(uc.id); setSellPrice(""); }} className="text-label-sm text-on-surface-variant hover:text-error transition-colors">
               Cancelar
             </button>
           </div>

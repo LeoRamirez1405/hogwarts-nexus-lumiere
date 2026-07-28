@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { Article } from "@/lib/api";
 import { GlassCard, Badge, Button, Avatar, MaterialIcon } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
@@ -99,8 +100,11 @@ export function FeaturedArticle({ article, onSubscribe }: FeaturedArticleProps) 
           {article.body.length > 200 ? "..." : ""}
         </p>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {article.author && (
+          {article.author ? (
+            <Link
+              href={`/profile/${article.author.id}`}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            >
               <Avatar
                 src={article.author.avatar_url}
                 alt={article.author.name}
@@ -110,16 +114,25 @@ export function FeaturedArticle({ article, onSubscribe }: FeaturedArticleProps) 
                   .map((n) => n[0])
                   .join("")}
               />
-            )}
-            <div>
-              <p className="text-body-md font-semibold text-on-surface">
-                {article.author?.name ?? "Autor"}
-              </p>
-              <p className="text-label-sm text-on-surface-variant">
-                {formatDate(article.created_at)}
-              </p>
+              <div>
+                <p className="text-body-md font-semibold text-on-surface hover:text-primary transition-colors">
+                  {article.author.name}
+                </p>
+                <p className="text-label-sm text-on-surface-variant">
+                  {formatDate(article.created_at)}
+                </p>
+              </div>
+            </Link>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div>
+                <p className="text-body-md font-semibold text-on-surface">Autor</p>
+                <p className="text-label-sm text-on-surface-variant">
+                  {formatDate(article.created_at)}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
           <Button
             variant="secondary"
             icon="arrow_forward"

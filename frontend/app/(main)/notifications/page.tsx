@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, Notification } from "@/lib/api";
+import { Notification } from "@/lib/api";
 import {
   notificationMeta,
   NOTIFICATION_CATEGORIES,
@@ -10,6 +10,7 @@ import {
 } from "@/lib/notificationMeta";
 import { GlassCard, MaterialIcon } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
+import { useNotificationStore } from "@/lib/notificationStore";
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -26,25 +27,22 @@ function timeAgo(dateStr: string): string {
 export default function NotificationsPage() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    notifications,
+    loading,
+    loaded,
+    load,
+    markRead,
+    markAllRead,
+  } = useNotificationStore();
   const [filter, setFilter] = useState<NotificationCategory | "all">("all");
 
   useEffect(() => {
     if (!user) return;
-    let active = true;
-    api.getNotifications()
-      .then((n) => {
-        if (active) setNotifications(n);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [user]);
+    // Refresh on entry so the full history is current; the store keeps this in
+    // sync with the TopBar badge.
+    load();
+  }, [user, load]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -63,23 +61,9 @@ export default function NotificationsPage() {
   }, [notifications, filter]);
 
   const handleClick = async (notif: Notification) => {
-    if (!notif.read) {
-      try {
-        await api.markNotificationRead(notif.id);
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
-        );
-      } catch {}
-    }
+    await markRead(notif.id);
     const dest = notificationMeta(notif.type).route(notif);
     if (dest) router.push(dest);
-  };
-
-  const markAllRead = async () => {
-    try {
-      await api.markAllNotificationsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    } catch {}
   };
 
   return (
@@ -137,7 +121,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* List */}
-      {loading ? (
+      {loading || !loaded ? (
         <div className="py-20 text-center text-on-surface-variant">
           <MaterialIcon name="progress_activity" className="text-3xl animate-spin mb-2" />
           <p>Cargando...</p>

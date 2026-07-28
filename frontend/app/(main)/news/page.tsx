@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, Article, Announcement, Classified, ForumThread } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
-import { GlassCard, Badge, Button, MaterialIcon } from "@/components/ui";
+import { GlassCard, Badge, Button, MaterialIcon, TabGroup } from "@/components/ui";
 import {
   FeaturedArticle,
   ArticleCard,
@@ -63,6 +63,9 @@ export default function NewsPage() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [votedThread, setVotedThread] = useState<string | null>(null);
   const [showNewThread, setShowNewThread] = useState(false);
+  const [activeTab, setActiveTab] = useState("news");
+  const [savedArticles, setSavedArticles] = useState<Article[]>([]);
+  const [loadingSaved, setLoadingSaved] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -127,8 +130,10 @@ export default function NewsPage() {
       if (!article) return;
       if (article.subscribed) {
         await api.unsubscribeArticle(articleId);
+        setSavedArticles((prev) => prev.filter((a) => a.id !== articleId));
       } else {
         await api.subscribeArticle(articleId);
+        setSavedArticles((prev) => [...prev, { ...article, subscribed: true }]);
       }
       setArticles((prev) =>
         prev.map((a) => (a.id === articleId ? { ...a, subscribed: !a.subscribed } : a))
@@ -137,6 +142,25 @@ export default function NewsPage() {
       // error
     }
   }, [authUser, articles]);
+
+  const loadSavedArticles = useCallback(async () => {
+    setLoadingSaved(true);
+    try {
+      const saved = await api.getMySubscriptions();
+      setSavedArticles(saved);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingSaved(false);
+    }
+  }, []);
+
+  const handleTabChange = useCallback((tab: string) => {
+    setActiveTab(tab);
+    if (tab === "saved") {
+      loadSavedArticles();
+    }
+  }, [loadSavedArticles]);
 
   return (
     <div className="space-y-10 pb-16">
@@ -171,7 +195,17 @@ export default function NewsPage() {
         </div>
       </div>
 
-      {loading ? (
+      {/* Tabs */}
+      <TabGroup
+        tabs={[
+          { id: "news", label: "Noticias", icon: "newspaper" },
+          { id: "saved", label: "Guardados", icon: "bookmark" },
+        ]}
+        activeTab={activeTab}
+        onChange={handleTabChange}
+      />
+
+      {activeTab === "news" && (loading ? (
         <div className="flex flex-col items-center justify-center py-20">
           <MaterialIcon
             name="progress_activity"
@@ -390,6 +424,90 @@ export default function NewsPage() {
             </div>
           </div>
         </>
+      ))}
+
+      {/* ===== ARTICULOS GUARDADOS ===== */}
+      {activeTab === "saved" && (
+        <div className="space-y-6">
+          <h2 className="font-display text-headline-lg text-on-surface flex items-center gap-3">
+            <MaterialIcon name="bookmark" className="text-secondary" filled />
+            Articulos Guardados
+          </h2>
+          {loadingSaved ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <MaterialIcon
+                name="progress_activity"
+                className="text-5xl text-outline-variant animate-spin mb-3"
+              />
+              <p className="text-on-surface-variant text-body-md">Cargando...</p>
+            </div>
+          ) : savedArticles.length === 0 ? (
+            <GlassCard className="p-12 text-center">
+              <MaterialIcon
+                name="bookmark_border"
+                className="text-5xl text-outline-variant mb-3"
+              />
+              <p className="text-on-surface-variant text-body-md mb-2">
+                No tienes articulos guardados aun.
+              </p>
+              <p className="text-on-surface-variant text-body-sm">
+                Usa el boton de guardar en cualquier articulo para verlo aqui.
+              </p>
+            </GlassCard>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {savedArticles.map((a) => (
+                <GlassCard key={a.id} className="overflow-hidden" hover glow>
+                  {a.image_url && (
+                    <div className="relative h-40 overflow-hidden">
+                      <Image
+                        src={a.image_url}
+                        alt={a.title}
+                        fill
+                        className="object-cover"
+                        unoptimized={a.image_url.startsWith("http://localhost:8000/uploads/")}
+                      />
+                    </div>
+                  )}
+                  <div className="p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge variant="tag" color="secondary">{a.category}</Badge>
+                      <button
+                        onClick={() => handleSubscribe(a.id)}
+                        className="w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-error/10 text-error transition-colors"
+                        title="Quitar de guardados"
+                      >
+                        <MaterialIcon name="bookmark_remove" className="text-[1.1em]" />
+                      </button>
+                    </div>
+                    <h3 className="font-display text-title-md text-on-surface leading-snug line-clamp-2 mb-2">
+                      {a.title}
+                    </h3>
+                    <p className="text-body-sm text-on-surface-variant line-clamp-2 mb-3">
+                      {a.body.slice(0, 120)}...
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-label-sm text-on-surface-variant">
+                        {new Date(a.created_at).toLocaleDateString("es-ES", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                      <Link
+                        href={`/news/${a.id}`}
+                        className="text-primary text-label-sm font-bold hover:underline flex items-center gap-1"
+                      >
+                        Leer
+                        <MaterialIcon name="arrow_forward" className="text-[1em]" />
+                      </Link>
+                    </div>
+                  </div>
+                </GlassCard>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* ===== NEW THREAD MODAL ===== */}

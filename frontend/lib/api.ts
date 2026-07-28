@@ -99,7 +99,7 @@ export const api = {
   getMe: () => request<User>("/auth/me"),
 
   // Users
-  getUsers: () => request<User[]>("/users"),
+  getUsers: () => request<User[]>("/users/"),
   getUser: (id: string) => request<User>(`/users/${id}`),
   updateUser: (id: string, data: Partial<User>) =>
     request<User>(`/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
@@ -112,6 +112,25 @@ export const api = {
     }),
   getHousePoints: (house: string) =>
     request<HousePoints>(`/users/houses/${house}/points`),
+  getAllHousePoints: () =>
+    request<Record<string, number>>("/users/houses/all-points"),
+  createUser: (data: { name: string; email: string; password: string; house?: string; role?: string }) =>
+    request<User>("/users/", { method: "POST", body: JSON.stringify(data) }),
+  adjustHousePoints: (userId: string, points: number, reason?: string) =>
+    request<User>(`/users/${userId}/house-points`, {
+      method: "POST",
+      body: JSON.stringify({ points, reason }),
+    }),
+  adminResetPassword: (userId: string, newPassword: string) =>
+    request<User>(`/users/${userId}/reset-password`, {
+      method: "POST",
+      body: JSON.stringify({ new_password: newPassword }),
+    }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ message: string }>("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    }),
 
   // Products
   getProducts: (shop?: string) =>
@@ -124,6 +143,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ quantity: quantity || 1 }),
     }),
+  getMyPurchases: () => request<UserProduct[]>("/products/my-purchases"),
   createProduct: (data: Partial<Product>) =>
     request<Product>("/products", { method: "POST", body: JSON.stringify(data) }),
   updateProduct: (id: string, data: Partial<Product>) =>
@@ -184,6 +204,11 @@ export const api = {
     request<Notification>(`/notifications/${id}/read`, { method: "PUT" }),
   markAllNotificationsRead: () =>
     request<void>("/notifications/read-all", { method: "PUT" }),
+  markNotificationsRead: (ids: string[]) =>
+    request<{ updated: number }>("/notifications/read-batch", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
 
   // Article comments
   getArticleComments: (articleId: string) =>
@@ -436,6 +461,7 @@ export interface User {
   email: string;
   role: "admin" | "user";
   zerines: number;
+  house_points: number;
   avatar_url?: string;
   house?: string;
   bio?: string;
@@ -459,6 +485,15 @@ export interface Product {
   stock: number;
   weekly_sales?: number;
   created_at: string;
+}
+
+export interface UserProduct {
+  id: string;
+  user_id: string;
+  product_id: string;
+  product?: Product;
+  quantity: number;
+  purchased_at: string;
 }
 
 export interface Article {

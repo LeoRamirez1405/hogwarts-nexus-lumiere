@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from ..database import get_db
 from ..models.user import User
-from ..schemas.user import UserCreate, UserLogin, UserResponse
+from ..schemas.user import UserCreate, UserLogin, UserResponse, ChangePassword
 from ..middleware.auth import hash_password, verify_password, create_access_token, get_current_user
 
 router = APIRouter()
@@ -55,3 +55,17 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.post("/change-password")
+async def change_password(
+    data: ChangePassword,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not verify_password(data.current_password, current_user.password_hash):
+        raise HTTPException(400, "La contrasena actual es incorrecta")
+
+    current_user.password_hash = hash_password(data.new_password)
+    await db.commit()
+    return {"message": "Contrasena actualizada correctamente"}

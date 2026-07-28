@@ -1,6 +1,8 @@
 import asyncio
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from .database import init_db
@@ -52,6 +54,13 @@ app.include_router(support.router, prefix="/support", tags=["support"])
 app.include_router(announcements.router, prefix="/announcements", tags=["announcements"])
 app.include_router(classifieds.router, prefix="/classifieds", tags=["classifieds"])
 app.include_router(forum.router, prefix="/forum", tags=["forum"])
+
+# Serve locally-stored uploads (avatars, post images, etc.) as static files so
+# the frontend can load them by absolute URL. In production Cloudinary is used
+# instead and returns its own absolute URLs.
+_uploads_dir = Path("uploads")
+_uploads_dir.mkdir(exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
 
 
 @app.get("/")

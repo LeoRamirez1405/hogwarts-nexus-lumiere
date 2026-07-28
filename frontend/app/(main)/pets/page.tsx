@@ -445,7 +445,8 @@ export default function PetsPage() {
                       onUse={handleUse}
                       onListForSale={handleListForSale}
                       onUnlist={handleUnlist}
-                      onToggleSale={(id: string) => { setSellFor(id); setSellPrice(""); }}
+                      onToggleSale={(id: string) => { setSellFor(sellFor === id ? null : id); setSellPrice(""); }}
+                      onGoToShop={() => setActiveTab("shop")}
                       sellFor={sellFor}
                       sellPrice={sellPrice}
                       setSellPrice={setSellPrice}

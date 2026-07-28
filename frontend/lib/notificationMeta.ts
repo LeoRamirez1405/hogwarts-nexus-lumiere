@@ -50,6 +50,12 @@ const META: Record<string, NotificationMeta> = {
     category: "social",
     route: () => "/profile",
   },
+  friend_post: {
+    icon: "waving_hand",
+    chip: "bg-primary/10 text-primary",
+    category: "social",
+    route: (n) => (n.actor_id ? `/profile/${n.actor_id}` : "/profile"),
+  },
   // Social graph
   friend_request: {
     icon: "person_add",
@@ -162,6 +168,22 @@ const META: Record<string, NotificationMeta> = {
 
 export function notificationMeta(type: string): NotificationMeta {
   return META[type] ?? DEFAULT;
+}
+
+/**
+ * Auto-clear rule: does simply *being* at `pathname` count as attending this
+ * notification? True when the notification's own destination matches the
+ * current path. Messages are excluded on purpose — a DM/room notification is
+ * cleared by opening that specific conversation (handled in the messages page),
+ * not by merely landing on `/messages`, which would wipe unrelated chats.
+ */
+export function autoClearedByPath(n: Notification, pathname: string): boolean {
+  const meta = notificationMeta(n.type);
+  if (meta.category === "messages") return false;
+  const dest = meta.route(n);
+  if (!dest) return false;
+  const destPath = dest.split("?")[0];
+  return destPath === pathname;
 }
 
 export const NOTIFICATION_CATEGORIES: {
