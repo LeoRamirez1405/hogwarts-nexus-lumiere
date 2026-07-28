@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { MaterialIcon } from "@/components/ui";
+import { getFallbackForProduct, type Theme } from "@/lib/fallbacks";
+import { useTheme } from "@/lib/useTheme";
 
 interface HeroCarouselProps {
   displaySlides: SlideType[];
@@ -20,7 +22,9 @@ interface HeroCarouselProps {
 
 type SlideType = { type: "product"; product: import("@/lib/api").Product } | { type: "info" };
 
-function renderProductSlide(product: import("@/lib/api").Product, keyPrefix: string | number, displaySlidesLength: number) {
+function renderProductSlide(product: import("@/lib/api").Product, keyPrefix: string | number, displaySlidesLength: number, theme: Theme) {
+  const fallbackSrc = getFallbackForProduct('flourish', theme);
+
   return (
     <div
       key={`${keyPrefix}-${product.id}`}
@@ -35,15 +39,11 @@ function renderProductSlide(product: import("@/lib/api").Product, keyPrefix: str
         <div className="relative z-10 p-6 md:p-10 h-full flex flex-col">
           <div className="relative h-64 md:h-80 rounded-2xl overflow-hidden mb-6">
             <Image
-              src={product.image_url || "/placeholder-book.svg"}
+              src={product.image_url || fallbackSrc}
               alt={product.name}
               fill
               className="object-cover"
-              unoptimized={
-                !!product.image_url &&
-                (product.image_url.startsWith("http://localhost:8000/uploads/") ||
-                  product.image_url.startsWith("/placeholder-"))
-              }
+              unoptimized={!!product.image_url && (product.image_url.startsWith("http://localhost:8000/uploads/") || product.image_url.startsWith("/fallbacks/"))}
             />
             <span className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm text-primary text-label-sm uppercase px-3 py-1 rounded-full">
               {product.category}
@@ -98,7 +98,7 @@ function renderInfoSlide(keyPrefix: string | number, displaySlidesLength: number
               Librería Mágica · Est. 1454
             </span>
           </div>
-          <h1 className="font-display text-display-lg text-primary mb-4 leading-tight">
+          <h1 className="font-display text-headline-lg md:text-display-lg text-primary mb-4 leading-tight">
             Flourish & Blotts
           </h1>
           <p className="text-on-surface-variant text-body-md mb-8 leading-relaxed">
@@ -147,6 +147,7 @@ export function HeroCarousel({
   onToggleCart,
   onCatalogScroll,
 }: HeroCarouselProps) {
+  const theme = useTheme();
   return (
     <div className="max-w-7xl mx-auto mb-10">
       <div
@@ -166,7 +167,7 @@ export function HeroCarousel({
         >
           {displaySlides.map((slide, i) =>
             slide.type === "product"
-              ? renderProductSlide(slide.product, i, displaySlides.length)
+              ? renderProductSlide(slide.product, i, displaySlides.length, theme)
               : renderInfoSlide(i, displaySlides.length, getCount, onToggleCart, onCatalogScroll)
           )}
         </div>

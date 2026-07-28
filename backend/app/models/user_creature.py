@@ -13,6 +13,8 @@ class UserCreature(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     creature_id = Column(String, ForeignKey("creatures.id"), nullable=False)
+    # Nombre personalizado que el usuario elige al adoptar (independiente de la especie).
+    pet_name = Column(String, nullable=True)
     level = Column(Integer, default=1, nullable=False)
     hunger = Column(Integer, default=50, nullable=False)
     happiness = Column(Integer, default=50, nullable=False)

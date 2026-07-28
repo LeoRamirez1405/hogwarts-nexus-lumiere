@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { CartItem } from "@/lib/cartStore";
 import { MaterialIcon, ZerineDisplay } from "@/components/ui";
+import { getFallbackForProduct } from "@/lib/fallbacks";
+import { useTheme } from "@/lib/useTheme";
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -21,6 +23,10 @@ export function CartSidebar({
   onRemoveItem,
   onPurchase,
 }: CartSidebarProps) {
+  const theme = useTheme();
+
+  const fallbackSrc = getFallbackForProduct('borgin', theme);
+
   if (!isOpen) return null;
 
   return (
@@ -58,11 +64,12 @@ export function CartSidebar({
                 className="flex items-center gap-4 p-4 bg-[#1c1b1b] rounded-xl border border-secondary/10"
               >
                 <Image
-                  src={item.product.image_url || "/placeholder-borgin.jpg"}
+                  src={item.product.image_url || fallbackSrc}
                   alt={item.product.name}
                   width={64}
                   height={64}
                   className="w-16 h-16 rounded-lg object-cover shrink-0"
+                  unoptimized={item.product.image_url?.startsWith("http://localhost:8000/uploads/") || item.product.image_url?.startsWith("/fallbacks/")}
                 />
                 <div className="flex-1 min-w-0">
                   <h4 className="text-body-md font-medium text-surface truncate">

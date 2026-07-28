@@ -12,7 +12,7 @@ import {
   PetType,
 } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
-import { TabGroup, LevelUpCelebration } from "@/components/ui";
+import { TabGroup, LevelUpCelebration, Modal, Button } from "@/components/ui";
 import type { LevelUpEvent } from "@/components/ui/LevelUpCelebration";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { CreatureCard, PetCard, ShopSection, MarketCreatureCard } from "@/components/domain/Pets";
@@ -51,6 +51,9 @@ export default function PetsPage() {
   const [sellFor, setSellFor] = useState<string | null>(null);
   const [sellPrice, setSellPrice] = useState("");
   const [celebrations, setCelebrations] = useState<LevelUpEvent[]>([]);
+  // Modal de nombre al adoptar
+  const [adoptModal, setAdoptModal] = useState<Creature | null>(null);
+  const [adoptPetName, setAdoptPetName] = useState("");
 
   // Previous-value refs for level-up detection.
   const petLevels = useRef<Record<string, number>>({});
@@ -151,18 +154,25 @@ export default function PetsPage() {
     );
   };
 
-  const handleAdopt = async (creature: Creature) => {
+  const handleAdopt = async (creature: Creature, petName?: string) => {
     setAdopting(creature.id);
     try {
-      const adopted = await api.adoptCreature(creature.id);
+      const adopted = await api.adoptCreature(creature.id, petName);
       petLevels.current[adopted.id] = adopted.level;
       setMyCreatures((prev) => [...prev, adopted]);
       await refreshUser();
       await refreshStats();
+      setAdoptModal(null);
+      setAdoptPetName("");
     } catch {
     } finally {
       setAdopting(null);
     }
+  };
+
+  const openAdoptModal = (creature: Creature) => {
+    setAdoptModal(creature);
+    setAdoptPetName("");
   };
 
   const handleBuy = async (item: PetItem) => {
@@ -258,7 +268,7 @@ export default function PetsPage() {
   const shopToys = shopItems.filter((i) => i.kind === "toy");
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] -mx-4 md:-mx-10 -mt-6 md:-mt-8 px-4 md:px-10 py-8">
+    <div className="min-h-content -mx-4 md:-mx-10 -mt-6 md:-mt-8 px-4 md:px-10 py-8">
       <LevelUpCelebration
         key={celebrations[0]?.id ?? "none"}
         event={celebrations[0] ?? null}
@@ -273,7 +283,7 @@ export default function PetsPage() {
               <MaterialIcon name="pets" className="text-primary text-3xl" filled />
               <span className="text-primary text-label-sm uppercase tracking-[0.2em]">Hogwarts</span>
             </div>
-            <h1 className="font-display text-display-lg text-primary mb-2">
+            <h1 className="font-display text-headline-lg md:text-display-lg text-primary mb-2">
               La Menajeria Susurrante
             </h1>
             <p className="text-on-surface-variant text-body-md mb-6 max-w-xl">
@@ -367,7 +377,7 @@ export default function PetsPage() {
                       isAdopted={isAdopted}
                       meetsRequirements={meets}
                       stats={stats}
-                      onAdopt={() => handleAdopt(creature)}
+                      onAdopt={() => openAdoptModal(creature)}
                       adopting={adopting === creature.id}
                     />
                   );
@@ -526,6 +536,57 @@ export default function PetsPage() {
           </>
         )}
       </div>
+
+      {/* Adopt modal — name input */}
+      {adoptModal && (
+        <Modal open onClose={() => { setAdoptModal(null); setAdoptPetName(""); }}>
+          <div className="p-6 space-y-5">
+            <div className="flex items-center gap-3 mb-1">
+              <MaterialIcon name="pets" className="text-primary text-2xl" filled />
+              <h2 className="font-display text-headline-lg text-on-surface">
+                Adoptar a {adoptModal.name}
+              </h2>
+            </div>
+            <p className="text-on-surface-variant text-body-md">
+              Ponle un nombre a tu nueva companera. Si lo dejas vacio, se quedara con el nombre de la especie.
+            </p>
+            <div>
+              <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
+                Nombre personalizado (opcional)
+              </label>
+              <input
+                type="text"
+                autoFocus
+                maxLength={40}
+                value={adoptPetName}
+                onChange={(e) => setAdoptPetName(e.target.value)}
+                placeholder={adoptModal.name}
+                className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
+              />
+              <p className="text-label-sm text-on-surface-variant mt-1">
+                Max. 40 caracteres
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => { setAdoptModal(null); setAdoptPetName(""); }}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                disabled={adopting === adoptModal.id}
+                onClick={() => handleAdopt(adoptModal, adoptPetName.trim() || undefined)}
+                className="flex-1"
+              >
+                {adopting === adoptModal.id ? "Adoptando..." : "Adoptar"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

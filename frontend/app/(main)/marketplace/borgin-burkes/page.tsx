@@ -154,7 +154,7 @@ export default function BorginBurkesPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-[#1c1b1b] -mx-4 md:-mx-10 -mt-6 md:-mt-8 px-4 md:px-10 py-8">
+    <div className="min-h-content bg-[#1c1b1b] -mx-4 md:-mx-10 -mt-6 md:-mt-8 px-4 md:px-10 py-8">
       {/* Hero Carousel */}
       <HeroCarousel
         displaySlides={displaySlides}

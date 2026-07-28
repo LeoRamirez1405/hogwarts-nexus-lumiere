@@ -25,6 +25,54 @@ export function ProfileHeader({
   onMessage,
   onFriendAction,
 }: ProfileHeaderProps) {
+  // Action buttons rendered both inline on desktop and in a dedicated
+  // full-width row on mobile (so mobile users can message/add/edit).
+  const actions = !isOwn ? (
+    <>
+      <Button variant="primary" icon="mail" onClick={onMessage}>
+        Mensaje
+      </Button>
+      {onFriendAction && (
+        <>
+          {onFriendAction.status === "none" && (
+            <Button variant="secondary" icon="person_add" onClick={onFriendAction.onSend} disabled={onFriendAction.loading}>
+              Agregar
+            </Button>
+          )}
+          {onFriendAction.status === "pending_sent" && (
+            <Button variant="ghost" icon="hourglass_top" onClick={onFriendAction.onCancel} disabled={onFriendAction.loading}>
+              Pendiente
+            </Button>
+          )}
+          {onFriendAction.status === "pending_received" && (
+            <>
+              <Button variant="primary" icon="check" onClick={onFriendAction.onAccept} disabled={onFriendAction.loading}>
+                Aceptar
+              </Button>
+              <Button variant="ghost" icon="close" onClick={onFriendAction.onReject} disabled={onFriendAction.loading}>
+                Rechazar
+              </Button>
+            </>
+          )}
+          {onFriendAction.status === "accepted" && (
+            <Button variant="secondary" icon="group" disabled>
+              Amigos
+            </Button>
+          )}
+          {onFriendAction.status === "rejected" && (
+            <Button variant="ghost" icon="person_add" onClick={onFriendAction.onSend} disabled={onFriendAction.loading}>
+              Agregar
+            </Button>
+          )}
+        </>
+      )}
+    </>
+  ) : (
+    <Button variant="primary" icon="edit" onClick={onEdit}>
+      Editar Perfil
+    </Button>
+  );
+
   return (
     <div className="relative">
       <div className="h-48 md:h-56 bg-gradient-to-br from-primary via-primary-container to-secondary rounded-2xl relative overflow-hidden">
@@ -51,7 +99,7 @@ export function ProfileHeader({
             )}
           </div>
           <div className="pb-2 flex-1">
-            <h1 className="font-display text-display-lg text-on-surface leading-tight">
+            <h1 className="font-display text-headline-lg md:text-display-lg text-on-surface leading-tight break-words">
               {profile.name}
             </h1>
             <div className="flex items-center gap-3 mt-1">
@@ -65,54 +113,12 @@ export function ProfileHeader({
               </span>
             </div>
           </div>
-          {!isOwn ? (
-            <div className="hidden md:flex pb-2 gap-3">
-              <Button variant="primary" icon="mail" onClick={onMessage}>
-                Mensaje
-              </Button>
-              {onFriendAction && (
-                <>
-                  {onFriendAction.status === "none" && (
-                    <Button variant="secondary" icon="person_add" onClick={onFriendAction.onSend} disabled={onFriendAction.loading}>
-                      Agregar
-                    </Button>
-                  )}
-                  {onFriendAction.status === "pending_sent" && (
-                    <Button variant="ghost" icon="hourglass_top" onClick={onFriendAction.onCancel} disabled={onFriendAction.loading}>
-                      Pendiente
-                    </Button>
-                  )}
-                  {onFriendAction.status === "pending_received" && (
-                    <>
-                      <Button variant="primary" icon="check" onClick={onFriendAction.onAccept} disabled={onFriendAction.loading}>
-                        Aceptar
-                      </Button>
-                      <Button variant="ghost" icon="close" onClick={onFriendAction.onReject} disabled={onFriendAction.loading}>
-                        Rechazar
-                      </Button>
-                    </>
-                  )}
-                  {onFriendAction.status === "accepted" && (
-                    <Button variant="secondary" icon="group" disabled>
-                      Amigos
-                    </Button>
-                  )}
-                  {onFriendAction.status === "rejected" && (
-                    <Button variant="ghost" icon="person_add" onClick={onFriendAction.onSend} disabled={onFriendAction.loading}>
-                      Agregar
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="hidden md:flex pb-2">
-              <Button variant="primary" icon="edit" onClick={onEdit}>
-                Editar Perfil
-              </Button>
-            </div>
-          )}
+          {/* Desktop: inline actions next to the name */}
+          <div className="hidden md:flex pb-2 gap-3">{actions}</div>
         </div>
+
+        {/* Mobile: full-width action row below the header */}
+        <div className="md:hidden mt-4 flex gap-2 [&>*]:flex-1">{actions}</div>
       </div>
     </div>
   );

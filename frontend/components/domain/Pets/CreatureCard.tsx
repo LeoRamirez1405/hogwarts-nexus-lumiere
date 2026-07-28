@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { MaterialIcon, ZerineDisplay, Button } from "@/components/ui";
 import { Creature, SanctuaryStats } from "@/lib/api";
+import { getFallbackForCreature } from "@/lib/fallbacks";
+import { useTheme } from "@/lib/useTheme";
 
 const RARITY_LABELS: Record<string, string> = {
   common: "Comun",
@@ -51,17 +54,23 @@ export function CreatureCard({
   onAdopt,
   adopting,
 }: CreatureCardProps) {
+  const theme = useTheme();
+  const [imageError, setImageError] = useState(false);
   const reqUser = creature.required_user_level || 1;
   const reqSanct = creature.required_sanctuary_level || 0;
+
+  const fallbackSrc = getFallbackForCreature(theme);
 
   return (
     <div className={`glass-card rounded-3xl p-6 group transition-all duration-300 ${meetsRequirements ? "hover:-translate-y-2" : "opacity-80"} ${RARITY_BG[creature.rarity] || ""}`}>
       <div className="relative h-56 rounded-2xl overflow-hidden mb-4">
         <Image
-          src={creature.image_url || "/placeholder-creature.jpg"}
+          src={creature.image_url || fallbackSrc}
           alt={creature.name}
           fill
           className="object-cover group-hover:scale-110 transition-transform duration-500"
+          unoptimized={creature.image_url?.startsWith("http://localhost:8000/uploads/") || creature.image_url?.startsWith("/fallbacks/")}
+          onError={() => !imageError && setImageError(true)}
         />
         <span className={`absolute top-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-label-sm font-bold shadow-sm ${RARITY_COLORS[creature.rarity] || "text-outline"}`}>
           {RARITY_LABELS[creature.rarity] || creature.rarity}
@@ -76,6 +85,12 @@ export function CreatureCard({
       <p className="text-on-surface-variant text-body-md line-clamp-2 mb-3">
         {creature.description}
       </p>
+      {creature.ability && (
+        <div className="flex items-start gap-2 mb-3 bg-secondary/5 border border-secondary/10 rounded-xl px-3 py-2">
+          <MaterialIcon name="auto_awesome" className="text-secondary text-[1.1em] mt-0.5" filled />
+          <p className="text-label-sm text-on-surface-variant leading-snug">{creature.ability}</p>
+        </div>
+      )}
       {(reqUser > 1 || reqSanct > 0) && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           {reqUser > 1 && (

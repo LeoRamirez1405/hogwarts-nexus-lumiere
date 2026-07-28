@@ -56,21 +56,28 @@ export function PetCard({
   using,
 }: PetCardProps) {
 
+  const displayName = uc.pet_name || uc.creature?.name || "Sin nombre";
+
   return (
     <div className="bg-white border border-outline-variant/30 rounded-3xl p-6">
       {/* Header */}
       <div className="flex items-center gap-4 mb-4">
         <Avatar
           src={uc.creature?.image_url}
-          alt={uc.creature?.name}
+          alt={displayName}
           size="lg"
           borderColor="primary"
-          initials={uc.creature?.name?.charAt(0) ?? "?"}
+          initials={displayName.charAt(0)}
         />
         <div className="flex-1 min-w-0">
           <h4 className="font-display text-title-md text-on-surface truncate">
-            {uc.creature?.name}
+            {displayName}
           </h4>
+          {uc.pet_name && uc.creature?.name && (
+            <p className="text-label-sm text-on-surface-variant truncate italic">
+              {uc.creature.name}
+            </p>
+          )}
           <p className="text-label-sm text-primary font-semibold">
             Nv {uc.level} · {uc.level_name}
           </p>

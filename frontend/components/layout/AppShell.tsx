@@ -16,13 +16,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 xl:hidden"
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Main content */}
-      <main className="pt-20 xl:pt-20 xl:pl-72 min-h-screen">
+      {/* Main content — top/bottom padding driven by the layout CSS vars so it
+          always clears the top bar and (on mobile) the bottom nav. */}
+      <main className="lg:pl-72 min-h-screen pt-[var(--topbar-h)] pb-[var(--bottomnav-h)]">
         <div className="max-w-[1280px] mx-auto px-4 md:px-10 py-6 md:py-8">
           {children}
         </div>

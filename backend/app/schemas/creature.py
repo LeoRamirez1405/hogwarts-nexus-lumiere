@@ -12,6 +12,7 @@ class CreatureCreate(BaseModel):
     image_url: Optional[str] = None
     required_user_level: int = 1
     required_sanctuary_level: int = 0
+    ability: Optional[str] = None
 
 
 class CreatureResponse(BaseModel):
@@ -24,6 +25,7 @@ class CreatureResponse(BaseModel):
     image_url: Optional[str] = None
     required_user_level: int = 1
     required_sanctuary_level: int = 0
+    ability: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -31,7 +33,7 @@ class CreatureResponse(BaseModel):
 
 
 class AdoptRequest(BaseModel):
-    pass
+    pet_name: Optional[str] = None
 
 
 class UseItemRequest(BaseModel):
@@ -43,6 +45,7 @@ class UserCreatureResponse(BaseModel):
     user_id: str
     creature_id: str
     creature: Optional[CreatureResponse] = None
+    pet_name: Optional[str] = None
     level: int
     level_name: str = ""
     hunger: int
@@ -62,6 +65,7 @@ class MarketCreatureResponse(BaseModel):
     """A pet listed for sale, as seen by other users in the market."""
     id: str
     creature: Optional[CreatureResponse] = None
+    pet_name: Optional[str] = None
     level: int
     level_name: str = ""
     stage: str = "cria"

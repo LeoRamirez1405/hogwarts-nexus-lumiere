@@ -67,6 +67,7 @@ export default function AdminCreaturesPage() {
     image_url: "",
     required_user_level: "",
     required_sanctuary_level: "",
+    ability: "",
   });
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -103,6 +104,7 @@ export default function AdminCreaturesPage() {
       image_url: "",
       required_user_level: "",
       required_sanctuary_level: "",
+      ability: "",
     });
   };
 
@@ -118,6 +120,7 @@ export default function AdminCreaturesPage() {
       image_url: c.image_url || "",
       required_user_level: (c.required_user_level ?? 1).toString(),
       required_sanctuary_level: (c.required_sanctuary_level ?? 0).toString(),
+      ability: c.ability || "",
     });
   };
 
@@ -133,6 +136,7 @@ export default function AdminCreaturesPage() {
         image_url: form.image_url || undefined,
         required_user_level: Math.max(1, parseInt(form.required_user_level) || 1),
         required_sanctuary_level: Math.max(0, parseInt(form.required_sanctuary_level) || 0),
+        ability: form.ability.trim() || undefined,
       };
       if (isNew) {
         const created = await api.createCreature(data);
@@ -221,6 +225,12 @@ export default function AdminCreaturesPage() {
                 <p className="text-label-sm text-on-surface-variant line-clamp-2 mb-3">
                   {c.description}
                 </p>
+                {c.ability && (
+                  <div className="flex items-start gap-1.5 mb-3 bg-secondary/5 border border-secondary/10 rounded-lg px-2.5 py-1.5">
+                    <MaterialIcon name="auto_awesome" className="text-secondary text-[1em] mt-0.5" filled />
+                    <p className="text-label-sm text-on-surface-variant leading-snug">{c.ability}</p>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <p className="font-display text-title-md text-secondary">
                     💎 {c.price.toLocaleString()}
@@ -295,6 +305,11 @@ export default function AdminCreaturesPage() {
                   <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Nivel santuario req.</label>
                   <input type="number" min={0} value={form.required_sanctuary_level} onChange={(e) => setForm((p) => ({ ...p, required_sanctuary_level: e.target.value }))} placeholder="0 = sin requisito" className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
                 </div>
+              </div>
+              <div>
+                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Habilidad especial</label>
+                <input type="text" value={form.ability} onChange={(e) => setForm((p) => ({ ...p, ability: e.target.value }))} placeholder="Ej: Doble de Zerines al cuidar" className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
+                <p className="text-label-sm text-on-surface-variant mt-1">Beneficio que comparten todas las mascotas de esta especie.</p>
               </div>
               <div>
                 <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Imagen (opcional)</label>

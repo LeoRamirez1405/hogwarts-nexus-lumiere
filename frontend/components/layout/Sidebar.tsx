@@ -73,10 +73,19 @@ function MaterialIcon({
   );
 }
 
-function NavLink({ item, isActive }: { item: NavItem; isActive: boolean }) {
+function NavLink({
+  item,
+  isActive,
+  onNavigate,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  onNavigate?: () => void;
+}) {
   return (
     <Link
       href={item.href}
+      onClick={onNavigate}
       className={`flex items-center gap-4 py-3 px-8 rounded-xl mx-4 transition-all duration-200 hover:translate-x-1 ${
         isActive
           ? "sidebar-active"
@@ -93,26 +102,26 @@ function NavLink({ item, isActive }: { item: NavItem; isActive: boolean }) {
   );
 }
 
-export default function Sidebar({ isOpen = false }: SidebarProps) {
+export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuthStore();
   const isAdmin = user?.role === "admin";
 
   return (
     <>
-      {/* Mobile sidebar */}
+      {/* Mobile / tablet drawer sidebar (below lg) */}
       <aside
-        className={`fixed left-0 top-0 z-40 h-screen w-72 bg-surface border-r border-outline-variant/30 pt-20 transform transition-transform duration-300 xl:hidden ${
+        className={`fixed left-0 top-0 z-40 h-screen w-72 max-w-[85vw] bg-surface border-r border-outline-variant/30 pt-[var(--topbar-h)] transform transition-transform duration-300 lg:hidden ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex flex-col h-full">
-          <SidebarContent pathname={pathname} isAdmin={isAdmin} user={user} />
+          <SidebarContent pathname={pathname} isAdmin={isAdmin} user={user} onNavigate={onClose} />
         </div>
       </aside>
 
-      {/* Desktop sidebar */}
-      <aside className="hidden xl:flex fixed left-0 top-0 z-40 h-screen w-72 bg-surface border-r border-outline-variant/30 pt-20 flex-col">
+      {/* Desktop fixed sidebar (lg+) */}
+      <aside className="hidden lg:flex fixed left-0 top-0 z-40 h-screen w-72 bg-surface border-r border-outline-variant/30 pt-[var(--topbar-h)] flex-col">
         <div className="flex flex-col h-full">
           <SidebarContent pathname={pathname} isAdmin={isAdmin} user={user} />
         </div>
@@ -125,10 +134,12 @@ function SidebarContent({
   pathname,
   isAdmin,
   user,
+  onNavigate,
 }: {
   pathname: string;
   isAdmin: boolean;
   user: User | null;
+  onNavigate?: () => void;
 }) {
   return (
     <>
@@ -161,6 +172,7 @@ function SidebarContent({
               <NavLink
                 item={item}
                 isActive={pathname === item.href || pathname.startsWith(item.href + "/")}
+                onNavigate={onNavigate}
               />
             </li>
           ))}
@@ -177,6 +189,7 @@ function SidebarContent({
                   <NavLink
                     item={item}
                     isActive={pathname === item.href || pathname.startsWith(item.href + "/")}
+                    onNavigate={onNavigate}
                   />
                 </li>
               ))}
@@ -189,6 +202,7 @@ function SidebarContent({
       <div className="px-4 pb-6 space-y-1">
         <Link
           href="/settings"
+          onClick={onNavigate}
           className="flex items-center gap-4 py-3 px-8 text-on-surface-variant hover:bg-surface-container-high rounded-xl mx-0 transition-all duration-200 hover:translate-x-1"
         >
           <MaterialIcon name="settings" className="text-xl" />
@@ -196,6 +210,7 @@ function SidebarContent({
         </Link>
         <Link
           href="/support"
+          onClick={onNavigate}
           className="flex items-center gap-4 py-3 px-8 text-on-surface-variant hover:bg-surface-container-high rounded-xl mx-0 transition-all duration-200 hover:translate-x-1"
         >
           <MaterialIcon name="help" className="text-xl" />

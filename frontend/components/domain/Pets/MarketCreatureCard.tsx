@@ -25,12 +25,17 @@ export function MarketCreatureCard({
   buying,
   userZerines,
 }: MarketCreatureCardProps) {
+  const displayName = market.pet_name || market.creature?.name || "Sin nombre";
+
   return (
     <div className="glass-card rounded-3xl p-6">
       <div className="flex items-center gap-4 mb-4">
-        <Avatar src={market.creature?.image_url} alt={market.creature?.name} size="lg" borderColor="secondary" initials={market.creature?.name?.charAt(0) ?? "?"} />
+        <Avatar src={market.creature?.image_url} alt={displayName} size="lg" borderColor="secondary" initials={displayName.charAt(0)} />
         <div className="flex-1 min-w-0">
-          <h4 className="font-display text-title-md text-on-surface truncate">{market.creature?.name}</h4>
+          <h4 className="font-display text-title-md text-on-surface truncate">{displayName}</h4>
+          {market.pet_name && market.creature?.name && (
+            <p className="text-label-sm text-on-surface-variant truncate italic">{market.creature.name}</p>
+          )}
           <p className="text-label-sm text-primary font-semibold">Nv {market.level} · {market.level_name}</p>
           <p className="text-label-sm text-on-surface-variant">{STAGE_LABELS[market.stage] ?? market.stage} · Vende: {market.seller_name}</p>
         </div>

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { EB_Garamond, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -26,6 +26,15 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Hogwarts Nexus Lumiere",
   description: "Plataforma social magica con economia de Zerines",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // viewport-fit=cover is required for env(safe-area-inset-*) to resolve on
+  // notched devices, so the bottom nav clears the home indicator.
+  viewportFit: "cover",
+  themeColor: "#0e3b60",
 };
 
 export default function RootLayout({

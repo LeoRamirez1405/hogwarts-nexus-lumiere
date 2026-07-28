@@ -117,18 +117,18 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm">
-      <div className="h-16 xl:h-20 max-w-[1280px] mx-auto px-4 xl:px-10 flex justify-between items-center">
+      <div className="h-16 lg:h-20 max-w-[1280px] mx-auto px-4 lg:px-10 flex justify-between items-center gap-2">
         {/* LEFT */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1.5 sm:gap-4 min-w-0">
           <button
             onClick={onMenuToggle}
-            className="md:hidden p-2 rounded-xl text-on-surface-variant hover:bg-surface-container-high transition-colors"
+            className="lg:hidden p-2 -ml-1 rounded-xl text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0"
             aria-label="Toggle menu"
           >
             <MaterialIcon name="menu" className="text-2xl" />
           </button>
-          <Link href="/dashboard" className="flex items-center">
-            <span className="font-display text-headline-lg xl:text-headline-lg text-primary tracking-tight">
+          <Link href="/dashboard" className="flex items-center min-w-0">
+            <span className="font-display text-title-md sm:text-headline-lg text-primary tracking-tight truncate">
               Nexus Lumiere
             </span>
           </Link>
@@ -156,15 +156,15 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
         </nav>
 
         {/* RIGHT */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-4 shrink-0">
           {/* Wallet */}
-          <div className="flex items-center gap-2 bg-surface-container-low px-4 py-2 rounded-full border border-outline-variant/30">
+          <div className="flex items-center gap-1.5 sm:gap-2 bg-surface-container-low px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-full border border-outline-variant/30">
             <MaterialIcon
               name="diamond"
-              className="text-lg text-secondary"
+              className="text-base sm:text-lg text-secondary"
               filled
             />
-            <span className="text-body-md font-semibold text-on-surface">
+            <span className="text-label-md sm:text-body-md font-semibold text-on-surface">
               {user?.zerines?.toLocaleString() ?? "0"}
             </span>
           </div>
@@ -184,7 +184,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
               )}
             </button>
             {showNotifications && (
-              <div className="absolute right-0 top-full mt-2 bg-surface rounded-2xl shadow-2xl border border-outline-variant/20 w-80 z-50 overflow-hidden">
+              <div className="absolute right-0 top-full mt-2 bg-surface rounded-2xl shadow-2xl border border-outline-variant/20 w-[min(20rem,calc(100vw-1.5rem))] z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-outline-variant/20 flex items-center justify-between">
                   <h3 className="text-title-md font-display text-on-surface">
                     Notificaciones

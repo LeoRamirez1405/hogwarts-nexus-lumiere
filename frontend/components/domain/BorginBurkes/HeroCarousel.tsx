@@ -1,8 +1,10 @@
 "use client";
 
+import React from "react";
 import Image from "next/image";
 import { Product } from "@/lib/api";
 import { ZerineDisplay, MaterialIcon } from "@/components/ui";
+import { getFallbackForProduct, detectTheme } from "@/lib/fallbacks";
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
 
@@ -28,6 +30,8 @@ function ProductSlide({ product, displaySlidesLength, onAddToCart }: {
   displaySlidesLength: number;
   onAddToCart: (product: Product) => void;
 }) {
+  const fallbackSrc = getFallbackForProduct('borgin', detectTheme());
+  const [imgSrc, setImgSrc] = React.useState(product.image_url || fallbackSrc);
   return (
     <div className="shrink-0" style={{ width: `${100 / displaySlidesLength}%` }}>
       <div className="relative rounded-2xl overflow-hidden border border-secondary/20 h-full">
@@ -44,11 +48,12 @@ function ProductSlide({ product, displaySlidesLength, onAddToCart }: {
             <div className="w-full">
               <div className="relative h-64 md:h-80 rounded-xl overflow-hidden mb-6">
                 <Image
-                  src={product.image_url || "/placeholder-artifact.svg"}
+                  src={imgSrc}
                   alt={product.name}
                   fill
                   className="object-cover"
-                  unoptimized={product.image_url?.startsWith("http://localhost:8000/uploads/")}
+                  unoptimized={product.image_url?.startsWith("http://localhost:8000/uploads/") || imgSrc.startsWith("/fallbacks/")}
+                  onError={() => { if (imgSrc !== fallbackSrc) setImgSrc(fallbackSrc); }}
                 />
                 <span className="absolute top-4 right-4 bg-black/60 backdrop-blur-md text-secondary-fixed text-label-sm uppercase px-3 py-1 rounded-full">
                   {product.category}
@@ -97,7 +102,7 @@ function InfoSlide({ displaySlidesLength, userZerines, getCount, onToggleCart, o
             <MaterialIcon name="storefront" className="text-secondary text-3xl" filled />
             <span className="text-secondary-fixed-dim text-label-sm uppercase tracking-[0.2em]">Knockturn</span>
           </div>
-          <h1 className="font-display text-display-lg text-surface mb-2">
+          <h1 className="font-display text-headline-lg md:text-display-lg text-surface mb-2">
             Borgin & Burkes
           </h1>
           <p className="text-surface-dim text-body-md max-w-xl mb-8">

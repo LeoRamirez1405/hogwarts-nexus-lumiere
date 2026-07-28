@@ -225,8 +225,11 @@ export const api = {
     request<Creature>(`/creatures/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteCreature: (id: string) =>
     request<void>(`/creatures/${id}`, { method: "DELETE" }),
-  adoptCreature: (id: string) =>
-    request<UserCreature>(`/creatures/${id}/adopt`, { method: "POST" }),
+  adoptCreature: (id: string, petName?: string) =>
+    request<UserCreature>(`/creatures/${id}/adopt`, {
+      method: "POST",
+      body: JSON.stringify(petName ? { pet_name: petName } : {}),
+    }),
   feedCreature: (userCreatureId: string, itemId: string) =>
     request<UserCreature>(`/creatures/${userCreatureId}/feed`, {
       method: "POST",
@@ -549,6 +552,7 @@ export interface Creature {
   image_url?: string;
   required_user_level: number;
   required_sanctuary_level: number;
+  ability?: string | null;
   created_at: string;
 }
 
@@ -557,6 +561,7 @@ export interface UserCreature {
   user_id: string;
   creature_id: string;
   creature?: Creature;
+  pet_name?: string | null;
   level: number;
   level_name: string;
   hunger: number;
@@ -572,6 +577,7 @@ export interface UserCreature {
 export interface MarketCreature {
   id: string;
   creature?: Creature;
+  pet_name?: string | null;
   level: number;
   level_name: string;
   stage: string;

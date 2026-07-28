@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { Product } from "@/lib/api";
 import { ZerineDisplay } from "@/components/ui";
+import { getFallbackImageByContext } from "@/lib/fallbacks";
+import { useTheme } from "@/lib/useTheme";
 
 interface ArtifactCardProps {
   product: Product;
@@ -10,15 +13,21 @@ interface ArtifactCardProps {
 }
 
 export function ArtifactCard({ product, onAddToCart }: ArtifactCardProps) {
+  const [imageError, setImageError] = useState(false);
+  const theme = useTheme();
+
+  const fallbackSrc = getFallbackImageByContext('artifact', theme);
+
   return (
     <div className="group cursor-pointer hover:-translate-y-2 transition-all duration-300 bg-[#2a2828] border border-secondary/20 rounded-3xl p-6">
       <div className="relative h-64 rounded-2xl overflow-hidden mb-4">
         <Image
-          src={product.image_url || "/placeholder-artifact.svg"}
+          src={product.image_url || fallbackSrc}
           alt={product.name}
           fill
           className="object-cover group-hover:scale-105 transition-transform duration-500"
-          unoptimized={product.image_url?.startsWith("http://localhost:8000/uploads/")}
+          unoptimized={product.image_url?.startsWith("http://localhost:8000/uploads/") || product.image_url?.startsWith("/fallbacks/")}
+          onError={() => !imageError && setImageError(true)}
         />
         <span className="absolute top-4 left-4 bg-black/60 backdrop-blur-md text-secondary-fixed text-label-sm uppercase px-3 py-1 rounded-full">
           {product.category}

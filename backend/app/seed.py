@@ -192,6 +192,7 @@ async def seed_data():
                 pet_type="avian",
                 price=450,
                 required_user_level=4,
+                ability="Renacer de las cenizas una vez al dia.",
                 image_url="/placeholder-generic.svg",
             ),
             Creature(
@@ -200,6 +201,7 @@ async def seed_data():
                 rarity="uncommon",
                 pet_type="critter",
                 price=320,
+                ability="Encuentra Zerines perdidos (+10% al cuidar).",
                 image_url="/placeholder-generic.svg",
             ),
             Creature(
@@ -209,6 +211,7 @@ async def seed_data():
                 pet_type="avian",
                 price=600,
                 required_sanctuary_level=5,
+                ability="Entrega mensajes en la medianoche (+25% felicidad al jugar).",
                 image_url="/placeholder-generic.svg",
             ),
             Creature(
@@ -227,6 +230,7 @@ async def seed_data():
                 price=5200,
                 required_user_level=6,
                 required_sanctuary_level=8,
+                ability="Vuelo majestuoso: doble de Zerines al cuidar.",
                 image_url="/placeholder-generic.svg",
             ),
         ]

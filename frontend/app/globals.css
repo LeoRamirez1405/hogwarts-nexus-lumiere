@@ -82,6 +82,7 @@
   --text-headline-lg-mobile: 28px;
   --text-title-md: 20px;
   --text-body-md: 16px;
+  --text-label-md: 14px;
   --text-label-sm: 12px;
 
   /* Spacing */
@@ -103,6 +104,35 @@
 /* ===== BASE STYLES ===== */
 html {
   scroll-behavior: smooth;
+}
+
+/* ===== RESPONSIVE LAYOUT VARIABLES =====
+   Single source of truth for the fixed chrome heights so every full-height
+   page can compute its viewport correctly across breakpoints. The bottom nav
+   only exists below md; the top bar grows from 64px to 80px at lg (where the
+   fixed sidebar appears). safe-area is baked into the bottom nav height. */
+:root {
+  --topbar-h: 4rem; /* 64px, mobile */
+  --bottomnav-h: calc(4rem + env(safe-area-inset-bottom, 0px)); /* mobile */
+}
+@media (min-width: 768px) {
+  :root {
+    --bottomnav-h: 0px; /* bottom nav hidden at md+ */
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --topbar-h: 5rem; /* 80px at lg+ (fixed sidebar breakpoint) */
+  }
+}
+
+/* Full-height helpers that account for the top bar + bottom nav using dvh so
+   the mobile browser URL bar doesn't cause layout jumps. */
+.h-content {
+  height: calc(100dvh - var(--topbar-h) - var(--bottomnav-h));
+}
+.min-h-content {
+  min-height: calc(100dvh - var(--topbar-h) - var(--bottomnav-h));
 }
 
 body {

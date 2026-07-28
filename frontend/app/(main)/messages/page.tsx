@@ -304,7 +304,7 @@ export default function MessagesPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-5rem)] md:h-[calc(100vh-5rem)] flex flex-col">
+    <div className="h-content -my-6 md:-my-8 flex flex-col">
       {!selectedId && (
         <div className="md:hidden mb-4">
           <h1 className="font-display text-headline-lg text-primary">

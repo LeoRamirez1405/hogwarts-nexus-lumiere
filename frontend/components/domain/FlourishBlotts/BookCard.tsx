@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { Product } from "@/lib/api";
+import { getFallbackForProduct } from "@/lib/fallbacks";
+import { useTheme } from "@/lib/useTheme";
 
 interface BookCardProps {
   product: Product;
@@ -9,15 +12,21 @@ interface BookCardProps {
 }
 
 export function BookCard({ product, onAddToCart }: BookCardProps) {
+  const theme = useTheme();
+  const [imageError, setImageError] = useState(false);
+
+  const fallbackSrc = getFallbackForProduct('flourish', theme);
+
   return (
     <div className="glass-card rounded-3xl p-6 group cursor-pointer hover:-translate-y-2 transition-all duration-300">
       <div className="relative h-64 rounded-2xl overflow-hidden mb-4">
         <Image
-          src={product.image_url || "/placeholder-book.jpg"}
+          src={product.image_url || fallbackSrc}
           alt={product.name}
           fill
           className="object-cover group-hover:scale-105 transition-transform duration-500"
-          unoptimized={product.image_url?.startsWith("http://localhost:8000/uploads/") || !!product.image_url?.startsWith("/placeholder-")}
+          unoptimized={product.image_url?.startsWith("http://localhost:8000/uploads/") || product.image_url?.startsWith("/fallbacks/")}
+          onError={() => !imageError && setImageError(true)}
         />
         <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-primary font-bold text-label-sm shadow-sm">
           {product.category}

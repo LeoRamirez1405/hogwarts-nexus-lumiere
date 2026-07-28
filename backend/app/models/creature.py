@@ -15,6 +15,9 @@ class Creature(Base):
     rarity = Column(String, nullable=False)  # common / uncommon / rare / legendary / ethereal
     pet_type = Column(String, nullable=False, default="critter")  # avian / beast / critter
     price = Column(Integer, nullable=False)
+    # Habilidad especial de la especie (p.ej. "Doble de Zerines al cuidar").
+    # La define el administrador; es compartida por todas las mascotas de esta especie.
+    ability = Column(Text, nullable=True)
     image_url = Column(String, nullable=True)
     # Gating: minimum user (magic) level and/or sanctuary level required to
     # adopt or buy this creature. 0 / 1 means no real requirement.

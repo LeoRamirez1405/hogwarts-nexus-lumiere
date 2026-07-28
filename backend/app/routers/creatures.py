@@ -15,7 +15,7 @@ from ..models.transaction import Transaction
 from ..models.article_subscription import Notification
 from ..schemas.creature import (
     CreatureCreate, CreatureResponse, UserCreatureResponse, UseItemRequest,
-    MarketCreatureResponse, ListForSaleRequest, SanctuaryStats,
+    MarketCreatureResponse, ListForSaleRequest, SanctuaryStats, AdoptRequest,
 )
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
@@ -66,7 +66,7 @@ async def _process_aging(db: AsyncSession, uc: UserCreature) -> bool:
     Sends a one-time farewell heads-up near end of life, and retires the pet
     with a farewell notification once its lifespan is exceeded. Does not commit.
     """
-    name = uc.creature.name if uc.creature else "Tu mascota"
+    name = uc.pet_name or (uc.creature.name if uc.creature else "Tu mascota")
     if pet_progress.pet_is_expired(uc.adopted_at):
         db.add(Notification(
             user_id=uc.user_id,
@@ -196,6 +196,7 @@ async def creature_market(
         listings.append(MarketCreatureResponse(
             id=uc.id,
             creature=uc.creature,
+            pet_name=uc.pet_name,
             level=uc.level,
             level_name=uc.level_name,
             stage=uc.stage,
@@ -267,6 +268,7 @@ async def delete_creature(
 @router.post("/{creature_id}/adopt", response_model=UserCreatureResponse)
 async def adopt_creature(
     creature_id: str,
+    body: AdoptRequest = AdoptRequest(),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -295,8 +297,15 @@ async def adopt_creature(
             detail="You already own this creature",
         )
 
+    raw_name = (body.pet_name or "").strip()
+    pet_name = raw_name[:40] if raw_name else None
+
     current_user.zerines -= creature.price
-    user_creature = UserCreature(user_id=current_user.id, creature_id=creature_id)
+    user_creature = UserCreature(
+        user_id=current_user.id,
+        creature_id=creature_id,
+        pet_name=pet_name,
+    )
     db.add(user_creature)
 
     transaction = Transaction(

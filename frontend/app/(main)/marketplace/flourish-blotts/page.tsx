@@ -155,7 +155,7 @@ export default function FlourishBlottsPage() {
   });
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-surface parchment-bg -mx-4 md:-mx-10 -mt-6 md:-mt-8 px-4 md:px-10 py-8">
+    <div className="min-h-content bg-surface parchment-bg -mx-4 md:-mx-10 -mt-6 md:-mt-8 px-4 md:px-10 py-8">
       {/* Hero Carousel */}
       <div className="max-w-7xl mx-auto mb-10">
         <HeroCarousel

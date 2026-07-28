@@ -165,7 +165,7 @@ function useVoiceRecorder() {
 
       recorder.stop();
     });
-  }, []);
+  }, [cleanup]);
 
   const startTranscription = useCallback(() => {
     const SpeechRecognitionAPI =
