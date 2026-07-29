@@ -1,31 +1,34 @@
-import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
 from .config import settings
 
+
 def get_database_url():
     """Construct database URL based on available configuration."""
-    # If TURSO variables are set, use them to construct Turso URL
     if settings.TURSO_DATABASE_URL and settings.TURSO_AUTH_TOKEN:
-        # Format: sqlite+libsql://<database-url>?auth_token=<token>
-        return f"sqlite+libsql://{settings.TURSO_DATABASE_URL}?auth_token={settings.TURSO_AUTH_TOKEN}"
-    
-    # Otherwise use the main DATABASE_URL (could be local SQLite or already full Turso URL)
+        return f"sqlite+libsql://{settings.TURSO_DATABASE_URL}?secure=true"
+
     return settings.DATABASE_URL
 
-# Create async engine with connection pooling limits
+
+def get_connect_args():
+    db_url = get_database_url()
+    args = {}
+    if "sqlite" in db_url and "+libsql" not in db_url:
+        args["check_same_thread"] = False
+    if settings.TURSO_AUTH_TOKEN:
+        args["auth_token"] = settings.TURSO_AUTH_TOKEN
+    return args
+
+
 database_url = get_database_url()
 engine = create_async_engine(
     database_url,
     echo=False,
-    # Connection pool settings to prevent too many connections
-    # max_overflow=0 means no extra connections beyond pool_size
-    # pool_size=10 means max 10 concurrent connections
     pool_size=10,
     max_overflow=0,
-    # Additional connect args for libsql
-    connect_args={"check_same_thread": False} if "sqlite" in database_url else {}
+    connect_args=get_connect_args(),
 )
 
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
