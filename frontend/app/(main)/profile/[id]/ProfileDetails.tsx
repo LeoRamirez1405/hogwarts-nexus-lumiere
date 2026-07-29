@@ -52,6 +52,11 @@ function InlineEditable({
     setEditing(false);
   };
 
+  const handleStartEdit = () => {
+    setDraft(value);
+    setEditing(true);
+  };
+
   if (editing) {
     return (
       <li className="flex items-center gap-3 border-l-4 border-secondary pl-3">
@@ -79,16 +84,21 @@ function InlineEditable({
   return (
     <li className="flex items-center gap-3 border-l-4 border-secondary pl-3 group">
       <MaterialIcon name={icon} className="text-lg text-secondary" />
-      <span className={`text-body-md ${value ? "text-on-surface-variant" : "text-on-surface-variant/50 italic"}`}>
+      <span
+        className={`text-body-md flex-1 cursor-pointer ${
+          value ? "text-on-surface-variant" : "text-on-surface-variant/50 italic"
+        }`}
+        onClick={canEdit ? handleStartEdit : undefined}
+      >
         {value || placeholder}
       </span>
       {canEdit && (
         <button
-          onClick={() => {
-            setDraft(value);
-            setEditing(true);
-          }}
-          className="ml-auto opacity-0 group-hover:opacity-100 p-1 rounded-full hover:bg-surface-container-high transition-opacity"
+          onClick={handleStartEdit}
+          className={`ml-auto p-1 rounded-full hover:bg-surface-container-high transition-opacity ${
+            value ? "opacity-0 group-hover:opacity-100 md:opacity-0 md:group-hover:opacity-100" : "opacity-0 md:opacity-0"
+          }`}
+          aria-label="Editar"
         >
           <MaterialIcon name="edit" className="text-sm text-on-surface-variant" />
         </button>
