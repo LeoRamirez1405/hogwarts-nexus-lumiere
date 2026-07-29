@@ -62,7 +62,12 @@ engine_kwargs = {
 # SQLite uses SingletonThreadPool, which rejects those options.
 if not database_url.startswith("sqlite"):
     engine_kwargs["pool_size"] = 10
-    engine_kwargs["max_overflow"] = 0
+    engine_kwargs["max_overflow"] = 5
+    # Neon (serverless) suspends compute and drops idle connections. pre_ping
+    # transparently discards dead connections instead of erroring on first use,
+    # and recycle proactively refreshes connections older than 5 minutes.
+    engine_kwargs["pool_pre_ping"] = True
+    engine_kwargs["pool_recycle"] = 300
 
 engine = create_async_engine(database_url, **engine_kwargs)
 
@@ -123,7 +128,61 @@ def _run_migrations(sync_conn):
             )
 
 
+# Foreign-key / lookup columns that are filtered or joined on hot paths.
+# Postgres does not auto-index foreign keys, so without these every feed,
+# chat, notification and profile query does a full table scan. Created
+# idempotently (CREATE INDEX IF NOT EXISTS) so it is safe on every startup
+# and on both SQLite (dev) and Postgres (prod).
+_WANTED_INDEXES = [
+    ("posts", ["author_id"]),
+    ("posts", ["created_at"]),
+    ("post_likes", ["post_id"]),
+    ("post_likes", ["user_id"]),
+    ("post_comments", ["post_id"]),
+    ("post_reposts", ["post_id"]),
+    ("messages", ["room_id"]),
+    ("messages", ["sender_id"]),
+    ("messages", ["receiver_id"]),
+    ("messages", ["created_at"]),
+    ("message_reactions", ["message_id"]),
+    ("chat_room_members", ["room_id"]),
+    ("chat_room_members", ["user_id"]),
+    ("notifications", ["user_id"]),
+    ("friend_requests", ["sender_id"]),
+    ("friend_requests", ["receiver_id"]),
+    ("forum_threads", ["author_id"]),
+    ("forum_comments", ["thread_id"]),
+    ("forum_thread_votes", ["thread_id"]),
+    ("article_comments", ["article_id"]),
+    ("article_subscriptions", ["user_id"]),
+    ("transactions", ["sender_id"]),
+    ("transactions", ["receiver_id"]),
+    ("user_creatures", ["user_id"]),
+    ("user_pet_items", ["user_id"]),
+    ("user_products", ["user_id"]),
+]
+
+
+def _ensure_indexes(sync_conn):
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(sync_conn)
+    existing_tables = set(inspector.get_table_names())
+    for table, cols in _WANTED_INDEXES:
+        if table not in existing_tables:
+            continue
+        table_cols = {c["name"] for c in inspector.get_columns(table)}
+        if not all(c in table_cols for c in cols):
+            continue
+        idx_name = f"ix_{table}_{'_'.join(cols)}"
+        col_list = ", ".join(f'"{c}"' for c in cols)
+        sync_conn.execute(
+            text(f'CREATE INDEX IF NOT EXISTS {idx_name} ON "{table}" ({col_list})')
+        )
+
+
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_run_migrations)
+        await conn.run_sync(_ensure_indexes)

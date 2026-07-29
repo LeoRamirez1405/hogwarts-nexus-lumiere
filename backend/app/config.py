@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     TURSO_DATABASE_URL: str = os.getenv("TURSO_DATABASE_URL", "")
     TURSO_AUTH_TOKEN: str = os.getenv("TURSO_AUTH_TOKEN", "")
     
+    # CORS: comma-separated list of allowed frontend origins for production,
+    # e.g. "https://mi-app.vercel.app,https://mi-dominio.com". If empty, a safe
+    # default regex allows localhost (dev) and any *.vercel.app deploy.
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "")
+
     # JWT settings
     JWT_SECRET: str = "hogwarts-nexus-lumiere-secret-key-2024"
     JWT_ALGORITHM: str = "HS256"
