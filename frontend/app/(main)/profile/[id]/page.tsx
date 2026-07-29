@@ -240,16 +240,17 @@ export default function ProfilePage() {
         }
       />
 
-      <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <StatsCards
+          postsCount={posts.length}
+          friendsCount={friends.length}
+          zerines={profile.zerines}
+          memberSince={formatDateShort(profile.created_at)}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column */}
         <div className="space-y-6 lg:col-span-1">
-          <StatsCards
-            postsCount={posts.length}
-            friendsCount={friends.length}
-            zerines={profile.zerines}
-            memberSince={formatDateShort(profile.created_at)}
-          />
-
           <ProfileDetails profile={profile} isOwn={isOwn} onUpdate={reloadProfile} />
 
           <FriendsGrid friends={friends} onShowAll={() => setShowAllFriends(true)} />
@@ -375,6 +376,7 @@ export default function ProfilePage() {
         onClose={() => setShowEdit(false)}
         onSave={handleSaveProfile}
       />
+    </div>
     </div>
   );
 }

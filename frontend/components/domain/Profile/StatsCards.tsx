@@ -11,7 +11,7 @@ interface StatsCardsProps {
 
 export function StatsCards({ postsCount, friendsCount, zerines, memberSince }: StatsCardsProps) {
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <div className="glass-card rounded-2xl p-4 text-center">
         <MaterialIcon name="article" className="text-primary text-2xl mb-1" filled={false} />
         <p className="font-display text-title-md text-on-surface">{postsCount}</p>
