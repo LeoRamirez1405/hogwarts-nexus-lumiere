@@ -17,7 +17,7 @@ from ..middleware.roles import require_role
 router = APIRouter()
 
 VALID_KINDS = {"food", "toy"}
-VALID_PET_TYPES = {"avian", "beast", "critter"}
+VALID_PET_TYPES = {"Aves", "Bestias", "Criaturas pequeñas"}
 
 
 @router.get("/", response_model=List[PetItemResponse])

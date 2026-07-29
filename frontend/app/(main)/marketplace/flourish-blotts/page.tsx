@@ -2,13 +2,12 @@
 
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
-import { api, Product, UserProduct } from "@/lib/api";
+import { api, Product, UserProduct, EnumValue } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
-import { SearchBar, MaterialIcon, TabGroup } from "@/components/ui";
+import { SearchBar, MaterialIcon, TabGroup, ListFooter } from "@/components/ui";
 import { BookCard, HeroCarousel, CartSidebar, SuccessModal } from "@/components/domain/FlourishBlotts";
-
-const FILTERS = ["Todos", "Hechizos", "Historia", "Botanica", "DCAO", "Zoologia", "Pociones"];
+import { useCollapsibleList } from "@/hooks/useCollapsibleList";
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
 
@@ -27,6 +26,9 @@ export default function FlourishBlottsPage() {
   const [isJumping, setIsJumping] = useState(false);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
   const [activeTab, setActiveTab] = useState("catalog");
+  const [bookCategories, setBookCategories] = useState<EnumValue[]>([]);
+
+  const dynamicFilters = ["Todos", ...bookCategories.map((c) => c.label)];
   const trackRef = useRef<HTMLDivElement>(null);
 
   // Compute display slides with duplicates for infinite loop
@@ -51,6 +53,9 @@ export default function FlourishBlottsPage() {
       setSlides(newSlides);
       setLoading(false);
     }).catch(() => setLoading(false));
+    api.getEnumCategoryByCode("book_category").then((cat) => {
+      if (cat) setBookCategories(cat.values);
+    }).catch(() => {});
   }, []);
 
   const nextSlide = () => {
@@ -156,6 +161,9 @@ export default function FlourishBlottsPage() {
     return matchesSearch && matchesFilter;
   });
 
+  const { visibleItems: visibleBooks, ...bookList } = useCollapsibleList(filtered, 12);
+  const { visibleItems: visiblePurchases, ...purchaseList } = useCollapsibleList(myPurchases, 9);
+
   return (
     <div className="min-h-content bg-surface parchment-bg -mx-4 md:-mx-10 -mt-6 md:-mt-8 px-4 md:px-10 py-8">
       {/* Hero Carousel */}
@@ -203,7 +211,7 @@ export default function FlourishBlottsPage() {
                 />
               </div>
               <div className="flex gap-2 overflow-x-auto no-scrollbar flex-nowrap pb-2 sm:pb-0 w-full min-w-0">
-                {FILTERS.map((f) => (
+                {dynamicFilters.map((f) => (
                   <button
                     key={f}
                     onClick={() => setActiveFilter(f)}
@@ -257,8 +265,9 @@ export default function FlourishBlottsPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filtered.map((product) => (
+              <>
+              <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 ${bookList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+                {visibleBooks.map((product) => (
                   <BookCard
                     key={product.id}
                     product={product}
@@ -266,6 +275,8 @@ export default function FlourishBlottsPage() {
                   />
                 ))}
               </div>
+              <ListFooter {...bookList} onToggle={bookList.toggle} />
+              </>
             )}
           </div>
         </>
@@ -309,8 +320,8 @@ export default function FlourishBlottsPage() {
               <p className="text-on-surface-variant text-body-sm mb-6">
                 {myPurchases.length} {myPurchases.length === 1 ? "libro comprado" : "libros comprados"}
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {myPurchases.map((up) => (
+              <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 ${purchaseList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+                {visiblePurchases.map((up) => (
                   <div
                     key={up.id}
                     className="glass-card rounded-3xl overflow-hidden group hover:-translate-y-1 transition-all duration-300"
@@ -367,6 +378,7 @@ export default function FlourishBlottsPage() {
                   </div>
                 ))}
               </div>
+              <ListFooter {...purchaseList} onToggle={purchaseList.toggle} />
             </>
           )}
         </div>

@@ -44,6 +44,7 @@ async function request<T>(
     throw new Error(error.detail || "Request failed");
   }
 
+  if (res.status === 204) return null as T;
   return res.json();
 }
 
@@ -450,6 +451,25 @@ export const api = {
       return data;
     });
   },
+
+  // Enum Types (Admin Settings)
+  getEnumCategories: () => request<EnumCategory[]>("/enum-types/categories"),
+  getEnumCategory: (id: string) => request<EnumCategory>(`/enum-types/categories/${id}`),
+  getEnumCategoryByCode: (code: string) => request<EnumCategory>(`/enum-types/categories/code/${code}`),
+  createEnumCategory: (data: EnumCategoryCreate) =>
+    request<EnumCategory>("/enum-types/categories", { method: "POST", body: JSON.stringify(data) }),
+  updateEnumCategory: (id: string, data: EnumCategoryUpdate) =>
+    request<EnumCategory>(`/enum-types/categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteEnumCategory: (id: string) =>
+    request<void>(`/enum-types/categories/${id}`, { method: "DELETE" }),
+
+  getEnumValues: (categoryId: string) => request<EnumValue[]>(`/enum-types/categories/${categoryId}/values`),
+  createEnumValue: (categoryId: string, data: EnumValueCreate) =>
+    request<EnumValue>(`/enum-types/categories/${categoryId}/values`, { method: "POST", body: JSON.stringify(data) }),
+  updateEnumValue: (valueId: string, data: EnumValueUpdate) =>
+    request<EnumValue>(`/enum-types/values/${valueId}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteEnumValue: (valueId: string) =>
+    request<void>(`/enum-types/values/${valueId}`, { method: "DELETE" }),
 };
 
 // Types
@@ -482,6 +502,7 @@ export interface User {
   official_title?: string;
   last_active_at?: string;
   magic_level?: MagicLevelInfo;
+  sanctuary_penalty?: number;
   created_at: string;
 }
 
@@ -585,7 +606,7 @@ export interface ForumComment {
   author?: User;
 }
 
-export type PetType = "avian" | "beast" | "critter";
+export type PetType = "Aves" | "Bestias" | "Criaturas pequeñas";
 export type PetItemKind = "food" | "toy";
 
 export interface Creature {
@@ -649,6 +670,7 @@ export interface SanctuaryStats {
   user_level_max: number;
   user_progress: number; // 0..1 toward next user level
   pets_count: number;
+  sanctuary_penalty?: number;
 }
 
 export interface PetItem {
@@ -896,4 +918,45 @@ export interface UserSearchResult {
   name: string;
   avatar_url?: string;
   house?: string;
+}
+
+// Enum Types (admin settings)
+export interface EnumValue {
+  id: string;
+  category_id: string;
+  label: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EnumCategory {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  is_system: boolean;
+  created_at: string;
+  values: EnumValue[];
+}
+
+export interface EnumCategoryCreate {
+  code: string;
+  name: string;
+  description?: string;
+}
+
+export interface EnumCategoryUpdate {
+  name?: string;
+  description?: string;
+}
+
+export interface EnumValueCreate {
+  label: string;
+  description?: string;
+}
+
+export interface EnumValueUpdate {
+  label?: string;
+  description?: string;
 }

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { api, Classified } from "@/lib/api";
-import { GlassCard, Button, Badge, Modal, MaterialIcon } from "@/components/ui";
+import { GlassCard, Button, Badge, Modal, MaterialIcon, ListFooter } from "@/components/ui";
+import { useCollapsibleList } from "@/hooks/useCollapsibleList";
 
 interface ClassifiedsTabProps {
   classifieds: Classified[];
@@ -17,6 +18,8 @@ export function ClassifiedsTab({
   const [isNew, setIsNew] = useState(false);
   const [form, setForm] = useState({ title: "", price: "" });
   const [saving, setSaving] = useState(false);
+
+  const { visibleItems: visibleClassifieds, ...classifiedList } = useCollapsibleList(classifieds, 10);
 
   const openNew = () => {
     setIsNew(true);
@@ -75,8 +78,8 @@ export function ClassifiedsTab({
         </Button>
       </div>
 
-      <div className="space-y-3">
-        {classifieds.map((c) => (
+      <div className={`space-y-3 ${classifiedList.expanded ? "max-h-[70vh] overflow-y-auto pr-1" : ""}`}>
+        {visibleClassifieds.map((c) => (
           <GlassCard key={c.id} className="p-5" hover>
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
@@ -120,6 +123,7 @@ export function ClassifiedsTab({
           </div>
         )}
       </div>
+      <ListFooter {...classifiedList} onToggle={classifiedList.toggle} />
 
       {(editItem || isNew) && (
         <Modal

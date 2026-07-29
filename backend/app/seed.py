@@ -11,6 +11,8 @@ from .models.post import Post, PostLike
 from .models.transaction import Transaction
 from .models.announcement import Announcement
 from .models.classified import Classified
+from .models.pet_item import PetItem
+from .models.enum_type import EnumCategory, EnumValue
 from .middleware.auth import hash_password
 
 
@@ -95,7 +97,7 @@ async def seed_data():
                 name="Espejo de Oesed",
                 description="The Mirror of Erised shows the deepest desire of the heart. Be warned, it can drive one to madness.",
                 price=850,
-                category="Artifacts",
+                category="Reliquia Rara",
                 shop="borgin",
                 image_url=None,
                 stock=3,
@@ -104,7 +106,7 @@ async def seed_data():
                 name="Grito de la Banshee",
                 description="A scream that can be heard only by the person it's meant for. Useful for dark rituals.",
                 price=1200,
-                category="Dark Arts",
+                category="Objeto Oscuro",
                 shop="borgin",
                 image_url=None,
                 stock=5,
@@ -113,7 +115,7 @@ async def seed_data():
                 name="Caliz de Helga",
                 description="Cup of Helga Hufflepuff, one of the founder's relics. Genuinely rare collectible.",
                 price=2500,
-                category="Relics",
+                category="Reliquia Histórica",
                 shop="borgin",
                 image_url=None,
                 stock=1,
@@ -122,7 +124,7 @@ async def seed_data():
                 name="Sombrero Seleccionador",
                 description="The Sorting Hat that determined the houses of every Hogwarts student. Needs restocking.",
                 price=3000,
-                category="Hogwarts",
+                category="Artefacto",
                 shop="borgin",
                 image_url=None,
                 stock=2,
@@ -131,7 +133,7 @@ async def seed_data():
                 name="Pluma Bicorne",
                 description="A two-horned quill that writes by itself. Occasionally writes poetry.",
                 price=450,
-                category="Writing",
+                category="Curiosidad",
                 shop="borgin",
                 image_url=None,
                 stock=10,
@@ -144,7 +146,7 @@ async def seed_data():
                 name="Libro Hechizos Avanzados",
                 description="Advanced spellbook covering N.E.W.T. level charms, jinxes, and counter-jinxes.",
                 price=250,
-                category="Books",
+                category="Hechizos",
                 shop="flourish",
                 image_url=None,
                 stock=20,
@@ -153,7 +155,7 @@ async def seed_data():
                 name="Historia de la Magia",
                 description="A comprehensive history of magic from ancient Egypt to modern day Ministry regulations.",
                 price=420,
-                category="Books",
+                category="Historia",
                 shop="flourish",
                 image_url=None,
                 stock=15,
@@ -162,7 +164,7 @@ async def seed_data():
                 name="Set de Hierbas Medicinales",
                 description="Premium magical herb growing kit with Mandrake seeds, Moly, and watering enchantments.",
                 price=180,
-                category="Herbology",
+                category="Botánica",
                 shop="flourish",
                 image_url=None,
                 stock=25,
@@ -171,7 +173,7 @@ async def seed_data():
                 name="Defensa Contra Artes Oscuras",
                 description="The definitive guide to defending against the Dark Arts, by Gilderoy Lockhart (revised edition).",
                 price=95,
-                category="Books",
+                category="D.C.A.O.",
                 shop="flourish",
                 image_url=None,
                 stock=30,
@@ -180,7 +182,7 @@ async def seed_data():
                 name="Guia de Animales Fantasticos",
                 description="Newt Scamander's field guide to magical creatures with stunning illustrations.",
                 price=310,
-                category="Beasts",
+                category="Zoología",
                 shop="flourish",
                 image_url=None,
                 stock=18,
@@ -194,7 +196,7 @@ async def seed_data():
                 name="Fawkes the Phoenix",
                 description="A majestic phoenix that can burst into flame and be reborn. Loyal to Dumbledore.",
                 rarity="rare",
-                pet_type="avian",
+                pet_type="Aves",
                 price=450,
                 required_user_level=4,
                 ability="Renacer de las cenizas una vez al dia.",
@@ -204,7 +206,7 @@ async def seed_data():
                 name="Niffler",
                 description="A small, furry creature attracted to shiny things. Excellent at finding treasure.",
                 rarity="uncommon",
-                pet_type="critter",
+                pet_type="Criaturas pequeñas",
                 price=320,
                 ability="Encuentra Zerines perdidos (+10% al cuidar).",
                 image_url=None,
@@ -213,7 +215,7 @@ async def seed_data():
                 name="Hedwig the Owl",
                 description="A beautiful snowy owl, exceptionally loyal and clever. Perfect for delivering letters.",
                 rarity="ethereal",
-                pet_type="avian",
+                pet_type="Aves",
                 price=600,
                 required_sanctuary_level=5,
                 ability="Entrega mensajes en la medianoche (+25% felicidad al jugar).",
@@ -223,7 +225,7 @@ async def seed_data():
                 name="Toad",
                 description="A common but endearing toad. Trevor the toad enjoys wandering off at parties.",
                 rarity="common",
-                pet_type="critter",
+                pet_type="Criaturas pequeñas",
                 price=200,
                 image_url=None,
             ),
@@ -231,7 +233,7 @@ async def seed_data():
                 name="Buckbeak the Hippogriff",
                 description="A proud and noble hippogriff. Must be approached with respect. Loves fresh fish.",
                 rarity="legendary",
-                pet_type="beast",
+                pet_type="Bestias",
                 price=5200,
                 required_user_level=6,
                 required_sanctuary_level=8,
@@ -261,7 +263,7 @@ async def seed_data():
                     "If you believe you have spotted a Snorkack, please report your sighting to The Quibbler."
                 ),
                 author_id=hermione.id,
-                category="Magical Creatures",
+                category="Criaturas Mágicas",
                 image_url=None,
                 featured=True,
             ),
@@ -273,7 +275,7 @@ async def seed_data():
                     "while also addressing how to manage disagreements with your pieces."
                 ),
                 author_id=harry.id,
-                category="Hobbies",
+                category="Pasatiempos",
                 image_url=None,
                 featured=False,
             ),
@@ -286,7 +288,7 @@ async def seed_data():
                     "and common mistakes to avoid."
                 ),
                 author_id=luna.id,
-                category="Potions",
+                category="Pociones",
                 image_url=None,
                 featured=False,
             ),
@@ -300,7 +302,7 @@ async def seed_data():
                     "best suited to their character."
                 ),
                 author_id=admin.id,
-                category="History",
+                category="Historia",
                 image_url=None,
                 featured=False,
             ),
@@ -313,7 +315,7 @@ async def seed_data():
                     "gathered from the notes of Rubeus Hagrid and other qualified experts."
                 ),
                 author_id=cedric.id,
-                category="Exploration",
+                category="Exploración",
                 image_url=None,
                 featured=False,
             ),
@@ -537,8 +539,8 @@ async def seed_data():
 
 # Keyword-based mapping used to backfill pet_type on pre-existing creatures.
 _PET_TYPE_KEYWORDS = [
-    ("avian", ("phoenix", "owl", "hippogriff", "griffin", "eagle", "bird", "fawkes", "hedwig")),
-    ("beast", ("dragon", "hippogriff", "thestral", "unicorn", "horse", "wolf", "buckbeak")),
+    ("Aves", ("phoenix", "owl", "hippogriff", "griffin", "eagle", "bird", "fawkes", "hedwig")),
+    ("Bestias", ("dragon", "hippogriff", "thestral", "unicorn", "horse", "wolf", "buckbeak")),
 ]
 
 
@@ -546,46 +548,46 @@ def _guess_pet_type(name: str) -> str:
     lowered = (name or "").lower()
     # beast keywords take priority over generic avian for hippogriff-like beasts
     if any(k in lowered for k in ("hippogriff", "dragon", "thestral", "unicorn", "buckbeak")):
-        return "beast"
+        return "Bestias"
     if any(k in lowered for k in ("phoenix", "owl", "eagle", "bird", "fawkes", "hedwig")):
-        return "avian"
-    return "critter"
+        return "Aves"
+    return "Criaturas pequeñas"
 
 
 # (name, description, kind, pet_type, price, restore_amount, pack_size)
 _PET_SUPPLIES = [
     # ---- AVIAN (fénix, lechuza) ----
-    ("Semillas de Fenix", "Semillas doradas que reavivan la energia de las aves magicas.", "food", "avian", 40, 15, 1),
-    ("Bayas Incandescentes", "Bayas calidas ideales para fenix y lechuzas hambrientas.", "food", "avian", 90, 30, 1),
-    ("Ratones de Campo Frescos", "Presa natural para lechuzas; muy nutritiva.", "food", "avian", 180, 55, 1),
-    ("Festin de Salmon Ahumado", "Un banquete premium que sacia por completo a cualquier ave.", "food", "avian", 350, 85, 1),
-    ("Racion Diaria de Semillas", "Bolsa con varias raciones de semillas para el dia a dia.", "food", "avian", 150, 15, 5),
-    ("Aro Flamigero", "Un aro encantado que las aves persiguen felices.", "toy", "avian", 45, 15, 1),
-    ("Campanilla Encantada", "Tintinea con melodias que animan a las lechuzas.", "toy", "avian", 95, 32, 1),
-    ("Percha Giratoria Magica", "Una percha que gira suavemente; horas de diversion.", "toy", "avian", 190, 58, 1),
-    ("Plumas Danzantes", "Set de plumas que flotan y bailan solas.", "toy", "avian", 120, 18, 4),
+    ("Semillas de Fenix", "Semillas doradas que reavivan la energia de las aves magicas.", "food", "Aves", 40, 15, 1),
+    ("Bayas Incandescentes", "Bayas calidas ideales para fenix y lechuzas hambrientas.", "food", "Aves", 90, 30, 1),
+    ("Ratones de Campo Frescos", "Presa natural para lechuzas; muy nutritiva.", "food", "Aves", 180, 55, 1),
+    ("Festin de Salmon Ahumado", "Un banquete premium que sacia por completo a cualquier ave.", "food", "Aves", 350, 85, 1),
+    ("Racion Diaria de Semillas", "Bolsa con varias raciones de semillas para el dia a dia.", "food", "Aves", 150, 15, 5),
+    ("Aro Flamigero", "Un aro encantado que las aves persiguen felices.", "toy", "Aves", 45, 15, 1),
+    ("Campanilla Encantada", "Tintinea con melodias que animan a las lechuzas.", "toy", "Aves", 95, 32, 1),
+    ("Percha Giratoria Mágica", "Una percha que gira suavemente; horas de diversion.", "toy", "Aves", 190, 58, 1),
+    ("Plumas Danzantes", "Set de plumas que flotan y bailan solas.", "toy", "Aves", 120, 18, 4),
 
     # ---- BEAST (hipogrifo y bestias grandes) ----
-    ("Huron Fresco", "Bocado favorito de los hipogrifos.", "food", "beast", 50, 15, 1),
-    ("Pescado del Lago Negro", "Pescado fresco que encanta a las bestias nobles.", "food", "beast", 100, 30, 1),
-    ("Cesta de Carne Premium", "Carne selecta para saciar a las criaturas mas grandes.", "food", "beast", 200, 55, 1),
-    ("Banquete Real de Bestia", "El festin definitivo; sacia por completo a la bestia.", "food", "beast", 380, 90, 1),
-    ("Saco de Hurones", "Varios hurones para toda la semana.", "food", "beast", 210, 16, 5),
-    ("Pelota de Cuero de Dragon", "Resistente y rebota alto; ideal para bestias energicas.", "toy", "beast", 55, 15, 1),
-    ("Lazo Volador", "Un lazo encantado para juegos de persecucion.", "toy", "beast", 110, 33, 1),
-    ("Muneco de Entrenamiento", "Muneco robusto que aguanta las embestidas mas fuertes.", "toy", "beast", 210, 60, 1),
-    ("Set de Aros de Vuelo", "Varios aros para montar circuitos de vuelo.", "toy", "beast", 180, 22, 3),
+    ("Huron Fresco", "Bocado favorito de los hipogrifos.", "food", "Bestias", 50, 15, 1),
+    ("Pescado del Lago Negro", "Pescado fresco que encanta a las bestias nobles.", "food", "Bestias", 100, 30, 1),
+    ("Cesta de Carne Premium", "Carne selecta para saciar a las criaturas mas grandes.", "food", "Bestias", 200, 55, 1),
+    ("Banquete Real de Bestia", "El festin definitivo; sacia por completo a la bestia.", "food", "Bestias", 380, 90, 1),
+    ("Saco de Hurones", "Varios hurones para toda la semana.", "food", "Bestias", 210, 16, 5),
+    ("Pelota de Cuero de Dragon", "Resistente y rebota alto; ideal para bestias energicas.", "toy", "Bestias", 55, 15, 1),
+    ("Lazo Volador", "Un lazo encantado para juegos de persecucion.", "toy", "Bestias", 110, 33, 1),
+    ("Muneco de Entrenamiento", "Muneco robusto que aguanta las embestidas mas fuertes.", "toy", "Bestias", 210, 60, 1),
+    ("Set de Aros de Vuelo", "Varios aros para montar circuitos de vuelo.", "toy", "Bestias", 180, 22, 3),
 
     # ---- CRITTER (niffler, sapo, pequeños) ----
-    ("Gusarajos", "El aperitivo clasico para criaturas pequenas.", "food", "critter", 35, 15, 1),
-    ("Escarabajos Crujientes", "Crujientes y nutritivos; les encantan.", "food", "critter", 85, 30, 1),
-    ("Bufe de Tesoros Comestibles", "Golosinas brillantes que sacian y alegran.", "food", "critter", 170, 55, 1),
-    ("Festin del Niffler", "Un banquete dorado que deja al niffler pleno.", "food", "critter", 320, 82, 1),
-    ("Bolsa de Gusarajos", "Multiples raciones de gusarajos.", "food", "critter", 140, 15, 5),
-    ("Bolitas Brillantes", "Bolitas relucientes que los nifflers adoran perseguir.", "toy", "critter", 40, 15, 5),
-    ("Rueda Giratoria", "Una rueda para que corran sin parar.", "toy", "critter", 90, 30, 1),
-    ("Cubo Excavador", "Un cubo lleno de rincones para escarbar tesoros.", "toy", "critter", 175, 55, 1),
-    ("Piezas de Lego Magico", "Piezas encantadas para construir y jugar; se venden por lote.", "toy", "critter", 100, 20, 5),
+    ("Gusarajos", "El aperitivo clasico para criaturas pequenas.", "food", "Criaturas pequeñas", 35, 15, 1),
+    ("Escarabajos Crujientes", "Crujientes y nutritivos; les encantan.", "food", "Criaturas pequeñas", 85, 30, 1),
+    ("Bufe de Tesoros Comestibles", "Golosinas brillantes que sacian y alegran.", "food", "Criaturas pequeñas", 170, 55, 1),
+    ("Festin del Niffler", "Un banquete dorado que deja al niffler pleno.", "food", "Criaturas pequeñas", 320, 82, 1),
+    ("Bolsa de Gusarajos", "Multiples raciones de gusarajos.", "food", "Criaturas pequeñas", 140, 15, 5),
+    ("Bolitas Brillantes", "Bolitas relucientes que los nifflers adoran perseguir.", "toy", "Criaturas pequeñas", 40, 15, 5),
+    ("Rueda Giratoria", "Una rueda para que corran sin parar.", "toy", "Criaturas pequeñas", 90, 30, 1),
+    ("Cubo Excavador", "Un cubo lleno de rincones para escarbar tesoros.", "toy", "Criaturas pequeñas", 175, 55, 1),
+    ("Piezas de Lego Magico", "Piezas encantadas para construir y jugar; se venden por lote.", "toy", "Criaturas pequeñas", 100, 20, 5),
 ]
 
 
@@ -602,7 +604,7 @@ async def seed_pet_supplies():
         creatures = (await db.execute(select(Creature))).scalars().all()
         changed = False
         for c in creatures:
-            if not c.pet_type or c.pet_type == "critter":
+            if not c.pet_type or c.pet_type == "Criaturas pequeñas":
                 guessed = _guess_pet_type(c.name)
                 if guessed != c.pet_type:
                     c.pet_type = guessed
@@ -627,3 +629,90 @@ async def seed_pet_supplies():
 
         if changed:
             await db.commit()
+
+
+async def seed_enum_types():
+    """Seed default enum categories and values linked to creatures / articles / products.
+
+    These 5 categories back the dropdowns in the admin pages. The `code` of each
+    EnumValue matches the string stored in the corresponding model column so no
+    data migration is needed: admin edits propagate via `code`.
+    """
+    async with async_session() as db:
+        # Check if already seeded
+        existing = await db.execute(select(EnumCategory).limit(1))
+        if existing.scalar_one_or_none():
+            return
+
+        defaults = [
+            # 1) Tipo de mascota → Creature.pet_type
+            {
+                "code": "pet_type",
+                "name": "Tipo de Mascota",
+                "description": "Clasificación de criaturas mágicas por tipo (campo Creature.pet_type)",
+                "is_system": True,
+                "values": [
+                    {"label": "Aves", "description": "Aves y criaturas voladoras"},
+                    {"label": "Bestias", "description": "Grandes bestias mágicas"},
+                    {"label": "Criaturas pequeñas", "description": "Criaturas pequeñas y roedores"},
+                ],
+            },
+            # 2) Categoría de libro → Product.category (shop=flourish)
+            {
+                "code": "book_category",
+                "name": "Categoría de Libro",
+                "description": "Categorías de productos de Flourish & Blotts (campo Product.category con shop=flourish)",
+                "is_system": True,
+                "values": [
+                    {"label": "Hechizos", "description": "Libros de hechizos y encantamientos"},
+                    {"label": "Historia", "description": "Historia de la magia"},
+                    {"label": "Botánica", "description": "Herbología y plantas mágicas"},
+                    {"label": "D.C.A.O.", "description": "Defensa Contra las Artes Oscuras"},
+                    {"label": "Zoología", "description": "Guías de criaturas mágicas"},
+                    {"label": "Pociones", "description": "Libros de pociones"},
+                ],
+            },
+            # 3) Categoría de artículo noticiario → Article.category
+            {
+                "code": "article_category",
+                "name": "Categoría de Artículo",
+                "description": "Categorías de artículos de El Quisquilloso (campo Article.category)",
+                "is_system": True,
+                "values": [
+                    {"label": "Criaturas Mágicas"},
+                    {"label": "Pasatiempos"},
+                    {"label": "Pociones"},
+                    {"label": "Historia"},
+                    {"label": "Exploración"},
+                ],
+            },
+            # 4) Categoría de producto (Borgin & Burkes) → Product.category (shop=borgin)
+            {
+                "code": "borgin_category",
+                "name": "Categoría de Producto (Borgin)",
+                "description": "Categorías de artefactos oscuros de Borgin & Burkes (campo Product.category con shop=borgin)",
+                "is_system": True,
+                "values": [
+                    {"label": "Reliquia Rara"},
+                    {"label": "Objeto Oscuro"},
+                    {"label": "Reliquia Histórica"},
+                    {"label": "Artefacto"},
+                    {"label": "Curiosidad"},
+                    {"label": "Reliquia Oscura"},
+                    {"label": "Objeto Maldito"},
+                    {"label": "Varita"},
+                ],
+            },
+        ]
+
+        for cat_data in defaults:
+            values_data = cat_data.pop("values")
+            category = EnumCategory(**cat_data)
+            db.add(category)
+            await db.flush()
+
+            for val_data in values_data:
+                value = EnumValue(**val_data, category_id=category.id)
+                db.add(value)
+
+        await db.commit()

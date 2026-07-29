@@ -103,7 +103,7 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
   const kpis = [
     { label: "Usuarios", value: data.total_users ?? 0, icon: "people", bg: "bg-primary", text: "text-on-primary" },
     { label: "Productos", value: data.total_products ?? 0, icon: "inventory_2", bg: "bg-secondary", text: "text-on-secondary" },
-    { label: "Articulos", value: data.total_articles ?? 0, icon: "article", bg: "bg-tertiary", text: "text-on-tertiary" },
+    { label: "Artículos", value: data.total_articles ?? 0, icon: "article", bg: "bg-tertiary", text: "text-on-tertiary" },
     { label: "Criaturas", value: data.total_creatures ?? 0, icon: "pets", bg: "bg-success", text: "text-on-success" },
     { label: "Zerines en Circulacion", value: data.total_zerines_in_circulation ?? 0, icon: "diamond", bg: "crystal-gradient inner-glow-gold", text: "text-on-primary" },
     { label: "Canjes Semanales", value: data.recent_transactions?.length ?? 0, icon: "receipt_long", bg: "bg-surface-container", text: "text-on-surface" },

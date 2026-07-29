@@ -11,13 +11,13 @@ import {
   SharePostModal,
   EditProfileModal,
   StatsCards,
-  ZerinesProgress,
   FriendsGrid,
   AllFriendsModal,
 } from "@/components/domain/Profile";
-import { MaterialIcon, GlassCard, Avatar, Button } from "@/components/ui";
+import { MaterialIcon, GlassCard, Avatar, Button, ListFooter } from "@/components/ui";
 import ProfileDetails from "./ProfileDetails";
 import { useImageUpload } from "@/hooks/useFileUpload";
+import { useCollapsibleList } from "@/hooks/useCollapsibleList";
 
 export default function ProfilePage() {
   const params = useParams();
@@ -45,6 +45,8 @@ export default function ProfilePage() {
   });
 
   const isOwn = authUser?.id === profileId;
+
+  const { visibleItems: visiblePosts, ...postList } = useCollapsibleList(posts, 8);
 
   const reloadProfile = useCallback(async () => {
     if (!profileId) return;
@@ -252,7 +254,6 @@ export default function ProfilePage() {
 
           <FriendsGrid friends={friends} onShowAll={() => setShowAllFriends(true)} />
 
-          <ZerinesProgress zerines={profile.zerines} />
         </div>
 
         {/* Right Column (Posts) */}
@@ -337,16 +338,21 @@ export default function ProfilePage() {
               <p className="text-on-surface-variant text-body-md">Aun no hay publicaciones</p>
             </GlassCard>
           ) : (
-            posts.map((post) => (
-              <PostCard
-                key={`${post.is_repost ? "r" : "p"}-${post.id}`}
-                post={post}
-                onLike={handleLike}
-                onRepost={handleRepost}
-                onShare={setShareTarget}
-                currentUser={authUser ?? undefined}
-              />
-            ))
+            <>
+              <div className={postList.expanded ? "space-y-6 max-h-[75vh] overflow-y-auto pr-1" : "space-y-6"}>
+                {visiblePosts.map((post) => (
+                  <PostCard
+                    key={`${post.is_repost ? "r" : "p"}-${post.id}`}
+                    post={post}
+                    onLike={handleLike}
+                    onRepost={handleRepost}
+                    onShare={setShareTarget}
+                    currentUser={authUser ?? undefined}
+                  />
+                ))}
+              </div>
+              <ListFooter {...postList} onToggle={postList.toggle} />
+            </>
           )}
         </div>
       </div>

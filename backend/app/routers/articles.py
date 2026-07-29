@@ -30,10 +30,10 @@ async def notify_subscribers(db: AsyncSession, article: Article, notification_ty
     subscriptions = result.scalars().all()
 
     if notification_type == "article_created":
-        title = "Nuevo articulo publicado"
+        title = "Nuevo artículo publicado"
         body = f'Se ha publicado "{article.title}" en El Quisquilloso'
     else:  # article_updated
-        title = "Articulo actualizado"
+        title = "Artículo actualizado"
         body = f'Se ha actualizado "{article.title}"'
 
     for sub in subscriptions:

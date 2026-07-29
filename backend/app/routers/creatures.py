@@ -36,6 +36,7 @@ async def _sanctuary_level_for(db: AsyncSession, user: User) -> int:
         sum(p.level for p in pets),
         user.items_purchased or 0,
         user.care_actions or 0,
+        user.sanctuary_penalty or 0,
     )
     return pet_progress.sanctuary_level(score)
 
@@ -77,6 +78,12 @@ async def _process_aging(db: AsyncSession, uc: UserCreature) -> bool:
             body=f"{name} ha vivido una larga y feliz vida en tu santuario, y hoy parte en paz. Gracias por cuidarla.",
             related_id=uc.creature_id,
         ))
+        # Apply death penalty to sanctuary score
+        if uc.creature:
+            penalty = pet_progress.death_penalty(uc.level, uc.creature.rarity)
+            user = await db.get(User, uc.user_id)
+            if user:
+                user.sanctuary_penalty = (user.sanctuary_penalty or 0) + penalty
         await db.delete(uc)
         return True
     if not uc.farewell_warned and pet_progress.pet_needs_farewell_warning(uc.adopted_at):
@@ -159,6 +166,10 @@ async def my_creatures(
         escaped = _settle_decay(uc)
         if escaped:
             name = uc.pet_name or (uc.creature.name if uc.creature else "Tu mascota")
+            # Apply escape penalty to sanctuary score
+            if uc.creature:
+                penalty = pet_progress.escape_penalty(uc.level, uc.creature.rarity)
+                current_user.sanctuary_penalty = (current_user.sanctuary_penalty or 0) + penalty
             db.add(Notification(
                 user_id=uc.user_id,
                 type=N.PET_ESCAPED,
@@ -191,8 +202,9 @@ async def sanctuary_stats(
 
     care = current_user.care_actions or 0
     bought = current_user.items_purchased or 0
+    penalty = current_user.sanctuary_penalty or 0
 
-    s_score = pet_progress.sanctuary_score(pets_count, levels_sum, bought, care)
+    s_score = pet_progress.sanctuary_score(pets_count, levels_sum, bought, care, penalty)
     s_level = pet_progress.sanctuary_level(s_score)
 
     magic = get_magic_level(current_user)
@@ -209,6 +221,7 @@ async def sanctuary_stats(
         user_level_max=11,
         user_progress=float(magic.get("progress", 0.0)),
         pets_count=pets_count,
+        sanctuary_penalty=penalty,
     )
 
 

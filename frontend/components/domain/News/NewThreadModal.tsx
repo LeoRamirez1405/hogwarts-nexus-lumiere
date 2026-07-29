@@ -70,7 +70,7 @@ export function NewThreadModal({ isOpen, onClose, onSubmit }: NewThreadModalProp
               className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
             >
               <option value="General">General</option>
-              <option value="Zoologia Magica">Zoologia Magica</option>
+              <option value="Zoologia Mágica">Zoologia Mágica</option>
               <option value="Economia">Economia</option>
               <option value="Ministerio">Ministerio</option>
               <option value="Hogwarts">Hogwarts</option>

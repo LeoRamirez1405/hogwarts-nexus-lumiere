@@ -7,7 +7,7 @@ class CreatureCreate(BaseModel):
     name: str
     description: Optional[str] = None
     rarity: str
-    pet_type: str = "critter"  # avian / beast / critter
+    pet_type: str = "Criaturas pequeñas"
     price: int
     image_url: Optional[str] = None
     required_user_level: int = 1
@@ -93,3 +93,4 @@ class SanctuaryStats(BaseModel):
     user_level_max: int
     user_progress: float  # 0..1 toward next user level
     pets_count: int
+    sanctuary_penalty: int = 0

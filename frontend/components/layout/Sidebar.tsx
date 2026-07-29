@@ -39,7 +39,7 @@ const mainNavItems: NavItem[] = [
 const adminNavItems: NavItem[] = [
   { icon: "group", label: "Usuarios", href: "/admin/users" },
   { icon: "inventory_2", label: "Productos", href: "/admin/products" },
-  { icon: "article", label: "Articulos", href: "/admin/articles" },
+  { icon: "article", label: "Artículos", href: "/admin/articles" },
   { icon: "pets", label: "Criaturas", href: "/admin/creatures" },
   { icon: "nutrition", label: "Comida y Juguetes", href: "/admin/pet-items" },
   { icon: "groups", label: "Gestión de Grupos", href: "/admin/groups" },
@@ -48,6 +48,7 @@ const adminNavItems: NavItem[] = [
     label: "Transacciones",
     href: "/admin/transactions",
   },
+  { icon: "settings", label: "Configuración", href: "/admin/settings" },
 ];
 
 function MaterialIcon({
@@ -211,14 +212,6 @@ function SidebarContent({
       {/* BOTTOM: Settings, Support, Admin button */}
       <div className="px-4 pb-6 space-y-1">
         <Link
-          href="/settings"
-          onClick={onNavigate}
-          className="flex items-center gap-4 py-3 px-8 text-on-surface-variant hover:bg-surface-container-high rounded-xl mx-0 transition-all duration-200 hover:translate-x-1"
-        >
-          <MaterialIcon name="settings" className="text-xl" />
-          <span className="text-body-md">Configuracion</span>
-        </Link>
-        <Link
           href="/support"
           onClick={onNavigate}
           className="flex items-center gap-4 py-3 px-8 text-on-surface-variant hover:bg-surface-container-high rounded-xl mx-0 transition-all duration-200 hover:translate-x-1"
@@ -232,7 +225,7 @@ function SidebarContent({
           className="w-full flex items-center gap-4 py-3 px-8 text-error hover:bg-error/10 rounded-xl mx-0 transition-all duration-200 hover:translate-x-1"
         >
           <MaterialIcon name="logout" className="text-xl" />
-          <span className="text-body-md">Cerrar sesion</span>
+          <span className="text-body-md">Cerrar sesión</span>
         </button>
       </div>
     </>

@@ -62,16 +62,16 @@ export function EditProfileModal({
 
   const handleChangePassword = async () => {
     if (!currentPass || !newPass) return;
-    if (newPass !== confirmPass) { setPassMsg("Las contrasenas no coinciden"); return; }
+    if (newPass !== confirmPass) { setPassMsg("Las contraseñas no coinciden"); return; }
     if (newPass.length < 4) { setPassMsg("Minimo 4 caracteres"); return; }
     setPassSaving(true);
     setPassMsg(null);
     try {
       await api.changePassword(currentPass, newPass);
-      setPassMsg("Contrasena actualizada");
+      setPassMsg("contraseña actualizada");
       setCurrentPass(""); setNewPass(""); setConfirmPass("");
     } catch (e: unknown) {
-      setPassMsg(e instanceof Error ? e.message : "Error al cambiar contrasena");
+      setPassMsg(e instanceof Error ? e.message : "Error al cambiar contraseña");
     }
     setPassSaving(false);
   };
@@ -178,7 +178,7 @@ export function EditProfileModal({
               className="flex items-center gap-2 text-label-sm text-on-surface-variant hover:text-primary transition-colors mb-3"
             >
               <MaterialIcon name="lock" className="text-lg" />
-              <span className="font-medium">{showPassword ? "Ocultar" : "Cambiar contrasena"}</span>
+              <span className="font-medium">{showPassword ? "Ocultar" : "Cambiar contraseña"}</span>
               <MaterialIcon name={showPassword ? "expand_less" : "expand_more"} className="text-lg" />
             </button>
             {showPassword && (
@@ -187,21 +187,21 @@ export function EditProfileModal({
                   type="password"
                   value={currentPass}
                   onChange={(e) => setCurrentPass(e.target.value)}
-                  placeholder="Contrasena actual"
+                  placeholder="contraseña actual"
                   className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
                 />
                 <input
                   type="password"
                   value={newPass}
                   onChange={(e) => setNewPass(e.target.value)}
-                  placeholder="Nueva contrasena"
+                  placeholder="Nueva contraseña"
                   className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
                 />
                 <input
                   type="password"
                   value={confirmPass}
                   onChange={(e) => setConfirmPass(e.target.value)}
-                  placeholder="Confirmar contrasena"
+                  placeholder="Confirmar contraseña"
                   className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
                 />
                 {passMsg && (
@@ -215,7 +215,7 @@ export function EditProfileModal({
                   disabled={passSaving || !currentPass || !newPass}
                   className="w-full py-2.5 rounded-xl bg-primary text-on-primary text-label-sm font-bold disabled:opacity-40 transition-all active:scale-95"
                 >
-                  {passSaving ? "Guardando..." : "Actualizar contrasena"}
+                  {passSaving ? "Guardando..." : "Actualizar contraseña"}
                 </button>
               </div>
             )}

@@ -31,12 +31,6 @@ const RARITY_BG: Record<string, string> = {
   common: "bg-surface-container-high/50",
 };
 
-const PET_TYPE_LABELS: Record<string, string> = {
-  avian: "Aves",
-  beast: "Bestias",
-  critter: "Criaturas pequeñas",
-};
-
 interface CreatureCardProps {
   creature: Creature;
   isAdopted: boolean;
@@ -76,7 +70,7 @@ export function CreatureCard({
           {RARITY_LABELS[creature.rarity] || creature.rarity}
         </span>
         <span className="absolute top-4 left-4 bg-on-surface/70 text-white backdrop-blur-md px-3 py-1 rounded-full text-label-sm font-medium">
-          {PET_TYPE_LABELS[creature.pet_type] || creature.pet_type}
+          {creature.pet_type}
         </span>
       </div>
       <h3 className="font-display text-title-md text-primary mb-1">

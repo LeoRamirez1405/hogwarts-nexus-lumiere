@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
@@ -102,12 +103,21 @@ export default function SupportPage() {
             Tu reporte ha sido enviado correctamente. Si es un bug, intentaremos
             resolverlo lo antes posible. Si es una sugerencia, la tendremos en cuenta.
           </p>
-          <Button
-            onClick={() => setSent(false)}
-            variant="primary"
-          >
-            Enviar otro reporte
-          </Button>
+          <div className="flex gap-3 justify-center">
+            <Button
+              onClick={() => setSent(false)}
+              variant="primary"
+            >
+              Enviar otro reporte
+            </Button>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-1 text-label-md text-on-surface-variant hover:text-primary transition-colors px-4 py-2 self-center"
+            >
+              <MaterialIcon name="arrow_back" className="text-[1.1em]" />
+              Volver
+            </Link>
+          </div>
         </GlassCard>
       </div>
     );
@@ -117,6 +127,13 @@ export default function SupportPage() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-1 text-label-sm text-on-surface-variant hover:text-primary transition-colors mb-2"
+        >
+          <MaterialIcon name="arrow_back" className="text-[1.1em]" />
+          Volver
+        </Link>
         <h1 className="text-headline-lg font-display text-on-surface mb-2 flex items-center gap-3">
           <MaterialIcon name="help" className="text-primary" />
           Soporte

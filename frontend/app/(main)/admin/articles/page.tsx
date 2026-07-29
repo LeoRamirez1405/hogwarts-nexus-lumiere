@@ -8,7 +8,7 @@ import TabGroup from "@/components/ui/TabGroup";
 import { ArticlesTab, AnnouncementsTab, ClassifiedsTab } from "@/components/domain/Admin";
 
 const TABS = [
-  { id: "articles", label: "Articulos", icon: "article" },
+  { id: "articles", label: "Artículos", icon: "article" },
   { id: "announcements", label: "Anuncios", icon: "campaign" },
   { id: "classifieds", label: "Clasificados", icon: "sell" },
 ];
@@ -47,7 +47,7 @@ export default function AdminArticlesPage() {
 
   const subtitle =
     activeTab === "articles"
-      ? `${articles.length} articulos en El Quisquilloso`
+      ? `${articles.length} artículos en El Quisquilloso`
       : activeTab === "announcements"
         ? `${announcements.length} anuncios activos`
         : `${classifieds.length} clasificados activos`;
@@ -70,7 +70,7 @@ export default function AdminArticlesPage() {
         <TabGroup tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
       </div>
 
-      {/* Mobile: Articulos arriba centrado, Anuncios+Clasificados abajo */}
+      {/* Mobile: Artículos arriba centrado, Anuncios+Clasificados abajo */}
       <div className="md:hidden space-y-3">
         <div className="flex justify-center">
           {(() => {

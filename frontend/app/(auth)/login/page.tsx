@@ -23,7 +23,7 @@ export default function LoginPage() {
       setAuth(res.user, res.access_token);
       router.push("/dashboard");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error al iniciar sesion");
+      setError(err instanceof Error ? err.message : "Error al iniciar sesión");
     } finally {
       setLoading(false);
     }
@@ -40,13 +40,13 @@ export default function LoginPage() {
             Nexus Lumiere
           </h1>
           <p className="text-on-surface-variant font-body text-body-md mt-2">
-            Plataforma social magica
+            Plataforma social mágica
           </p>
         </div>
 
         <div className="glass-card rounded-xl p-8">
           <h2 className="font-display text-headline-lg text-primary mb-6 text-center">
-            Iniciar Sesion
+            Iniciar Sesión
           </h2>
 
           {error && (
@@ -72,7 +72,7 @@ export default function LoginPage() {
 
             <div>
               <label className="block font-mono text-label-sm text-on-surface-variant mb-1 uppercase tracking-wider">
-                Contrasena
+                contraseña
               </label>
               <input
                 type="password"

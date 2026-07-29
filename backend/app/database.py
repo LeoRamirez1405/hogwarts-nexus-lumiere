@@ -56,7 +56,7 @@ def _run_migrations(sync_conn):
     wanted = [
         ("messages", "pinned", "BOOLEAN NOT NULL DEFAULT 0"),
         ("chat_room_members", "last_read_at", "DATETIME"),
-        ("creatures", "pet_type", "VARCHAR(40) NOT NULL DEFAULT 'critter'"),
+        ("creatures", "pet_type", "VARCHAR(40) NOT NULL DEFAULT 'Criaturas pequeñas'"),
         ("creatures", "required_user_level", "INTEGER NOT NULL DEFAULT 1"),
         ("creatures", "required_sanctuary_level", "INTEGER NOT NULL DEFAULT 0"),
         ("user_creatures", "last_decay_at", "DATETIME"),
@@ -66,6 +66,7 @@ def _run_migrations(sync_conn):
         ("users", "house_points", "INTEGER NOT NULL DEFAULT 0"),
         ("users", "care_actions", "INTEGER NOT NULL DEFAULT 0"),
         ("users", "items_purchased", "INTEGER NOT NULL DEFAULT 0"),
+        ("users", "sanctuary_penalty", "INTEGER NOT NULL DEFAULT 0"),
         ("users", "status", "VARCHAR(80)"),
         ("users", "wand", "VARCHAR(200)"),
         ("users", "location", "VARCHAR(100)"),

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { api, Product } from "@/lib/api";
+import { api, Product, EnumValue } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
 import GlassCard from "@/components/ui/GlassCard";
@@ -10,6 +10,8 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
+import ListFooter from "@/components/ui/ListFooter";
+import { useCollapsibleList } from "@/hooks/useCollapsibleList";
 
 function MaterialIcon({
   name,
@@ -55,6 +57,8 @@ export default function AdminProductsPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [borginCategories, setBorginCategories] = useState<EnumValue[]>([]);
+  const [flourishCategories, setFlourishCategories] = useState<EnumValue[]>([]);
 
   useEffect(() => {
     if (user?.role !== "admin") {
@@ -66,6 +70,12 @@ export default function AdminProductsPage() {
       .then(setProducts)
       .catch(() => {})
       .finally(() => setLoading(false));
+    api.getEnumCategoryByCode("borgin_category").then((c) => {
+      if (c) setBorginCategories(c.values);
+    }).catch(() => {});
+    api.getEnumCategoryByCode("book_category").then((c) => {
+      if (c) setFlourishCategories(c.values);
+    }).catch(() => {});
   }, [user, router]);
 
   const filtered = products.filter((p) => {
@@ -76,6 +86,8 @@ export default function AdminProductsPage() {
     const matchesFilter = filter === "all" || p.shop === filter;
     return matchesSearch && matchesFilter;
   });
+
+  const { visibleItems: visibleProducts, ...productList } = useCollapsibleList(filtered, 12);
 
   const openNew = () => {
     setIsNew(true);
@@ -206,8 +218,9 @@ export default function AdminProductsPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((p) => (
+        <>
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${productList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+          {visibleProducts.map((p) => (
             <GlassCard key={p.id} className="overflow-hidden" hover>
               <div className="p-6">
                 <div className="flex items-start justify-between mb-3">
@@ -261,6 +274,8 @@ export default function AdminProductsPage() {
             </div>
           )}
         </div>
+        <ListFooter {...productList} onToggle={productList.toggle} />
+        </>
       )}
 
       {/* Create/Edit Modal */}
@@ -293,13 +308,18 @@ export default function AdminProductsPage() {
                 <div>
                   <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Tienda</label>
                   <div className="flex gap-2">
-                    <button onClick={() => setForm((p) => ({ ...p, shop: "borgin" as const }))} className={`flex-1 py-2.5 rounded-xl text-label-sm font-medium border transition-all ${form.shop === "borgin" ? "bg-inverse-surface text-inverse-on-surface border-inverse-surface" : "bg-surface-container-low text-on-surface-variant border-outline-variant/20"}`}>Borgin</button>
-                    <button onClick={() => setForm((p) => ({ ...p, shop: "flourish" as const }))} className={`flex-1 py-2.5 rounded-xl text-label-sm font-medium border transition-all ${form.shop === "flourish" ? "bg-primary text-on-primary border-primary" : "bg-surface-container-low text-on-surface-variant border-outline-variant/20"}`}>Flourish</button>
+                    <button onClick={() => setForm((p) => ({ ...p, shop: "borgin" as const, category: "" }))} className={`flex-1 py-2.5 rounded-xl text-label-sm font-medium border transition-all ${form.shop === "borgin" ? "bg-inverse-surface text-inverse-on-surface border-inverse-surface" : "bg-surface-container-low text-on-surface-variant border-outline-variant/20"}`}>Borgin</button>
+                    <button onClick={() => setForm((p) => ({ ...p, shop: "flourish" as const, category: "" }))} className={`flex-1 py-2.5 rounded-xl text-label-sm font-medium border transition-all ${form.shop === "flourish" ? "bg-primary text-on-primary border-primary" : "bg-surface-container-low text-on-surface-variant border-outline-variant/20"}`}>Flourish</button>
                   </div>
                 </div>
                 <div>
                   <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Categoria</label>
-                  <input type="text" value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
+                  <select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors">
+                    <option value="">Seleccionar...</option>
+                    {(form.shop === "borgin" ? borginCategories : flourishCategories).map((cat) => (
+                      <option key={cat.label} value={cat.label}>{cat.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div>

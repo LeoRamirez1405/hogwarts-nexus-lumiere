@@ -160,16 +160,16 @@ export default function AdminUsersPage() {
   const handleResetPassword = async () => {
     if (!resetUser) return;
     if (resetPass.length < 4) { alert("Minimo 4 caracteres"); return; }
-    if (resetPass !== resetConfirm) { alert("Las contrasenas no coinciden"); return; }
+    if (resetPass !== resetConfirm) { alert("Las contraseñas no coinciden"); return; }
     setResetting(true);
     try {
       await api.adminResetPassword(resetUser.id, resetPass);
-      alert("Contrasena restablecida");
+      alert("contraseña restablecida");
       setResetUser(null);
       setResetPass("");
       setResetConfirm("");
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Error al restablecer contrasena");
+      alert(e instanceof Error ? e.message : "Error al restablecer contraseña");
     }
     setResetting(false);
   };
@@ -322,7 +322,7 @@ export default function AdminUsersPage() {
                         setResetConfirm("");
                       }}
                       className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-secondary transition-colors"
-                      title="Restablecer contrasena"
+                      title="Restablecer contraseña"
                     >
                       <MaterialIcon name="lock_reset" className="text-lg" />
                     </button>
@@ -463,7 +463,7 @@ export default function AdminUsersPage() {
                             setResetConfirm("");
                           }}
                           className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-secondary transition-colors"
-                          title="Restablecer contrasena"
+                          title="Restablecer contraseña"
                         >
                           <MaterialIcon name="lock_reset" className="text-lg" />
                         </button>
@@ -598,7 +598,7 @@ export default function AdminUsersPage() {
               Crear Usuario
             </h2>
             <p className="text-on-surface-variant text-body-md">
-              Crea una cuenta para un nuevo usuario. Podra cambiar su contrasena al iniciar sesion.
+              Crea una cuenta para un nuevo usuario. Podra cambiar su contraseña al iniciar sesión.
             </p>
             <div className="space-y-4">
               <div>
@@ -628,7 +628,7 @@ export default function AdminUsersPage() {
               </div>
               <div>
                 <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
-                  Contrasena temporal
+                  contraseña temporal
                 </label>
                 <input
                   type="text"
@@ -777,15 +777,15 @@ export default function AdminUsersPage() {
         <Modal open onClose={() => setResetUser(null)}>
           <div className="p-6">
             <h3 className="font-display text-title-md text-on-surface mb-4">
-              Restablecer contrasena
+              Restablecer contraseña
             </h3>
             <p className="text-on-surface-variant text-body-md mb-6">
-              Establecer nueva contrasena para <strong>{resetUser.name}</strong>
+              Establecer nueva contraseña para <strong>{resetUser.name}</strong>
             </p>
             <div className="space-y-4">
               <div>
                 <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
-                  Nueva contrasena
+                  Nueva contraseña
                 </label>
                 <input
                   type="password"
@@ -798,13 +798,13 @@ export default function AdminUsersPage() {
               </div>
               <div>
                 <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
-                  Confirmar contrasena
+                  Confirmar contraseña
                 </label>
                 <input
                   type="password"
                   value={resetConfirm}
                   onChange={(e) => setResetConfirm(e.target.value)}
-                  placeholder="Repetir contrasena"
+                  placeholder="Repetir contraseña"
                   className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
                 />
               </div>
@@ -814,7 +814,7 @@ export default function AdminUsersPage() {
                 Cancelar
               </Button>
               <Button variant="primary" onClick={handleResetPassword} disabled={resetting || resetPass.length < 4} className="flex-1">
-                {resetting ? "Restableciendo..." : "Restablecer contrasena"}
+                {resetting ? "Restableciendo..." : "Restablecer contraseña"}
               </Button>
             </div>
           </div>

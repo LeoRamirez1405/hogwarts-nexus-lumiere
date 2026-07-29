@@ -21,7 +21,7 @@ class PetItem(Base):
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     kind = Column(String, nullable=False)  # food / toy
-    pet_type = Column(String, nullable=False)  # avian / beast / critter
+    pet_type = Column(String, nullable=False)
     price = Column(Integer, nullable=False)
     restore_amount = Column(Integer, default=10, nullable=False)  # per single use
     pack_size = Column(Integer, default=1, nullable=False)  # units granted per purchase

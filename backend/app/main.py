@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from .database import init_db
-from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum
+from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types
 from .models import friend_request  # noqa: F401
 from .retention import retention_loop
 from .pet_care import pet_care_loop
@@ -15,9 +15,10 @@ from .pet_care import pet_care_loop
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    from .seed import seed_data, seed_pet_supplies
+    from .seed import seed_data, seed_pet_supplies, seed_enum_types
     await seed_data()
     await seed_pet_supplies()
+    await seed_enum_types()
     retention_task = asyncio.create_task(retention_loop())
     pet_care_task = asyncio.create_task(pet_care_loop())
     try:
@@ -54,6 +55,7 @@ app.include_router(support.router, prefix="/support", tags=["support"])
 app.include_router(announcements.router, prefix="/announcements", tags=["announcements"])
 app.include_router(classifieds.router, prefix="/classifieds", tags=["classifieds"])
 app.include_router(forum.router, prefix="/forum", tags=["forum"])
+app.include_router(enum_types.router, prefix="/enum-types", tags=["enum-types"])
 
 # Serve locally-stored uploads (avatars, post images, etc.) as static files so
 # the frontend can load them by absolute URL. In production Cloudinary is used

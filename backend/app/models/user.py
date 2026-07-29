@@ -28,6 +28,7 @@ class User(Base):
     # Lifetime pet-care counters feeding the sanctuary/user level formulas.
     care_actions = Column(Integer, default=0, nullable=False)  # feeds + plays
     items_purchased = Column(Integer, default=0, nullable=False)  # pet item units bought
+    sanctuary_penalty = Column(Integer, default=0, nullable=False)  # accumulated penalties from neglect
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     articles = relationship("Article", back_populates="author", lazy="selectin")

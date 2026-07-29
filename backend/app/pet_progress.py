@@ -101,8 +101,44 @@ def _level_from_score(score: float, max_level: int, base: float) -> int:
     return level
 
 
-def sanctuary_score(pets_count: int, levels_sum: int, items_purchased: int, care_actions: int) -> int:
-    return pets_count * 5 + levels_sum + items_purchased + care_actions * 2
+def sanctuary_score(pets_count: int, levels_sum: int, items_purchased: int, care_actions: int, sanctuary_penalty: int = 0) -> int:
+    """Compute raw sanctuary score, then subtract accumulated penalties.
+    
+    Penalties come from neglected pets (death/escape) and reduce effective score.
+    """
+    raw = pets_count * 5 + levels_sum + items_purchased + care_actions * 2
+    return max(0, raw - sanctuary_penalty)
+
+
+def death_penalty(pet_level: int, pet_rarity: str) -> int:
+    """Penalty when a pet dies of old age.
+    
+    Higher level = more investment lost = bigger penalty.
+    Rarity multiplier: common=1, uncommon=1.5, rare=2, legendary=3, ethereal=4
+    """
+    rarity_mult = {
+        "common": 1.0,
+        "uncommon": 1.5,
+        "rare": 2.0,
+        "legendary": 3.0,
+        "ethereal": 4.0,
+    }.get(pet_rarity.lower(), 1.0)
+    return int(pet_level * 2 * rarity_mult)
+
+
+def escape_penalty(pet_level: int, pet_rarity: str) -> int:
+    """Penalty when a pet escapes due to neglect (hunger/happiness at 0).
+    
+    Higher than death penalty because escape is preventable neglect.
+    """
+    rarity_mult = {
+        "common": 1.0,
+        "uncommon": 1.5,
+        "rare": 2.0,
+        "legendary": 3.0,
+        "ethereal": 4.0,
+    }.get(pet_rarity.lower(), 1.0)
+    return int(pet_level * 3 * rarity_mult)
 
 
 def sanctuary_level(score: float) -> int:

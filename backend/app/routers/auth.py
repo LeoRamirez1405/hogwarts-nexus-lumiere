@@ -64,8 +64,8 @@ async def change_password(
     current_user: User = Depends(get_current_user),
 ):
     if not verify_password(data.current_password, current_user.password_hash):
-        raise HTTPException(400, "La contrasena actual es incorrecta")
+        raise HTTPException(400, "La contraseña actual es incorrecta")
 
     current_user.password_hash = hash_password(data.new_password)
     await db.commit()
-    return {"message": "Contrasena actualizada correctamente"}
+    return {"message": "contraseña actualizada correctamente"}

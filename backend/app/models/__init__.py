@@ -14,3 +14,5 @@ from .announcement import Announcement
 from .classified import Classified
 from .chat_room import ChatRoom, ChatRoomMember, UserConversationPreference
 from .forum import ForumThread, ForumThreadVote, ForumComment, ForumSubscription
+from .enum_type import EnumCategory, EnumValue
+from .enum_type import EnumCategory, EnumValue

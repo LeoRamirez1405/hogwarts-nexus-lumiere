@@ -10,6 +10,8 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
+import ListFooter from "@/components/ui/ListFooter";
+import { useCollapsibleList } from "@/hooks/useCollapsibleList";
 
 function MaterialIcon({
   name,
@@ -34,12 +36,6 @@ function MaterialIcon({
   );
 }
 
-const PET_TYPE_LABELS: Record<PetType, string> = {
-  avian: "Aves",
-  beast: "Bestias",
-  critter: "Criaturas pequeñas",
-};
-
 const KIND_LABELS: Record<PetItemKind, string> = {
   food: "Comida",
   toy: "Juguete",
@@ -60,7 +56,7 @@ export default function AdminPetItemsPage() {
     name: "",
     description: "",
     kind: "food" as PetItemKind,
-    pet_type: "critter" as PetType,
+    pet_type: "Criaturas pequeñas" as PetType,
     price: "",
     restore_amount: "",
     pack_size: "",
@@ -91,6 +87,8 @@ export default function AdminPetItemsPage() {
     return matchesSearch && matchesFilter;
   });
 
+  const { visibleItems: visibleItemsList, ...itemList } = useCollapsibleList(filtered, 12);
+
   const openNew = () => {
     setIsNew(true);
     setEditItem(null);
@@ -98,7 +96,7 @@ export default function AdminPetItemsPage() {
       name: "",
       description: "",
       kind: "food",
-      pet_type: "critter",
+      pet_type: "Criaturas pequeñas",
       price: "",
       restore_amount: "",
       pack_size: "",
@@ -220,8 +218,9 @@ export default function AdminPetItemsPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((it) => (
+        <>
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${itemList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+          {visibleItemsList.map((it) => (
             <GlassCard key={it.id} className="overflow-hidden" hover>
               <div className="p-6">
                 <div className="flex items-start justify-between mb-3">
@@ -229,7 +228,7 @@ export default function AdminPetItemsPage() {
                     <Badge variant="tag" color={it.kind === "food" ? "success" : "primary"}>
                       {KIND_LABELS[it.kind]}
                     </Badge>
-                    <Badge variant="tag">{PET_TYPE_LABELS[it.pet_type]}</Badge>
+                    <Badge variant="tag">{it.pet_type}</Badge>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -278,6 +277,8 @@ export default function AdminPetItemsPage() {
             </div>
           )}
         </div>
+        <ListFooter {...itemList} onToggle={itemList.toggle} />
+        </>
       )}
 
       {/* Create/Edit Modal */}
@@ -307,9 +308,9 @@ export default function AdminPetItemsPage() {
                 <div>
                   <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Tipo de mascota</label>
                   <select value={form.pet_type} onChange={(e) => setForm((p) => ({ ...p, pet_type: e.target.value as PetType }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors">
-                    <option value="avian">Aves</option>
-                    <option value="beast">Bestias</option>
-                    <option value="critter">Criaturas pequenas</option>
+                    <option value="Aves">Aves</option>
+                    <option value="Bestias">Bestias</option>
+                    <option value="Criaturas pequeñas">Criaturas pequeñas</option>
                   </select>
                 </div>
               </div>

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { api, Announcement } from "@/lib/api";
-import { GlassCard, Button, Modal, MaterialIcon } from "@/components/ui";
+import { GlassCard, Button, Modal, MaterialIcon, ListFooter } from "@/components/ui";
+import { useCollapsibleList } from "@/hooks/useCollapsibleList";
 
 interface AnnouncementsTabProps {
   announcements: Announcement[];
@@ -17,6 +18,8 @@ export function AnnouncementsTab({
   const [isNew, setIsNew] = useState(false);
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const { visibleItems: visibleAnnouncements, ...announcementList } = useCollapsibleList(announcements, 10);
 
   const openNew = () => {
     setIsNew(true);
@@ -71,8 +74,8 @@ export function AnnouncementsTab({
         </Button>
       </div>
 
-      <div className="space-y-3">
-        {announcements.map((a) => (
+      <div className={`space-y-3 ${announcementList.expanded ? "max-h-[70vh] overflow-y-auto pr-1" : ""}`}>
+        {visibleAnnouncements.map((a) => (
           <GlassCard key={a.id} className="p-5" hover>
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
@@ -114,6 +117,7 @@ export function AnnouncementsTab({
           </div>
         )}
       </div>
+      <ListFooter {...announcementList} onToggle={announcementList.toggle} />
 
       {(editItem || isNew) && (
         <Modal

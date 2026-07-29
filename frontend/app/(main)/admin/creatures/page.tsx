@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { api, Creature } from "@/lib/api";
+import { api, Creature, EnumValue } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
 import GlassCard from "@/components/ui/GlassCard";
@@ -10,6 +10,8 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
+import ListFooter from "@/components/ui/ListFooter";
+import { useCollapsibleList } from "@/hooks/useCollapsibleList";
 
 function MaterialIcon({
   name,
@@ -62,7 +64,7 @@ export default function AdminCreaturesPage() {
     name: "",
     description: "",
     rarity: "common" as Creature["rarity"],
-    pet_type: "critter" as Creature["pet_type"],
+    pet_type: "Criaturas pequeñas" as Creature["pet_type"],
     price: "",
     image_url: "",
     required_user_level: "",
@@ -72,6 +74,7 @@ export default function AdminCreaturesPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [petTypes, setPetTypes] = useState<EnumValue[]>([]);
 
   useEffect(() => {
     if (user?.role !== "admin") {
@@ -83,6 +86,9 @@ export default function AdminCreaturesPage() {
       .then(setCreatures)
       .catch(() => {})
       .finally(() => setLoading(false));
+    api.getEnumCategoryByCode("pet_type").then((cat) => {
+      if (cat) setPetTypes(cat.values);
+    }).catch(() => {});
   }, [user, router]);
 
   const filtered = creatures.filter(
@@ -92,6 +98,8 @@ export default function AdminCreaturesPage() {
       c.rarity.toLowerCase().includes(search.toLowerCase())
   );
 
+  const { visibleItems: visibleCreatures, ...creatureList } = useCollapsibleList(filtered, 12);
+
   const openNew = () => {
     setIsNew(true);
     setEditCreature(null);
@@ -99,7 +107,7 @@ export default function AdminCreaturesPage() {
       name: "",
       description: "",
       rarity: "common",
-      pet_type: "critter",
+      pet_type: "Criaturas pequeñas",
       price: "",
       image_url: "",
       required_user_level: "",
@@ -202,8 +210,9 @@ export default function AdminCreaturesPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((c) => (
+        <>
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${creatureList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+          {visibleCreatures.map((c) => (
             <GlassCard key={c.id} className="overflow-hidden" hover>
               <div className="p-6">
                 <div className="flex items-start justify-between mb-3">
@@ -254,6 +263,8 @@ export default function AdminCreaturesPage() {
             </div>
           )}
         </div>
+        <ListFooter {...creatureList} onToggle={creatureList.toggle} />
+        </>
       )}
 
       {(editCreature || isNew) && (
@@ -290,9 +301,9 @@ export default function AdminCreaturesPage() {
               <div>
                 <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Tipo de mascota</label>
                 <select value={form.pet_type} onChange={(e) => setForm((p) => ({ ...p, pet_type: e.target.value as Creature["pet_type"] }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors">
-                  <option value="avian">Aves</option>
-                  <option value="beast">Bestias</option>
-                  <option value="critter">Criaturas pequenas</option>
+                  {petTypes.map((pt) => (
+                    <option key={pt.label} value={pt.label}>{pt.label}</option>
+                  ))}
                 </select>
                 <p className="text-label-sm text-on-surface-variant mt-1">Determina que comida y juguetes acepta.</p>
               </div>

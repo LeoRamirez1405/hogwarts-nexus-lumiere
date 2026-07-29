@@ -84,6 +84,7 @@ class UserResponse(BaseModel):
     official_title: Optional[str] = None
     last_active_at: Optional[datetime] = None
     magic_level: Optional[MagicLevelInfo] = None
+    sanctuary_penalty: int = 0
     created_at: datetime
 
     class Config:

@@ -576,7 +576,7 @@ created_at: TIMESTAMP
 ### Articles (5)
 | Title | Category | Featured |
 |-------|----------|----------|
-| Snorkack de Cuernos Arrugados avistado en Suecia | Zoologia Magica | true |
+| Snorkack de Cuernos Arrugados avistado en Suecia | Zoologia Mágica | true |
 | Gringotts anuncia nueva tasa de Zerines | Economia | false |
 | Tormentas de Escarcha en el Callejon Diagon | Callejones | false |
 | El Ministerio confirma: los Acromantulas no son domesticables | Ministerio | false |

@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/ui";
-import { GlassCard, Badge, Button } from "@/components/ui";
+import { GlassCard, Badge, Button, ListFooter } from "@/components/ui";
+import { useCollapsibleList } from "@/hooks/useCollapsibleList";
 
 interface Thread {
   id: string;
@@ -35,9 +36,12 @@ export function ForumThreads({
 
   const isAuthor = (thread: Thread) => currentUserId && thread.author_id === currentUserId;
 
+  const { visibleItems: visibleThreads, ...threadList } = useCollapsibleList(threads, 8);
+
   return (
     <div className="space-y-3">
-      {threads.map((thread) => {
+      <div className={`space-y-3 ${threadList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+      {visibleThreads.map((thread) => {
         return (
           <GlassCard
             key={thread.id}
@@ -182,6 +186,9 @@ export function ForumThreads({
           </GlassCard>
         );
       })}
+      </div>
+
+      <ListFooter {...threadList} onToggle={threadList.toggle} />
 
       {threads.length === 0 && (
         <GlassCard className="p-12 text-center">

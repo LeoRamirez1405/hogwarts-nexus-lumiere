@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Notification } from "@/lib/api";
 import {
   notificationMeta,
@@ -75,6 +76,13 @@ export default function NotificationsPage() {
             <MaterialIcon name="notifications" className="text-2xl" filled />
           </div>
           <div>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-1 text-label-sm text-on-surface-variant hover:text-primary transition-colors mb-1"
+            >
+              <MaterialIcon name="arrow_back" className="text-[1.1em]" />
+              Volver
+            </Link>
             <h1 className="font-display text-headline-lg text-on-surface">
               Notificaciones
             </h1>

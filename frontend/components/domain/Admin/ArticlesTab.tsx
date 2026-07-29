@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { api, Article } from "@/lib/api";
-import { GlassCard, Button, Badge, SearchBar, Modal, MaterialIcon } from "@/components/ui";
+import { api, Article, EnumValue } from "@/lib/api";
+import { GlassCard, Button, Badge, SearchBar, Modal, MaterialIcon, ListFooter } from "@/components/ui";
+import { useCollapsibleList } from "@/hooks/useCollapsibleList";
 
 interface ArticlesTabProps {
   articles: Article[];
@@ -25,6 +26,13 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [articleCategories, setArticleCategories] = useState<EnumValue[]>([]);
+
+  useEffect(() => {
+    api.getEnumCategoryByCode("article_category").then((cat) => {
+      if (cat) setArticleCategories(cat.values);
+    }).catch(() => {});
+  }, []);
 
   const filtered = articles.filter(
     (a) =>
@@ -32,6 +40,8 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
       a.title.toLowerCase().includes(search.toLowerCase()) ||
       a.category.toLowerCase().includes(search.toLowerCase()),
   );
+
+  const { visibleItems: visibleArticles, ...articleList } = useCollapsibleList(filtered, 10);
 
   const openNew = () => {
     setIsNew(true);
@@ -99,7 +109,7 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Eliminar este articulo?")) return;
+    if (!confirm("Eliminar este artículo?")) return;
     try {
       await api.deleteArticle(id);
       setArticles((prev) => prev.filter((a) => a.id !== id));
@@ -112,18 +122,18 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
     <>
       <div className="flex flex-col sm:flex-row gap-3 justify-end">
         <SearchBar
-          placeholder="Buscar articulos..."
+          placeholder="Buscar artículos..."
           value={search}
           onChange={setSearch}
           size="sm"
         />
         <Button variant="primary" icon="add" onClick={openNew}>
-          Nuevo Articulo
+          Nuevo Artículo
         </Button>
       </div>
 
-      <div className="space-y-4">
-        {filtered.map((a) => (
+      <div className={`space-y-4 ${articleList.expanded ? "max-h-[70vh] overflow-y-auto pr-1" : ""}`}>
+        {visibleArticles.map((a) => (
           <GlassCard key={a.id} className="p-6" hover>
             <div className="flex flex-col md:flex-row md:items-center gap-4">
               <div className="flex-1 min-w-0">
@@ -167,11 +177,12 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
               className="text-5xl text-outline-variant mb-3 block mx-auto"
             />
             <p className="text-on-surface-variant text-body-md">
-              No se encontraron articulos
+              No se encontraron artículos
             </p>
           </div>
         )}
       </div>
+      <ListFooter {...articleList} onToggle={articleList.toggle} />
 
       {(editArticle || isNew) && (
         <Modal
@@ -183,7 +194,7 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
         >
           <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto no-scrollbar">
             <h2 className="font-display text-headline-lg text-on-surface">
-              {isNew ? "Nuevo Articulo" : "Editar Articulo"}
+              {isNew ? "Nuevo Artículo" : "Editar Artículo"}
             </h2>
             <div className="space-y-4">
               <div>
@@ -216,14 +227,18 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
                   <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
                     Categoria
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={form.category}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, category: e.target.value }))
                     }
                     className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
-                  />
+                  >
+                    <option value="">Seleccionar...</option>
+                    {articleCategories.map((cat) => (
+                      <option key={cat.label} value={cat.label}>{cat.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
@@ -289,7 +304,7 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
                   />
                 </button>
                 <span className="text-body-md text-on-surface">
-                  Articulo destacado
+                  Artículo destacado
                 </span>
               </div>
             </div>

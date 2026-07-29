@@ -2,25 +2,14 @@
 
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
-import { api, Product, UserProduct } from "@/lib/api";
+import { api, Product, UserProduct, EnumValue } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
-import { SearchBar, MaterialIcon, TabGroup } from "@/components/ui";
+import { SearchBar, MaterialIcon, TabGroup, ListFooter } from "@/components/ui";
 import { ArtifactCard, HeroCarousel, CartSidebar, SuccessTicket } from "@/components/domain/BorginBurkes";
+import { useCollapsibleList } from "@/hooks/useCollapsibleList";
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
-
-const BORGIN_FILTERS = [
-  "Todos",
-  "Reliquia Rara",
-  "Objeto Oscuro",
-  "Reliquia Historica",
-  "Artefacto",
-  "Curiosidad",
-  "Reliquia Oscura",
-  "Objeto Maldito",
-  "Varita",
-];
 
 export default function BorginBurkesPage() {
   const { user, setUser } = useAuthStore();
@@ -37,8 +26,11 @@ export default function BorginBurkesPage() {
   const [isJumping, setIsJumping] = useState(false);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
   const [activeTab, setActiveTab] = useState("catalog");
+  const [borginCategories, setBorginCategories] = useState<EnumValue[]>([]);
   const catalogRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+
+  const BORGIN_FILTERS = ["Todos", ...borginCategories.map((c) => c.label)];
 
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
@@ -48,6 +40,9 @@ export default function BorginBurkesPage() {
     const matchesFilter = activeFilter === "Todos" || p.category === activeFilter;
     return matchesSearch && matchesFilter;
   });
+
+  const { visibleItems: visibleProducts, ...productList } = useCollapsibleList(filteredProducts, 12);
+  const { visibleItems: visiblePurchases, ...purchaseList } = useCollapsibleList(myPurchases, 9);
 
   useEffect(() => {
     Promise.all([
@@ -63,6 +58,9 @@ export default function BorginBurkesPage() {
       setSlides(newSlides);
       setLoading(false);
     }).catch(() => setLoading(false));
+    api.getEnumCategoryByCode("borgin_category").then((cat) => {
+      if (cat) setBorginCategories(cat.values);
+    }).catch(() => {});
   }, []);
 
   const displaySlides = slides.length > 0
@@ -186,7 +184,7 @@ export default function BorginBurkesPage() {
         <TabGroup
           tabs={[
             { id: "catalog", label: "Catalogo", icon: "inventory_2" },
-            { id: "library", label: "Mis Articulos", icon: "auto_awesome" },
+            { id: "library", label: "Mis Artículos", icon: "auto_awesome" },
           ]}
           activeTab={activeTab}
           onChange={setActiveTab}
@@ -263,8 +261,9 @@ export default function BorginBurkesPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredProducts.map((product) => (
+              <>
+              <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 ${productList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+                {visibleProducts.map((product) => (
                   <ArtifactCard
                     key={product.id}
                     product={product}
@@ -272,12 +271,14 @@ export default function BorginBurkesPage() {
                   />
                 ))}
               </div>
+              <ListFooter {...productList} onToggle={productList.toggle} />
+              </>
             )}
           </div>
         </>
       )}
 
-      {/* ===== MIS ARTICULOS ===== */}
+      {/* ===== MIS ArtículoS ===== */}
       {activeTab === "library" && (
         <div className="max-w-7xl mx-auto">
           {loading ? (
@@ -313,10 +314,10 @@ export default function BorginBurkesPage() {
           ) : (
             <>
               <p className="text-surface-dim text-body-sm mb-6">
-                {myPurchases.length} {myPurchases.length === 1 ? "articulo comprado" : "articulos comprados"}
+                {myPurchases.length} {myPurchases.length === 1 ? "artículo comprado" : "artículos comprados"}
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {myPurchases.map((up) => (
+              <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 ${purchaseList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+                {visiblePurchases.map((up) => (
                   <div
                     key={up.id}
                     className="bg-[#2a2828] border border-secondary/20 rounded-3xl overflow-hidden group hover:-translate-y-1 transition-all duration-300"
@@ -373,6 +374,7 @@ export default function BorginBurkesPage() {
                   </div>
                 ))}
               </div>
+              <ListFooter {...purchaseList} onToggle={purchaseList.toggle} />
             </>
           )}
         </div>

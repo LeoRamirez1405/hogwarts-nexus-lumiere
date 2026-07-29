@@ -297,20 +297,13 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                   <MaterialIcon name="person" className="text-lg" />
                   Mi Perfil
                 </Link>
-                <Link
-                  href="/settings"
-                  onClick={() => setShowUserMenu(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-body-md text-on-surface hover:bg-surface-container-high transition-colors"
-                >
-                  <MaterialIcon name="settings" className="text-lg" />
-                  Configuracion
-                </Link>
+                
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-3 px-4 py-3 text-body-md text-error hover:bg-error/10 transition-colors"
                 >
                   <MaterialIcon name="logout" className="text-lg" />
-                  Cerrar sesion
+                  Cerrar sesión
                 </button>
               </div>
             )}

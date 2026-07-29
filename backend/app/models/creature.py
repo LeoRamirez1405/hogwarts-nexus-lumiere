@@ -13,7 +13,7 @@ class Creature(Base):
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     rarity = Column(String, nullable=False)  # common / uncommon / rare / legendary / ethereal
-    pet_type = Column(String, nullable=False, default="critter")  # avian / beast / critter
+    pet_type = Column(String, nullable=False, default="Criaturas pequeñas")
     price = Column(Integer, nullable=False)
     # Habilidad especial de la especie (p.ej. "Doble de Zerines al cuidar").
     # La define el administrador; es compartida por todas las mascotas de esta especie.

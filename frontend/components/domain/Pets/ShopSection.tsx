@@ -3,12 +3,6 @@
 import { MaterialIcon, Badge, ZerineDisplay, Button } from "@/components/ui";
 import { PetItem, UserPetItem } from "@/lib/api";
 
-const PET_TYPE_LABELS: Record<string, string> = {
-  avian: "Aves",
-  beast: "Bestias",
-  critter: "Criaturas pequeñas",
-};
-
 interface ShopSectionProps {
   title: string;
   icon: string;
@@ -44,7 +38,7 @@ export function ShopSection({
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-1.5">
                   <Badge variant="tag" color="secondary">
-                    {PET_TYPE_LABELS[item.pet_type]}
+                    {item.pet_type}
                   </Badge>
                   {item.pack_size > 1 && (
                     <Badge variant="tag" color="default">

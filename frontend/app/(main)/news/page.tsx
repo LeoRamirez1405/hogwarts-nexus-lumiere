@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, Article, Announcement, Classified, ForumThread } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
-import { GlassCard, Badge, Button, MaterialIcon, TabGroup } from "@/components/ui";
+import { GlassCard, Badge, Button, MaterialIcon, TabGroup, ListFooter } from "@/components/ui";
 import {
   FeaturedArticle,
   ArticleCard,
@@ -15,6 +15,7 @@ import {
   ForumThreads,
   NewThreadModal,
 } from "@/components/domain/News";
+import { useCollapsibleList } from "@/hooks/useCollapsibleList";
 
 function isLocalUpload(src?: string): boolean {
   return src?.startsWith("http://localhost:8000/uploads/") ?? false;
@@ -86,6 +87,8 @@ export default function NewsPage() {
   }, []);
 
   const featured = articles.find((a) => a.featured) ?? articles[0];
+
+  const { visibleItems: visibleSaved, ...savedList } = useCollapsibleList(savedArticles, 9);
 
   const sortedArticles =
     filter === "featured"
@@ -185,7 +188,7 @@ export default function NewsPage() {
           <span className="text-secondary">|</span>
           <span>Hogwarts</span>
           <span className="text-secondary">|</span>
-          <span>La fuente magica de noticias</span>
+          <span>La fuente mágica de noticias</span>
           <span className="text-secondary">|</span>
           <span className="text-secondary font-bold">PRECIO: 2 ZERINES</span>
         </div>
@@ -203,7 +206,7 @@ export default function NewsPage() {
               El Quisquilloso
             </h1>
             <p className="text-label-sm text-on-surface-variant">
-              La fuente magica de noticias
+              La fuente mágica de noticias
             </p>
           </div>
         </div>
@@ -244,7 +247,7 @@ export default function NewsPage() {
                     className="text-5xl text-outline-variant mb-3"
                   />
                   <p className="text-on-surface-variant text-body-md">
-                    No hay articulos destacados hoy
+                    No hay artículos destacados hoy
                   </p>
                 </GlassCard>
               )}
@@ -464,12 +467,12 @@ export default function NewsPage() {
         </>
       ))}
 
-      {/* ===== ARTICULOS GUARDADOS ===== */}
+      {/* ===== ArtículoS GUARDADOS ===== */}
       {activeTab === "saved" && (
         <div className="space-y-6">
           <h2 className="font-display text-headline-lg text-on-surface flex items-center gap-3">
             <MaterialIcon name="bookmark" className="text-secondary" filled />
-            Articulos Guardados
+            Artículos Guardados
           </h2>
           {loadingSaved ? (
             <div className="flex flex-col items-center justify-center py-20">
@@ -486,15 +489,16 @@ export default function NewsPage() {
                 className="text-5xl text-outline-variant mb-3"
               />
               <p className="text-on-surface-variant text-body-md mb-2">
-                No tienes articulos guardados aun.
+                No tienes artículos guardados aun.
               </p>
               <p className="text-on-surface-variant text-body-sm">
-                Usa el boton de guardar en cualquier articulo para verlo aqui.
+                Usa el boton de guardar en cualquier artículo para verlo aqui.
               </p>
             </GlassCard>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {savedArticles.map((a) => (
+            <>
+            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${savedList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+              {visibleSaved.map((a) => (
                 <GlassCard key={a.id} className="overflow-hidden" hover glow>
                   {a.image_url && (
                     <div className="relative h-40 overflow-hidden">
@@ -544,6 +548,8 @@ export default function NewsPage() {
                 </GlassCard>
               ))}
             </div>
+            <ListFooter {...savedList} onToggle={savedList.toggle} />
+            </>
           )}
         </div>
       )}

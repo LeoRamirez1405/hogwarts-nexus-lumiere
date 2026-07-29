@@ -1,7 +1,7 @@
 "use client";
 
 import { MaterialIcon, Avatar, ProgressBar } from "@/components/ui";
-import { UserCreature, UserPetItem, PetType } from "@/lib/api";
+import { UserCreature, UserPetItem } from "@/lib/api";
 
 const STAGE_LABELS: Record<string, string> = {
   cria: "Cría",
@@ -10,15 +10,9 @@ const STAGE_LABELS: Record<string, string> = {
   anciana: "Anciana",
 };
 
-const PET_TYPE_LABELS: Record<PetType, string> = {
-  avian: "Aves",
-  beast: "Bestias",
-  critter: "Criaturas pequeñas",
-};
-
 interface PetCardProps {
   uc: UserCreature;
-  petType: PetType;
+  petType: string;
   mood: { icon: string; label: string; color: string };
   isFeedOpen: boolean;
   isPlayOpen: boolean;
@@ -87,7 +81,7 @@ export function PetCard({
             Nv {uc.level} · {uc.level_name}
           </p>
           <p className="text-label-sm text-on-surface-variant">
-            {STAGE_LABELS[uc.stage] ?? uc.stage} · {uc.age_days}d · {PET_TYPE_LABELS[petType]}
+            {STAGE_LABELS[uc.stage] ?? uc.stage} · {uc.age_days}d · {petType}
           </p>
         </div>
         <span className={`flex items-center gap-1 text-label-sm font-bold ${mood.color}`} title={mood.label}>
@@ -134,7 +128,7 @@ export function PetCard({
       {(isFeedOpen || isPlayOpen) && (
         <div className="mt-4 border-t border-outline-variant/30 pt-4">
           <p className="text-label-sm text-on-surface-variant uppercase tracking-wider mb-3">
-            {isFeedOpen ? "Elige comida" : "Elige un juguete"} para {PET_TYPE_LABELS[petType].toLowerCase()}
+            {isFeedOpen ? "Elige comida" : "Elige un juguete"} para {petType.toLowerCase()}
           </p>
           {(isFeedOpen ? foods : toys).length === 0 ? (
             <div className="text-center py-4">

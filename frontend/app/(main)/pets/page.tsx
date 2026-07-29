@@ -10,18 +10,13 @@ import {
   MarketCreature,
   SanctuaryStats,
   PetType,
+  EnumValue,
 } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { TabGroup, LevelUpCelebration, Modal, Button } from "@/components/ui";
 import type { LevelUpEvent } from "@/components/ui/LevelUpCelebration";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { CreatureCard, PetCard, ShopSection, MarketCreatureCard } from "@/components/domain/Pets";
-
-const PET_TYPE_LABELS: Record<PetType, string> = {
-  avian: "Aves",
-  beast: "Bestias",
-  critter: "Criaturas pequeñas",
-};
 
 const MOOD_META: Record<string, { icon: string; label: string; color: string }> = {
   hambriento: { icon: "restaurant", label: "Hambriento", color: "text-error" },
@@ -51,6 +46,7 @@ export default function PetsPage() {
   const [sellFor, setSellFor] = useState<string | null>(null);
   const [sellPrice, setSellPrice] = useState("");
   const [celebrations, setCelebrations] = useState<LevelUpEvent[]>([]);
+  const [petTypeValues, setPetTypeValues] = useState<EnumValue[]>([]);
   // Modal de nombre al adoptar
   const [adoptModal, setAdoptModal] = useState<Creature | null>(null);
   const [adoptPetName, setAdoptPetName] = useState("");
@@ -124,6 +120,9 @@ export default function PetsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+    api.getEnumCategoryByCode("pet_type").then((cat) => {
+      if (cat) setPetTypeValues(cat.values);
+    }).catch(() => {});
   }, [applyStats]);
 
   const refreshUser = async () => {
@@ -424,7 +423,7 @@ export default function PetsPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {myCreatures.map((uc) => {
-                  const petType = uc.creature?.pet_type ?? "critter";
+                  const petType = uc.creature?.pet_type ?? "Criaturas pequeñas";
                   const mood = MOOD_META[uc.mood] ?? MOOD_META.bien;
                   const isFeedOpen = picker?.ucId === uc.id && picker.mode === "feed";
                   const isPlayOpen = picker?.ucId === uc.id && picker.mode === "play";
@@ -508,7 +507,7 @@ export default function PetsPage() {
                 Tienda de Mascotas
               </h2>
               <div className="flex flex-wrap gap-2">
-                {(["all", "avian", "beast", "critter"] as const).map((t) => (
+                {(["all" as const, ...petTypeValues.map((v) => v.label as PetType)]).map((t) => (
                   <button
                     key={t}
                     onClick={() => setShopType(t)}
@@ -518,7 +517,7 @@ export default function PetsPage() {
                         : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
                     }`}
                   >
-                    {t === "all" ? "Todos" : PET_TYPE_LABELS[t]}
+                    {t === "all" ? "Todos" : t}
                   </button>
                 ))}
               </div>
