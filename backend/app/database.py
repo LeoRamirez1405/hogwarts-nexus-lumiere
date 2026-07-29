@@ -4,58 +4,39 @@ from sqlalchemy.orm import DeclarativeBase
 from .config import settings
 
 
-def _extract_token(url: str) -> tuple[str, str]:
-    """Return (clean_url, auth_token) extracted from a libsql URL, if present."""
-    token = ""
-    if "+libsql" in url and "auth_token=" in url:
-        from urllib.parse import urlparse, urlunparse, parse_qs
-        parsed = urlparse(url)
-        qs = parse_qs(parsed.query, keep_blank_values=True)
-        token = qs.pop("auth_token", [""])[0]
-        clean_query = "&".join(f"{k}={v[0]}" for k, v in qs.items())
-        url = urlunparse(parsed._replace(query=clean_query))
-    return url, token
-
-
 def get_database_url():
-    """Construct database URL based on available configuration.
+    """Normalise DATABASE_URL to an async-capable SQLAlchemy URL.
 
-    Normalises any of:
-      - libsql://host?auth_token=...         -> sqlite+libsql://host (token via connect_args)
-      - sqlite+libsql://host?auth_token=...  -> unchanged (token via connect_args)
-      - sqlite+aiosqlite:///./nexus.db       -> unchanged
+      - postgres://... / postgresql://...  -> postgresql+asyncpg://...
+      - sqlite+aiosqlite:///./nexus.db     -> unchanged (local dev)
+
+    Render provides Postgres URLs as ``postgres://`` or ``postgresql://``;
+    both are rewritten to use the async ``asyncpg`` driver.
     """
-    url = settings.DATABASE_URL or ""
+    url = settings.DATABASE_URL or "sqlite+aiosqlite:///./nexus.db"
 
-    if settings.TURSO_DATABASE_URL and settings.TURSO_AUTH_TOKEN:
-        host = settings.TURSO_DATABASE_URL
-        if host.startswith("libsql://"):
-            host = host[len("libsql://"):]
-        if host.startswith("sqlite+libsql://"):
-            host = host[len("sqlite+libsql://"):]
-        return f"sqlite+libsql://{host}?secure=true"
+    if url.startswith("postgres://"):
+        url = "postgresql+asyncpg://" + url[len("postgres://"):]
+    elif url.startswith("postgresql://"):
+        url = "postgresql+asyncpg://" + url[len("postgresql://"):]
 
-    if url.startswith("libsql://"):
-        url = "sqlite+libsql://" + url[len("libsql://"):]
+    if url.startswith("postgresql+asyncpg://"):
+        # asyncpg does not accept libpq-style query params (e.g. sslmode);
+        # strip them so the driver doesn't choke. SSL is negotiated by asyncpg.
+        from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
+        parsed = urlparse(url)
+        drop = {"sslmode", "channel_binding", "target_session_attrs"}
+        kept = [(k, v) for k, v in parse_qsl(parsed.query) if k not in drop]
+        url = urlunparse(parsed._replace(query=urlencode(kept)))
 
-    url, _ = _extract_token(url)
     return url
 
 
 def get_connect_args():
     db_url = get_database_url()
     args = {}
-    if "sqlite" in db_url and "+libsql" not in db_url:
+    if db_url.startswith("sqlite"):
         args["check_same_thread"] = False
-
-    token = settings.TURSO_AUTH_TOKEN
-    if not token:
-        raw = settings.DATABASE_URL or ""
-        if raw.startswith("libsql://"):
-            raw = "sqlite+libsql://" + raw[len("libsql://"):]
-        _, token = _extract_token(raw)
-    if token:
-        args["auth_token"] = token
     return args
 
 
@@ -65,9 +46,9 @@ engine_kwargs = {
     "echo": False,
     "connect_args": get_connect_args(),
 }
-# QueuePool-only options (pool_size / max_overflow) are invalid for SQLite/libsql,
-# which use SingletonThreadPool. Only apply them for real pooled backends.
-if "sqlite" not in database_url:
+# pool_size / max_overflow only apply to real pooled backends (Postgres).
+# SQLite uses SingletonThreadPool, which rejects those options.
+if not database_url.startswith("sqlite"):
     engine_kwargs["pool_size"] = 10
     engine_kwargs["max_overflow"] = 0
 

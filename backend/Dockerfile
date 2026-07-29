@@ -7,9 +7,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 COPY . .
 
-RUN pip install --no-cache-dir -r requirements.txt && pip install --force-reinstall sqlalchemy-libsql==0.2.0
-
-ENV DATABASE_URL=sqlite+aiosqlite:///./nexus.db
+RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 8000
 
