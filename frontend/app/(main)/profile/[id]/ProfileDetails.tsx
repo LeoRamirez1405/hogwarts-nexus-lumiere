@@ -254,7 +254,7 @@ export default function ProfileDetails({
         <InlineEditable
           icon="location_on"
           value={profile.location || ""}
-          placeholder="Ubicacion..."
+          placeholder="Ubicación..."
           isOwn={isOwn}
           onSave={(v) => handleUpdate("location", v)}
         />
