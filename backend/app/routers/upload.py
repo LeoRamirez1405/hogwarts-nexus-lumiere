@@ -24,19 +24,26 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 
 def _try_cloudinary() -> bool:
-    return bool(os.getenv("CLOUDINARY_API_KEY"))
+    # Support both the combined CLOUDINARY_URL and the three separate vars.
+    return bool(os.getenv("CLOUDINARY_URL") or os.getenv("CLOUDINARY_API_KEY"))
 
 
 def _upload_cloudinary(content: bytes, filename: str) -> str:
     import cloudinary
     import cloudinary.uploader
 
-    cloudinary.config(
-        cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-        api_key=os.getenv("CLOUDINARY_API_KEY"),
-        api_secret=os.getenv("CLOUDINARY_API_SECRET"),
-        secure=True,
-    )
+    if os.getenv("CLOUDINARY_API_KEY"):
+        # Explicit credentials take precedence.
+        cloudinary.config(
+            cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+            api_key=os.getenv("CLOUDINARY_API_KEY"),
+            api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+            secure=True,
+        )
+    else:
+        # Fall back to the combined CLOUDINARY_URL, which the SDK reads from
+        # the environment automatically.
+        cloudinary.config(secure=True)
     result = cloudinary.uploader.upload(
         content,
         public_id=f"nexus_uploads/{filename}",
