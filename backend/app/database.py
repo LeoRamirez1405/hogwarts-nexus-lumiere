@@ -60,13 +60,18 @@ def get_connect_args():
 
 
 database_url = get_database_url()
-engine = create_async_engine(
-    database_url,
-    echo=False,
-    pool_size=10,
-    max_overflow=0,
-    connect_args=get_connect_args(),
-)
+
+engine_kwargs = {
+    "echo": False,
+    "connect_args": get_connect_args(),
+}
+# QueuePool-only options (pool_size / max_overflow) are invalid for SQLite/libsql,
+# which use SingletonThreadPool. Only apply them for real pooled backends.
+if "sqlite" not in database_url:
+    engine_kwargs["pool_size"] = 10
+    engine_kwargs["max_overflow"] = 0
+
+engine = create_async_engine(database_url, **engine_kwargs)
 
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
