@@ -273,7 +273,9 @@ export default function AdminTransactionsPage() {
           <div className="md:hidden space-y-3">
             {visibleTx.map((tx) => {
               const { icon, color } = txIcon(tx.type);
-              const isCredit = tx.type === "deposit" || (tx.type === "transfer" && tx.receiver_id);
+              const isTransfer = tx.type === "transfer";
+              const amountPrefix = tx.type === "deposit" ? "+" : (tx.type === "withdrawal" || tx.type === "purchase") ? "-" : "";
+              const amountColor = tx.type === "deposit" ? "text-success" : (tx.type === "withdrawal" || tx.type === "purchase") ? "text-error" : "text-on-surface";
               return (
                 <GlassCard key={tx.id} className="p-4">
                   <div className="flex items-start gap-3">
@@ -293,38 +295,36 @@ export default function AdminTransactionsPage() {
                                 ? "Transferencia"
                                 : "Compra"}
                         </p>
-                        <p
-                          className={`font-display text-title-md shrink-0 ${
-                            isCredit ? "text-success" : "text-error"
-                          }`}
-                        >
-                          {isCredit ? "+" : "-"}
+                        <p className={`font-display text-title-md shrink-0 ${amountColor}`}>
+                          {amountPrefix}
                           {formatAmount(tx.amount)}
                         </p>
                       </div>
                       <div className="mt-2">
-                        {tx.type === "transfer" && tx.sender && tx.receiver ? (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <Avatar
-                              initials={tx.sender.name.charAt(0).toUpperCase()}
-                              src={tx.sender.avatar_url}
-                              size="sm"
-                            />
-                            <p className="text-body-sm text-on-surface truncate">
-                              {tx.sender.name}
-                            </p>
-                            <MaterialIcon
-                              name="arrow_forward"
-                              className="text-outline-variant text-sm"
-                            />
-                            <Avatar
-                              initials={tx.receiver.name.charAt(0).toUpperCase()}
-                              src={tx.receiver.avatar_url}
-                              size="sm"
-                            />
-                            <p className="text-body-sm text-on-surface truncate">
-                              {tx.receiver.name}
-                            </p>
+                        {isTransfer && tx.sender && tx.receiver ? (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-label-sm text-on-surface-variant w-10 shrink-0">De:</span>
+                              <Avatar
+                                initials={tx.sender.name.charAt(0).toUpperCase()}
+                                src={tx.sender.avatar_url}
+                                size="sm"
+                              />
+                              <p className="text-body-sm text-on-surface truncate">
+                                {tx.sender.name}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-label-sm text-on-surface-variant w-10 shrink-0">Para:</span>
+                              <p className="text-body-sm text-on-surface truncate">
+                                {tx.receiver.name}
+                              </p>
+                              <Avatar
+                                initials={tx.receiver.name.charAt(0).toUpperCase()}
+                                src={tx.receiver.avatar_url}
+                                size="sm"
+                              />
+                            </div>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
@@ -392,7 +392,8 @@ export default function AdminTransactionsPage() {
                 <tbody>
                   {visibleTx.map((tx) => {
                     const { icon, color } = txIcon(tx.type);
-                    const isCredit = tx.type === "deposit" || (tx.type === "transfer" && tx.receiver_id);
+                    const amountPrefix = tx.type === "deposit" ? "+" : (tx.type === "withdrawal" || tx.type === "purchase") ? "-" : "";
+                    const amountColor = tx.type === "deposit" ? "text-success" : (tx.type === "withdrawal" || tx.type === "purchase") ? "text-error" : "text-on-surface";
                     return (
                       <tr
                         key={tx.id}
@@ -460,12 +461,8 @@ export default function AdminTransactionsPage() {
                           </p>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <p
-                            className={`font-display text-title-md ${
-                              isCredit ? "text-success" : "text-error"
-                            }`}
-                          >
-                            {isCredit ? "+" : "-"}
+                          <p className={`font-display text-title-md ${amountColor}`}>
+                            {amountPrefix}
                             {formatAmount(tx.amount)}
                           </p>
                         </td>

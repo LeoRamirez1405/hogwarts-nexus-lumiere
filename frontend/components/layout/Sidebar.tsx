@@ -15,25 +15,28 @@ interface NavItem {
   icon: string;
   label: string;
   href: string;
+  mobileHidden?: boolean;
 }
 
 const mainNavItems: NavItem[] = [
   { icon: "home", label: "Inicio", href: "/dashboard" },
   { icon: "person", label: "Perfil", href: "/profile" },
-  { icon: "mail", label: "Bandeja de Entrada", href: "/messages" },
-  { icon: "account_balance", label: "Camara del Tesoro", href: "/treasury" },
-  { icon: "newspaper", label: "El Quisquilloso", href: "/news" },
+  { icon: "mail", label: "Bandeja de Entrada", href: "/messages", mobileHidden: true },
+  { icon: "account_balance", label: "Cámara del Tesoro", href: "/treasury", mobileHidden: true },
+  { icon: "newspaper", label: "El Quisquilloso", href: "/news", mobileHidden: true },
   {
     icon: "auto_stories",
     label: "Flourish & Blotts",
     href: "/marketplace/flourish-blotts",
+    mobileHidden: true,
   },
   {
     icon: "auto_fix_high",
     label: "Borgin & Burkes",
     href: "/marketplace/borgin-burkes",
+    mobileHidden: true,
   },
-  { icon: "pets", label: "Santuario de Mascotas", href: "/pets" },
+  { icon: "pets", label: "Santuario de Mascotas", href: "/pets", mobileHidden: true },
 ];
 
 const adminNavItems: NavItem[] = [
@@ -112,7 +115,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     <>
       {/* Mobile / tablet drawer sidebar (below lg) */}
       <aside
-        className={`fixed left-0 top-0 z-40 h-screen w-72 max-w-[85vw] bg-surface border-r border-outline-variant/30 pt-[var(--topbar-h)] transform transition-transform duration-300 lg:hidden ${
+        className={`fixed left-0 top-0 z-40 h-screen w-72 max-w-[85vw] bg-surface border-r border-outline-variant/30 pt-[var(--topbar-h)] pb-[var(--bottomnav-h)] transform transition-transform duration-300 lg:hidden ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -179,7 +182,7 @@ function SidebarContent({
       <nav className="flex-1 overflow-y-auto py-2">
         <ul className="space-y-1">
           {mainNavItems.map((item) => (
-            <li key={item.href}>
+            <li key={item.href} className={item.mobileHidden ? "max-lg:hidden" : ""}>
               <NavLink
                 item={item}
                 isActive={pathname === item.href || pathname.startsWith(item.href + "/")}
@@ -210,7 +213,7 @@ function SidebarContent({
       </nav>
 
       {/* BOTTOM: Settings, Support, Admin button */}
-      <div className="px-4 pb-6 space-y-1">
+      <div className="px-4 pb-[var(--bottomnav-h)] space-y-1">
         <Link
           href="/support"
           onClick={onNavigate}

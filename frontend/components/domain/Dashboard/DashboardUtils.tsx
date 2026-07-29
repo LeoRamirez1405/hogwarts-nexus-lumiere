@@ -1,7 +1,7 @@
 "use client";
 
 import { Transaction } from "@/lib/api";
-import { MaterialIcon, ZerineDisplay } from "@/components/ui";
+import { MaterialIcon } from "@/components/ui";
 
 export function formatAmount(amount: number) {
   return amount.toLocaleString();
@@ -20,9 +20,10 @@ export function formatTime(dateStr: string) {
 interface TransactionListProps {
   transactions: Transaction[];
   limit?: number;
+  currentUserId?: string;
 }
 
-export function TransactionList({ transactions, limit = 5 }: TransactionListProps) {
+export function TransactionList({ transactions, limit = 5, currentUserId }: TransactionListProps) {
   if (!transactions || transactions.length === 0) {
     return (
       <p className="text-on-surface-variant text-body-md text-center py-8">
@@ -33,53 +34,53 @@ export function TransactionList({ transactions, limit = 5 }: TransactionListProp
 
   return (
     <div className="space-y-4">
-      {transactions.slice(0, limit).map((tx) => (
-        <div
-          key={tx.id}
-          className="flex items-center gap-4 py-3 border-b border-outline-variant/20 last:border-0"
-        >
+      {transactions.slice(0, limit).map((tx) => {
+        const isCredit =
+          tx.type === "deposit" ||
+          (tx.type === "transfer" && tx.receiver_id === currentUserId);
+        const prefix = isCredit ? "+" : "-";
+        const colorClass = isCredit ? "text-success" : "text-error";
+        return (
           <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              tx.type === "deposit"
-                ? "bg-success/10 text-success"
-                : tx.type === "withdrawal"
-                ? "bg-error/10 text-error"
-                : "bg-primary/10 text-primary"
-            }`}
+            key={tx.id}
+            className="flex items-center gap-4 py-3 border-b border-outline-variant/20 last:border-0"
           >
-            <MaterialIcon
-              name={
+            <div
+              className={`w-10 h-10 rounded-full flex items-center justify-center ${
                 tx.type === "deposit"
-                  ? "arrow_downward"
+                  ? "bg-success/10 text-success"
                   : tx.type === "withdrawal"
-                  ? "arrow_upward"
-                  : "swap_horiz"
-              }
-              className="text-xl"
-            />
+                  ? "bg-error/10 text-error"
+                  : "bg-primary/10 text-primary"
+              }`}
+            >
+              <MaterialIcon
+                name={
+                  tx.type === "deposit"
+                    ? "arrow_downward"
+                    : tx.type === "withdrawal"
+                    ? "arrow_upward"
+                    : "swap_horiz"
+                }
+                className="text-xl"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-body-md text-on-surface truncate">
+                {tx.description || tx.type}
+              </p>
+              <p className="text-label-sm text-on-surface-variant">
+                {formatTime(tx.created_at)}
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className={`font-display text-title-md ${colorClass}`}>
+                {prefix}{formatAmount(tx.amount)}
+              </p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-body-md text-on-surface truncate">
-              {tx.description || tx.type}
-            </p>
-            <p className="text-label-sm text-on-surface-variant">
-              {formatTime(tx.created_at)}
-            </p>
-          </div>
-          <div className="text-right">
-            <ZerineDisplay
-              amount={tx.amount}
-              variant={
-                tx.type === "withdrawal" || tx.type === "purchase"
-                  ? "delta"
-                  : "price"
-              }
-              iconStyle="icon"
-              size="md"
-            />
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

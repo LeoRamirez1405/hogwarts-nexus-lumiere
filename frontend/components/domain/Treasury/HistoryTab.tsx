@@ -41,9 +41,10 @@ function txIcon(type: Transaction["type"]) {
 
 interface HistoryTabProps {
   transactions: Transaction[];
+  currentUserId?: string;
 }
 
-export function HistoryTab({ transactions }: HistoryTabProps) {
+export function HistoryTab({ transactions, currentUserId }: HistoryTabProps) {
   if (transactions.length === 0) {
     return (
       <div className="text-center py-12">
@@ -62,7 +63,7 @@ export function HistoryTab({ transactions }: HistoryTabProps) {
     <div className="space-y-3">
       {transactions.map((tx) => {
         const { icon, color } = txIcon(tx.type);
-        const isCredit = tx.type === "deposit" || tx.receiver_id;
+        const isCredit = tx.type === "deposit" || (tx.type === "transfer" && tx.receiver_id === currentUserId);
         return (
           <div
             key={tx.id}
@@ -94,9 +95,6 @@ export function HistoryTab({ transactions }: HistoryTabProps) {
               >
                 {isCredit ? "+" : "-"}
                 {tx.amount.toLocaleString()}
-          </p>
-              <p className="text-label-sm text-on-surface-variant flex items-center justify-end gap-1">
-                <span className="text-[0.7em]">💎</span> Zerines
           </p>
       </div>
     </div>

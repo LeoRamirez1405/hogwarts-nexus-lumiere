@@ -25,17 +25,15 @@ const nextConfig: NextConfig = {
   // https (mixed content) -> "Failed to fetch".
   skipTrailingSlashRedirect: true,
   async rewrites() {
+    const target = process.env.API_PROXY_TARGET || "http://10.0.0.47:8000";
     return [
       {
         source: "/api/:path(.*)",
-        destination: "http://10.0.0.47:8000/:path",
+        destination: `${target}/:path`,
       },
-      // Servir los archivos subidos (guardados en local por el backend) a traves
-      // del mismo origen, para que funcionen desde el movil y bajo https sin
-      // contenido mixto. El backend devuelve rutas relativas "/uploads/...".
       {
         source: "/uploads/:path(.*)",
-        destination: "http://10.0.0.47:8000/uploads/:path",
+        destination: `${target}/uploads/:path`,
       },
     ];
   },

@@ -14,7 +14,7 @@ export function CrystalHero({ balance, loading }: CrystalHeroProps) {
       <div className="relative z-10 p-10 md:p-16 text-center text-on-primary">
         <div className="mb-3">
           <span className="text-label-sm uppercase tracking-[0.2em] opacity-70">
-            Camara del Tesoro
+            Cámara del Tesoro
           </span>
         </div>
         <div className="font-display text-6xl md:text-7xl flex items-center justify-center gap-4 mb-4">

@@ -10,9 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Volumen para SQLite persistente
-RUN mkdir -p /data
-ENV DB_URL=sqlite+aiosqlite:////data/nexus.db
+# Default: SQLite local. En produccion Render inyecta DATABASE_URL (Turso).
+ENV DATABASE_URL=sqlite+aiosqlite:///./nexus.db
 
 EXPOSE 8000
 

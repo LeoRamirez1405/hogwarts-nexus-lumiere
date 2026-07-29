@@ -79,7 +79,7 @@ export default function TreasuryPage() {
           )}
           {activeTab === "transfer" && <TransferTab balance={displayBalance} onDone={refresh} />}
           {activeTab === "history" && (
-            <HistoryTab transactions={transactions} />
+            <HistoryTab transactions={transactions} currentUserId={user?.id} />
           )}
        </div>
      </GlassCard>

@@ -15,7 +15,7 @@ const quickNavItems = [
 
 export function QuickNav() {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    <div className="hidden lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
       {quickNavItems.map((item) => (
         <Link key={item.label} href={item.href}>
           <GlassCard className="p-6 text-center hover:-translate-y-1 transition-transform cursor-pointer">

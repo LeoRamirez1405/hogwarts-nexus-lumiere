@@ -25,7 +25,7 @@ export function SuccessTicket({ isOpen, onClose, ticketId }: SuccessTicketProps)
           Compra Realizada
         </h3>
         <p className="text-on-surface-variant text-body-md mb-6">
-          Tu pedido ha sido procesado exitosamente en la Camara del Tesoro.
+          Tu pedido ha sido procesado exitosamente en la Cámara del Tesoro.
         </p>
         <div className="bg-surface-container rounded-xl p-4 mb-6 text-left space-y-2">
           <div className="flex justify-between text-label-sm">

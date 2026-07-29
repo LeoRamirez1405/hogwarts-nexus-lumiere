@@ -71,5 +71,6 @@ uploads/
 # Next.js cache
 .next/
 
-# Turbo
-.turbo
+# Turso / libsql artifacts
+auth
+auth-wal

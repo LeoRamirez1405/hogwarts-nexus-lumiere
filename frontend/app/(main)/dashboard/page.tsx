@@ -71,7 +71,7 @@ export default function DashboardPage() {
       {isAdmin ? (
         <AdminDashboard data={data!} />
       ) : (
-        <UserDashboard data={data!} />
+        <UserDashboard data={data!} currentUserId={user?.id} />
       )}
     </div>
   );
