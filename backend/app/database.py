@@ -4,12 +4,42 @@ from sqlalchemy.orm import DeclarativeBase
 from .config import settings
 
 
-def get_database_url():
-    """Construct database URL based on available configuration."""
-    if settings.TURSO_DATABASE_URL and settings.TURSO_AUTH_TOKEN:
-        return f"sqlite+libsql://{settings.TURSO_DATABASE_URL}?secure=true"
+def _extract_token(url: str) -> tuple[str, str]:
+    """Return (clean_url, auth_token) extracted from a libsql URL, if present."""
+    token = ""
+    if "+libsql" in url and "auth_token=" in url:
+        from urllib.parse import urlparse, urlunparse, parse_qs
+        parsed = urlparse(url)
+        qs = parse_qs(parsed.query, keep_blank_values=True)
+        token = qs.pop("auth_token", [""])[0]
+        clean_query = "&".join(f"{k}={v[0]}" for k, v in qs.items())
+        url = urlunparse(parsed._replace(query=clean_query))
+    return url, token
 
-    return settings.DATABASE_URL
+
+def get_database_url():
+    """Construct database URL based on available configuration.
+
+    Normalises any of:
+      - libsql://host?auth_token=...         -> sqlite+libsql://host (token via connect_args)
+      - sqlite+libsql://host?auth_token=...  -> unchanged (token via connect_args)
+      - sqlite+aiosqlite:///./nexus.db       -> unchanged
+    """
+    url = settings.DATABASE_URL or ""
+
+    if settings.TURSO_DATABASE_URL and settings.TURSO_AUTH_TOKEN:
+        host = settings.TURSO_DATABASE_URL
+        if host.startswith("libsql://"):
+            host = host[len("libsql://"):]
+        if host.startswith("sqlite+libsql://"):
+            host = host[len("sqlite+libsql://"):]
+        return f"sqlite+libsql://{host}?secure=true"
+
+    if url.startswith("libsql://"):
+        url = "sqlite+libsql://" + url[len("libsql://"):]
+
+    url, _ = _extract_token(url)
+    return url
 
 
 def get_connect_args():
@@ -17,8 +47,15 @@ def get_connect_args():
     args = {}
     if "sqlite" in db_url and "+libsql" not in db_url:
         args["check_same_thread"] = False
-    if settings.TURSO_AUTH_TOKEN:
-        args["auth_token"] = settings.TURSO_AUTH_TOKEN
+
+    token = settings.TURSO_AUTH_TOKEN
+    if not token:
+        raw = settings.DATABASE_URL or ""
+        if raw.startswith("libsql://"):
+            raw = "sqlite+libsql://" + raw[len("libsql://"):]
+        _, token = _extract_token(raw)
+    if token:
+        args["auth_token"] = token
     return args
 
 
