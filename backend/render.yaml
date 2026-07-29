@@ -4,7 +4,7 @@ services:
     env: docker
     dockerfilePath: ./Dockerfile
     repo: https://github.com/LeoRamirez1405/hogwarts-nexus-lumiere
-    branch: main
+    branch: master
     healthCheckPath: /
     envVars:
       - key: DATABASE_URL
