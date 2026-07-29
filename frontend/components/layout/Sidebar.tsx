@@ -21,22 +21,20 @@ interface NavItem {
 const mainNavItems: NavItem[] = [
   { icon: "home", label: "Inicio", href: "/dashboard" },
   { icon: "person", label: "Perfil", href: "/profile" },
-  { icon: "mail", label: "Bandeja de Entrada", href: "/messages", mobileHidden: true },
-  { icon: "account_balance", label: "Cámara del Tesoro", href: "/treasury", mobileHidden: true },
-  { icon: "newspaper", label: "El Quisquilloso", href: "/news", mobileHidden: true },
+  { icon: "mail", label: "Bandeja de Entrada", href: "/messages" },
+  { icon: "account_balance", label: "Cámara del Tesoro", href: "/treasury" },
+  { icon: "newspaper", label: "El Quisquilloso", href: "/news" },
   {
     icon: "auto_stories",
     label: "Flourish & Blotts",
     href: "/marketplace/flourish-blotts",
-    mobileHidden: true,
   },
   {
     icon: "auto_fix_high",
     label: "Borgin & Burkes",
     href: "/marketplace/borgin-burkes",
-    mobileHidden: true,
   },
-  { icon: "pets", label: "Santuario de Mascotas", href: "/pets", mobileHidden: true },
+  { icon: "pets", label: "Santuario de Mascotas", href: "/pets" },
 ];
 
 const adminNavItems: NavItem[] = [

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { MaterialIcon } from "@/components/ui";
 import { GlassCard, Badge, Button, SearchBar } from "@/components/ui";
 import { api, Article } from "@/lib/api";
@@ -64,12 +65,12 @@ export default function NewsAllPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCategories();
-  }, []);
+  }, [fetchCategories]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchArticles(1, false);
-  }, []);
+  }, [fetchArticles]);
 
   const handleLoadMore = () => {
     fetchArticles(page + 1, true);
@@ -164,10 +165,12 @@ export default function NewsAllPage() {
                 <GlassCard className="p-5 h-full parchment-texture" hover glow>
                   {article.image_url && (
                     <div className="relative h-40 rounded-xl overflow-hidden mb-4">
-                      <img
+                      <Image
                         src={article.image_url}
                         alt={article.title}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                         loading="lazy"
                       />
                     </div>

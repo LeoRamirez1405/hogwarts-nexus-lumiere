@@ -76,16 +76,14 @@ export function ArticlesListModal({ isOpen, onClose, initialArticles }: Articles
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setArticles(initialArticles || []);
     loadArticles(true);
-    // eslint-disable-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, initialArticles, loadArticles]);
 
   useEffect(() => {
     if (!isOpen) return;
     pageRef.current = 0;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadArticles(true);
-    // eslint-disable-line react-hooks/exhaustive-deps
-  }, [search, category]);
+  }, [search, category, isOpen, loadArticles]);
 
   const handleLoadMore = () => loadArticles(false);
 

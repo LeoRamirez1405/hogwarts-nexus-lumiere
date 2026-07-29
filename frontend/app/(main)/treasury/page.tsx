@@ -8,10 +8,10 @@ import TabGroup from "@/components/ui/TabGroup";
 import { CrystalHero, DepositTab, WithdrawTab, TransferTab, HistoryTab } from "@/components/domain/Treasury";
 
 const tabs = [
-  { id: "deposit", label: "Plantillas de Deposito", icon: "add_circle" },
+  { id: "deposit", label: "Plantillas de Depósito", icon: "add_circle" },
   { id: "withdraw", label: "Retirar", icon: "remove_circle" },
   { id: "transfer", label: "Transferencias", icon: "swap_horiz" },
-  { id: "history", label: "Recibos y Facturacion", icon: "history" },
+  { id: "history", label: "Recibos y Facturación", icon: "history" },
 ];
 
 export default function TreasuryPage() {

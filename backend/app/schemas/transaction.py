@@ -1,17 +1,17 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class TransactionCreate(BaseModel):
     amount: int
-    description: Optional[str] = None
+    description: str = Field(..., min_length=1, max_length=500)
 
 
 class TransferRequest(BaseModel):
     receiver_id: str
     amount: int
-    description: Optional[str] = None
+    description: str = Field(..., min_length=1, max_length=500)
 
 
 class UserBrief(BaseModel):

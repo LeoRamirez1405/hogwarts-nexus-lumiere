@@ -28,10 +28,18 @@ export function WithdrawTab({ balance, onDone }: WithdrawTabProps) {
       setError("Saldo insuficiente en la boveda");
       return;
     }
+    if (!description.trim()) {
+      setError("La descripcion es obligatoria");
+      return;
+    }
+    if (description.length > 500) {
+      setError("La descripcion no puede exceder 500 caracteres");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      await api.withdraw(parsed, description || undefined);
+      await api.withdraw(parsed, description.trim());
       setAmount("");
       setDescription("");
       onDone();
@@ -77,11 +85,20 @@ export function WithdrawTab({ balance, onDone }: WithdrawTabProps) {
       <div>
         <input
           type="text"
-          placeholder="Descripcion (opcional)"
+          maxLength={500}
+          placeholder="Descripcion"
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={(e) => {
+            setDescription(e.target.value);
+            setError(null);
+          }}
           className="w-full px-6 py-3 rounded-full bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:border-primary transition-colors"
         />
+        <div className="flex justify-end mt-1">
+          <span className="text-label-sm text-on-surface-variant">
+            {description.length}/500
+          </span>
+        </div>
       </div>
 
       {error && (
@@ -94,7 +111,7 @@ export function WithdrawTab({ balance, onDone }: WithdrawTabProps) {
           variant="danger"
           size="lg"
           icon="diamond"
-          disabled={submitting || !amount || insufficient}
+          disabled={submitting || !amount || insufficient || !description.trim()}
         >
           {submitting ? "Retirando..." : "Retirar Zerines"}
         </Button>

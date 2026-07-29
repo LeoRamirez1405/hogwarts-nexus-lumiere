@@ -15,7 +15,7 @@ class Transaction(Base):
     receiver_id = Column(String, ForeignKey("users.id"), nullable=True)
     amount = Column(Integer, nullable=False)
     type = Column(String, nullable=False)  # deposit / withdrawal / transfer / purchase
-    description = Column(Text, nullable=True)
+    description = Column(Text, nullable=False)
     status = Column(String, default="confirmed", nullable=False)  # pending / confirmed / completed
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

@@ -186,7 +186,7 @@ export default function AdminTransactionsPage() {
             </div>
             <div>
               <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">
-                Depositos (semana)
+                Depósitos (semana)
               </p>
               <p className="font-display text-title-md text-success">
                 +{formatAmount(totalDeposits)}
@@ -241,7 +241,7 @@ export default function AdminTransactionsPage() {
             {f === "all"
               ? "Todas"
               : f === "deposit"
-                ? "Depositos"
+                ? "Depósitos"
                 : f === "withdrawal"
                   ? "Retiros"
                   : f === "transfer"
@@ -288,7 +288,7 @@ export default function AdminTransactionsPage() {
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-body-md font-medium text-on-surface">
                           {tx.type === "deposit"
-                            ? "Deposito"
+                            ? "Depósito"
                             : tx.type === "withdrawal"
                               ? "Retiro"
                               : tx.type === "transfer"

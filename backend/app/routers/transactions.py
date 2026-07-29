@@ -61,7 +61,7 @@ async def deposit(
         receiver_id=current_user.id,
         amount=data.amount,
         type="deposit",
-        description=data.description or "Deposit",
+        description=data.description,
         status="confirmed",
     )
     db.add(transaction)
@@ -90,7 +90,7 @@ async def withdraw(
         sender_id=current_user.id,
         amount=data.amount,
         type="withdrawal",
-        description=data.description or "Withdrawal",
+        description=data.description,
         status="confirmed",
     )
     db.add(transaction)
@@ -132,7 +132,7 @@ async def transfer(
         receiver_id=data.receiver_id,
         amount=data.amount,
         type="transfer",
-        description=data.description or f"Transfer to {receiver.name}",
+        description=data.description,
         status="confirmed",
     )
     db.add(transaction)

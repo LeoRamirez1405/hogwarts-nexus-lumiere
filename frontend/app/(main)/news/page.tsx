@@ -442,28 +442,7 @@ export default function NewsPage() {
               onDeleteThread={handleDeleteThread}
               currentUserId={authUser?.id}
             />
-          </div>
-
-          {/* ===== ZERINES WIDGET (MOBILE) ===== */}
-          <div className="md:hidden">
-            <div className="glass-card magical-float rounded-2xl p-6 inner-glow-gold border border-secondary/10">
-              <div className="flex items-center gap-3">
-                <MaterialIcon
-                  name="diamond"
-                  className="text-3xl text-secondary"
-                  filled
-                />
-                <div>
-                  <p className="text-title-md font-display text-on-surface">
-                    Zerines del Dia
-                  </p>
-                  <p className="text-label-sm text-on-surface-variant">
-                    Gana 5 Zerines por cada comentario en el foro
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+          </div>  
         </>
       ))}
 
