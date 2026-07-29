@@ -4,39 +4,51 @@ from sqlalchemy.orm import DeclarativeBase
 from .config import settings
 
 
-def get_database_url():
-    """Normalise DATABASE_URL to an async-capable SQLAlchemy URL.
+def _prepare_url(raw: str) -> tuple[str, bool]:
+    """Return (async_sqlalchemy_url, ssl_required).
 
       - postgres://... / postgresql://...  -> postgresql+asyncpg://...
       - sqlite+aiosqlite:///./nexus.db     -> unchanged (local dev)
 
-    Render provides Postgres URLs as ``postgres://`` or ``postgresql://``;
-    both are rewritten to use the async ``asyncpg`` driver.
+    Hosted Postgres (Neon, Supabase, Render, …) is rewritten to the async
+    ``asyncpg`` driver. asyncpg does not understand libpq query params such
+    as ``sslmode``; those are stripped, and ``sslmode`` is translated into an
+    ``ssl=True`` connect arg (Neon/Supabase require TLS).
     """
-    url = settings.DATABASE_URL or "sqlite+aiosqlite:///./nexus.db"
+    url = raw or "sqlite+aiosqlite:///./nexus.db"
 
     if url.startswith("postgres://"):
         url = "postgresql+asyncpg://" + url[len("postgres://"):]
     elif url.startswith("postgresql://"):
         url = "postgresql+asyncpg://" + url[len("postgresql://"):]
 
+    ssl_required = False
     if url.startswith("postgresql+asyncpg://"):
-        # asyncpg does not accept libpq-style query params (e.g. sslmode);
-        # strip them so the driver doesn't choke. SSL is negotiated by asyncpg.
         from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
         parsed = urlparse(url)
-        drop = {"sslmode", "channel_binding", "target_session_attrs"}
-        kept = [(k, v) for k, v in parse_qsl(parsed.query) if k not in drop]
-        url = urlunparse(parsed._replace(query=urlencode(kept)))
+        params = dict(parse_qsl(parsed.query))
+        sslmode = params.pop("sslmode", None)
+        params.pop("channel_binding", None)
+        params.pop("target_session_attrs", None)
+        # Any sslmode other than explicit "disable" means TLS is expected.
+        ssl_required = sslmode is not None and sslmode != "disable"
+        url = urlunparse(parsed._replace(query=urlencode(params)))
 
+    return url, ssl_required
+
+
+def get_database_url():
+    url, _ = _prepare_url(settings.DATABASE_URL)
     return url
 
 
 def get_connect_args():
-    db_url = get_database_url()
+    db_url, ssl_required = _prepare_url(settings.DATABASE_URL)
     args = {}
     if db_url.startswith("sqlite"):
         args["check_same_thread"] = False
+    elif ssl_required:
+        args["ssl"] = True
     return args
 
 
