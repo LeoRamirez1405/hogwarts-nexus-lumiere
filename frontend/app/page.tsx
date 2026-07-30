@@ -22,7 +22,7 @@ export default function Home() {
           auto_stories
         </span>
         <h1 className="font-display text-headline-lg text-primary">
-          Nexus Lumiere
+          Nexus lumière  
         </h1>
         <p className="text-on-surface-variant font-body text-body-md mt-2">
           Cargando...

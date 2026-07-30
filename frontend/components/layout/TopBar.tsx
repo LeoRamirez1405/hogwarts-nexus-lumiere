@@ -131,7 +131,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
           </button>
           <Link href="/dashboard" className="flex items-center min-w-0">
             <span className="font-display text-title-md sm:text-headline-lg text-primary tracking-tight truncate">
-              Nexus Lumiere
+              Nexus lumière  
             </span>
           </Link>
         </div>

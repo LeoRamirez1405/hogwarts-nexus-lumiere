@@ -430,7 +430,7 @@ async def seed_data():
             ),
             Post(
                 author_id=admin.id,
-                body="Welcome to the Nexus Lumiere! This platform connects all members of the wizarding community. Please read the community guidelines pinned above.",
+                body="Welcome to the Nexus lumière  ! This platform connects all members of the wizarding community. Please read the community guidelines pinned above.",
                 image_url=None,
             ),
         ]
@@ -475,7 +475,7 @@ async def seed_data():
                 receiver_id=harry.id,
                 amount=5000,
                 type="transfer",
-                description="Welcome bonus to Nexus Lumiere",
+                description="Welcome bonus to Nexus lumière  ",
                 status="confirmed",
                 created_at=day_of_week(0, 9),
             ),
