@@ -181,8 +181,62 @@ def _ensure_indexes(sync_conn):
         )
 
 
+def _sync_missing_columns(sync_conn):
+    """Add any model column that is missing from an already-existing table.
+
+    ``create_all`` never alters existing tables, and ``_run_migrations`` only
+    covers a hand-maintained list, so any column added to a model after its
+    table was first created would otherwise be absent (Postgres then raises
+    ``column ... does not exist``). This reconciles every mapped table against
+    its model, adding missing columns idempotently on SQLite and Postgres.
+
+    Columns are added NULLABLE unless a literal default is available, so the
+    ALTER never fails on a table that already holds rows.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(sync_conn)
+    existing_tables = set(inspector.get_table_names())
+    is_postgres = sync_conn.dialect.name == "postgresql"
+
+    def literal_default(col):
+        d = col.default
+        if d is None or not getattr(d, "is_scalar", False):
+            return None
+        val = d.arg
+        if isinstance(val, bool):
+            return "TRUE" if val else "FALSE"
+        if isinstance(val, (int, float)):
+            return str(val)
+        if isinstance(val, str):
+            return "'" + val.replace("'", "''") + "'"
+        return None
+
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue
+        existing_cols = {c["name"] for c in inspector.get_columns(table.name)}
+        for col in table.columns:
+            if col.name in existing_cols:
+                continue
+            try:
+                coltype = col.type.compile(dialect=sync_conn.dialect)
+            except Exception:
+                continue
+            ddl = f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {coltype}'
+            default = literal_default(col)
+            if default is not None:
+                if not is_postgres and default in ("TRUE", "FALSE"):
+                    default = "1" if default == "TRUE" else "0"
+                ddl += f" DEFAULT {default}"
+                if not col.nullable:
+                    ddl += " NOT NULL"
+            sync_conn.execute(text(ddl))
+
+
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_run_migrations)
+        await conn.run_sync(_sync_missing_columns)
         await conn.run_sync(_ensure_indexes)
