@@ -1,5 +1,6 @@
 "use client";
 
+import { forwardRef, useImperativeHandle } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/ui";
 import { GlassCard, Badge, Button, ListFooter } from "@/components/ui";
@@ -7,20 +8,22 @@ import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { api, ForumThread as Thread } from "@/lib/api";
 
 interface ForumThreadsProps {
-  threads: Thread[];
   votedThread: string | null;
   onVote: (threadId: string, dir: 1 | -1) => void;
   onDeleteThread?: (threadId: string) => void;
   currentUserId?: string;
 }
 
-export function ForumThreads({
-  threads: _threadsProp,
+export interface ForumThreadsHandle {
+  refresh: () => void;
+}
+
+export const ForumThreads = forwardRef<ForumThreadsHandle, ForumThreadsProps>(function ForumThreads({
   votedThread,
   onVote,
   onDeleteThread,
   currentUserId,
-}: ForumThreadsProps) {
+}, ref) {
   const router = useRouter();
   const avatarLetters = ["A", "B", "C"];
   const {
@@ -31,20 +34,49 @@ export function ForumThreads({
     totalLoaded,
     totalCount,
     loadMore,
+    refresh,
   } = usePaginatedList({
     fetcher: (p) => api.getThreads(p),
     pageSize: 8,
     enabled: true,
   });
 
+  useImperativeHandle(ref, () => ({
+    refresh,
+  }), [refresh]);
+
   const isAuthor = (thread: Thread) => currentUserId && thread.author_id === currentUserId;
+
+  const handleVote = async (threadId: string, dir: 1 | -1) => {
+    onVote(threadId, dir);
+    try {
+      await api.voteThread(threadId, dir);
+      refresh();
+    } catch {}
+  };
+
+  const handleDelete = async (threadId: string) => {
+    try {
+      await api.deleteThread(threadId);
+      onDeleteThread?.(threadId);
+      refresh();
+    } catch {}
+  };
 
   const visibleThreads = allThreads;
 
   return (
     <div className="space-y-3">
       <div className="space-y-3">
-      {visibleThreads.map((thread) => {
+      {loading ? (
+          <div className="text-center py-12">
+            <MaterialIcon
+              name="progress_activity"
+              className="text-4xl text-outline-variant animate-spin mb-3 block mx-auto"
+            />
+            <p className="text-on-surface-variant text-body-md">Cargando debates...</p>
+          </div>
+        ) : visibleThreads.map((thread) => {
         return (
           <GlassCard
             key={thread.id}
@@ -54,11 +86,11 @@ export function ForumThreads({
           >
             <div className="flex gap-4 md:items-start">
               {/* Vote counter - left column */}
-              <div className="flex flex-col items-center gap-1 text-center min-w-[48px] shrink-0 md:min-w-[48px] self-center md:self-start">
+              <div className="flex flex-col items-center gap-1 text-center min-w-12 shrink-0 md:min-w-12 self-center md:self-start">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onVote(thread.id, 1);
+                    handleVote(thread.id, 1);
                   }}
                   className={`w-8 h-8 inline-flex items-center justify-center rounded-full transition-colors ${
 thread.my_vote === 1
@@ -75,7 +107,7 @@ thread.my_vote === 1
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onVote(thread.id, -1);
+                    handleVote(thread.id, -1);
                   }}
                   className={`w-8 h-8 inline-flex items-center justify-center rounded-full transition-colors ${
                     thread.my_vote === -1
@@ -135,7 +167,7 @@ thread.my_vote === 1
                         onClick={(e) => {
                           e.stopPropagation();
                           if (confirm("¿Eliminar este debate? Esta acción no se puede deshacer.")) {
-                            onDeleteThread(thread.id);
+                            handleDelete(thread.id);
                           }
                         }}
                         className="text-error hover:bg-error-container/10"
@@ -175,7 +207,7 @@ thread.my_vote === 1
                         onClick={(e) => {
                           e.stopPropagation();
                           if (confirm("¿Eliminar este debate? Esta acción no se puede deshacer.")) {
-                            onDeleteThread(thread.id);
+                            handleDelete(thread.id);
                           }
                         }}
                         className="text-error hover:bg-error-container/10"
@@ -200,7 +232,7 @@ thread.my_vote === 1
         onLoadMore={loadMore}
       />
 
-      {allThreads.length === 0 && (
+      {!loading && allThreads.length === 0 && (
         <GlassCard className="p-12 text-center">
           <MaterialIcon name="forum" className="text-5xl text-outline-variant mb-3" />
           <p className="text-on-surface-variant text-body-md">
@@ -213,4 +245,4 @@ thread.my_vote === 1
       )}
     </div>
   );
-}
+});

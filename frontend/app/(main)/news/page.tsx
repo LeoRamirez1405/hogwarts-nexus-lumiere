@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api, Article, Announcement, Classified, ForumThread } from "@/lib/api";
+import { api, Article } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { GlassCard, Badge, Button, MaterialIcon, TabGroup, ListFooter } from "@/components/ui";
 import {
@@ -14,6 +14,7 @@ import {
   ClassifiedsSidebar,
   ForumThreads,
   NewThreadModal,
+  type ForumThreadsHandle,
 } from "@/components/domain/News";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 
@@ -29,33 +30,10 @@ function formatDate(dateStr: string): string {
   });
 }
 
-interface Thread {
-  id: string;
-  title: string;
-  body: string;
-  category: string;
-  voteCount: number;
-  userVote: 0 | 1 | -1;
-  commentCount: number;
-  author_id: string;
-}
-
-function toThread(f: ForumThread): Thread {
-  return {
-    id: f.id,
-    title: f.title,
-    body: f.body,
-    category: f.category,
-    voteCount: f.vote_count,
-    userVote: (f.my_vote as 0 | 1 | -1) ?? 0,
-    commentCount: f.comment_count,
-    author_id: f.author?.id ?? "",
-  };
-}
-
 export default function NewsPage() {
   const router = useRouter();
   const { user: authUser } = useAuthStore();
+  const forumRef = useRef<ForumThreadsHandle>(null);
 
   const [filter, setFilter] = useState<"recent" | "featured">("recent");
   const [votedThread, setVotedThread] = useState<string | null>(null);
@@ -131,34 +109,10 @@ export default function NewsPage() {
     enabled: activeTab === "saved",
   });
 
-  // Forum threads
-  const {
-    items: allThreads,
-    hasMore: threadsHasMore,
-    loading: threadsLoading,
-    loadingMore: threadsLoadingMore,
-    totalLoaded: threadsTotal,
-    totalCount: threadsTotalCount,
-    loadMore: loadMoreThreads,
-  } = usePaginatedList({
-    fetcher: (p) => api.getThreads(p),
-    pageSize: 8,
-    enabled: true,
-  });
-
   const handleVote = useCallback(
-    async (threadId: string, dir: 1 | -1) => {
+    (threadId: string) => {
       if (!authUser) return;
       setVotedThread(threadId);
-      try {
-        const updated = await api.voteThread(threadId, dir);
-        // We can't easily update allThreads since it's from usePaginatedList
-        // The vote API returns the updated thread, but we'd need to refresh
-        // For now, just rely on the refresh to get updated data
-        // TODO: Could add a local update if needed
-      } catch {
-        // ignore
-      }
     },
     [authUser]
   );
@@ -167,9 +121,8 @@ export default function NewsPage() {
     async (data: { title: string; body: string; category: string }) => {
       if (!authUser) return;
       try {
-        const created = await api.createThread(data);
-        // Trigger a refresh of threads list
-        // For now we just note it was created
+        await api.createThread(data);
+        forumRef.current?.refresh();
       } catch {
         // ignore
       }
@@ -178,13 +131,9 @@ export default function NewsPage() {
   );
 
   const handleDeleteThread = useCallback(
-    async (threadId: string) => {
+    () => {
       if (!authUser) return;
-      try {
-        await api.deleteThread(threadId);
-      } catch {
-        // ignore
-      }
+      forumRef.current?.refresh();
     },
     [authUser]
   );
@@ -312,10 +261,10 @@ export default function NewsPage() {
             {/* Sidebar */}
             <div className="md:col-span-4 space-y-6">
               {/* Announcements */}
-              <AnnouncementsSidebar announcements={allAnnouncements} />
+              <AnnouncementsSidebar announcements={allAnnouncements} loading={announcementsLoading} />
 
               {/* Classified Ads */}
-              <ClassifiedsSidebar classifieds={allClassifieds} />
+              <ClassifiedsSidebar classifieds={allClassifieds} loading={classifiedsLoading} />
 
             </div>
           </div>
@@ -411,8 +360,8 @@ export default function NewsPage() {
 
           {/* ===== MOBILE: ANNOUNCEMENTS & CLASSIFIEDS ===== */}
           <div className="md:hidden space-y-6">
-            <AnnouncementsSidebar announcements={allAnnouncements} />
-            <ClassifiedsSidebar classifieds={allClassifieds} />
+            <AnnouncementsSidebar announcements={allAnnouncements} loading={announcementsLoading} />
+            <ClassifiedsSidebar classifieds={allClassifieds} loading={classifiedsLoading} />
           </div>
 
           {/* ===== DESKTOP: ALL ARTICLES GRID ===== */}
@@ -511,19 +460,11 @@ export default function NewsPage() {
             </div>
 
             <ForumThreads
-              threads={allThreads}
+              ref={forumRef}
               votedThread={votedThread}
               onVote={handleVote}
               onDeleteThread={handleDeleteThread}
               currentUserId={authUser?.id}
-            />
-            <ListFooter
-              hasMore={threadsHasMore}
-              loading={threadsLoadingMore}
-              pageSize={8}
-              loaded={threadsTotal}
-              total={threadsTotalCount}
-              onLoadMore={loadMoreThreads}
             />
           </div>  
         </>
