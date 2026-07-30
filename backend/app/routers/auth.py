@@ -1,6 +1,9 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from ..database import get_db
 from ..models.user import User
@@ -9,6 +12,40 @@ from ..middleware.auth import hash_password, verify_password, create_access_toke
 from ..rate_limit import limiter
 
 router = APIRouter()
+
+
+class FirstAdminCreate(BaseModel):
+    name: str
+    email: str
+    password: str
+    house: Optional[str] = None
+
+
+@router.post("/first-admin", response_model=UserResponse)
+async def first_admin(data: FirstAdminCreate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(func.count()).select_from(User).where(User.role == "admin"))
+    count = result.scalar()
+    if count and count > 0:
+        raise HTTPException(status_code=400, detail="Ya existe un admin. Usa /register normal.")
+    existing = await db.execute(select(User).where(User.email == data.email))
+    user = existing.scalar_one_or_none()
+    if user:
+        user.name = data.name
+        user.password_hash = hash_password(data.password)
+        user.house = data.house
+        user.role = "admin"
+    else:
+        user = User(
+            name=data.name,
+            email=data.email,
+            password_hash=hash_password(data.password),
+            house=data.house,
+            role="admin",
+        )
+        db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
 
 
 @router.post("/register", response_model=UserResponse)
