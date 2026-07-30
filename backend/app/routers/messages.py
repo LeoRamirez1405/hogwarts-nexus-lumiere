@@ -286,6 +286,7 @@ async def build_conversations(
                     last_message=await serialize_message(db, msg, current_user.id),
                     unread_count=0,
                     is_muted=dm_is_muted,
+                    last_active_at=other.last_active_at,
                 )
         if msg.receiver_id == current_user.id and not msg.read:
             dm_map[other_id].unread_count += 1
@@ -322,6 +323,13 @@ async def build_conversations(
             if mu is None or mu > datetime.utcnow():
                 is_muted = True
 
+        now = datetime.utcnow()
+        online_count = sum(
+            1 for m in room.members
+            if m.user and m.user.last_active_at
+            and (now - m.user.last_active_at).total_seconds() < 300
+        )
+
         room_convs.append(
             ConversationResponse(
                 type="room",
@@ -335,6 +343,7 @@ async def build_conversations(
                     else None
                 ),
                 unread_count=unread if not is_muted else 0,
+                online_count=online_count,
             )
         )
 

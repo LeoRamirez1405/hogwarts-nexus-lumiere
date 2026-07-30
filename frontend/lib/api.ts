@@ -383,6 +383,10 @@ export const api = {
   getProfileFeed: (userId: string) => request<Post[]>(`/posts/user/${userId}`),
   createPost: (data: { body: string; image_url?: string }) =>
     request<Post>("/posts/", { method: "POST", body: JSON.stringify(data) }),
+  updatePost: (id: string, data: { body: string; image_url?: string }) =>
+    request<Post>(`/posts/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deletePost: (id: string) =>
+    request<void>(`/posts/${id}`, { method: "DELETE" }),
   likePost: (id: string) =>
     request<Post>(`/posts/${id}/like`, { method: "POST" }),
   repostPost: (id: string) =>
@@ -743,6 +747,8 @@ export interface Conversation {
   last_message?: Message;
   unread_count: number;
   is_muted?: boolean;
+  last_active_at?: string;
+  online_count?: number;
 }
 
 export interface Post {
@@ -760,6 +766,8 @@ export interface Post {
   is_repost?: boolean;
   reposted_by?: User;
   reposted_at?: string;
+  edited_at?: string | null;
+  edited_by?: User | null;
   created_at: string;
 }
 

@@ -286,7 +286,7 @@ export default function PetsPage() {
               La Menajeria Susurrante
             </h1>
             <p className="text-on-surface-variant text-body-md mb-6 max-w-xl">
-              Cuida a tus companiones: con el tiempo tendran hambre y necesitaran carino. Sube su nivel, haz crecer tu santuario y comercia mascotas.
+              Cuida a tus compañeros: con el tiempo tendrán hambre y necesitarán cariño. Sube su nivel, haz crecer tu santuario y comercia mascotas.
             </p>
 
             <div className="flex flex-wrap gap-4">
@@ -308,7 +308,7 @@ export default function PetsPage() {
               <div className="bg-white/60 backdrop-blur-sm rounded-2xl px-5 py-3 flex items-center gap-3 border border-amber-500/20 min-w-[210px]">
                 <MaterialIcon name="military_tech" className="text-amber-600 text-[1.6em]" filled />
                 <div className="flex-1">
-                  <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">Nivel Magico</p>
+                  <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">Nivel Mágico</p>
                   <p className="text-title-md font-bold text-on-surface leading-tight">
                     {stats?.user_level_name ?? "—"}
                     <span className="text-label-sm text-on-surface-variant font-normal"> · Nv {stats?.user_level ?? 1}</span>

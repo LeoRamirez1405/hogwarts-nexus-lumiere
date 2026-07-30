@@ -309,7 +309,7 @@ export default function AdminCreaturesPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Nivel magico req.</label>
+                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Nivel mágico req.</label>
                   <input type="number" min={1} value={form.required_user_level} onChange={(e) => setForm((p) => ({ ...p, required_user_level: e.target.value }))} placeholder="1 = sin requisito" className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
                 </div>
                 <div>

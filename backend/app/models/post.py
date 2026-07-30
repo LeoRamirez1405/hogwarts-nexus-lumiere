@@ -15,8 +15,11 @@ class Post(Base):
     body = Column(Text, nullable=False)
     image_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    edited_at = Column(DateTime, nullable=True)
+    edited_by = Column(String, ForeignKey("users.id"), nullable=True)
 
-    author = relationship("User", back_populates="posts", lazy="selectin")
+    author = relationship("User", foreign_keys=[author_id], back_populates="posts", lazy="selectin")
+    edits_by_user = relationship("User", foreign_keys=[edited_by], lazy="selectin")
     likes = relationship("PostLike", back_populates="post", lazy="selectin")
     reposts = relationship(
         "PostRepost",

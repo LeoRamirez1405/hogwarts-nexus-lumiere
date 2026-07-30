@@ -23,12 +23,15 @@ export function MaterialIcon({
   );
 }
 
+function parseUtc(dateStr: string): Date {
+  return new Date(dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr + "Z");
+}
+
 export function formatTimestamp(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
+  const d = parseUtc(dateStr);
+  const diffMs = Date.now() - d.getTime();
   const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return "Ahora";
+  if (diffMins <= 0) return "Ahora";
   if (diffMins < 60) return `${diffMins}m`;
   const diffHrs = Math.floor(diffMins / 60);
   if (diffHrs < 24) return `${diffHrs}h`;
@@ -38,10 +41,34 @@ export function formatTimestamp(dateStr: string): string {
 }
 
 export function formatMessageTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString("es-ES", {
+  return parseUtc(dateStr).toLocaleTimeString("es-ES", {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+export function computeOnlineStatus(
+  lastActiveAt?: string
+): { text: string; status: "online" | "away" | "offline" } {
+  if (!lastActiveAt) return { text: "Desconectado", status: "offline" };
+  const diffMs = Date.now() - parseUtc(lastActiveAt).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  const hrs = Math.floor(mins / 60);
+  const days = Math.floor(hrs / 24);
+
+  if (mins <= 5) return { text: "En linea", status: "online" };
+  if (mins < 60) return { text: `Visto hace ${mins}m`, status: "away" };
+  if (hrs < 24) return { text: `Visto hace ${hrs}h`, status: "offline" };
+  if (days < 7) return { text: `Visto hace ${days}d`, status: "offline" };
+  return {
+    text: `Visto el ${parseUtc(lastActiveAt).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}`,
+    status: "offline",
+  };
+}
+
+export function isOnline(lastActiveAt?: string): boolean {
+  if (!lastActiveAt) return false;
+  return Date.now() - parseUtc(lastActiveAt).getTime() < 300000; // 5 min
 }
 
 export function getInitials(name: string): string {

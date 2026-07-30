@@ -17,8 +17,10 @@ function formatDate(dateStr: string): string {
 }
 
 function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
+  const d = new Date(dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr + "Z");
+  const diff = Date.now() - d.getTime();
   const mins = Math.floor(diff / 60000);
+  if (mins <= 0) return "ahora mismo";
   if (mins < 60) return `hace ${mins} min`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `hace ${hrs} h`;

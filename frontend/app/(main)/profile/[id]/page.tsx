@@ -130,6 +130,29 @@ export default function ProfilePage() {
     } catch {}
   }, []);
 
+  const handleEditPost = useCallback(async (postId: string, updatedPost: Post) => {
+    try {
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId ? { ...p, ...updatedPost } : p
+        )
+      );
+    } catch (err) {
+      console.error("Error editing post:", err);
+      throw err;
+    }
+  }, []);
+
+  const handleDeletePost = useCallback(async (postId: string) => {
+    try {
+      await api.deletePost(postId);
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+    } catch (err) {
+      console.error("Error deleting post:", err);
+      throw err;
+    }
+  }, []);
+
   const handleCreatePost = async () => {
     if (!postText.trim() || posting) return;
     setPosting(true);
@@ -276,7 +299,7 @@ export default function ProfilePage() {
                   <textarea
                     value={postText}
                     onChange={(e) => setPostText(e.target.value)}
-                    placeholder="Que esta pasando en tu mundo magico?"
+                    placeholder="Qué está pasando en tu mundo mágico?"
                     className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none resize-none border border-outline-variant/20 focus:border-primary/40 transition-colors min-h-20"
                   />
                   <input
@@ -336,7 +359,7 @@ export default function ProfilePage() {
           {posts.length === 0 ? (
             <GlassCard className="p-12 text-center">
               <MaterialIcon name="article" className="text-5xl text-outline-variant mb-3" />
-              <p className="text-on-surface-variant text-body-md">Aun no hay publicaciones</p>
+              <p className="text-on-surface-variant text-body-md">Aún no hay publicaciones</p>
             </GlassCard>
           ) : (
             <>
@@ -348,6 +371,8 @@ export default function ProfilePage() {
                     onLike={handleLike}
                     onRepost={handleRepost}
                     onShare={setShareTarget}
+                    onEdit={handleEditPost}
+                    onDelete={handleDeletePost}
                     currentUser={authUser ?? undefined}
                   />
                 ))}

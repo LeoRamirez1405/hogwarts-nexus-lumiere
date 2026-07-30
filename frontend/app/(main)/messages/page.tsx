@@ -290,6 +290,8 @@ export default function MessagesPage() {
       name: selectedConversation.name,
       avatar_url: selectedConversation.avatar_url,
       type: selectedConversation.type as "direct" | "room",
+      last_active_at: selectedConversation.last_active_at,
+      online_count: selectedConversation.online_count,
     };
   } else if (selectedId && selectedType === "direct") {
     const u = allUsers.find((x) => x.id === selectedId);
@@ -298,6 +300,7 @@ export default function MessagesPage() {
       name: u?.name ?? "",
       avatar_url: u?.avatar_url,
       type: "direct",
+      last_active_at: u?.last_active_at,
     };
   } else if (selectedId && selectedType) {
     selectedConv = { id: selectedId, name: "", type: selectedType };
@@ -391,7 +394,7 @@ export default function MessagesPage() {
                   className="text-5xl text-outline-variant mb-3"
                 />
                 <p className="text-on-surface-variant text-body-md text-center">
-                  {search ? "Sin resultados" : "Aun no tienes conversaciones"}
+                  {search ? "Sin resultados" : "Aún no tienes conversaciones"}
             </p>
           </div>
             ) : (

@@ -90,7 +90,7 @@ export function CreatureCard({
           {reqUser > 1 && (
             <span className={`text-label-sm px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${stats && stats.user_level >= reqUser ? "bg-success/10 text-success" : "bg-error/10 text-error"}`}>
               <MaterialIcon name="military_tech" className="text-[1em]" filled />
-              Magico Nv {reqUser}
+              Mágico Nv {reqUser}
             </span>
           )}
           {reqSanct > 0 && (

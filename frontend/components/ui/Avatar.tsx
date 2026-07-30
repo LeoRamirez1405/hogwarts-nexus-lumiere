@@ -46,22 +46,24 @@ export default function Avatar({
 }: AvatarProps) {
   return (
     <div
-      className={`relative inline-flex items-center justify-center rounded-full overflow-hidden bg-surface-container-high ${sizeClasses[size]} ${borderWidthClasses[borderColor]} ${className}`}
+      className={`relative inline-flex items-center justify-center rounded-full bg-surface-container-high ${sizeClasses[size]} ${borderWidthClasses[borderColor]} ${className}`}
       {...props}
     >
-      {src ? (
-        <Image
-          src={mediaSrc(src)}
-          alt={alt ?? ""}
-          fill
-          className="object-cover"
-          unoptimized={isProxiedUpload(src)}
-        />
-      ) : (
-        <span className="text-on-surface-variant font-medium text-[0.85em] select-none">
-          {initials ?? "?"}
-        </span>
-      )}
+      <div className="absolute inset-0 rounded-full overflow-hidden flex items-center justify-center">
+        {src ? (
+          <Image
+            src={mediaSrc(src)}
+            alt={alt ?? ""}
+            fill
+            className="object-cover"
+            unoptimized={isProxiedUpload(src)}
+          />
+        ) : (
+          <span className="text-on-surface-variant font-medium text-[0.85em] select-none">
+            {initials ?? "?"}
+          </span>
+        )}
+      </div>
       {status && (
         <span
           className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-surface ${statusColors[status]}`}

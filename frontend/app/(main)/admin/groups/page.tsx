@@ -339,7 +339,7 @@ export default function AdminGroupsPage() {
             <div className="p-12 text-center">
               <MaterialIcon name="groups" className="text-5xl text-outline-variant mb-3 block mx-auto" />
               <p className="text-on-surface-variant text-body-md">
-                {search ? "Sin resultados" : "No hay grupos creados aun"}
+                {search ? "Sin resultados" : "No hay grupos creados aún"}
               </p>
             </div>
           ) : (
@@ -446,7 +446,7 @@ export default function AdminGroupsPage() {
                   <td colSpan={6} className="px-6 py-12 text-center">
                     <MaterialIcon name="groups" className="text-5xl text-outline-variant mb-3 block mx-auto" />
                     <p className="text-on-surface-variant text-body-md">
-                      {search ? "Sin resultados" : "No hay grupos creados aun"}
+                      {search ? "Sin resultados" : "No hay grupos creados aún"}
                     </p>
                   </td>
                 </tr>

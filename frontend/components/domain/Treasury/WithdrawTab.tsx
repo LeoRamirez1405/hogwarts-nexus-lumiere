@@ -25,7 +25,7 @@ export function WithdrawTab({ balance, onDone }: WithdrawTabProps) {
       return;
     }
     if (insufficient) {
-      setError("Saldo insuficiente en la boveda");
+      setError("Saldo insuficiente en la bóveda");
       return;
     }
     if (!description.trim()) {

@@ -408,7 +408,7 @@ export default function NewsPage() {
                     className="text-5xl text-outline-variant mb-3"
                   />
                   <p className="text-on-surface-variant text-body-md">
-                    Aun no hay ediciones disponibles
+                    Aún no hay ediciones disponibles
                   </p>
                 </GlassCard>
               )}
@@ -468,7 +468,7 @@ export default function NewsPage() {
                 className="text-5xl text-outline-variant mb-3"
               />
               <p className="text-on-surface-variant text-body-md mb-2">
-                No tienes artículos guardados aun.
+                No tienes artículos guardados aún.
               </p>
               <p className="text-on-surface-variant text-body-sm">
                 Usa el boton de guardar en cualquier artículo para verlo aqui.

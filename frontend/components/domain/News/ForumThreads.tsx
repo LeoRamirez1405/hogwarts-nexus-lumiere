@@ -194,7 +194,7 @@ export function ForumThreads({
         <GlassCard className="p-12 text-center">
           <MaterialIcon name="forum" className="text-5xl text-outline-variant mb-3" />
           <p className="text-on-surface-variant text-body-md">
-            Aun no hay debates abiertos
+            Aún no hay debates abiertos
           </p>
           <p className="text-on-surface-variant/60 text-label-sm mt-1">
             Se el primero en iniciar una discusion

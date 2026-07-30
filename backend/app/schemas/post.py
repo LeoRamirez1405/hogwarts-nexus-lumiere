@@ -26,6 +26,11 @@ class CommentResponse(BaseModel):
         from_attributes = True
 
 
+class PostUpdate(BaseModel):
+    body: str
+    image_url: Optional[str] = None
+
+
 class PostResponse(BaseModel):
     id: str
     author_id: str
@@ -33,6 +38,8 @@ class PostResponse(BaseModel):
     body: str
     image_url: Optional[str] = None
     created_at: datetime
+    edited_at: Optional[datetime] = None
+    edited_by: Optional[UserResponse] = None
     likes_count: int = 0
     liked_by_me: bool = False
     reposts_count: int = 0

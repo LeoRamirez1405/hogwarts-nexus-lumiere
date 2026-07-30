@@ -587,7 +587,7 @@ _PET_SUPPLIES = [
     ("Bolitas Brillantes", "Bolitas relucientes que los nifflers adoran perseguir.", "toy", "Criaturas pequeñas", 40, 15, 5),
     ("Rueda Giratoria", "Una rueda para que corran sin parar.", "toy", "Criaturas pequeñas", 90, 30, 1),
     ("Cubo Excavador", "Un cubo lleno de rincones para escarbar tesoros.", "toy", "Criaturas pequeñas", 175, 55, 1),
-    ("Piezas de Lego Magico", "Piezas encantadas para construir y jugar; se venden por lote.", "toy", "Criaturas pequeñas", 100, 20, 5),
+    ("Piezas de Lego Mágico", "Piezas encantadas para construir y jugar; se venden por lote.", "toy", "Criaturas pequeñas", 100, 20, 5),
 ]
 
 

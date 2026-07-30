@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAuthStore } from "@/lib/authStore";
 import { api, Message, MessageSendData, ChatRoomMemberResponse, UserSearchResult } from "@/lib/api";
 import { Avatar } from "@/components/ui";
-import { MaterialIcon, getInitials, STICKER_PACKS } from "./helpers";
+import { MaterialIcon, getInitials, STICKER_PACKS, computeOnlineStatus, isOnline } from "./helpers";
 import { MessageBubble } from "./MessageRenderers";
 import PollCreator from "./PollCreator";
 
@@ -58,6 +58,8 @@ export interface SelectedConv {
   avatar_url?: string;
   type?: "direct" | "room";
   created_by?: string;
+  last_active_at?: string;
+  online_count?: number;
 }
 
 function useVoiceRecorder() {
@@ -697,13 +699,20 @@ export default function ChatPanel({
           alt={selectedConv?.name}
           size="sm"
           initials={getInitials(selectedConv?.name || "")}
+          status={
+            selectedConv?.type === "room"
+              ? undefined
+              : computeOnlineStatus(selectedConv?.last_active_at).status
+          }
         />
         <div className="flex-1">
           <p className="text-body-md font-semibold text-on-surface">
             {selectedConv?.name}
           </p>
           <p className="text-label-sm text-on-surface-variant">
-            {selectedConv?.type === "room" ? "Grupo" : "En linea"}
+            {selectedConv?.type === "room"
+              ? `${selectedConv?.online_count ?? 0} en linea`
+              : computeOnlineStatus(selectedConv?.last_active_at).text}
           </p>
         </div>
         <div className="relative" ref={menuRef}>
@@ -855,7 +864,7 @@ export default function ChatPanel({
         <div className="border-b border-outline-variant/20 bg-surface-container-low max-h-64 overflow-y-auto">
           <div className="flex items-center justify-between px-4 py-2 border-b border-outline-variant/10">
             <p className="text-label-sm font-semibold text-on-surface">
-              Miembros ({roomMembers.length})
+              Miembros ({roomMembers.length}) &middot; {roomMembers.filter((m) => isOnline(m.user?.last_active_at)).length} en linea
             </p>
             <button
               onClick={() => setShowMembers(false)}
@@ -865,7 +874,9 @@ export default function ChatPanel({
             </button>
           </div>
           <div className="divide-y divide-outline-variant/10">
-            {roomMembers.map((m) => (
+            {roomMembers.map((m) => {
+              const status = computeOnlineStatus(m.user?.last_active_at);
+              return (
               <Link
                 key={m.id}
                 href={`/profile/${m.user_id}`}
@@ -876,13 +887,14 @@ export default function ChatPanel({
                   alt={m.user?.name}
                   size="sm"
                   initials={getInitials(m.user?.name || "?")}
+                  status={status.status}
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-body-md text-on-surface truncate">
                     {m.user?.name || "Usuario"}
                   </p>
                   <p className="text-label-sm text-on-surface-variant">
-                    {m.user?.house || ""}
+                    {status.text}
                   </p>
                 </div>
                 {m.role === "admin" && (
@@ -891,7 +903,8 @@ export default function ChatPanel({
                   </span>
                 )}
               </Link>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -957,7 +970,7 @@ export default function ChatPanel({
             <div className="flex flex-col items-center justify-center h-full text-center">
               <MaterialIcon name="forum" className="text-5xl text-outline-variant mb-3" />
               <p className="text-on-surface-variant text-body-md">
-                No hay mensajes aun
+                No hay mensajes aún
               </p>
               <p className="text-on-surface-variant/60 text-label-sm mt-1">
                 Envia el primer mensaje

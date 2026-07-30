@@ -2,7 +2,7 @@
 
 import { Conversation } from "@/lib/api";
 import { Avatar, Badge } from "@/components/ui";
-import { MaterialIcon, formatTimestamp, getInitials } from "./helpers";
+import { MaterialIcon, formatTimestamp, getInitials, computeOnlineStatus } from "./helpers";
 
 export default function ConversationItem({
   conversation,
@@ -28,6 +28,7 @@ export default function ConversationItem({
         alt={conversation.name}
         size="sm"
         initials={getInitials(conversation.name)}
+        status={isRoom ? undefined : computeOnlineStatus(conversation.last_active_at).status}
       />
 <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">

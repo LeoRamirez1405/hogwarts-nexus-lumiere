@@ -65,7 +65,7 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
       return;
     }
     if (insufficient) {
-      setError("Saldo insuficiente en la boveda");
+      setError("Saldo insuficiente en la bóveda");
       return;
     }
     if (!description.trim()) {

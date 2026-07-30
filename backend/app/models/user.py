@@ -32,7 +32,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     articles = relationship("Article", back_populates="author", lazy="selectin")
-    posts = relationship("Post", back_populates="author", lazy="selectin")
+    posts = relationship("Post", foreign_keys="Post.author_id", back_populates="author", lazy="selectin")
     sent_messages = relationship("Message", foreign_keys="Message.sender_id", back_populates="sender", lazy="selectin")
     received_messages = relationship("Message", foreign_keys="Message.receiver_id", back_populates="receiver", lazy="selectin")
     creatures = relationship("UserCreature", back_populates="user", lazy="selectin")

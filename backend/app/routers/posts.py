@@ -1,4 +1,5 @@
 from typing import List
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -6,7 +7,7 @@ from sqlalchemy import select, func
 from ..database import get_db
 from ..models.post import Post, PostLike, PostRepost, PostComment
 from ..models.user import User
-from ..schemas.post import PostCreate, PostResponse, CommentCreate, CommentResponse
+from ..schemas.post import PostCreate, PostUpdate, PostResponse, CommentCreate, CommentResponse
 from ..schemas.user import UserResponse
 from ..middleware.auth import get_current_user
 from ..notifications_service import notify, notify_like, notify_friends_of_post, resolve_mentions, N
@@ -54,12 +55,22 @@ async def _build_post_response(
         )
     ).scalar() or 0
 
+    # Editor user (if the post was edited)
+    edited_by_user = None
+    if post.edited_by:
+        editor = (
+            await db.execute(select(User).where(User.id == post.edited_by))
+        ).scalar_one_or_none()
+        if editor:
+            edited_by_user = UserResponse.model_validate(editor)
+
     response = PostResponse.model_validate(post)
     response.likes_count = likes_count
     response.liked_by_me = liked_by_me
     response.reposts_count = reposts_count
     response.reposted_by_me = reposted_by_me
     response.comments_count = comments_count
+    response.edited_by = edited_by_user
     return response
 
 
@@ -321,3 +332,54 @@ async def create_comment(
     resp = CommentResponse.model_validate(comment)
     resp.author = UserResponse.model_validate(current_user)
     return resp
+
+
+@router.put("/{post_id}", response_model=PostResponse)
+async def update_post(
+    post_id: str,
+    post_data: PostUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Edit a post. Only the original author can edit it. Sets edited_at and edited_by."""
+    result = await db.execute(select(Post).where(Post.id == post_id))
+    post = result.scalar_one_or_none()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    if post.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Cannot edit another user's post")
+
+    body = post_data.body.strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="Post body cannot be empty")
+
+    post.body = body
+    post.image_url = post_data.image_url
+    post.edited_at = datetime.utcnow()
+    post.edited_by = current_user.id
+
+    await db.commit()
+    await db.refresh(post)
+
+    return await _build_post_response(db, post, current_user)
+
+
+@router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_post(
+    post_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a post. Only the original author can delete it."""
+    result = await db.execute(select(Post).where(Post.id == post_id))
+    post = result.scalar_one_or_none()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    if post.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Cannot delete another user's post")
+
+    await db.delete(post)
+    await db.commit()
+    return None

@@ -52,7 +52,7 @@ async def _check_requirements(db: AsyncSession, user: User, creature: Creature) 
         if user_lvl < req_user:
             raise HTTPException(
                 status_code=403,
-                detail=f"Necesitas Nivel Magico {req_user} (tienes {user_lvl})",
+                detail=f"Necesitas Nivel Mágico {req_user} (tienes {user_lvl})",
             )
     if req_sanct > 0:
         sanct_lvl = await _sanctuary_level_for(db, user)

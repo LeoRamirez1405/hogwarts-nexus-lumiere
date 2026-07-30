@@ -178,6 +178,8 @@ class ConversationResponse(BaseModel):
     unread_count: int = 0
     hidden: bool = False
     is_muted: bool = False
+    last_active_at: Optional[datetime] = None
+    online_count: int = 0
 
 
 class MuteRequest(BaseModel):
