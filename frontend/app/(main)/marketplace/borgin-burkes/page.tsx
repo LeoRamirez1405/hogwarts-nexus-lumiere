@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
-import { api, Product, UserProduct, EnumValue } from "@/lib/api";
+import { api, Product, EnumValue } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
 import { SearchBar, MaterialIcon, TabGroup, ListFooter } from "@/components/ui";
