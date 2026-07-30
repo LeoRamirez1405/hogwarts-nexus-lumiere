@@ -23,13 +23,11 @@ class FirstAdminCreate(BaseModel):
 
 @router.post("/first-admin", response_model=UserResponse)
 async def first_admin(data: FirstAdminCreate, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(func.count()).select_from(User).where(User.role == "admin"))
-    count = result.scalar()
-    if count and count > 0:
-        raise HTTPException(status_code=400, detail="Ya existe un admin. Usa /register normal.")
     existing = await db.execute(select(User).where(User.email == data.email))
     user = existing.scalar_one_or_none()
     if user:
+        if user.role == "admin":
+            raise HTTPException(status_code=400, detail="Este usuario ya es admin.")
         user.name = data.name
         user.password_hash = hash_password(data.password)
         user.house = data.house
