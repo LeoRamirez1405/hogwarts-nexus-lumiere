@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { MaterialIcon } from "@/components/ui";
+import { MaterialIcon, ZerineDisplay } from "@/components/ui";
 import { getFallbackForProduct, type Theme } from "@/lib/fallbacks";
 import { useTheme } from "@/lib/useTheme";
 
@@ -54,9 +54,7 @@ function renderProductSlide(product: import("@/lib/api").Product, keyPrefix: str
             {product.description}
           </p>
           <div className="flex flex-wrap items-center gap-4 mt-auto">
-            <span className="text-on-surface-variant text-label-sm uppercase tracking-wider font-semibold">
-              {product.price} 💎
-            </span>
+            <ZerineDisplay amount={product.price} iconStyle="icon" variant="price" size="lg" />
             <button
               onClick={() => console.log("add to cart", product.id)}
               className="border border-primary text-primary rounded-full px-6 py-3 text-label-sm font-bold hover:bg-primary hover:text-on-primary transition-all active:scale-95"

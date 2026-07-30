@@ -5,6 +5,20 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== "undefined" ? `${window.location.origin}/api` : "http://localhost:8000");
 
+export interface PaginationParams {
+  skip?: number;
+  limit?: number;
+  [key: string]: string | number | undefined | null;
+}
+
+export interface Page<T> {
+  items: T[];
+  total: number;
+  skip: number;
+  limit: number;
+  has_more: boolean;
+}
+
 function buildQuery(params: Record<string, string | number | undefined | null>): string {
   const parts: string[] = [];
   for (const [key, value] of Object.entries(params)) {
@@ -100,7 +114,8 @@ export const api = {
   getMe: () => request<User>("/auth/me"),
 
   // Users
-  getUsers: () => request<User[]>("/users/"),
+  getUsers: (pagination?: PaginationParams) =>
+    request<Page<User>>("/users/" + buildQuery(pagination ?? {})),
   getUser: (id: string) => request<User>(`/users/${id}`),
   updateUser: (id: string, data: Partial<User>) =>
     request<User>(`/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
@@ -134,8 +149,8 @@ export const api = {
     }),
 
   // Products
-  getProducts: (shop?: string) =>
-    request<Product[]>(`/products/${shop ? `?shop=${shop}` : ""}`),
+  getProducts: (shop?: string, pagination?: PaginationParams, category?: string) =>
+    request<Page<Product>>(`/products/${buildQuery({ shop, category, ...(pagination ?? {}) })}`),
   getProduct: (id: string) => request<Product>(`/products/${id}`),
   getPopularProducts: (shop: string, limit?: number) =>
     request<Product[]>(`/products/popular/${shop}${limit ? `?limit=${limit}` : ""}`),
@@ -144,7 +159,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ quantity: quantity || 1 }),
     }),
-  getMyPurchases: () => request<UserProduct[]>("/products/my-purchases"),
+  getMyPurchases: (pagination?: PaginationParams) =>
+    request<Page<UserProduct>>("/products/my-purchases" + buildQuery(pagination ?? {})),
   createProduct: (data: Partial<Product>) =>
     request<Product>("/products/", { method: "POST", body: JSON.stringify(data) }),
   updateProduct: (id: string, data: Partial<Product>) =>
@@ -155,7 +171,7 @@ export const api = {
   // Articles
   getArticles: (params?: Record<string, string>) => {
     const searchParams = new URLSearchParams(params);
-    return request<Article[]>(`/articles/?${searchParams.toString()}`);
+    return request<Page<Article>>(`/articles/?${searchParams.toString()}`);
   },
   getArticleCategories: () => request<string[]>("/articles/categories"),
   getArticle: (id: string) => request<Article>(`/articles/${id}`),
@@ -172,7 +188,8 @@ export const api = {
   getMySubscriptions: () => request<Article[]>("/articles/my/subscriptions"),
 
   // Announcements
-  getAnnouncements: () => request<Announcement[]>("/announcements/"),
+  getAnnouncements: (pagination?: PaginationParams) =>
+    request<Page<Announcement>>("/announcements/" + buildQuery(pagination ?? {})),
   createAnnouncement: (data: Partial<Announcement>) =>
     request<Announcement>("/announcements/", {
       method: "POST",
@@ -187,7 +204,8 @@ export const api = {
     request<void>(`/announcements/${id}`, { method: "DELETE" }),
 
   // Classifieds
-  getClassifieds: () => request<Classified[]>("/classifieds/"),
+  getClassifieds: (pagination?: PaginationParams) =>
+    request<Page<Classified>>("/classifieds/" + buildQuery(pagination ?? {})),
   createClassified: (data: Partial<Classified>) =>
     request<Classified>("/classifieds/", {
       method: "POST",
@@ -225,7 +243,8 @@ export const api = {
     }),
 
   // Forum
-  getThreads: () => request<ForumThread[]>("/forum/"),
+  getThreads: (pagination?: PaginationParams) =>
+    request<Page<ForumThread>>("/forum/" + buildQuery(pagination ?? {})),
   getThread: (id: string) => request<ForumThread>(`/forum/${id}`),
   createThread: (data: { title: string; body: string; category: string }) =>
     request<ForumThread>("/forum/", { method: "POST", body: JSON.stringify(data) }),
@@ -249,7 +268,8 @@ export const api = {
     request<void>(`/forum/${id}`, { method: "DELETE" }),
 
   // Creatures
-  getCreatures: () => request<Creature[]>("/creatures/"),
+  getCreatures: (pagination?: PaginationParams) =>
+    request<Page<Creature>>("/creatures/" + buildQuery(pagination ?? {})),
   getCreature: (id: string) => request<Creature>(`/creatures/${id}`),
   createCreature: (data: Partial<Creature>) =>
     request<Creature>("/creatures/", { method: "POST", body: JSON.stringify(data) }),
@@ -286,8 +306,8 @@ export const api = {
     request<UserCreature>(`/creatures/market/${userCreatureId}/buy`, { method: "POST" }),
 
   // Pet items (food / toys)
-  getPetItems: (params?: { kind?: string; pet_type?: string }) =>
-    request<PetItem[]>(`/pet-items/${buildQuery(params ?? {})}`),
+  getPetItems: (params?: { kind?: string; pet_type?: string }, pagination?: PaginationParams) =>
+    request<Page<PetItem>>(`/pet-items/${buildQuery({ ...(params ?? {}), ...(pagination ?? {}) })}`),
   getPetInventory: () => request<UserPetItem[]>("/pet-items/inventory"),
   buyPetItem: (id: string, quantity = 1) =>
     request<UserPetItem>(`/pet-items/${id}/buy${buildQuery({ quantity })}`, {
@@ -306,7 +326,8 @@ export const api = {
     request<MessagePage>(`/messages/${userId}${buildQuery({ limit, before })}`),
   sendMessage: (data: MessageSendData) =>
     request<Message>("/messages/", { method: "POST", body: JSON.stringify(data) }),
-  getRooms: (all?: boolean) => request<ChatRoomBrief[]>(`/messages/rooms${all ? "?all=true" : ""}`),
+  getRooms: (all?: boolean, pagination?: PaginationParams) =>
+    request<Page<ChatRoomBrief>>(`/messages/rooms${buildQuery({ all: all ? "true" : undefined, ...(pagination ?? {}) })}`),
   getRoom: (roomId: string) => request<ChatRoomResponse>(`/messages/rooms/${roomId}`),
   getRoomMessages: (roomId: string, limit?: number, before?: string) =>
     request<MessagePage>(
@@ -379,8 +400,10 @@ export const api = {
   },
 
   // Posts
-  getPosts: () => request<Post[]>("/posts/"),
-  getProfileFeed: (userId: string) => request<Post[]>(`/posts/user/${userId}`),
+  getPosts: (pagination?: PaginationParams) =>
+    request<Page<Post>>("/posts/" + buildQuery(pagination ?? {})),
+  getProfileFeed: (userId: string, pagination?: PaginationParams) =>
+    request<Page<Post>>(`/posts/user/${userId}` + buildQuery(pagination ?? {})),
   createPost: (data: { body: string; image_url?: string }) =>
     request<Post>("/posts/", { method: "POST", body: JSON.stringify(data) }),
   updatePost: (id: string, data: { body: string; image_url?: string }) =>
@@ -400,8 +423,10 @@ export const api = {
     }),
 
   // Transactions
-  getTransactions: () => request<Transaction[]>("/transactions/"),
-  getAllTransactionsAdmin: () => request<Transaction[]>("/transactions/admin/all"),
+  getTransactions: (pagination?: PaginationParams, type?: string) =>
+    request<Page<Transaction>>("/transactions/" + buildQuery({ type, ...(pagination ?? {}) })),
+  getAllTransactionsAdmin: (pagination?: PaginationParams, type?: string) =>
+    request<Page<Transaction>>("/transactions/admin/all" + buildQuery({ type, ...(pagination ?? {}) })),
   deposit: (amount: number, description?: string) =>
     request<Transaction>("/transactions/deposit", {
       method: "POST",
@@ -457,7 +482,8 @@ export const api = {
   },
 
   // Enum Types (Admin Settings)
-  getEnumCategories: () => request<EnumCategory[]>("/enum-types/categories"),
+  getEnumCategories: (pagination?: PaginationParams) =>
+    request<Page<EnumCategory>>("/enum-types/categories" + buildQuery(pagination ?? {})),
   getEnumCategory: (id: string) => request<EnumCategory>(`/enum-types/categories/${id}`),
   getEnumCategoryByCode: (code: string) => request<EnumCategory>(`/enum-types/categories/code/${code}`),
   createEnumCategory: (data: EnumCategoryCreate) =>
@@ -541,6 +567,7 @@ export interface Article {
   category: string;
   image_url?: string;
   featured: boolean;
+  pinned?: boolean;
   created_at: string;
   subscribed?: boolean;
 }

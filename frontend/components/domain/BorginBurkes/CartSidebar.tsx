@@ -13,6 +13,8 @@ interface CartSidebarProps {
   getTotal: () => number;
   onRemoveItem: (productId: string) => void;
   onPurchase: () => Promise<void>;
+  userZerines: number;
+  submitting?: boolean;
 }
 
 export function CartSidebar({
@@ -22,12 +24,17 @@ export function CartSidebar({
   getTotal,
   onRemoveItem,
   onPurchase,
+  userZerines,
+  submitting = false,
 }: CartSidebarProps) {
   const theme = useTheme();
 
   const fallbackSrc = getFallbackForProduct('borgin', theme);
 
   if (!isOpen) return null;
+
+  const total = getTotal();
+  const insufficient = total > userZerines;
 
   return (
     <div className="fixed inset-0 z-60" onClick={onClose}>
@@ -100,13 +107,20 @@ export function CartSidebar({
           <div className="p-6 border-t border-secondary/20 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-surface-dim text-body-md">Total</span>
-              <ZerineDisplay amount={getTotal()} iconStyle="icon" variant="price" size="lg" />
+              <ZerineDisplay amount={total} iconStyle="icon" variant="price" size="lg" />
             </div>
+            {insufficient && (
+              <div className="flex items-center gap-2 bg-error/15 rounded-xl px-4 py-2 text-error text-body-sm">
+                <MaterialIcon name="warning" className="text-[1.1em]" />
+                No tienes suficientes Zerines para esta compra.
+              </div>
+            )}
             <button
               onClick={onPurchase}
-              className="w-full crystal-gradient text-on-primary py-3 rounded-xl font-bold text-body-md hover:opacity-90 transition-all active:scale-[0.98]"
+              disabled={insufficient || submitting}
+              className="w-full crystal-gradient text-on-primary py-3 rounded-xl font-bold text-body-md hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
             >
-              Comprar Ahora
+              {submitting ? "Procesando..." : "Comprar Ahora"}
             </button>
           </div>
         )}

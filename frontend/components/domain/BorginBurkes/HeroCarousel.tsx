@@ -116,10 +116,7 @@ function InfoSlide({ displaySlidesLength, userZerines, getCount, onToggleCart, o
                 className="bg-secondary text-on-secondary rounded-full px-6 py-3 font-medium text-body-md hover:opacity-90 transition-all active:scale-95"
               >
                 Ver Catálogo Oscuro
-              </button>
-              <button className="border border-secondary text-secondary rounded-full px-6 py-3 font-medium text-body-md hover:bg-secondary/10 transition-all active:scale-95">
-                Reliquias Malditas
-              </button>
+              </button> 
             </div>
 
             <div className="bg-black/40 backdrop-blur-sm px-4 py-2 rounded-lg border border-secondary/20">

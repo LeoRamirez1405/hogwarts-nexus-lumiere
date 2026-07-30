@@ -34,7 +34,8 @@ export function ArticlesListModal({ isOpen, onClose, initialArticles }: Articles
         if (search) params.search = search;
         if (category) params.category = category;
 
-        const newArticles = await api.getArticles(params);
+        const page = await api.getArticles(params);
+        const newArticles = page.items;
 
         if (reset) {
           setArticles(newArticles);
@@ -42,7 +43,7 @@ export function ArticlesListModal({ isOpen, onClose, initialArticles }: Articles
           setArticles((prev) => [...prev, ...newArticles]);
         }
 
-        setHasMore(newArticles.length === PAGE_SIZE);
+        setHasMore(page.has_more);
         pageRef.current = nextPage + 1;
       } catch {
         // ignore

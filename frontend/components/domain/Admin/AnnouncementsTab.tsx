@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { api, Announcement } from "@/lib/api";
 import { GlassCard, Button, Modal, MaterialIcon, ListFooter } from "@/components/ui";
-import { useCollapsibleList } from "@/hooks/useCollapsibleList";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 interface AnnouncementsTabProps {
   announcements: Announcement[];
@@ -11,15 +11,29 @@ interface AnnouncementsTabProps {
 }
 
 export function AnnouncementsTab({
-  announcements,
+  announcements: _announcementsProp,
   setAnnouncements,
 }: AnnouncementsTabProps) {
   const [editItem, setEditItem] = useState<Announcement | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
+  const {
+    items: allAnnouncements,
+    hasMore,
+    loading,
+    loadingMore,
+    totalLoaded,
+    totalCount,
+    loadMore,
+    refresh,
+  } = usePaginatedList({
+    fetcher: (p) => api.getAnnouncements(p),
+    pageSize: 10,
+    enabled: true,
+  });
 
-  const { visibleItems: visibleAnnouncements, ...announcementList } = useCollapsibleList(announcements, 10);
+  const visibleAnnouncements = allAnnouncements;
 
   const openNew = () => {
     setIsNew(true);
@@ -39,20 +53,16 @@ export function AnnouncementsTab({
     try {
       if (isNew) {
         const created = await api.createAnnouncement({ body: body.trim() });
-        setAnnouncements((prev) => [created, ...prev]);
+        refresh();
       } else if (editItem) {
         const updated = await api.updateAnnouncement(editItem.id, {
           body: body.trim(),
         });
-        setAnnouncements((prev) =>
-          prev.map((a) => (a.id === updated.id ? updated : a)),
-        );
+        refresh();
       }
       setEditItem(null);
       setIsNew(false);
-    } catch {
-      /* noop */
-    }
+    } catch {}
     setSaving(false);
   };
 
@@ -60,10 +70,8 @@ export function AnnouncementsTab({
     if (!confirm("Eliminar este anuncio?")) return;
     try {
       await api.deleteAnnouncement(id);
-      setAnnouncements((prev) => prev.filter((a) => a.id !== id));
-    } catch {
-      /* noop */
-    }
+      refresh();
+    } catch {}
   };
 
   return (
@@ -74,7 +82,7 @@ export function AnnouncementsTab({
         </Button>
       </div>
 
-      <div className={`space-y-3 ${announcementList.expanded ? "max-h-[70vh] overflow-y-auto pr-1" : ""}`}>
+      <div className="space-y-3">
         {visibleAnnouncements.map((a) => (
           <GlassCard key={a.id} className="p-5" hover>
             <div className="flex items-center justify-between gap-4">
@@ -105,7 +113,7 @@ export function AnnouncementsTab({
             </div>
           </GlassCard>
         ))}
-        {announcements.length === 0 && (
+        {allAnnouncements.length === 0 && (
           <div className="text-center py-16">
             <MaterialIcon
               name="campaign"
@@ -117,7 +125,14 @@ export function AnnouncementsTab({
           </div>
         )}
       </div>
-      <ListFooter {...announcementList} onToggle={announcementList.toggle} />
+      <ListFooter
+        hasMore={hasMore}
+        loading={loadingMore}
+        pageSize={10}
+        loaded={totalLoaded}
+        total={totalCount}
+        onLoadMore={loadMore}
+      />
 
       {(editItem || isNew) && (
         <Modal
@@ -138,7 +153,7 @@ export function AnnouncementsTab({
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="Ej: La Copa de las Casas arranca el proximo viernes..."
+                placeholder="Ej: La Copa de las Casas arranca el próximo viernes..."
                 className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors min-h-[100px] resize-none"
               />
             </div>

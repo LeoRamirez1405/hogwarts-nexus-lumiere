@@ -18,7 +18,11 @@ const sizeClasses: Record<Size, string> = {
 
 function DiamondIcon({ style }: { style: IconStyle }) {
   if (style === "emoji") {
-    return <span className="text-[0.85em] mr-1">💎</span>;
+    return (
+      <span className="material-symbols-outlined text-[0.85em] mr-1 align-middle" style={{ fontVariationSettings: '"FILL" 1, "wght" 300, "GRAD" 0, "opsz" 24' }}>
+        diamond
+      </span>
+    );
   }
   return (
     <span

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/lib/api";
-import { Button } from "@/components/ui";
+import { Button, MaterialIcon } from "@/components/ui";
 
 interface DepositTabProps {
   onDone: () => void;
@@ -13,6 +13,9 @@ export function DepositTab({ onDone }: DepositTabProps) {
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const parsed = parseFloat(amount) || 0;
+  const invalidAmount = !amount || parsed <= 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +50,7 @@ export function DepositTab({ onDone }: DepositTabProps) {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="text-center">
         <div className="font-display text-5xl text-on-surface flex items-center justify-center gap-3">
-          <span className="text-4xl">💎</span>
+          <MaterialIcon name="diamond" className="text-4xl" filled />
           <input
             type="number"
             min="1"
@@ -89,13 +92,22 @@ export function DepositTab({ onDone }: DepositTabProps) {
         <p className="text-error text-body-md text-center">{error}</p>
       )}
 
+      {invalidAmount && amount !== "" && !error && (
+        <div className="flex items-center gap-3 bg-error/10 rounded-xl px-6 py-3">
+          <MaterialIcon name="warning" className="text-error text-xl" />
+          <span className="text-error text-body-md">
+            Ingresa una cantidad valida mayor a 0.
+          </span>
+        </div>
+      )}
+
       <div className="text-center">
         <Button
           type="submit"
           variant="crystal"
           size="lg"
           icon="diamond"
-          disabled={submitting || !amount || !description.trim()}
+          disabled={submitting || invalidAmount || !description.trim()}
         >
           {submitting ? "Depositando..." : "Depositar Zerines"}
         </Button>

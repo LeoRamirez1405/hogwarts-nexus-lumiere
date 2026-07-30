@@ -30,9 +30,23 @@ export function ArticleCard({ article, onSubscribe }: ArticleCardProps) {
   };
 
   return (
-    <GlassCard className="p-5 cursor-pointer" hover onClick={() => router.push(`/news/${article.id}`)}>
+    <GlassCard
+      className={`p-5 cursor-pointer ${
+        article.featured
+          ? "border border-secondary/50 shadow-[0_0_20px_rgba(119,90,25,0.25)] hover:shadow-[0_0_28px_rgba(119,90,25,0.4)]"
+          : ""
+      }`}
+      hover
+      onClick={() => router.push(`/news/${article.id}`)}
+    >
       <div className="flex items-center gap-2 mb-2">
         <Badge variant="tag">{article.category}</Badge>
+        {article.featured && (
+          <Badge variant="rarity" color="secondary">
+            <MaterialIcon name="star" className="text-[0.9em] mr-0.5" filled />
+            Destacado
+          </Badge>
+        )}
         <span className="text-label-sm text-on-surface-variant">
           {formatDate(article.created_at)}
         </span>

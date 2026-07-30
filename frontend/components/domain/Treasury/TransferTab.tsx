@@ -21,6 +21,7 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
   const queryRef = useRef("");
 
   const parsed = parseFloat(amount) || 0;
+  const invalidAmount = !amount || parsed <= 0;
   const insufficient = parsed > balance;
 
   useEffect(() => {
@@ -37,7 +38,7 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
           if (queryRef.current !== query) return;
           const q = query.toLowerCase();
           setResults(
-            users.filter(
+            users.items.filter(
               (u) =>
                 u.name.toLowerCase().includes(q) ||
                 u.email.toLowerCase().includes(q)
@@ -162,7 +163,7 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
 
       <div className="text-center">
         <div className="font-display text-5xl text-on-surface flex items-center justify-center gap-3">
-          <span className="text-4xl">💎</span>
+          <MaterialIcon name="diamond" className="text-4xl" filled />
           <input
             type="number"
             min="1"
@@ -186,6 +187,15 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
           <MaterialIcon name="warning" className="text-error text-xl" />
           <span className="text-error text-body-md">
             Saldo insuficiente. Tu balance es de {balance.toLocaleString()} Zerines.
+          </span>
+        </div>
+      )}
+
+      {invalidAmount && amount !== "" && (
+        <div className="flex items-center gap-3 bg-error/10 rounded-xl px-6 py-3">
+          <MaterialIcon name="warning" className="text-error text-xl" />
+          <span className="text-error text-body-md">
+            Ingresa una cantidad valida mayor a 0.
           </span>
         </div>
       )}
@@ -219,7 +229,7 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
           variant="crystal"
           size="lg"
           icon="send"
-          disabled={submitting || !amount || !selected || insufficient || !description.trim()}
+          disabled={submitting || invalidAmount || !selected || insufficient || !description.trim()}
         >
           {submitting ? "Enviando..." : "Transferir Zerines"}
         </Button>

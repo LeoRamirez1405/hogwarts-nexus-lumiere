@@ -18,7 +18,7 @@ export function CrystalHero({ balance, loading }: CrystalHeroProps) {
           </span>
         </div>
         <div className="font-display text-6xl md:text-7xl flex items-center justify-center gap-4 mb-4">
-          <span className="text-5xl md:text-6xl">💎</span>
+          <MaterialIcon name="diamond" className="text-5xl md:text-6xl" filled />
           <span>{loading ? "---" : balance.toLocaleString()}</span>
         </div>
         <p className="text-label-sm uppercase tracking-wider opacity-70">

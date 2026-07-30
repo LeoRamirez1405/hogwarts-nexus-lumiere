@@ -3,18 +3,8 @@
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/ui";
 import { GlassCard, Badge, Button, ListFooter } from "@/components/ui";
-import { useCollapsibleList } from "@/hooks/useCollapsibleList";
-
-interface Thread {
-  id: string;
-  title: string;
-  body: string;
-  category: string;
-  voteCount: number;
-  userVote: 0 | 1 | -1;
-  commentCount: number;
-  author_id: string;
-}
+import { usePaginatedList } from "@/hooks/usePaginatedList";
+import { api, ForumThread as Thread } from "@/lib/api";
 
 interface ForumThreadsProps {
   threads: Thread[];
@@ -25,7 +15,7 @@ interface ForumThreadsProps {
 }
 
 export function ForumThreads({
-  threads,
+  threads: _threadsProp,
   votedThread,
   onVote,
   onDeleteThread,
@@ -33,14 +23,27 @@ export function ForumThreads({
 }: ForumThreadsProps) {
   const router = useRouter();
   const avatarLetters = ["A", "B", "C"];
+  const {
+    items: allThreads,
+    hasMore,
+    loading,
+    loadingMore,
+    totalLoaded,
+    totalCount,
+    loadMore,
+  } = usePaginatedList({
+    fetcher: (p) => api.getThreads(p),
+    pageSize: 8,
+    enabled: true,
+  });
 
   const isAuthor = (thread: Thread) => currentUserId && thread.author_id === currentUserId;
 
-  const { visibleItems: visibleThreads, ...threadList } = useCollapsibleList(threads, 8);
+  const visibleThreads = allThreads;
 
   return (
     <div className="space-y-3">
-      <div className={`space-y-3 ${threadList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+      <div className="space-y-3">
       {visibleThreads.map((thread) => {
         return (
           <GlassCard
@@ -58,7 +61,7 @@ export function ForumThreads({
                     onVote(thread.id, 1);
                   }}
                   className={`w-8 h-8 inline-flex items-center justify-center rounded-full transition-colors ${
-                    thread.userVote === 1
+thread.my_vote === 1
                       ? "bg-secondary-container text-on-secondary-container"
                       : "text-on-surface-variant hover:bg-surface-container-high"
                   }`}
@@ -67,7 +70,7 @@ export function ForumThreads({
                   <MaterialIcon name="expand_less" className="text-xl" />
                 </button>
                 <span className="text-body-md font-bold text-on-surface">
-                  {thread.voteCount}
+                  {thread.vote_count}
                 </span>
                 <button
                   onClick={(e) => {
@@ -75,7 +78,7 @@ export function ForumThreads({
                     onVote(thread.id, -1);
                   }}
                   className={`w-8 h-8 inline-flex items-center justify-center rounded-full transition-colors ${
-                    thread.userVote === -1
+                    thread.my_vote === -1
                       ? "bg-error-container text-on-error-container"
                       : "text-on-surface-variant hover:bg-surface-container-high"
                   }`}
@@ -92,9 +95,9 @@ export function ForumThreads({
                   <div className="flex-1 min-w-0 cursor-pointer md:w-auto md:flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <Badge variant="tag">{thread.category}</Badge>
-                      {votedThread === thread.id && thread.userVote !== 0 && (
+                      {votedThread === thread.id && thread.my_vote !== 0 && (
                         <Badge variant="count" color="secondary">
-                          {thread.userVote === 1 ? "+1" : "-1"}
+                          {thread.my_vote === 1 ? "+1" : "-1"}
                         </Badge>
                       )}
                     </div>
@@ -110,7 +113,7 @@ export function ForumThreads({
                   <div className="hidden md:flex md:items-center md:gap-4 text-on-surface-variant shrink-0 w-auto">
                     <div className="flex items-center gap-1">
                       <MaterialIcon name="chat_bubble_outline" className="text-lg" />
-                      <span className="text-label-sm">{thread.commentCount}</span>
+                      <span className="text-label-sm">{thread.comment_count}</span>
                     </div>
                     <div className="flex -space-x-2">
                       {[...Array(3)].map((_, i) => (
@@ -147,7 +150,7 @@ export function ForumThreads({
                   {/* Comments - left on mobile */}
                   <div className="flex items-center gap-1 text-on-surface-variant">
                     <MaterialIcon name="chat_bubble_outline" className="text-lg" />
-                    <span className="text-label-sm">{thread.commentCount}</span>
+                    <span className="text-label-sm">{thread.comment_count}</span>
                   </div>
                   
                   {/* Avatars + delete - right on mobile */}
@@ -188,9 +191,16 @@ export function ForumThreads({
       })}
       </div>
 
-      <ListFooter {...threadList} onToggle={threadList.toggle} />
+      <ListFooter
+        hasMore={hasMore}
+        loading={loadingMore}
+        pageSize={8}
+        loaded={totalLoaded}
+        total={totalCount}
+        onLoadMore={loadMore}
+      />
 
-      {threads.length === 0 && (
+      {allThreads.length === 0 && (
         <GlassCard className="p-12 text-center">
           <MaterialIcon name="forum" className="text-5xl text-outline-variant mb-3" />
           <p className="text-on-surface-variant text-body-md">

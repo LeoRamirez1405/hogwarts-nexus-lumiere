@@ -38,6 +38,7 @@ interface CreatureCardProps {
   stats: SanctuaryStats | null;
   onAdopt: () => void;
   adopting: boolean;
+  userZerines: number;
 }
 
 export function CreatureCard({
@@ -47,11 +48,13 @@ export function CreatureCard({
   stats,
   onAdopt,
   adopting,
+  userZerines,
 }: CreatureCardProps) {
   const theme = useTheme();
   const [imageError, setImageError] = useState(false);
   const reqUser = creature.required_user_level || 1;
   const reqSanct = creature.required_sanctuary_level || 0;
+  const insufficientZerines = userZerines < creature.price;
 
   const fallbackSrc = getFallbackForCreature(theme);
 
@@ -111,8 +114,14 @@ export function CreatureCard({
         ) : (
           <Button
             onClick={onAdopt}
-            disabled={adopting || !meetsRequirements}
-            title={meetsRequirements ? "" : "No cumples el nivel requerido"}
+            disabled={adopting || !meetsRequirements || insufficientZerines}
+            title={
+              !meetsRequirements
+                ? "No cumples el nivel requerido"
+                : insufficientZerines
+                ? "No tienes suficientes Zerines"
+                : ""
+            }
           >
             {adopting ? "Adoptando..." : meetsRequirements ? "Adoptar" : "Bloqueada"}
           </Button>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { api, Classified } from "@/lib/api";
 import { GlassCard, Button, Badge, Modal, MaterialIcon, ListFooter } from "@/components/ui";
-import { useCollapsibleList } from "@/hooks/useCollapsibleList";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 interface ClassifiedsTabProps {
   classifieds: Classified[];
@@ -11,15 +11,29 @@ interface ClassifiedsTabProps {
 }
 
 export function ClassifiedsTab({
-  classifieds,
+  classifieds: _classifiedsProp,
   setClassifieds,
 }: ClassifiedsTabProps) {
   const [editItem, setEditItem] = useState<Classified | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [form, setForm] = useState({ title: "", price: "" });
   const [saving, setSaving] = useState(false);
+  const {
+    items: allClassifieds,
+    hasMore,
+    loading,
+    loadingMore,
+    totalLoaded,
+    totalCount,
+    loadMore,
+    refresh,
+  } = usePaginatedList({
+    fetcher: (p) => api.getClassifieds(p),
+    pageSize: 10,
+    enabled: true,
+  });
 
-  const { visibleItems: visibleClassifieds, ...classifiedList } = useCollapsibleList(classifieds, 10);
+  const visibleClassifieds = allClassifieds;
 
   const openNew = () => {
     setIsNew(true);
@@ -42,21 +56,17 @@ export function ClassifiedsTab({
           title: form.title.trim(),
           price: form.price.trim(),
         });
-        setClassifieds((prev) => [created, ...prev]);
+        refresh();
       } else if (editItem) {
         const updated = await api.updateClassified(editItem.id, {
           title: form.title.trim(),
           price: form.price.trim(),
         });
-        setClassifieds((prev) =>
-          prev.map((c) => (c.id === updated.id ? updated : c)),
-        );
+        refresh();
       }
       setEditItem(null);
       setIsNew(false);
-    } catch {
-      /* noop */
-    }
+    } catch {}
     setSaving(false);
   };
 
@@ -64,10 +74,8 @@ export function ClassifiedsTab({
     if (!confirm("Eliminar este clasificado?")) return;
     try {
       await api.deleteClassified(id);
-      setClassifieds((prev) => prev.filter((c) => c.id !== id));
-    } catch {
-      /* noop */
-    }
+      refresh();
+    } catch {}
   };
 
   return (
@@ -78,7 +86,7 @@ export function ClassifiedsTab({
         </Button>
       </div>
 
-      <div className={`space-y-3 ${classifiedList.expanded ? "max-h-[70vh] overflow-y-auto pr-1" : ""}`}>
+      <div className="space-y-3">
         {visibleClassifieds.map((c) => (
           <GlassCard key={c.id} className="p-5" hover>
             <div className="flex items-center justify-between gap-4">
@@ -111,7 +119,7 @@ export function ClassifiedsTab({
             </div>
           </GlassCard>
         ))}
-        {classifieds.length === 0 && (
+        {allClassifieds.length === 0 && (
           <div className="text-center py-16">
             <MaterialIcon
               name="sell"
@@ -123,7 +131,14 @@ export function ClassifiedsTab({
           </div>
         )}
       </div>
-      <ListFooter {...classifiedList} onToggle={classifiedList.toggle} />
+      <ListFooter
+        hasMore={hasMore}
+        loading={loadingMore}
+        pageSize={10}
+        loaded={totalLoaded}
+        total={totalCount}
+        onLoadMore={loadMore}
+      />
 
       {(editItem || isNew) && (
         <Modal

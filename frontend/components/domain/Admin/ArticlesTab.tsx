@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { api, Article, EnumValue } from "@/lib/api";
 import { GlassCard, Button, Badge, SearchBar, Modal, MaterialIcon, ListFooter } from "@/components/ui";
-import { useCollapsibleList } from "@/hooks/useCollapsibleList";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 interface ArticlesTabProps {
   articles: Article[];
@@ -13,7 +13,7 @@ interface ArticlesTabProps {
   setSearch: (v: string) => void;
 }
 
-export function ArticlesTab({ articles, setArticles, search, setSearch }: ArticlesTabProps) {
+export function ArticlesTab({ articles: _articlesProp, setArticles, search, setSearch }: ArticlesTabProps) {
   const [editArticle, setEditArticle] = useState<Article | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [form, setForm] = useState({
@@ -22,26 +22,42 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
     category: "",
     image_url: "",
     featured: false,
+    pinned: false,
   });
+  const [pinningId, setPinningId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [articleCategories, setArticleCategories] = useState<EnumValue[]>([]);
-
   useEffect(() => {
     api.getEnumCategoryByCode("article_category").then((cat) => {
       if (cat) setArticleCategories(cat.values);
     }).catch(() => {});
   }, []);
 
-  const filtered = articles.filter(
+  const {
+    items: allArticles,
+    hasMore,
+    loading,
+    loadingMore,
+    totalLoaded,
+    totalCount,
+    loadMore,
+    refresh,
+  } = usePaginatedList({
+    fetcher: (p) => api.getArticles({ offset: String(p.skip), limit: String(p.limit) }),
+    pageSize: 10,
+    enabled: true,
+  });
+
+  const filtered = allArticles.filter(
     (a) =>
       !search ||
       a.title.toLowerCase().includes(search.toLowerCase()) ||
       a.category.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const { visibleItems: visibleArticles, ...articleList } = useCollapsibleList(filtered, 10);
+  const visibleArticles = filtered;
 
   const openNew = () => {
     setIsNew(true);
@@ -52,6 +68,7 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
       category: "",
       image_url: "",
       featured: false,
+      pinned: false,
     });
   };
 
@@ -64,6 +81,7 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
       category: a.category,
       image_url: a.image_url || "",
       featured: a.featured,
+      pinned: a.pinned ?? false,
     });
   };
 
@@ -76,21 +94,18 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
         category: form.category,
         image_url: form.image_url || undefined,
         featured: form.featured,
+        pinned: form.pinned,
       };
       if (isNew) {
         const created = await api.createArticle(data);
-        setArticles((prev) => [...prev, created]);
+        refresh();
       } else if (editArticle) {
         const updated = await api.updateArticle(editArticle.id, data);
-        setArticles((prev) =>
-          prev.map((a) => (a.id === updated.id ? updated : a)),
-        );
+        refresh();
       }
       setEditArticle(null);
       setIsNew(false);
-    } catch {
-      /* noop */
-    }
+    } catch {}
     setSaving(false);
   };
 
@@ -101,21 +116,26 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
     try {
       const result = await api.uploadFile(file);
       setForm((f) => ({ ...f, image_url: result.url }));
-    } catch {
-      /* noop */
-    }
+    } catch {}
     setUploadingImage(false);
     e.target.value = "";
+  };
+
+  const handleTogglePin = async (a: Article) => {
+    setPinningId(a.id);
+    try {
+      await api.updateArticle(a.id, { pinned: !a.pinned });
+      refresh();
+    } catch {}
+    setPinningId(null);
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Eliminar este artículo?")) return;
     try {
       await api.deleteArticle(id);
-      setArticles((prev) => prev.filter((a) => a.id !== id));
-    } catch {
-      /* noop */
-    }
+      refresh();
+    } catch {}
   };
 
   return (
@@ -132,13 +152,19 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
         </Button>
       </div>
 
-      <div className={`space-y-4 ${articleList.expanded ? "max-h-[70vh] overflow-y-auto pr-1" : ""}`}>
+      <div className="space-y-4">
         {visibleArticles.map((a) => (
           <GlassCard key={a.id} className="p-6" hover>
             <div className="flex flex-col md:flex-row md:items-center gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2">
                   <Badge variant="tag">{a.category}</Badge>
+                  {a.pinned && (
+                    <Badge variant="rarity" color="primary">
+                      <MaterialIcon name="push_pin" className="text-[0.9em] mr-0.5" filled />
+                      Principal
+                    </Badge>
+                  )}
                   {a.featured && (
                     <Badge variant="rarity" color="secondary">
                       Destacado
@@ -154,6 +180,22 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => handleTogglePin(a)}
+                  disabled={pinningId === a.id}
+                  title={a.pinned ? "Quitar como principal" : "Fijar como principal"}
+                  className={`p-2 rounded-full transition-colors disabled:opacity-50 ${
+                    a.pinned
+                      ? "bg-primary/10 text-primary hover:bg-primary/20"
+                      : "hover:bg-surface-container-high text-on-surface-variant hover:text-primary"
+                  }`}
+                >
+                  <MaterialIcon
+                    name={pinningId === a.id ? "progress_activity" : "push_pin"}
+                    className={`text-lg ${pinningId === a.id ? "animate-spin" : ""}`}
+                    filled={a.pinned}
+                  />
+                </button>
                 <button
                   onClick={() => openEdit(a)}
                   className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
@@ -182,7 +224,14 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
           </div>
         )}
       </div>
-      <ListFooter {...articleList} onToggle={articleList.toggle} />
+      <ListFooter
+        hasMore={hasMore}
+        loading={loadingMore}
+        pageSize={10}
+        loaded={totalLoaded}
+        total={totalCount}
+        onLoadMore={loadMore}
+      />
 
       {(editArticle || isNew) && (
         <Modal
@@ -288,24 +337,60 @@ export function ArticlesTab({ articles, setArticles, search, setSearch }: Articl
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() =>
-                    setForm((f) => ({ ...f, featured: !f.featured }))
-                  }
-                  className={`relative w-12 h-7 rounded-full transition-colors ${
-                    form.featured ? "bg-secondary" : "bg-outline-variant/40"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
-                      form.featured ? "translate-x-5" : ""
+              <div className="space-y-3">
+                {/* Principal (pinned, max 1) */}
+                <div className="flex items-center gap-4 rounded-xl bg-surface-container-low border border-outline-variant/20 px-4 py-3">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={form.pinned}
+                    onClick={() => setForm((f) => ({ ...f, pinned: !f.pinned }))}
+                    className={`relative shrink-0 w-14 h-8 rounded-full transition-colors ${
+                      form.pinned ? "bg-primary" : "bg-outline-variant/40"
                     }`}
-                  />
-                </button>
-                <span className="text-body-md text-on-surface">
-                  Artículo destacado
-                </span>
+                  >
+                    <span
+                      className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform ${
+                        form.pinned ? "translate-x-6" : ""
+                      }`}
+                    />
+                  </button>
+                  <div>
+                    <span className="text-body-md text-on-surface block">
+                      Fijar como principal
+                    </span>
+                    <span className="text-label-sm text-on-surface-variant">
+                      Solo puede haber uno a la vez; se mostrará en grande en El Quisquilloso.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Destacado (featured, many) */}
+                <div className="flex items-center gap-4 rounded-xl bg-surface-container-low border border-outline-variant/20 px-4 py-3">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={form.featured}
+                    onClick={() => setForm((f) => ({ ...f, featured: !f.featured }))}
+                    className={`relative shrink-0 w-14 h-8 rounded-full transition-colors ${
+                      form.featured ? "bg-secondary" : "bg-outline-variant/40"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform ${
+                        form.featured ? "translate-x-6" : ""
+                      }`}
+                    />
+                  </button>
+                  <div>
+                    <span className="text-body-md text-on-surface block">
+                      Destacado
+                    </span>
+                    <span className="text-label-sm text-on-surface-variant">
+                      Resalta el art&iacute;culo (borde dorado) y aparece en la pesta&ntilde;a &ldquo;Destacadas&rdquo;. Puede haber varios.
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="flex gap-3">
