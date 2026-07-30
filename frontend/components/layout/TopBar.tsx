@@ -197,7 +197,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             >
               <MaterialIcon name="notifications" className="text-2xl" />
               {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center bg-error text-white text-[10px] font-bold rounded-full border-2 border-surface">
+                <span className="absolute -top-0.5 -right-0.5 min-w-4.5 h-4.5 px-1 inline-flex items-center justify-center bg-error text-white text-[10px] font-bold rounded-full border-2 border-surface">
                   {unreadLabel}
                 </span>
               )}
@@ -205,7 +205,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
           </div>
 
           {/* Avatar + user menu */}
-          <div className="relative flex-shrink-0" ref={userMenuRef}>
+          <div className="relative shrink-0" ref={userMenuRef}>
             <button
               ref={userMenuButtonRef}
               onClick={() => {
@@ -232,7 +232,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       {showNotifications && notifPosition && createPortal(
         <div
           ref={notifMenuRef}
-          className="fixed bg-surface rounded-2xl shadow-2xl border border-outline-variant/20 w-[min(20rem,calc(100vw-1.5rem))] z-[70] overflow-hidden"
+          className="fixed bg-surface rounded-2xl shadow-2xl border border-outline-variant/20 w-[min(20rem,calc(100vw-1.5rem))] z-70 overflow-hidden"
           style={{ top: notifPosition.top, right: notifPosition.right }}
         >
           <div className="px-4 py-3 border-b border-outline-variant/20 flex items-center justify-between">
@@ -270,7 +270,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                     className="flex items-start gap-3 flex-1 min-w-0 text-left"
                   >
                     <div
-                      className={`w-9 h-9 inline-flex items-center justify-center rounded-full flex-shrink-0 ${notificationMeta(n.type).chip}`}
+                      className={`w-9 h-9 inline-flex items-center justify-center rounded-full shrink-0 ${notificationMeta(n.type).chip}`}
                     >
                       <MaterialIcon
                         name={notificationMeta(n.type).icon}
@@ -295,7 +295,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                   {!n.read && (
                     <button
                       onClick={(e) => { e.stopPropagation(); markRead(n.id); }}
-                      className="w-8 h-8 inline-flex items-center justify-center rounded-full text-primary hover:bg-primary/10 transition-colors flex-shrink-0"
+                      className="w-8 h-8 inline-flex items-center justify-center rounded-full text-primary hover:bg-primary/10 transition-colors shrink-0"
                       aria-label="Marcar como leida"
                       title="Marcar como leida"
                     >
@@ -323,7 +323,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       {showUserMenu && userMenuPosition && createPortal(
         <div
           ref={userMenuDropdownRef}
-          className="fixed w-56 bg-surface rounded-2xl shadow-xl border border-outline-variant/20 overflow-hidden z-[70]"
+          className="fixed w-56 bg-surface rounded-2xl shadow-xl border border-outline-variant/20 overflow-hidden z-70"
           style={{ top: userMenuPosition.top, right: userMenuPosition.right }}
         >
           <div className="px-4 py-3 border-b border-outline-variant/20">
