@@ -11,6 +11,7 @@ class ArticleCreate(BaseModel):
     category: Optional[str] = None
     image_url: Optional[str] = None
     featured: bool = False
+    pinned: bool = False
 
 
 class ArticleUpdate(BaseModel):
@@ -19,6 +20,7 @@ class ArticleUpdate(BaseModel):
     category: Optional[str] = None
     image_url: Optional[str] = None
     featured: Optional[bool] = None
+    pinned: Optional[bool] = None
 
 
 class ArticleResponse(BaseModel):
@@ -30,6 +32,7 @@ class ArticleResponse(BaseModel):
     category: Optional[str] = None
     image_url: Optional[str] = None
     featured: bool
+    pinned: bool = False
     created_at: datetime
     subscribed: bool = False
 

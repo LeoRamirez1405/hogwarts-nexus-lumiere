@@ -325,7 +325,7 @@ async def seed_data():
         # Announcements (short bulletin texts for /news sidebar)
         announcements_seed = [
             Announcement(
-                body="La Copa de las Casas arranca el proximo viernes en el Gran Salon",
+                body="La Copa de las Casas arranca el próximo viernes en el Gran Salon",
             ),
             Announcement(
                 body="Nuevas reglas para el Santuario de Mascotas: maximo 3 criaturas por estudiante",
@@ -463,7 +463,7 @@ async def seed_data():
         days_since_monday = now.weekday()  # Monday=0, Sunday=6
         start_of_week = (now - timedelta(days=days_since_monday)).replace(
             hour=0, minute=0, second=0, microsecond=0
-        )
+        ) - timedelta(days=7)
 
         def day_of_week(offset: int, hour: int = 10) -> datetime:
             d = start_of_week + timedelta(days=offset)
@@ -475,7 +475,7 @@ async def seed_data():
                 receiver_id=harry.id,
                 amount=5000,
                 type="transfer",
-                description="Welcome bonus to Nexus Lumière  ",
+                description="Bono de bienvenida a Nexus Lumière",
                 status="confirmed",
                 created_at=day_of_week(0, 9),
             ),
@@ -484,7 +484,7 @@ async def seed_data():
                 receiver_id=hermione.id,
                 amount=3000,
                 type="transfer",
-                description="Academic excellence reward",
+                description="Premio a la excelencia académica",
                 status="confirmed",
                 created_at=day_of_week(1, 11),
             ),
@@ -493,7 +493,7 @@ async def seed_data():
                 receiver_id=hermione.id,
                 amount=200,
                 type="transfer",
-                description="For those Charms notes",
+                description="Por esos apuntes de Encantamientos",
                 status="confirmed",
                 created_at=day_of_week(2, 15),
             ),
@@ -502,7 +502,7 @@ async def seed_data():
                 receiver_id=cedric.id,
                 amount=1500,
                 type="transfer",
-                description="Triwizard Tournament contribution",
+                description="Contribución al Torneo de los Tres Magos",
                 status="completed",
                 created_at=day_of_week(3, 14),
             ),
@@ -511,7 +511,7 @@ async def seed_data():
                 receiver_id=luna.id,
                 amount=100,
                 type="transfer",
-                description="For the Quibbler subscription",
+                description="Por la suscripción a El Quisquilloso",
                 status="confirmed",
                 created_at=day_of_week(4, 17),
             ),
@@ -519,7 +519,7 @@ async def seed_data():
                 receiver_id=admin.id,
                 amount=10000,
                 type="deposit",
-                description="Initial treasury deposit",
+                description="Depósito inicial de tesorería",
                 status="completed",
                 created_at=day_of_week(5, 10),
             ),
@@ -527,7 +527,7 @@ async def seed_data():
                 sender_id=harry.id,
                 amount=500,
                 type="purchase",
-                description="Purchased Niffler from creature shop",
+                description="Compra de Niffler en la tienda de criaturas",
                 status="confirmed",
                 created_at=day_of_week(6, 18),
             ),

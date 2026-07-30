@@ -17,6 +17,7 @@ class Article(Base):
     category = Column(String, nullable=True)
     image_url = Column(String, nullable=True)
     featured = Column(Boolean, default=False, nullable=False)
+    pinned = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     author = relationship("User", back_populates="articles", lazy="selectin")
