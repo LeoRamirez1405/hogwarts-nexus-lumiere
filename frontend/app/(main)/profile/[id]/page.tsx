@@ -106,26 +106,21 @@ export default function ProfilePage() {
 
   const handleLike = useCallback(async (postId: string) => {
     try {
-      const result = await api.likePost(postId);
-      // Could refresh posts if needed
+      await api.likePost(postId);
+      refreshPosts();
     } catch {}
-  }, []);
+  }, [refreshPosts]);
 
   const handleRepost = useCallback(async (postId: string) => {
     try {
-      const result = await api.repostPost(postId);
-      // Could refresh posts if needed
+      await api.repostPost(postId);
+      refreshPosts();
     } catch {}
-  }, []);
+  }, [refreshPosts]);
 
-  const handleEditPost = useCallback(async (postId: string, updatedPost: Post) => {
-    try {
-      // Could refresh posts if needed
-    } catch (err) {
-      console.error("Error editing post:", err);
-      throw err;
-    }
-  }, []);
+  const handleEditPost = useCallback(async () => {
+    refreshPosts();
+  }, [refreshPosts]);
 
   const handleDeletePost = useCallback(async (postId: string) => {
     try {
@@ -141,7 +136,7 @@ export default function ProfilePage() {
     if (!postText.trim() || posting) return;
     setPosting(true);
     try {
-      const newPost = await api.createPost({
+      await api.createPost({
         body: postText.trim(),
         image_url: postImageUrl || undefined,
       });
