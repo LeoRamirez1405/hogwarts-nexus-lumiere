@@ -7,16 +7,13 @@ import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
 import { SearchBar, MaterialIcon, TabGroup, ListFooter } from "@/components/ui";
 import { BookCard, HeroCarousel, CartSidebar, SuccessModal } from "@/components/domain/FlourishBlotts";
-import { useCollapsibleList } from "@/hooks/useCollapsibleList";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
 
 export default function FlourishBlottsPage() {
-  const { setUser } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const { items, addItem, removeItem, clearCart, toggleCart, isOpen, getTotal, getCount } = useCartStore();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [myPurchases, setMyPurchases] = useState<UserProduct[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("Todos");
   const [showSuccess, setShowSuccess] = useState(false);
@@ -30,6 +27,37 @@ export default function FlourishBlottsPage() {
 
   const dynamicFilters = ["Todos", ...bookCategories.map((c) => c.label)];
   const trackRef = useRef<HTMLDivElement>(null);
+  const catalogRef = useRef<HTMLDivElement>(null);
+
+  const {
+    items: allShopItems,
+    hasMore: booksHasMore,
+    loading: booksLoading,
+    loadingMore: booksLoadingMore,
+    totalCount: booksTotal,
+    loadMore: loadMoreBooks,
+    refresh: refreshBooks,
+  } = usePaginatedList({
+    fetcher: (p) =>
+      api.getProducts("flourish", p, activeFilter === "Todos" ? undefined : activeFilter),
+    pageSize: 12,
+    enabled: true,
+    resetKey: activeFilter,
+  });
+
+  const {
+    items: allPurchases,
+    hasMore: purchasesHasMore,
+    loading: purchasesLoading,
+    loadingMore: purchasesLoadingMore,
+    totalCount: purchasesTotal,
+    loadMore: loadMorePurchases,
+    refresh: refreshPurchases,
+  } = usePaginatedList({
+    fetcher: (p) => api.getMyPurchases(p),
+    pageSize: 9,
+    enabled: true,
+  });
 
   // Compute display slides with duplicates for infinite loop
   const displaySlides = slides.length > 0
@@ -37,22 +65,20 @@ export default function FlourishBlottsPage() {
     : [];
   const totalSlides = slides.length;
 
-  // Load products
+  const slidesSetRef = useRef(false);
+
   useEffect(() => {
-    Promise.all([
-      api.getProducts("flourish"),
-      api.getMyPurchases(),
-    ]).then(([allProducts, purchases]) => {
-      setProducts(allProducts);
-      setMyPurchases(purchases);
-      // Carousel: 3 random featured products + 1 info slide
-      const shuffled = [...allProducts].sort(() => 0.5 - Math.random());
+    if (allShopItems.length > 0 && !slidesSetRef.current) {
+      slidesSetRef.current = true;
+      const shuffled = [...allShopItems].sort(() => 0.5 - Math.random());
       const featured = shuffled.slice(0, 3);
       const newSlides: SlideType[] = featured.map((p) => ({ type: "product", product: p }));
-      newSlides.push({ type: "info" });
+      newSlides.unshift({ type: "info" });
       setSlides(newSlides);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    }
+  }, [allShopItems]);
+
+  useEffect(() => {
     api.getEnumCategoryByCode("book_category").then((cat) => {
       if (cat) setBookCategories(cat.values);
     }).catch(() => {});
@@ -84,6 +110,10 @@ export default function FlourishBlottsPage() {
     addItem(product);
   };
 
+  const scrollToCatalog = () => {
+    catalogRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   const handlePurchase = async () => {
     setSubmitting(true);
     try {
@@ -93,13 +123,10 @@ export default function FlourishBlottsPage() {
       clearCart();
       toggleCart();
       setShowSuccess(true);
-      // Refresh products to show updated stock/sales
-      const [updatedProducts, updatedPurchases] = await Promise.all([
-        api.getProducts("flourish"),
-        api.getMyPurchases(),
+      await Promise.all([
+        refreshPurchases(),
+        refreshBooks(),
       ]);
-      setProducts(updatedProducts);
-      setMyPurchases(updatedPurchases);
       // Refresh user balance
       const updatedUser = await api.getMe();
       setUser(updatedUser);
@@ -152,17 +179,15 @@ export default function FlourishBlottsPage() {
     }
   };
 
-  const filtered = products.filter((p) => {
-    const matchesSearch =
+  const filtered = allShopItems.filter(
+    (p) =>
       !search ||
       p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.description.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = activeFilter === "Todos" || p.category === activeFilter;
-    return matchesSearch && matchesFilter;
-  });
+      p.description.toLowerCase().includes(search.toLowerCase()),
+  );
 
-  const { visibleItems: visibleBooks, ...bookList } = useCollapsibleList(filtered, 12);
-  const { visibleItems: visiblePurchases, ...purchaseList } = useCollapsibleList(myPurchases, 9);
+  const visibleBooks = filtered;
+  const visiblePurchases = allPurchases;
 
   return (
     <div className="min-h-content bg-surface parchment-bg -mx-4 md:-mx-10 -mt-6 md:-mt-8 px-4 md:px-10 py-8">
@@ -180,7 +205,7 @@ export default function FlourishBlottsPage() {
           onTrackTransitionEnd={handleTrackTransitionEnd}
           getCount={getCount}
           onToggleCart={toggleCart}
-          onCatalogScroll={() => {}}
+          onCatalogScroll={scrollToCatalog}
         />
       </div>
 
@@ -188,7 +213,7 @@ export default function FlourishBlottsPage() {
       <div className="max-w-7xl mx-auto mb-8">
         <TabGroup
           tabs={[
-            { id: "catalog", label: "Catalogo", icon: "menu_book" },
+            { id: "catalog", label: "Catálogo", icon: "menu_book" },
             { id: "library", label: "Mi Biblioteca", icon: "local_library" },
           ]}
           activeTab={activeTab}
@@ -241,8 +266,8 @@ export default function FlourishBlottsPage() {
           </div>
 
           {/* Catalog Grid */}
-          <div className="max-w-7xl mx-auto">
-            {loading ? (
+          <div ref={catalogRef} className="max-w-7xl mx-auto">
+            {booksLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="glass-card rounded-3xl p-6 animate-pulse">
@@ -266,7 +291,7 @@ export default function FlourishBlottsPage() {
               </div>
             ) : (
               <>
-              <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 ${bookList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {visibleBooks.map((product) => (
                   <BookCard
                     key={product.id}
@@ -275,7 +300,14 @@ export default function FlourishBlottsPage() {
                   />
                 ))}
               </div>
-              <ListFooter {...bookList} onToggle={bookList.toggle} />
+              <ListFooter
+                hasMore={booksHasMore}
+                loading={booksLoadingMore}
+                pageSize={12}
+                loaded={allShopItems.length}
+                total={booksTotal}
+                onLoadMore={loadMoreBooks}
+              />
               </>
             )}
           </div>
@@ -285,7 +317,7 @@ export default function FlourishBlottsPage() {
       {/* ===== MI BIBLIOTECA ===== */}
       {activeTab === "library" && (
         <div className="max-w-7xl mx-auto">
-          {loading ? (
+          {purchasesLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="glass-card rounded-3xl p-6 animate-pulse">
@@ -295,7 +327,7 @@ export default function FlourishBlottsPage() {
                 </div>
               ))}
             </div>
-          ) : myPurchases.length === 0 ? (
+          ) : allPurchases.length === 0 ? (
             <div className="text-center py-20">
               <MaterialIcon
                 name="local_library"
@@ -305,22 +337,22 @@ export default function FlourishBlottsPage() {
                 Tu biblioteca esta vacia.
               </p>
               <p className="text-on-surface-variant text-body-sm mb-6">
-                Explora el catalogo y adquiere tu primer libro.
+                Explora el catálogo y adquiere tu primer libro.
               </p>
               <button
                 onClick={() => setActiveTab("catalog")}
                 className="px-6 py-3 rounded-full bg-primary text-on-primary font-medium text-label-sm hover:opacity-90 transition-all inline-flex items-center gap-2"
               >
                 <MaterialIcon name="menu_book" className="text-[1.1em]" />
-                Ver Catalogo
+                Ver Catálogo
               </button>
             </div>
           ) : (
             <>
               <p className="text-on-surface-variant text-body-sm mb-6">
-                {myPurchases.length} {myPurchases.length === 1 ? "libro comprado" : "libros comprados"}
+                {allPurchases.length} {allPurchases.length === 1 ? "libro comprado" : "libros comprados"}
               </p>
-              <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 ${purchaseList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {visiblePurchases.map((up) => (
                   <div
                     key={up.id}
@@ -363,7 +395,7 @@ export default function FlourishBlottsPage() {
                         <span>
                           {up.quantity > 1 ? `x${up.quantity} ` : ""}
                           <span className="font-bold text-secondary">
-                            💎 {((up.product?.price ?? 0) * up.quantity).toLocaleString()}
+                            <MaterialIcon name="diamond" className="text-[1em]" filled /> {((up.product?.price ?? 0) * up.quantity).toLocaleString()}
                           </span>
                         </span>
                         <span>
@@ -378,7 +410,14 @@ export default function FlourishBlottsPage() {
                   </div>
                 ))}
               </div>
-              <ListFooter {...purchaseList} onToggle={purchaseList.toggle} />
+              <ListFooter
+                hasMore={purchasesHasMore}
+                loading={purchasesLoadingMore}
+                pageSize={9}
+                loaded={allPurchases.length}
+                total={purchasesTotal}
+                onLoadMore={loadMorePurchases}
+              />
             </>
           )}
         </div>
@@ -393,6 +432,7 @@ export default function FlourishBlottsPage() {
         onRemoveItem={removeItem}
         onPurchase={handlePurchase}
         submitting={submitting}
+        userZerines={user?.zerines ?? 0}
       />
 
       {/* Success Modal */}

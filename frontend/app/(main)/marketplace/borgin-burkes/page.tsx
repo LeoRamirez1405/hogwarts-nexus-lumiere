@@ -7,20 +7,18 @@ import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
 import { SearchBar, MaterialIcon, TabGroup, ListFooter } from "@/components/ui";
 import { ArtifactCard, HeroCarousel, CartSidebar, SuccessTicket } from "@/components/domain/BorginBurkes";
-import { useCollapsibleList } from "@/hooks/useCollapsibleList";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
 
 export default function BorginBurkesPage() {
   const { user, setUser } = useAuthStore();
   const { items, addItem, removeItem, clearCart, toggleCart, isOpen, getTotal, getCount } = useCartStore();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [myPurchases, setMyPurchases] = useState<UserProduct[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("Todos");
   const [showSuccess, setShowSuccess] = useState(false);
   const [ticketId, setTicketId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(1);
   const [slides, setSlides] = useState<SlideType[]>([]);
   const [isJumping, setIsJumping] = useState(false);
@@ -30,44 +28,74 @@ export default function BorginBurkesPage() {
   const catalogRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
-  const BORGIN_FILTERS = ["Todos", ...borginCategories.map((c) => c.label)];
-
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch =
-      !search ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.description.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = activeFilter === "Todos" || p.category === activeFilter;
-    return matchesSearch && matchesFilter;
+  const {
+    items: allShopItems,
+    hasMore: productsHasMore,
+    loading: productsLoading,
+    loadingMore: productsLoadingMore,
+    totalCount: productsTotal,
+    loadMore: loadMoreProducts,
+    refresh: refreshProducts,
+  } = usePaginatedList({
+    fetcher: (p) =>
+      api.getProducts("borgin", p, activeFilter === "Todos" ? undefined : activeFilter),
+    pageSize: 12,
+    enabled: true,
+    resetKey: activeFilter,
   });
 
-  const { visibleItems: visibleProducts, ...productList } = useCollapsibleList(filteredProducts, 12);
-  const { visibleItems: visiblePurchases, ...purchaseList } = useCollapsibleList(myPurchases, 9);
+  const {
+    items: allPurchases,
+    hasMore: purchasesHasMore,
+    loading: purchasesLoading,
+    loadingMore: purchasesLoadingMore,
+    totalCount: purchasesTotal,
+    loadMore: loadMorePurchases,
+    refresh: refreshPurchases,
+  } = usePaginatedList({
+    fetcher: (p) => api.getMyPurchases(p),
+    pageSize: 9,
+    enabled: true,
+  });
 
-  useEffect(() => {
-    Promise.all([
-      api.getProducts("borgin"),
-      api.getMyPurchases(),
-    ]).then(([allProducts, purchases]) => {
-      setProducts(allProducts);
-      setMyPurchases(purchases.filter(p => p.product?.shop === "borgin"));
-      const shuffled = [...allProducts].sort(() => 0.5 - Math.random());
-      const featured = shuffled.slice(0, 3);
-      const newSlides: SlideType[] = featured.map((p) => ({ type: "product", product: p }));
-      newSlides.push({ type: "info" });
-      setSlides(newSlides);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-    api.getEnumCategoryByCode("borgin_category").then((cat) => {
-      if (cat) setBorginCategories(cat.values);
-    }).catch(() => {});
-  }, []);
+  const BORGIN_FILTERS = ["Todos", ...borginCategories.map((c) => c.label)];
 
+  const filteredProducts = allShopItems.filter(
+    (p) =>
+      !search ||
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.description.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const visibleProducts = filteredProducts;
+  const visiblePurchases = allPurchases;
+
+  // Compute display slides with duplicates for infinite loop
   const displaySlides = slides.length > 0
     ? [slides[slides.length - 1], ...slides, slides[0]]
     : [];
   const totalSlides = slides.length;
 
+  const slidesSetRef = useRef(false);
+
+  useEffect(() => {
+    if (allShopItems.length > 0 && !slidesSetRef.current) {
+      slidesSetRef.current = true;
+      const shuffled = [...allShopItems].sort(() => 0.5 - Math.random());
+      const featured = shuffled.slice(0, 3);
+      const newSlides: SlideType[] = featured.map((p) => ({ type: "product", product: p }));
+      newSlides.unshift({ type: "info" });
+      setSlides(newSlides);
+    }
+  }, [allShopItems]);
+
+  useEffect(() => {
+    api.getEnumCategoryByCode("borgin_category").then((cat) => {
+      if (cat) setBorginCategories(cat.values);
+    }).catch(() => {});
+  }, []);
+
+  // Auto-rotate carousel
   useEffect(() => {
     if (isUserInteracting || totalSlides === 0) return;
     const interval = setInterval(() => {
@@ -81,6 +109,7 @@ export default function BorginBurkesPage() {
     return () => clearInterval(interval);
   }, [isUserInteracting, totalSlides]);
 
+  // Handle circular transitions
   const handleTrackTransitionEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget || e.propertyName !== "transform") return;
     if (totalSlides === 0) return;
@@ -117,23 +146,26 @@ export default function BorginBurkesPage() {
   };
 
   const handlePurchase = async () => {
+    setSubmitting(true);
     try {
       for (const item of items) {
         await api.purchaseProduct(item.product.id, item.quantity);
       }
       clearCart();
+      toggleCart();
       setTicketId(Date.now().toString(36).toUpperCase());
       setShowSuccess(true);
-      const [updatedProducts, updatedPurchases] = await Promise.all([
-        api.getProducts("borgin"),
-        api.getMyPurchases(),
+      await Promise.all([
+        refreshPurchases(),
+        refreshProducts(),
       ]);
-      setProducts(updatedProducts);
-      setMyPurchases(updatedPurchases.filter(p => p.product?.shop === "borgin"));
+      // Refresh user balance
       const updatedUser = await api.getMe();
       setUser(updatedUser);
     } catch (err: unknown) {
       console.error(err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -143,7 +175,7 @@ export default function BorginBurkesPage() {
       if (prev >= displaySlides.length - 1) return prev;
       return prev + 1;
     });
-    setTimeout(() => setIsUserInteracting(false), 1500);
+    setTimeout(() => setIsUserInteracting(false), 1000);
   };
 
   const prevSlide = () => {
@@ -152,7 +184,7 @@ export default function BorginBurkesPage() {
       if (prev <= 0) return prev;
       return prev - 1;
     });
-    setTimeout(() => setIsUserInteracting(false), 1500);
+    setTimeout(() => setIsUserInteracting(false), 1000);
   };
 
   const goToSlide = (index: number) => {
@@ -162,28 +194,30 @@ export default function BorginBurkesPage() {
   return (
     <div className="min-h-content bg-[#1c1b1b] -mx-4 md:-mx-10 -mt-6 md:-mt-8 px-4 md:px-10 py-8">
       {/* Hero Carousel */}
-      <HeroCarousel
-        displaySlides={displaySlides}
-        totalSlides={totalSlides}
-        currentSlide={currentSlide}
-        isJumping={isJumping}
-        trackRef={trackRef}
-        onNextSlide={nextSlide}
-        onPrevSlide={prevSlide}
-        onGoToSlide={goToSlide}
-        onTrackTransitionEnd={handleTrackTransitionEnd}
-        userZerines={user?.zerines}
-        getCount={getCount}
-        onToggleCart={toggleCart}
-        onScrollToCatalog={scrollToCatalog}
-        onAddToCart={handleAddToCart}
-      />
+      <div className="max-w-7xl mx-auto mb-10">
+        <HeroCarousel
+          displaySlides={displaySlides}
+          totalSlides={totalSlides}
+          currentSlide={currentSlide}
+          isJumping={isJumping}
+          trackRef={trackRef}
+          onNextSlide={nextSlide}
+          onPrevSlide={prevSlide}
+          onGoToSlide={goToSlide}
+          onTrackTransitionEnd={handleTrackTransitionEnd}
+          userZerines={user?.zerines}
+          getCount={getCount}
+          onToggleCart={toggleCart}
+          onScrollToCatalog={scrollToCatalog}
+          onAddToCart={handleAddToCart}
+        />
+      </div>
 
       {/* Tabs */}
       <div className="max-w-7xl mx-auto mb-8">
         <TabGroup
           tabs={[
-            { id: "catalog", label: "Catalogo", icon: "inventory_2" },
+            { id: "catalog", label: "Catálogo", icon: "inventory_2" },
             { id: "library", label: "Mis Artículos", icon: "auto_awesome" },
           ]}
           activeTab={activeTab}
@@ -238,7 +272,7 @@ export default function BorginBurkesPage() {
 
           {/* Catalog Grid */}
           <div ref={catalogRef} className="max-w-7xl mx-auto">
-            {loading ? (
+            {productsLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="bg-[#2a2828] border border-secondary/20 rounded-3xl p-6 animate-pulse">
@@ -262,7 +296,7 @@ export default function BorginBurkesPage() {
               </div>
             ) : (
               <>
-              <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 ${productList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {visibleProducts.map((product) => (
                   <ArtifactCard
                     key={product.id}
@@ -271,7 +305,14 @@ export default function BorginBurkesPage() {
                   />
                 ))}
               </div>
-              <ListFooter {...productList} onToggle={productList.toggle} />
+              <ListFooter
+                hasMore={productsHasMore}
+                loading={productsLoadingMore}
+                pageSize={12}
+                loaded={allShopItems.length}
+                total={productsTotal}
+                onLoadMore={loadMoreProducts}
+              />
               </>
             )}
           </div>
@@ -281,7 +322,7 @@ export default function BorginBurkesPage() {
       {/* ===== MIS ArtículoS ===== */}
       {activeTab === "library" && (
         <div className="max-w-7xl mx-auto">
-          {loading ? (
+          {purchasesLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="bg-[#2a2828] border border-secondary/20 rounded-3xl p-6 animate-pulse">
@@ -291,7 +332,7 @@ export default function BorginBurkesPage() {
                 </div>
               ))}
             </div>
-          ) : myPurchases.length === 0 ? (
+          ) : allPurchases.length === 0 ? (
             <div className="text-center py-20">
               <MaterialIcon
                 name="collections"
@@ -301,22 +342,22 @@ export default function BorginBurkesPage() {
                 Tu coleccion esta vacia.
               </p>
               <p className="text-surface-dim text-body-sm mb-6">
-                Explora el catalogo y adquiere tu primer artefacto.
+                Explora el catálogo y adquiere tu primer artefacto.
               </p>
               <button
                 onClick={() => setActiveTab("catalog")}
                 className="px-6 py-3 rounded-full crystal-gradient text-on-primary font-medium text-label-sm hover:opacity-90 transition-all inline-flex items-center gap-2"
               >
                 <MaterialIcon name="inventory_2" className="text-[1.1em]" />
-                Ver Catalogo
+                Ver Catálogo
               </button>
             </div>
           ) : (
             <>
               <p className="text-surface-dim text-body-sm mb-6">
-                {myPurchases.length} {myPurchases.length === 1 ? "artículo comprado" : "artículos comprados"}
+                {allPurchases.length} {allPurchases.length === 1 ? "artículo comprado" : "artículos comprados"}
               </p>
-              <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 ${purchaseList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {visiblePurchases.map((up) => (
                   <div
                     key={up.id}
@@ -359,7 +400,7 @@ export default function BorginBurkesPage() {
                         <span>
                           {up.quantity > 1 ? `x${up.quantity} ` : ""}
                           <span className="font-bold text-secondary">
-                            💎 {((up.product?.price ?? 0) * up.quantity).toLocaleString()}
+                            <MaterialIcon name="diamond" className="text-[1em]" filled /> {((up.product?.price ?? 0) * up.quantity).toLocaleString()}
                           </span>
                         </span>
                         <span>
@@ -374,7 +415,14 @@ export default function BorginBurkesPage() {
                   </div>
                 ))}
               </div>
-              <ListFooter {...purchaseList} onToggle={purchaseList.toggle} />
+              <ListFooter
+                hasMore={purchasesHasMore}
+                loading={purchasesLoadingMore}
+                pageSize={9}
+                loaded={allPurchases.length}
+                total={purchasesTotal}
+                onLoadMore={loadMorePurchases}
+              />
             </>
           )}
         </div>
@@ -388,6 +436,8 @@ export default function BorginBurkesPage() {
         getTotal={getTotal}
         onRemoveItem={removeItem}
         onPurchase={handlePurchase}
+        userZerines={user?.zerines ?? 0}
+        submitting={submitting}
       />
 
       {/* Success Ticket Modal */}
