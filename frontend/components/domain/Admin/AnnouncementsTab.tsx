@@ -5,15 +5,7 @@ import { api, Announcement } from "@/lib/api";
 import { GlassCard, Button, Modal, MaterialIcon, ListFooter } from "@/components/ui";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 
-interface AnnouncementsTabProps {
-  announcements: Announcement[];
-  setAnnouncements: React.Dispatch<React.SetStateAction<Announcement[]>>;
-}
-
-export function AnnouncementsTab({
-  announcements: _announcementsProp,
-  setAnnouncements,
-}: AnnouncementsTabProps) {
+export function AnnouncementsTab() {
   const [editItem, setEditItem] = useState<Announcement | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [body, setBody] = useState("");
@@ -52,10 +44,10 @@ export function AnnouncementsTab({
     setSaving(true);
     try {
       if (isNew) {
-        const created = await api.createAnnouncement({ body: body.trim() });
+        await api.createAnnouncement({ body: body.trim() });
         refresh();
       } else if (editItem) {
-        const updated = await api.updateAnnouncement(editItem.id, {
+        await api.updateAnnouncement(editItem.id, {
           body: body.trim(),
         });
         refresh();
@@ -83,46 +75,58 @@ export function AnnouncementsTab({
       </div>
 
       <div className="space-y-3">
-        {visibleAnnouncements.map((a) => (
-          <GlassCard key={a.id} className="p-5" hover>
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 min-w-0">
-                <MaterialIcon
-                  name="campaign"
-                  className="text-secondary text-xl flex-shrink-0"
-                  filled
-                />
-                <p className="text-body-md text-on-surface truncate">
-                  {a.body}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => openEdit(a)}
-                  className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
-                >
-                  <MaterialIcon name="edit" className="text-lg" />
-                </button>
-                <button
-                  onClick={() => handleDelete(a.id)}
-                  className="p-2 rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
-                >
-                  <MaterialIcon name="delete" className="text-lg" />
-                </button>
-              </div>
-            </div>
-          </GlassCard>
-        ))}
-        {allAnnouncements.length === 0 && (
+        {loading ? (
           <div className="text-center py-16">
             <MaterialIcon
-              name="campaign"
-              className="text-5xl text-outline-variant mb-3 block mx-auto"
+              name="progress_activity"
+              className="text-4xl text-outline-variant animate-spin mb-3 block mx-auto"
             />
-            <p className="text-on-surface-variant text-body-md">
-              No hay anuncios
-            </p>
+            <p className="text-on-surface-variant text-body-md">Cargando...</p>
           </div>
+        ) : (
+          <>
+            {visibleAnnouncements.map((a) => (
+              <GlassCard key={a.id} className="p-5" hover>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <MaterialIcon
+                      name="campaign"
+                      className="text-secondary text-xl shrink-0"
+                      filled
+                    />
+                    <p className="text-body-md text-on-surface truncate">
+                      {a.body}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => openEdit(a)}
+                      className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
+                    >
+                      <MaterialIcon name="edit" className="text-lg" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(a.id)}
+                      className="p-2 rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
+                    >
+                      <MaterialIcon name="delete" className="text-lg" />
+                    </button>
+                  </div>
+                </div>
+              </GlassCard>
+            ))}
+            {allAnnouncements.length === 0 && (
+              <div className="text-center py-16">
+                <MaterialIcon
+                  name="campaign"
+                  className="text-5xl text-outline-variant mb-3 block mx-auto"
+                />
+                <p className="text-on-surface-variant text-body-md">
+                  No hay anuncios
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
       <ListFooter
@@ -154,7 +158,7 @@ export function AnnouncementsTab({
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Ej: La Copa de las Casas arranca el próximo viernes..."
-                className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors min-h-[100px] resize-none"
+                className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors min-h-25 resize-none"
               />
             </div>
             <div className="flex gap-3">

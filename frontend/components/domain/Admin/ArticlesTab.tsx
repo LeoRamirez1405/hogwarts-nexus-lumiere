@@ -7,13 +7,11 @@ import { GlassCard, Button, Badge, SearchBar, Modal, MaterialIcon, ListFooter } 
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 interface ArticlesTabProps {
-  articles: Article[];
-  setArticles: React.Dispatch<React.SetStateAction<Article[]>>;
   search: string;
   setSearch: (v: string) => void;
 }
 
-export function ArticlesTab({ articles: _articlesProp, setArticles, search, setSearch }: ArticlesTabProps) {
+export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
   const [editArticle, setEditArticle] = useState<Article | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [form, setForm] = useState({
@@ -97,10 +95,10 @@ export function ArticlesTab({ articles: _articlesProp, setArticles, search, setS
         pinned: form.pinned,
       };
       if (isNew) {
-        const created = await api.createArticle(data);
+        await api.createArticle(data);
         refresh();
       } else if (editArticle) {
-        const updated = await api.updateArticle(editArticle.id, data);
+        await api.updateArticle(editArticle.id, data);
         refresh();
       }
       setEditArticle(null);
@@ -153,75 +151,87 @@ export function ArticlesTab({ articles: _articlesProp, setArticles, search, setS
       </div>
 
       <div className="space-y-4">
-        {visibleArticles.map((a) => (
-          <GlassCard key={a.id} className="p-6" hover>
-            <div className="flex flex-col md:flex-row md:items-center gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="tag">{a.category}</Badge>
-                  {a.pinned && (
-                    <Badge variant="rarity" color="primary">
-                      <MaterialIcon name="push_pin" className="text-[0.9em] mr-0.5" filled />
-                      Principal
-                    </Badge>
-                  )}
-                  {a.featured && (
-                    <Badge variant="rarity" color="secondary">
-                      Destacado
-                    </Badge>
-                  )}
-                </div>
-                <h3 className="font-display text-title-md text-on-surface mb-1">
-                  {a.title}
-                </h3>
-                <p className="text-label-sm text-on-surface-variant line-clamp-1">
-                  {a.body.slice(0, 150)}
-                  {a.body.length > 150 ? "..." : ""}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => handleTogglePin(a)}
-                  disabled={pinningId === a.id}
-                  title={a.pinned ? "Quitar como principal" : "Fijar como principal"}
-                  className={`p-2 rounded-full transition-colors disabled:opacity-50 ${
-                    a.pinned
-                      ? "bg-primary/10 text-primary hover:bg-primary/20"
-                      : "hover:bg-surface-container-high text-on-surface-variant hover:text-primary"
-                  }`}
-                >
-                  <MaterialIcon
-                    name={pinningId === a.id ? "progress_activity" : "push_pin"}
-                    className={`text-lg ${pinningId === a.id ? "animate-spin" : ""}`}
-                    filled={a.pinned}
-                  />
-                </button>
-                <button
-                  onClick={() => openEdit(a)}
-                  className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
-                >
-                  <MaterialIcon name="edit" className="text-lg" />
-                </button>
-                <button
-                  onClick={() => handleDelete(a.id)}
-                  className="p-2 rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
-                >
-                  <MaterialIcon name="delete" className="text-lg" />
-                </button>
-              </div>
-            </div>
-          </GlassCard>
-        ))}
-        {filtered.length === 0 && (
+        {loading ? (
           <div className="text-center py-16">
             <MaterialIcon
-              name="article"
-              className="text-5xl text-outline-variant mb-3 block mx-auto"
+              name="progress_activity"
+              className="text-4xl text-outline-variant animate-spin mb-3 block mx-auto"
             />
-            <p className="text-on-surface-variant text-body-md">
-              No se encontraron artículos
-            </p>
+            <p className="text-on-surface-variant text-body-md">Cargando...</p>
           </div>
+        ) : (
+          <>
+            {visibleArticles.map((a) => (
+              <GlassCard key={a.id} className="p-6" hover>
+                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="tag">{a.category}</Badge>
+                      {a.pinned && (
+                        <Badge variant="rarity" color="primary">
+                          <MaterialIcon name="push_pin" className="text-[0.9em] mr-0.5" filled />
+                          Principal
+                        </Badge>
+                      )}
+                      {a.featured && (
+                        <Badge variant="rarity" color="secondary">
+                          Destacado
+                        </Badge>
+                      )}
+                    </div>
+                    <h3 className="font-display text-title-md text-on-surface mb-1">
+                      {a.title}
+                    </h3>
+                    <p className="text-label-sm text-on-surface-variant line-clamp-1">
+                      {a.body.slice(0, 150)}
+                      {a.body.length > 150 ? "..." : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => handleTogglePin(a)}
+                      disabled={pinningId === a.id}
+                      title={a.pinned ? "Quitar como principal" : "Fijar como principal"}
+                      className={`p-2 rounded-full transition-colors disabled:opacity-50 ${
+                        a.pinned
+                          ? "bg-primary/10 text-primary hover:bg-primary/20"
+                          : "hover:bg-surface-container-high text-on-surface-variant hover:text-primary"
+                      }`}
+                    >
+                      <MaterialIcon
+                        name={pinningId === a.id ? "progress_activity" : "push_pin"}
+                        className={`text-lg ${pinningId === a.id ? "animate-spin" : ""}`}
+                        filled={a.pinned}
+                      />
+                    </button>
+                    <button
+                      onClick={() => openEdit(a)}
+                      className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
+                    >
+                      <MaterialIcon name="edit" className="text-lg" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(a.id)}
+                      className="p-2 rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
+                    >
+                      <MaterialIcon name="delete" className="text-lg" />
+                    </button>
+                  </div>
+                </div>
+              </GlassCard>
+            ))}
+            {filtered.length === 0 && (
+              <div className="text-center py-16">
+                <MaterialIcon
+                  name="article"
+                  className="text-5xl text-outline-variant mb-3 block mx-auto"
+                />
+                <p className="text-on-surface-variant text-body-md">
+                  No se encontraron artículos
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
       <ListFooter

@@ -5,15 +5,7 @@ import { api, Classified } from "@/lib/api";
 import { GlassCard, Button, Badge, Modal, MaterialIcon, ListFooter } from "@/components/ui";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 
-interface ClassifiedsTabProps {
-  classifieds: Classified[];
-  setClassifieds: React.Dispatch<React.SetStateAction<Classified[]>>;
-}
-
-export function ClassifiedsTab({
-  classifieds: _classifiedsProp,
-  setClassifieds,
-}: ClassifiedsTabProps) {
+export function ClassifiedsTab() {
   const [editItem, setEditItem] = useState<Classified | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [form, setForm] = useState({ title: "", price: "" });
@@ -52,13 +44,13 @@ export function ClassifiedsTab({
     setSaving(true);
     try {
       if (isNew) {
-        const created = await api.createClassified({
+        await api.createClassified({
           title: form.title.trim(),
           price: form.price.trim(),
         });
         refresh();
       } else if (editItem) {
-        const updated = await api.updateClassified(editItem.id, {
+        await api.updateClassified(editItem.id, {
           title: form.title.trim(),
           price: form.price.trim(),
         });
@@ -87,48 +79,60 @@ export function ClassifiedsTab({
       </div>
 
       <div className="space-y-3">
-        {visibleClassifieds.map((c) => (
-          <GlassCard key={c.id} className="p-5" hover>
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 min-w-0">
-                <MaterialIcon
-                  name="sell"
-                  className="text-primary text-xl flex-shrink-0"
-                />
-                <span className="text-body-md text-on-surface font-medium truncate">
-                  {c.title}
-                </span>
-              </div>
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <Badge variant="tag" color="secondary">
-                  {c.price}
-                </Badge>
-                <button
-                  onClick={() => openEdit(c)}
-                  className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
-                >
-                  <MaterialIcon name="edit" className="text-lg" />
-                </button>
-                <button
-                  onClick={() => handleDelete(c.id)}
-                  className="p-2 rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
-                >
-                  <MaterialIcon name="delete" className="text-lg" />
-                </button>
-              </div>
-            </div>
-          </GlassCard>
-        ))}
-        {allClassifieds.length === 0 && (
+        {loading ? (
           <div className="text-center py-16">
             <MaterialIcon
-              name="sell"
-              className="text-5xl text-outline-variant mb-3 block mx-auto"
+              name="progress_activity"
+              className="text-4xl text-outline-variant animate-spin mb-3 block mx-auto"
             />
-            <p className="text-on-surface-variant text-body-md">
-              No hay clasificados
-            </p>
+            <p className="text-on-surface-variant text-body-md">Cargando...</p>
           </div>
+        ) : (
+          <>
+            {visibleClassifieds.map((c) => (
+              <GlassCard key={c.id} className="p-5" hover>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <MaterialIcon
+                      name="sell"
+                      className="text-primary text-xl flex-shrink-0"
+                    />
+                    <span className="text-body-md text-on-surface font-medium truncate">
+                      {c.title}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <Badge variant="tag" color="secondary">
+                      {c.price}
+                    </Badge>
+                    <button
+                      onClick={() => openEdit(c)}
+                      className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
+                    >
+                      <MaterialIcon name="edit" className="text-lg" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(c.id)}
+                      className="p-2 rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
+                    >
+                      <MaterialIcon name="delete" className="text-lg" />
+                    </button>
+                  </div>
+                </div>
+              </GlassCard>
+            ))}
+            {allClassifieds.length === 0 && (
+              <div className="text-center py-16">
+                <MaterialIcon
+                  name="sell"
+                  className="text-5xl text-outline-variant mb-3 block mx-auto"
+                />
+                <p className="text-on-surface-variant text-body-md">
+                  No hay clasificados
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
       <ListFooter

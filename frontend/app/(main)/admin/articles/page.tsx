@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { api, Article, Announcement, Classified } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
 import TabGroup from "@/components/ui/TabGroup";
@@ -17,40 +16,22 @@ export default function AdminArticlesPage() {
   const { user } = useAuthStore();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("articles");
-
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [classifieds, setClassifieds] = useState<Classified[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (user?.role !== "admin") {
       router.push("/dashboard");
-      return;
     }
-    Promise.all([
-      api.getArticles().then((p) => p.items),
-      api.getAnnouncements().then((p) => p.items),
-      api.getClassifieds().then((p) => p.items),
-    ])
-      .then(([a, ann, cls]) => {
-        setArticles(a);
-        setAnnouncements(ann);
-        setClassifieds(cls);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
   }, [user, router]);
 
   if (user?.role !== "admin") return null;
 
   const subtitle =
     activeTab === "articles"
-      ? `${articles.length} artículos en El Quisquilloso`
+      ? "Gestiona los artículos de El Quisquilloso"
       : activeTab === "announcements"
-        ? `${announcements.length} anuncios activos`
-        : `${classifieds.length} clasificados activos`;
+        ? "Anuncios para El Quisquilloso"
+        : "Clasificados de la comunidad";
 
   return (
     <div className="space-y-6">
@@ -126,39 +107,13 @@ export default function AdminArticlesPage() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="glass-card rounded-xl p-6 animate-pulse">
-              <div className="h-4 bg-outline-variant/30 rounded w-1/3 mb-3" />
-              <div className="h-3 bg-outline-variant/30 rounded w-2/3" />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {activeTab === "articles" && (
-            <ArticlesTab
-              articles={articles}
-              setArticles={setArticles}
-              search={search}
-              setSearch={setSearch}
-            />
-          )}
-          {activeTab === "announcements" && (
-            <AnnouncementsTab
-              announcements={announcements}
-              setAnnouncements={setAnnouncements}
-            />
-          )}
-          {activeTab === "classifieds" && (
-            <ClassifiedsTab
-              classifieds={classifieds}
-              setClassifieds={setClassifieds}
-            />
-          )}
-        </div>
-      )}
+      <div className="space-y-4">
+        {activeTab === "articles" && (
+          <ArticlesTab search={search} setSearch={setSearch} />
+        )}
+        {activeTab === "announcements" && <AnnouncementsTab />}
+        {activeTab === "classifieds" && <ClassifiedsTab />}
+      </div>
     </div>
   );
 }
