@@ -24,7 +24,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hogwarts Nexus lumière  ",
+  title: "Hogwarts Nexus Lumière  ",
   description: "Plataforma social mágica con economia de Zerines",
 };
 

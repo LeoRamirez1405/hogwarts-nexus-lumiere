@@ -37,7 +37,7 @@ export default function LoginPage() {
             auto_stories
           </span>
           <h1 className="font-display text-display-lg text-primary tracking-tight">
-            Nexus lumière  
+            Nexus Lumière  
           </h1>
           <p className="text-on-surface-variant font-body text-body-md mt-2">
             Plataforma social mágica
