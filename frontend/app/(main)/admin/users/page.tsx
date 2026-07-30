@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { api, User } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
@@ -10,7 +10,7 @@ import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
 import ListFooter from "@/components/ui/ListFooter";
-import { useCollapsibleList } from "@/hooks/useCollapsibleList";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 function MaterialIcon({
   name,
@@ -40,8 +40,6 @@ const HOUSES = ["Gryffindor", "Slytherin", "Ravenclaw", "Hufflepuff"];
 export default function AdminUsersPage() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [editUser, setEditUser] = useState<User | null>(null);
   const [editName, setEditName] = useState("");
@@ -71,37 +69,41 @@ export default function AdminUsersPage() {
   const [resetConfirm, setResetConfirm] = useState("");
   const [resetting, setResetting] = useState(false);
 
-  useEffect(() => {
-    if (user?.role !== "admin") {
-      router.push("/dashboard");
-      return;
-    }
-    api
-      .getUsers()
-      .then(setUsers)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [user, router]);
 
-  const filtered = users.filter(
+const {
+    items: allItems,
+    hasMore,
+    loading,
+    loadingMore,
+    totalLoaded,
+    totalCount,
+    loadMore,
+    refresh,
+  } = usePaginatedList({
+    fetcher: (p) => api.getUsers(p),
+    pageSize: 12,
+    enabled: user?.role === "admin",
+  });
+
+  const filtered = allItems.filter(
     (u) =>
       (u.name.toLowerCase().includes(search.toLowerCase()) ||
-       u.email.toLowerCase().includes(search.toLowerCase())) &&
+        u.email.toLowerCase().includes(search.toLowerCase())) &&
       (!houseFilter || u.house === houseFilter)
   );
 
-  const { visibleItems: visibleUsers, ...userList } = useCollapsibleList(filtered, 12);
+  const visibleUsers = filtered;
 
   const handleSave = async () => {
     if (!editUser) return;
     setSaving(true);
     try {
-      const updated = await api.updateUser(editUser.id, {
+      await api.updateUser(editUser.id, {
         name: editName,
         role: editRole,
         zerines: parseInt(editZerines) || 0,
       });
-      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+      refresh();
       setEditUser(null);
     } catch {}
     setSaving(false);
@@ -111,7 +113,7 @@ export default function AdminUsersPage() {
     if (!confirm("Eliminar este usuario?")) return;
     try {
       await api.deleteUser(id);
-      setUsers((prev) => prev.filter((u) => u.id !== id));
+      refresh();
     } catch {}
   };
 
@@ -126,8 +128,7 @@ export default function AdminUsersPage() {
         house: newHouse || undefined,
         role: newRole,
       });
-      const refreshed = await api.getUsers();
-      setUsers(refreshed);
+      refresh();
       setShowCreate(false);
       setNewName("");
       setNewEmail("");
@@ -146,8 +147,8 @@ export default function AdminUsersPage() {
     if (!pts) return;
     setAdjusting(true);
     try {
-      const updated = await api.adjustHousePoints(pointsUser.id, pts, pointsReason || undefined);
-      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+      await api.adjustHousePoints(pointsUser.id, pts, pointsReason || undefined);
+      refresh();
       setPointsUser(null);
       setPointsValue("");
       setPointsReason("");
@@ -184,7 +185,9 @@ export default function AdminUsersPage() {
             Gestionar Usuarios
           </h1>
           <p className="text-on-surface-variant text-body-md mt-1">
-            {users.length} usuarios registrados
+            {houseFilter
+              ? `${allItems.filter((u) => u.house === houseFilter).length} usuarios en ${houseFilter}`
+              : `${totalCount} usuarios registrados`}
           </p>
         </div>
         {/* Mobile: search arriba, controles debajo */}
@@ -260,7 +263,7 @@ export default function AdminUsersPage() {
       ) : (
         <>
           {/* MOBILE: Cards */}
-          <div className={`md:hidden space-y-4 ${userList.expanded ? "max-h-[70vh] overflow-y-auto" : ""}`}>
+          <div className="md:hidden space-y-4">
             {visibleUsers.map((u) => (
               <GlassCard key={u.id} className="p-4">
                 <div className="flex items-start gap-3">
@@ -287,7 +290,7 @@ export default function AdminUsersPage() {
                   <div className="flex flex-col gap-1">
                     <span className="text-label-sm text-on-surface-variant">Zerines</span>
                     <span className="text-body-md text-on-surface font-medium">
-                      💎 {u.zerines.toLocaleString()}
+                      <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled /> {u.zerines.toLocaleString()}
                     </span>
                   </div>
                   <button
@@ -360,12 +363,19 @@ export default function AdminUsersPage() {
             )}
           </div>
           <div className="md:hidden">
-            <ListFooter {...userList} onToggle={userList.toggle} />
+            <ListFooter
+              hasMore={hasMore}
+              loading={loadingMore}
+              pageSize={12}
+              loaded={totalLoaded}
+              total={totalCount}
+              onLoadMore={loadMore}
+            />
           </div>
 
           {/* DESKTOP: Table */}
           <GlassCard className="hidden md:block">
-            <div className={`overflow-x-auto ${userList.expanded ? "max-h-[70vh] overflow-y-auto" : ""}`}>
+            <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="sticky top-0 z-10 bg-surface-container">
                 <tr className="border-b border-outline-variant/20">
@@ -505,7 +515,14 @@ export default function AdminUsersPage() {
             </table>
           </div>
           <div className="hidden md:block">
-            <ListFooter {...userList} onToggle={userList.toggle} />
+            <ListFooter
+              hasMore={hasMore}
+              loading={loadingMore}
+              pageSize={12}
+              loaded={totalLoaded}
+              total={totalCount}
+              onLoadMore={loadMore}
+            />
           </div>
         </GlassCard>
         </>

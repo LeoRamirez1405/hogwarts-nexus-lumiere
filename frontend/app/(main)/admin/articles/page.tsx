@@ -30,9 +30,9 @@ export default function AdminArticlesPage() {
       return;
     }
     Promise.all([
-      api.getArticles(),
-      api.getAnnouncements(),
-      api.getClassifieds(),
+      api.getArticles().then((p) => p.items),
+      api.getAnnouncements().then((p) => p.items),
+      api.getClassifieds().then((p) => p.items),
     ])
       .then(([a, ann, cls]) => {
         setArticles(a);

@@ -1,17 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import Image from "next/image";
 import { api, PetItem, PetType, PetItemKind } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
-import { useRouter } from "next/navigation";
 import GlassCard from "@/components/ui/GlassCard";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
 import ListFooter from "@/components/ui/ListFooter";
-import { useCollapsibleList } from "@/hooks/useCollapsibleList";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 function MaterialIcon({
   name,
@@ -45,9 +44,6 @@ type Filter = "all" | PetItemKind;
 
 export default function AdminPetItemsPage() {
   const { user } = useAuthStore();
-  const router = useRouter();
-  const [items, setItems] = useState<PetItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [editItem, setEditItem] = useState<PetItem | null>(null);
@@ -66,28 +62,30 @@ export default function AdminPetItemsPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (user?.role !== "admin") {
-      router.push("/dashboard");
-      return;
-    }
-    api
-      .getPetItems()
-      .then(setItems)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [user, router]);
-
-  const filtered = items.filter((it) => {
-    const matchesSearch =
-      !search ||
-      it.name.toLowerCase().includes(search.toLowerCase()) ||
-      it.pet_type.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = filter === "all" || it.kind === filter;
-    return matchesSearch && matchesFilter;
+  const {
+    items: allItems,
+    hasMore,
+    loading,
+    loadingMore,
+    totalLoaded,
+    totalCount,
+    loadMore,
+    refresh,
+  } = usePaginatedList({
+    fetcher: (p) => api.getPetItems({ kind: filter === "all" ? undefined : filter }, p),
+    pageSize: 12,
+    enabled: user?.role === "admin",
+    resetKey: filter,
   });
 
-  const { visibleItems: visibleItemsList, ...itemList } = useCollapsibleList(filtered, 12);
+  const filtered = allItems.filter(
+    (it) =>
+      !search ||
+      it.name.toLowerCase().includes(search.toLowerCase()) ||
+      it.pet_type.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const visibleItems = filtered;
 
   const openNew = () => {
     setIsNew(true);
@@ -133,12 +131,11 @@ export default function AdminPetItemsPage() {
         image_url: form.image_url || undefined,
       };
       if (isNew) {
-        const created = await api.createPetItem(data);
-        setItems((prev) => [...prev, created]);
+        await api.createPetItem(data);
       } else if (editItem) {
-        const updated = await api.updatePetItem(editItem.id, data);
-        setItems((prev) => prev.map((it) => (it.id === updated.id ? updated : it)));
+        await api.updatePetItem(editItem.id, data);
       }
+      await refresh();
       setEditItem(null);
       setIsNew(false);
     } catch {}
@@ -161,11 +158,23 @@ export default function AdminPetItemsPage() {
     if (!confirm("Eliminar este objeto?")) return;
     try {
       await api.deletePetItem(id);
-      setItems((prev) => prev.filter((it) => it.id !== id));
+      await refresh();
     } catch {}
   };
 
   if (user?.role !== "admin") return null;
+
+  // The backend already returns the count for the active `kind` filter.
+  const getDisplayCount = () => totalCount;
+
+  const getDisplayLabel = () => {
+    if (getDisplayCount() === 1) {
+      if (filter === "all") return "objeto de mascota en catálogo";
+      return `${KIND_LABELS[filter]} en catálogo`;
+    }
+    if (filter === "all") return "objetos de mascota en catálogo";
+    return `${KIND_LABELS[filter]}s en catálogo`;
+  };
 
   return (
     <div className="space-y-8">
@@ -175,7 +184,7 @@ export default function AdminPetItemsPage() {
             Comida y Juguetes
           </h1>
           <p className="text-on-surface-variant text-body-md mt-1">
-            {items.length} objetos de mascota en catalogo
+            {getDisplayCount()} {getDisplayLabel()}
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -219,8 +228,8 @@ export default function AdminPetItemsPage() {
         </div>
       ) : (
         <>
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${itemList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
-          {visibleItemsList.map((it) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {visibleItems.map((it) => (
             <GlassCard key={it.id} className="overflow-hidden" hover>
               <div className="p-6">
                 <div className="flex items-start justify-between mb-3">
@@ -253,7 +262,7 @@ export default function AdminPetItemsPage() {
                 </p>
                 <div className="flex items-center justify-between mb-1">
                   <p className="font-display text-title-md text-secondary">
-                    💎 {it.price.toLocaleString()}
+                    <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled /> {it.price.toLocaleString()}
                   </p>
                   <p className="text-label-sm text-success font-medium">
                     +{it.restore_amount} {it.kind === "food" ? "hambre" : "felicidad"}
@@ -277,7 +286,14 @@ export default function AdminPetItemsPage() {
             </div>
           )}
         </div>
-        <ListFooter {...itemList} onToggle={itemList.toggle} />
+        <ListFooter
+            hasMore={hasMore}
+            loading={loadingMore}
+            pageSize={12}
+            loaded={totalLoaded}
+            total={totalCount}
+            onLoadMore={loadMore}
+          />
         </>
       )}
 

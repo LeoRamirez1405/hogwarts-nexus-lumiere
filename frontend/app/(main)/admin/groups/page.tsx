@@ -12,7 +12,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import ListFooter from "@/components/ui/ListFooter";
 import Image from "next/image";
-import { useCollapsibleList } from "@/hooks/useCollapsibleList";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 function MaterialIcon({
   name,
@@ -63,8 +63,6 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 export default function AdminGroupsPage() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const [rooms, setRooms] = useState<ChatRoomBrief[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState<string | null>(null);
@@ -90,27 +88,20 @@ export default function AdminGroupsPage() {
   const createAvatarRef = useRef<HTMLInputElement>(null);
   const editAvatarRef = useRef<HTMLInputElement>(null);
 
-  const loadData = async () => {
-    try {
-      const [roomsData, usersData] = await Promise.all([
-        api.getRooms(true),
-        api.getUsers(),
-      ]);
-      setRooms(roomsData);
-      const usersIncludingCurrent = [...usersData];
-      if (user && !usersData.some((u) => u.id === user.id)) {
-        usersIncludingCurrent.push(user);
-      }
-      const userMap: Record<string, User> = {};
-      usersIncludingCurrent.forEach((u) => { userMap[u.id] = u; });
-      setAllUsersMap(userMap);
-      setAllUsers(usersData.filter((u) => u.id !== user?.id));
-    } catch (e) {
-      console.error("Error loading data", e);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    items: allRooms,
+    hasMore,
+    loading,
+    loadingMore,
+    totalLoaded,
+    totalCount,
+    loadMore,
+    refresh,
+  } = usePaginatedList({
+    fetcher: (p) => api.getRooms(user?.role === "admin" ? true : undefined, p),
+    pageSize: 10,
+    enabled: user?.role === "admin",
+  });
 
   useEffect(() => {
     if (user?.role !== "admin") {
@@ -120,13 +111,7 @@ export default function AdminGroupsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const roomsData = await api.getRooms(true);
-        if (!cancelled) setRooms(roomsData);
-      } catch (e) {
-        console.error("Error loading rooms", e);
-      }
-      try {
-        const usersData = await api.getUsers();
+        const usersData = (await api.getUsers()).items;
         if (!cancelled) {
           const usersIncludingCurrent = [...usersData];
           if (user && !usersData.some((u) => u.id === user.id)) {
@@ -140,7 +125,6 @@ export default function AdminGroupsPage() {
       } catch (e) {
         console.error("Error loading users", e);
       }
-      if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [user, router]);
@@ -176,7 +160,7 @@ export default function AdminGroupsPage() {
       setShowCreate(false);
       setNewRoom({ name: "", description: "", type: "group", member_ids: [], avatar_url: "" });
       setToast("Grupo creado exitosamente");
-      await loadData();
+      await refresh();
     } catch (e) {
       console.error("Error creating room", e);
     } finally {
@@ -195,7 +179,7 @@ export default function AdminGroupsPage() {
       });
       setShowEdit(null);
       setToast("Grupo actualizado");
-      await loadData();
+      await refresh();
     } catch (e) {
       console.error("Error updating room", e);
     } finally {
@@ -208,7 +192,7 @@ export default function AdminGroupsPage() {
     try {
       await api.deleteRoom(roomId);
       setToast("Grupo eliminado");
-      await loadData();
+      await refresh();
     } catch (e) {
       console.error("Error deleting room", e);
     }
@@ -217,9 +201,7 @@ export default function AdminGroupsPage() {
   const handleToggleClose = async (roomId: string) => {
     try {
       const updated = await api.toggleRoomClosed(roomId);
-      setRooms((prev) =>
-        prev.map((r) => (r.id === roomId ? { ...r, closed: updated.closed } : r))
-      );
+      await refresh();
       setToast(updated.closed ? "Grupo cerrado — solo admins pueden hablar" : "Grupo reabierto");
     } catch (e) {
       console.error("Error toggling room", e);
@@ -237,7 +219,7 @@ export default function AdminGroupsPage() {
       setSelectedMembers([]);
       setMemberSearch("");
       setToast("Miembros agregados");
-      await loadData();
+      await refresh();
     } catch (e) {
       console.error("Error adding members", e);
     } finally {
@@ -270,13 +252,13 @@ export default function AdminGroupsPage() {
     }
   };
 
-  const filteredRooms = rooms.filter(
+  const filteredRooms = allRooms.filter(
     (r) =>
       r.name.toLowerCase().includes(search.toLowerCase()) ||
       r.description?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const { visibleItems: visibleRooms, ...roomList } = useCollapsibleList(filteredRooms, 10);
+  const visibleRooms = filteredRooms;
 
   const filteredUsers = allUsers.filter(
     (u) =>
@@ -344,7 +326,7 @@ export default function AdminGroupsPage() {
             </div>
           ) : (
             <>
-            <div className={roomList.expanded ? "max-h-[70vh] overflow-y-auto" : ""}>
+            <div>
             {visibleRooms.map((room) => (
               <div key={room.id} className="p-4 hover:bg-surface-container-low/50 transition-colors border-b border-outline-variant/10 last:border-0">
                 <div className="flex items-start gap-3">
@@ -400,14 +382,21 @@ export default function AdminGroupsPage() {
             ))}
             </div>
             <div className="p-2">
-              <ListFooter {...roomList} onToggle={roomList.toggle} />
+              <ListFooter
+                hasMore={hasMore}
+                loading={loadingMore}
+                pageSize={10}
+                loaded={totalLoaded}
+                total={totalCount}
+                onLoadMore={loadMore}
+              />
             </div>
             </>
           )}
         </div>
 
         {/* DESKTOP: Table */}
-        <div className={`hidden md:block overflow-x-auto ${roomList.expanded ? "max-h-[70vh] overflow-y-auto" : ""}`}>
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left">
             <thead className="sticky top-0 z-10 bg-surface-container">
               <tr className="border-b border-outline-variant/20">
@@ -520,7 +509,14 @@ export default function AdminGroupsPage() {
           </table>
         </div>
         <div className="hidden md:block">
-          <ListFooter {...roomList} onToggle={roomList.toggle} />
+          <ListFooter
+            hasMore={hasMore}
+            loading={loadingMore}
+            pageSize={10}
+            loaded={totalLoaded}
+            total={totalCount}
+            onLoadMore={loadMore}
+          />
         </div>
       </GlassCard>
 

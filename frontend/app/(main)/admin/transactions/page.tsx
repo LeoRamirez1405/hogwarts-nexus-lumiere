@@ -8,7 +8,7 @@ import GlassCard from "@/components/ui/GlassCard";
 import SearchBar from "@/components/ui/SearchBar";
 import Avatar from "@/components/ui/Avatar";
 import ListFooter from "@/components/ui/ListFooter";
-import { useCollapsibleList } from "@/hooks/useCollapsibleList";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 function MaterialIcon({
   name,
@@ -72,12 +72,23 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+const TX_TYPE_LABELS: Record<Transaction["type"], string> = {
+  deposit: "Depósito",
+  withdrawal: "Retiro",
+  transfer: "Transferencia",
+  purchase: "Compra",
+};
+
+function txTypeLabel(type: Transaction["type"]): string {
+  return TX_TYPE_LABELS[type] ?? type;
+}
+
 function getActorName(tx: Transaction): string {
   if (tx.type === "deposit") {
-    return tx.receiver?.name || tx.receiver_id ? "Desconocido" : "—";
+    return tx.receiver?.name || (tx.receiver_id ? "Desconocido" : "—");
   }
   if (tx.type === "withdrawal" || tx.type === "purchase") {
-    return tx.sender?.name || tx.sender_id ? "Desconocido" : "—";
+    return tx.sender?.name || (tx.sender_id ? "Desconocido" : "—");
   }
   if (tx.type === "transfer") {
     const sender = tx.sender?.name || (tx.sender_id ? "Desconocido" : "—");
@@ -100,36 +111,67 @@ function getActorAvatar(tx: Transaction): string | undefined {
 export default function AdminTransactionsPage() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<"user" | "admin">("admin");
 
   useEffect(() => {
-    if (user?.role !== "admin") {
+    if (user && user.role !== "admin") {
       router.push("/dashboard");
-      return;
     }
-    api
-      .getAllTransactionsAdmin()
-      .then(setTransactions)
-      .catch(() => {})
-      .finally(() => setLoading(false));
   }, [user, router]);
 
-  const filtered = transactions.filter((tx) => {
+  const {
+    items: userTxs,
+    hasMore: userHasMore,
+    loadingMore: userLoadingMore,
+    totalLoaded: userTotal,
+    totalCount: userTotalCount,
+    loadMore: loadMoreUserTx,
+    refresh: refreshUserTx,
+    loading: userLoading,
+  } = usePaginatedList({
+    fetcher: (p) => api.getTransactions(p, filter === "all" ? undefined : filter),
+    pageSize: 15,
+    enabled: true,
+    resetKey: filter,
+  });
+
+  const {
+    items: adminTxs,
+    hasMore: adminHasMore,
+    loadingMore: adminLoadingMore,
+    totalLoaded: adminTotal,
+    totalCount: adminTotalCount,
+    loadMore: loadMoreAdminTx,
+    refresh: refreshAdminTx,
+    loading: adminLoading,
+  } = usePaginatedList({
+    fetcher: (p) => api.getAllTransactionsAdmin(p, filter === "all" ? undefined : filter),
+    pageSize: 15,
+    enabled: user?.role === "admin",
+    resetKey: filter,
+  });
+
+  const filterTx = (tx: Transaction) => {
     const actorName = getActorName(tx);
-    const matchesSearch =
+    return (
       !search ||
       tx.description?.toLowerCase().includes(search.toLowerCase()) ||
       actorName.toLowerCase().includes(search.toLowerCase()) ||
       tx.sender?.email?.toLowerCase().includes(search.toLowerCase()) ||
-      tx.receiver?.email?.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = filter === "all" || tx.type === filter;
-    return matchesSearch && matchesFilter;
-  });
+      tx.receiver?.email?.toLowerCase().includes(search.toLowerCase())
+    );
+  };
 
-  const { visibleItems: visibleTx, ...txList } = useCollapsibleList(filtered, 15);
+  const filteredUser = userTxs.filter(filterTx);
+  const filteredAdmin = adminTxs.filter(filterTx);
+
+  const visibleUser = filteredUser;
+  const visibleAdmin = filteredAdmin;
+  const loading = activeTab === "user" ? userLoading : adminLoading;
+  const visibleTx = activeTab === "user" ? visibleUser : visibleAdmin;
+  const filtered = activeTab === "user" ? filteredUser : filteredAdmin;
 
   const now = new Date();
   const dayOfWeek = (now.getDay() + 6) % 7;
@@ -139,7 +181,7 @@ export default function AdminTransactionsPage() {
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(startOfWeek.getDate() + 7);
 
-  const weekTransactions = transactions.filter((t) => {
+  const weekTransactions = adminTxs.filter((t) => {
     const d = new Date(t.created_at);
     return d >= startOfWeek && d < endOfWeek;
   });
@@ -175,6 +217,23 @@ export default function AdminTransactionsPage() {
             size="md"
           />
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2">
+        {(["user", "admin"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 rounded-full text-label-sm font-medium whitespace-nowrap transition-all ${
+              activeTab === tab
+                ? "bg-primary text-on-primary"
+                : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+            }`}
+          >
+            {tab === "user" ? "Mis transacciones" : "Todas las transacciones"}
+          </button>
+        ))}
       </div>
 
       {/* Stats */}
@@ -287,13 +346,7 @@ export default function AdminTransactionsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-body-md font-medium text-on-surface">
-                          {tx.type === "deposit"
-                            ? "Depósito"
-                            : tx.type === "withdrawal"
-                              ? "Retiro"
-                              : tx.type === "transfer"
-                                ? "Transferencia"
-                                : "Compra"}
+                          {txTypeLabel(tx.type)}
                         </p>
                         <p className={`font-display text-title-md shrink-0 ${amountColor}`}>
                           {amountPrefix}
@@ -358,17 +411,35 @@ export default function AdminTransactionsPage() {
                   name="receipt_long"
                   className="text-5xl text-outline-variant mb-3 block mx-auto"
                 />
-                <p className="text-on-surface-variant text-body-md">
-                  No hay transacciones
-                </p>
-              </GlassCard>
+                  <p className="text-on-surface-variant text-body-md">
+                    No hay transacciones
+                  </p>
+                </GlassCard>
+              )}
+            {activeTab === "user" ? (
+              <ListFooter
+                hasMore={userHasMore}
+                loading={userLoadingMore}
+                pageSize={15}
+                loaded={userTotal}
+                total={userTotalCount}
+                onLoadMore={loadMoreUserTx}
+              />
+            ) : (
+              <ListFooter
+                hasMore={adminHasMore}
+                loading={adminLoadingMore}
+                pageSize={15}
+                loaded={adminTotal}
+                total={adminTotalCount}
+                onLoadMore={loadMoreAdminTx}
+              />
             )}
-            <ListFooter {...txList} onToggle={txList.toggle} />
           </div>
 
           {/* DESKTOP: Table */}
           <GlassCard className="hidden md:block">
-            <div className={`overflow-x-auto ${txList.expanded ? "max-h-[70vh] overflow-y-auto" : ""}`}>
+            <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="sticky top-0 z-10 bg-surface-container">
                   <tr className="border-b border-outline-variant/20">
@@ -407,8 +478,8 @@ export default function AdminTransactionsPage() {
                               <MaterialIcon name={icon} className="text-lg" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-body-md text-on-surface capitalize">
-                                {tx.type}
+                              <p className="text-body-md text-on-surface">
+                                {txTypeLabel(tx.type)}
                               </p>
                               <p className="text-label-sm text-on-surface-variant md:hidden truncate max-w-[200px]">
                                 {tx.description || "-"}
@@ -482,10 +553,28 @@ export default function AdminTransactionsPage() {
                       </td>
                     </tr>
                   )}
-                </tbody>
+</tbody>
               </table>
             </div>
-            <ListFooter {...txList} onToggle={txList.toggle} />
+            {activeTab === "user" ? (
+              <ListFooter
+                hasMore={userHasMore}
+                loading={userLoadingMore}
+                pageSize={15}
+                loaded={userTotal}
+                total={userTotalCount}
+                onLoadMore={loadMoreUserTx}
+              />
+            ) : (
+              <ListFooter
+                hasMore={adminHasMore}
+                loading={adminLoadingMore}
+                pageSize={15}
+                loaded={adminTotal}
+                total={adminTotalCount}
+                onLoadMore={loadMoreAdminTx}
+              />
+            )}
           </GlassCard>
         </>
       )}

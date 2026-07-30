@@ -11,7 +11,7 @@ import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
 import ListFooter from "@/components/ui/ListFooter";
-import { useCollapsibleList } from "@/hooks/useCollapsibleList";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 function MaterialIcon({
   name,
@@ -48,9 +48,25 @@ const SYSTEM_CATEGORIES = ["pet_type", "book_category", "article_category", "bor
 export default function AdminSettingsPage() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const [categories, setCategories] = useState<EnumCategory[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+
+  const {
+    items: allItems,
+    hasMore,
+    loading,
+    loadingMore,
+    totalLoaded,
+    totalCount,
+    loadMore,
+    refresh,
+  } = usePaginatedList({
+    fetcher: async (p) => {
+      const cats = await api.getEnumCategories(p);
+      return cats;
+    },
+    pageSize: 10,
+    enabled: true,
+  });
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
 
   // Create/Edit Category
@@ -65,31 +81,27 @@ export default function AdminSettingsPage() {
   const [valForm, setValForm] = useState({ label: "", description: "" });
   const [savingValue, setSavingValue] = useState(false);
 
-  useEffect(() => {
-    if (user?.role !== "admin") {
-      router.push("/dashboard");
-      return;
-    }
-    api
-      .getEnumCategories()
-      .then((data) => {
-        setCategories(data);
-        if (data.length > 0 && !activeCategoryId) {
-          setActiveCategoryId(data[0].id);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [user, router, activeCategoryId]);
-
-  const filteredCategories = categories.filter((c) =>
+  const filteredCategories = allItems.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.code.toLowerCase().includes(search.toLowerCase())
   );
 
-  const activeCategory = categories.find((c) => c.id === activeCategoryId);
+  // Derive the effectively active category id: prefer user selection, fallback to first
+  const effectiveActiveId =
+    activeCategoryId && allItems.some((c) => c.id === activeCategoryId)
+      ? activeCategoryId
+      : allItems.length > 0
+        ? allItems[0].id
+        : null;
+  const activeCategory = allItems.find((c) => c.id === effectiveActiveId);
 
-  const { visibleItems: visibleCategories, ...categoryList } = useCollapsibleList(filteredCategories, 10);
+  useEffect(() => {
+    if (user?.role !== "admin") {
+      router.push("/dashboard");
+    }
+  }, [user, router]);
+
+  const visibleCategories = filteredCategories;
 
   const openNewCategory = () => {
     setIsNewCategory(true);
@@ -107,11 +119,11 @@ export default function AdminSettingsPage() {
       };
       if (isNewCategory) {
         const created = await api.createEnumCategory(data);
-        setCategories((prev) => [...prev, created]);
+        refresh();
         setActiveCategoryId(created.id);
       } else if (editCategory) {
         const updated = await api.updateEnumCategory(editCategory.id, data);
-        setCategories((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+        refresh();
       }
       setEditCategory(null);
       setIsNewCategory(false);
@@ -120,7 +132,7 @@ export default function AdminSettingsPage() {
   };
 
   const openNewValue = () => {
-    if (!activeCategoryId) return;
+    if (!effectiveActiveId) return;
     setIsNewValue(true);
     setEditValue(null);
     setValForm({ label: "", description: "" });
@@ -136,7 +148,7 @@ export default function AdminSettingsPage() {
   };
 
   const handleSaveValue = async () => {
-    if (!activeCategoryId) return;
+    if (!effectiveActiveId) return;
     setSavingValue(true);
     try {
       const data = {
@@ -144,21 +156,11 @@ export default function AdminSettingsPage() {
         description: valForm.description || undefined,
       };
       if (isNewValue) {
-        const created = await api.createEnumValue(activeCategoryId, data);
-        setCategories((prev) =>
-          prev.map((c) =>
-            c.id === activeCategoryId ? { ...c, values: [...c.values, created] } : c
-          )
-        );
+        await api.createEnumValue(effectiveActiveId, data);
+        refresh();
       } else if (editValue) {
-        const updated = await api.updateEnumValue(editValue.id, data);
-        setCategories((prev) =>
-          prev.map((c) =>
-            c.id === activeCategoryId
-              ? { ...c, values: c.values.map((v) => (v.id === updated.id ? updated : v)) }
-              : c
-          )
-        );
+        await api.updateEnumValue(editValue.id, data);
+        refresh();
       }
       setEditValue(null);
       setIsNewValue(false);
@@ -170,13 +172,7 @@ export default function AdminSettingsPage() {
     if (!confirm("Eliminar este valor?")) return;
     try {
       await api.deleteEnumValue(valueId);
-      setCategories((prev) =>
-        prev.map((c) =>
-          c.id === activeCategoryId
-            ? { ...c, values: c.values.filter((v) => v.id !== valueId) }
-            : c
-        )
-      );
+      refresh();
     } catch {}
   };
 
@@ -236,7 +232,7 @@ export default function AdminSettingsPage() {
                   key={c.id}
                   onClick={() => setActiveCategoryId(c.id)}
                   className={`w-full text-left p-3 rounded-xl transition-all ${
-                    activeCategoryId === c.id
+                    effectiveActiveId === c.id
                       ? "bg-primary/10 text-primary"
                       : "text-on-surface-variant hover:bg-surface-container-high"
                   }`}
@@ -261,7 +257,14 @@ export default function AdminSettingsPage() {
               )}
             </div>
             <div className="p-2 border-t border-outline-variant/20">
-              <ListFooter {...categoryList} onToggle={categoryList.toggle} />
+              <ListFooter
+                hasMore={hasMore}
+                loading={loadingMore}
+                pageSize={10}
+                loaded={totalLoaded}
+                total={totalCount}
+                onLoadMore={loadMore}
+              />
             </div>
           </GlassCard>
 
@@ -278,7 +281,7 @@ export default function AdminSettingsPage() {
                     </div>
                     {isSystemCategory(activeCategory.code) && <Badge variant="tag" color="default">Sistema</Badge>}
                   </div>
-                  <Button variant="primary" icon="add" onClick={openNewValue} disabled={!activeCategoryId}>
+                  <Button variant="primary" icon="add" onClick={openNewValue} disabled={!effectiveActiveId}>
                     Nuevo Valor
                   </Button>
                 </div>
@@ -292,7 +295,7 @@ export default function AdminSettingsPage() {
                     </div>
                   ) : (
                     <ValuesList
-                      key={activeCategoryId}
+                      key={effectiveActiveId}
                       values={activeCategory.values}
                       onEdit={openEditValue}
                       onDelete={handleDeleteValue}

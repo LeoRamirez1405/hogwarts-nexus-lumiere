@@ -11,7 +11,7 @@ import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
 import ListFooter from "@/components/ui/ListFooter";
-import { useCollapsibleList } from "@/hooks/useCollapsibleList";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 function MaterialIcon({
   name,
@@ -55,8 +55,6 @@ const RARITY_COLORS: Record<string, string> = {
 export default function AdminCreaturesPage() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const [creatures, setCreatures] = useState<Creature[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [editCreature, setEditCreature] = useState<Creature | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -77,28 +75,34 @@ export default function AdminCreaturesPage() {
   const [petTypes, setPetTypes] = useState<EnumValue[]>([]);
 
   useEffect(() => {
-    if (user?.role !== "admin") {
-      router.push("/dashboard");
-      return;
-    }
-    api
-      .getCreatures()
-      .then(setCreatures)
-      .catch(() => {})
-      .finally(() => setLoading(false));
     api.getEnumCategoryByCode("pet_type").then((cat) => {
       if (cat) setPetTypes(cat.values);
     }).catch(() => {});
-  }, [user, router]);
+  }, []);
 
-  const filtered = creatures.filter(
+  const {
+    items: allItems,
+    hasMore,
+    loading,
+    loadingMore,
+    totalLoaded,
+    totalCount,
+    loadMore,
+    refresh,
+  } = usePaginatedList({
+    fetcher: (p) => api.getCreatures(p),
+    pageSize: 12,
+    enabled: user?.role === "admin",
+  });
+
+  const filtered = allItems.filter(
     (c) =>
       !search ||
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.rarity.toLowerCase().includes(search.toLowerCase())
   );
 
-  const { visibleItems: visibleCreatures, ...creatureList } = useCollapsibleList(filtered, 12);
+  const visibleCreatures = filtered;
 
   const openNew = () => {
     setIsNew(true);
@@ -147,14 +151,11 @@ export default function AdminCreaturesPage() {
         ability: form.ability.trim() || undefined,
       };
       if (isNew) {
-        const created = await api.createCreature(data);
-        setCreatures((prev) => [...prev, created]);
+        await api.createCreature(data);
       } else if (editCreature) {
-        const updated = await api.updateCreature(editCreature.id, data);
-        setCreatures((prev) =>
-          prev.map((c) => (c.id === updated.id ? updated : c))
-        );
+        await api.updateCreature(editCreature.id, data);
       }
+      refresh();
       setEditCreature(null);
       setIsNew(false);
     } catch {}
@@ -183,7 +184,7 @@ export default function AdminCreaturesPage() {
             Gestionar Criaturas
           </h1>
           <p className="text-on-surface-variant text-body-md mt-1">
-            {creatures.length} criaturas en el Santuario
+            {totalCount} criaturas en el Santuario
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -211,7 +212,7 @@ export default function AdminCreaturesPage() {
         </div>
       ) : (
         <>
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${creatureList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {visibleCreatures.map((c) => (
             <GlassCard key={c.id} className="overflow-hidden" hover>
               <div className="p-6">
@@ -242,7 +243,7 @@ export default function AdminCreaturesPage() {
                 )}
                 <div className="flex items-center justify-between">
                   <p className="font-display text-title-md text-secondary">
-                    💎 {c.price.toLocaleString()}
+                    <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled /> {c.price.toLocaleString()}
                   </p>
                   <p className="text-label-sm text-on-surface-variant capitalize">
                     {RARITY_LABELS[c.rarity] || c.rarity}
@@ -263,7 +264,14 @@ export default function AdminCreaturesPage() {
             </div>
           )}
         </div>
-        <ListFooter {...creatureList} onToggle={creatureList.toggle} />
+<ListFooter
+          hasMore={hasMore}
+          loading={loadingMore}
+          pageSize={12}
+          loaded={totalLoaded}
+          total={totalCount}
+          onLoadMore={loadMore}
+        />
         </>
       )}
 

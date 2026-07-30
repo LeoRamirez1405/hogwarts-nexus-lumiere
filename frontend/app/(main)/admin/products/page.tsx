@@ -11,7 +11,7 @@ import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
 import ListFooter from "@/components/ui/ListFooter";
-import { useCollapsibleList } from "@/hooks/useCollapsibleList";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 function MaterialIcon({
   name,
@@ -39,8 +39,6 @@ function MaterialIcon({
 export default function AdminProductsPage() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "borgin" | "flourish">("all");
   const [editProduct, setEditProduct] = useState<Product | null>(null);
@@ -60,16 +58,27 @@ export default function AdminProductsPage() {
   const [borginCategories, setBorginCategories] = useState<EnumValue[]>([]);
   const [flourishCategories, setFlourishCategories] = useState<EnumValue[]>([]);
 
+  const {
+    items: allItems,
+    hasMore,
+    loading,
+    loadingMore,
+    totalLoaded,
+    totalCount,
+    loadMore,
+    refresh,
+  } = usePaginatedList({
+    fetcher: (p) => api.getProducts(filter === "all" ? undefined : filter, p),
+    pageSize: 12,
+    enabled: user?.role === "admin",
+    resetKey: filter,
+  });
+
   useEffect(() => {
     if (user?.role !== "admin") {
       router.push("/dashboard");
       return;
     }
-    api
-      .getProducts()
-      .then(setProducts)
-      .catch(() => {})
-      .finally(() => setLoading(false));
     api.getEnumCategoryByCode("borgin_category").then((c) => {
       if (c) setBorginCategories(c.values);
     }).catch(() => {});
@@ -78,16 +87,14 @@ export default function AdminProductsPage() {
     }).catch(() => {});
   }, [user, router]);
 
-  const filtered = products.filter((p) => {
-    const matchesSearch =
+  const filtered = allItems.filter(
+    (p) =>
       !search ||
       p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.category.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = filter === "all" || p.shop === filter;
-    return matchesSearch && matchesFilter;
-  });
+      p.category.toLowerCase().includes(search.toLowerCase()),
+  );
 
-  const { visibleItems: visibleProducts, ...productList } = useCollapsibleList(filtered, 12);
+  const visibleProducts = filtered;
 
   const openNew = () => {
     setIsNew(true);
@@ -130,14 +137,11 @@ export default function AdminProductsPage() {
         stock: parseInt(form.stock) || 0,
       };
       if (isNew) {
-        const created = await api.createProduct(data);
-        setProducts((prev) => [...prev, created]);
+        await api.createProduct(data);
       } else if (editProduct) {
-        const updated = await api.updateProduct(editProduct.id, data);
-        setProducts((prev) =>
-          prev.map((p) => (p.id === updated.id ? updated : p))
-        );
+        await api.updateProduct(editProduct.id, data);
       }
+      refresh();
       setEditProduct(null);
       setIsNew(false);
     } catch {}
@@ -160,11 +164,19 @@ export default function AdminProductsPage() {
     if (!confirm("Eliminar este producto?")) return;
     try {
       await api.deleteProduct(id);
-      setProducts((prev) => prev.filter((p) => p.id !== id));
+      refresh();
     } catch {}
   };
 
   if (user?.role !== "admin") return null;
+
+  // The backend already returns the count for the active `shop` filter.
+  const getDisplayCount = () => totalCount;
+
+  const getDisplayLabel = () => {
+    if (filter === "all") return "productos en catálogo";
+    return `${filter === "borgin" ? "Borgin & Burkes" : "Flourish & Blotts"} en catálogo`;
+  };
 
   return (
     <div className="space-y-8">
@@ -174,7 +186,7 @@ export default function AdminProductsPage() {
             Gestionar Productos
           </h1>
           <p className="text-on-surface-variant text-body-md mt-1">
-            {products.length} productos en catalogo
+            {getDisplayCount()} {getDisplayLabel()}
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -219,7 +231,7 @@ export default function AdminProductsPage() {
         </div>
       ) : (
         <>
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${productList.expanded ? "max-h-[75vh] overflow-y-auto pr-1" : ""}`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {visibleProducts.map((p) => (
             <GlassCard key={p.id} className="overflow-hidden" hover>
               <div className="p-6">
@@ -253,7 +265,7 @@ export default function AdminProductsPage() {
                 </p>
                 <div className="flex items-center justify-between">
                   <p className="font-display text-title-md text-secondary">
-                    💎 {p.price.toLocaleString()}
+                    <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled /> {p.price.toLocaleString()}
                   </p>
                   <p className="text-label-sm text-on-surface-variant">
                     Stock: {p.stock}
@@ -274,7 +286,14 @@ export default function AdminProductsPage() {
             </div>
           )}
         </div>
-        <ListFooter {...productList} onToggle={productList.toggle} />
+        <ListFooter
+          hasMore={hasMore}
+          loading={loadingMore}
+          pageSize={12}
+          loaded={totalLoaded}
+          total={totalCount}
+          onLoadMore={loadMore}
+        />
         </>
       )}
 
