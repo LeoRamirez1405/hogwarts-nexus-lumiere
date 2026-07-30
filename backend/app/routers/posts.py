@@ -1,6 +1,6 @@
 from typing import List
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -9,6 +9,7 @@ from ..models.post import Post, PostLike, PostRepost, PostComment
 from ..models.user import User
 from ..schemas.post import PostCreate, PostUpdate, PostResponse, CommentCreate, CommentResponse
 from ..schemas.user import UserResponse
+from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..notifications_service import notify, notify_like, notify_friends_of_post, resolve_mentions, N
 
@@ -64,29 +65,57 @@ async def _build_post_response(
         if editor:
             edited_by_user = UserResponse.model_validate(editor)
 
-    response = PostResponse.model_validate(post)
-    response.likes_count = likes_count
-    response.liked_by_me = liked_by_me
-    response.reposts_count = reposts_count
-    response.reposted_by_me = reposted_by_me
-    response.comments_count = comments_count
-    response.edited_by = edited_by_user
+    # Build response from a dict instead of the ORM object to avoid
+    # Pydantic trying to validate edited_by (a string FK) as UserResponse.
+    response = PostResponse.model_validate({
+        "id": post.id,
+        "author_id": post.author_id,
+        "author": post.author,
+        "body": post.body,
+        "image_url": post.image_url,
+        "created_at": post.created_at,
+        "edited_at": post.edited_at,
+        "edited_by": edited_by_user,
+        "likes_count": likes_count,
+        "liked_by_me": liked_by_me,
+        "reposts_count": reposts_count,
+        "reposted_by_me": reposted_by_me,
+        "comments_count": comments_count,
+    })
     return response
 
 
-@router.get("/", response_model=List[PostResponse])
+@router.get("/", response_model=Page[PostResponse])
 async def list_posts(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(1000, ge=1, le=1000),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Post).order_by(Post.created_at.desc()))
+    result = await db.execute(
+        select(Post)
+        .order_by(Post.created_at.desc())
+        .offset(skip)
+        .limit(limit + 1)
+    )
     posts = result.scalars().all()
-    return [await _build_post_response(db, post, current_user) for post in posts]
+    has_more = len(posts) > limit
+    posts = posts[:limit]
+    total = (await db.execute(select(func.count(Post.id)))).scalar_one()
+    return Page(
+        items=[await _build_post_response(db, post, current_user) for post in posts],
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
-@router.get("/user/{user_id}", response_model=List[PostResponse])
+@router.get("/user/{user_id}", response_model=Page[PostResponse])
 async def list_user_feed(
     user_id: str,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(1000, ge=1, le=1000),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -125,8 +154,12 @@ async def list_user_feed(
 
     entries.sort(key=lambda e: e[0], reverse=True)
 
+    total = len(entries)
+    page_entries = entries[skip : skip + limit]
+    has_more = skip + limit < total
+
     responses: List[PostResponse] = []
-    for feed_time, is_repost, post, repost in entries:
+    for feed_time, is_repost, post, repost in page_entries:
         response = await _build_post_response(db, post, current_user)
         if is_repost:
             response.is_repost = True
@@ -135,7 +168,13 @@ async def list_user_feed(
             )
             response.reposted_at = repost.created_at
         responses.append(response)
-    return responses
+    return Page(
+        items=responses,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
 @router.post("/", response_model=PostResponse, status_code=status.HTTP_201_CREATED)

@@ -9,24 +9,44 @@ from ..models.user import User
 from ..models.user_product import UserProduct
 from ..models.transaction import Transaction
 from ..schemas.product import ProductCreate, ProductUpdate, ProductResponse, UserProductResponse
+from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[ProductResponse])
+@router.get("/", response_model=Page[ProductResponse])
 async def list_products(
     shop: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     query = select(Product)
+    count_query = select(func.count(Product.id))
     if shop:
         query = query.where(Product.shop == shop)
-    query = query.order_by(Product.created_at.desc())
+        count_query = count_query.where(Product.shop == shop)
+    if category:
+        query = query.where(Product.category == category)
+        count_query = count_query.where(Product.category == category)
+    query = query.order_by(Product.created_at.desc()).offset(skip).limit(limit + 1)
     result = await db.execute(query)
-    return result.scalars().all()
+    items = result.scalars().all()
+    has_more = len(items) > limit
+    items = items[:limit]
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+    return Page(
+        items=items,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
 @router.get("/popular/{shop}", response_model=List[ProductResponse])
@@ -90,8 +110,10 @@ async def purchase_product(
     return product
 
 
-@router.get("/my-purchases", response_model=List[UserProductResponse])
+@router.get("/my-purchases", response_model=Page[UserProductResponse])
 async def my_purchases(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(1000, ge=1, le=1000),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -99,8 +121,25 @@ async def my_purchases(
         select(UserProduct)
         .where(UserProduct.user_id == current_user.id)
         .order_by(UserProduct.purchased_at.desc())
+        .offset(skip)
+        .limit(limit + 1)
     )
-    return result.scalars().all()
+    items = result.scalars().all()
+    has_more = len(items) > limit
+    items = items[:limit]
+    total_result = await db.execute(
+        select(func.count(UserProduct.id)).where(
+            UserProduct.user_id == current_user.id
+        )
+    )
+    total = total_result.scalar_one()
+    return Page(
+        items=items,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
 @router.get("/{product_id}", response_model=ProductResponse)

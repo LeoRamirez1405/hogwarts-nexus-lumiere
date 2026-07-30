@@ -39,6 +39,7 @@ from ..schemas.message import (
     MuteRequest,
     UserSearchResult,
 )
+from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
 
@@ -558,39 +559,55 @@ async def create_chat_room(
     return serialize_room(room, current_user.id)
 
 
-@router.get("/rooms", response_model=List[ChatRoomBrief])
+@router.get("/rooms", response_model=Page[ChatRoomBrief])
 async def list_my_rooms(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     all: bool = Query(False),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(1000, ge=1, le=1000),
 ):
     if all and current_user.role == "admin":
-        result = await db.execute(
-            select(ChatRoom)
-            .options(selectinload(ChatRoom.members))
-        )
+        query = select(ChatRoom).options(selectinload(ChatRoom.members))
+        count_query = select(func.count(ChatRoom.id))
     else:
-        result = await db.execute(
+        query = (
             select(ChatRoom)
             .join(ChatRoomMember, ChatRoom.id == ChatRoomMember.room_id)
             .where(ChatRoomMember.user_id == current_user.id)
             .options(selectinload(ChatRoom.members))
         )
-    rooms = result.scalars().all()
-    return [
-        ChatRoomBrief(
-            id=r.id,
-            name=r.name,
-            description=r.description,
-            avatar_url=r.avatar_url,
-            type=r.type,
-            closed=r.closed,
-            created_by=r.created_by,
-            created_at=r.created_at,
-            member_count=len(r.members),
+        count_query = (
+            select(func.count(ChatRoom.id))
+            .join(ChatRoomMember, ChatRoom.id == ChatRoomMember.room_id)
+            .where(ChatRoomMember.user_id == current_user.id)
         )
-        for r in rooms
-    ]
+    result = await db.execute(query.offset(skip).limit(limit + 1))
+    rooms = result.scalars().all()
+    has_more = len(rooms) > limit
+    rooms = rooms[:limit]
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+    return Page(
+        items=[
+            ChatRoomBrief(
+                id=r.id,
+                name=r.name,
+                description=r.description,
+                avatar_url=r.avatar_url,
+                type=r.type,
+                closed=r.closed,
+                created_by=r.created_by,
+                created_at=r.created_at,
+                member_count=len(r.members),
+            )
+            for r in rooms
+        ],
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
 @router.get("/rooms/{room_id}", response_model=ChatRoomResponse)

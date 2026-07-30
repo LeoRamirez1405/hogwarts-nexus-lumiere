@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from ..config import settings
 from ..database import get_db
@@ -17,11 +17,11 @@ from ..schemas.creature import (
     CreatureCreate, CreatureResponse, UserCreatureResponse, UseItemRequest,
     MarketCreatureResponse, ListForSaleRequest, SanctuaryStats, AdoptRequest,
 )
+from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
 from ..utils.magic_level import get_magic_level
 from .. import pet_progress
-from ..notifications_service import N
 from ..notifications_service import N
 
 router = APIRouter()
@@ -140,13 +140,28 @@ def _settle_decay(uc: UserCreature) -> bool:
     return False
 
 
-@router.get("/", response_model=List[CreatureResponse])
+@router.get("/", response_model=Page[CreatureResponse])
 async def list_creatures(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Creature).order_by(Creature.price))
-    return result.scalars().all()
+    query = select(Creature).order_by(Creature.price).offset(skip).limit(limit + 1)
+    count_query = select(func.count(Creature.id))
+    result = await db.execute(query)
+    items = result.scalars().all()
+    has_more = len(items) > limit
+    items = items[:limit]
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+    return Page(
+        items=items,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
 @router.get("/my", response_model=List[UserCreatureResponse])
@@ -361,7 +376,7 @@ async def adopt_creature(
         sender_id=current_user.id,
         amount=creature.price,
         type="purchase",
-        description=f"Adopcion: {creature.name}",
+        description=f"Adopción: {creature.name}",
         status="confirmed",
     )
     db.add(transaction)

@@ -1,7 +1,7 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
@@ -16,6 +16,7 @@ from ..schemas.enum_type import (
     EnumValueUpdate,
     EnumValueResponse,
 )
+from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
 
@@ -24,16 +25,33 @@ router = APIRouter(tags=["enum-types"])
 
 # ── Category endpoints ──
 
-@router.get("/categories", response_model=List[EnumCategoryWithValues])
+@router.get("/categories", response_model=Page[EnumCategoryWithValues])
 async def list_categories(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
+    query = (
         select(EnumCategory)
         .options(selectinload(EnumCategory.values))
+        .offset(skip)
+        .limit(limit + 1)
     )
-    return result.scalars().all()
+    count_query = select(func.count(EnumCategory.id))
+    result = await db.execute(query)
+    items = result.scalars().all()
+    has_more = len(items) > limit
+    items = items[:limit]
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+    return Page(
+        items=items,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
 @router.get("/categories/{category_id}", response_model=EnumCategoryWithValues)

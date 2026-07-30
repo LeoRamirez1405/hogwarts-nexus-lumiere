@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from ..database import get_db
 from ..models.pet_item import PetItem
@@ -11,6 +11,7 @@ from ..models.transaction import Transaction
 from ..schemas.pet_item import (
     PetItemCreate, PetItemUpdate, PetItemResponse, UserPetItemResponse,
 )
+from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
 
@@ -20,21 +21,37 @@ VALID_KINDS = {"food", "toy"}
 VALID_PET_TYPES = {"Aves", "Bestias", "Criaturas pequeñas"}
 
 
-@router.get("/", response_model=List[PetItemResponse])
+@router.get("/", response_model=Page[PetItemResponse])
 async def list_pet_items(
     kind: Optional[str] = Query(None),
     pet_type: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     query = select(PetItem)
+    count_query = select(func.count(PetItem.id))
     if kind:
         query = query.where(PetItem.kind == kind)
+        count_query = count_query.where(PetItem.kind == kind)
     if pet_type:
         query = query.where(PetItem.pet_type == pet_type)
-    query = query.order_by(PetItem.pet_type, PetItem.kind, PetItem.price)
+        count_query = count_query.where(PetItem.pet_type == pet_type)
+    query = query.order_by(PetItem.pet_type, PetItem.kind, PetItem.price).offset(skip).limit(limit + 1)
     result = await db.execute(query)
-    return result.scalars().all()
+    items = result.scalars().all()
+    has_more = len(items) > limit
+    items = items[:limit]
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+    return Page(
+        items=items,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
 @router.get("/inventory", response_model=List[UserPetItemResponse])

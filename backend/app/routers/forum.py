@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -13,6 +13,7 @@ from ..schemas.forum import (
     ForumCommentCreate, ForumCommentResponse,
 )
 from ..schemas.user import UserResponse
+from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..notifications_service import notify, resolve_mentions, N
 
@@ -78,8 +79,10 @@ async def _get_thread(db: AsyncSession, thread_id: str) -> ForumThread:
     return thread
 
 
-@router.get("/", response_model=List[ForumThreadResponse])
+@router.get("/", response_model=Page[ForumThreadResponse])
 async def list_threads(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(1000, ge=1, le=1000),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -88,9 +91,22 @@ async def list_threads(
             select(ForumThread)
             .options(selectinload(ForumThread.author))
             .order_by(ForumThread.created_at.desc())
+            .offset(skip)
+            .limit(limit + 1)
         )
     ).scalars().all()
-    return [await _thread_response(db, t, current_user) for t in threads]
+    has_more = len(threads) > limit
+    threads = threads[:limit]
+    total = (
+        await db.execute(select(func.count(ForumThread.id)))
+    ).scalar_one()
+    return Page(
+        items=[await _thread_response(db, t, current_user) for t in threads],
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
 @router.post("/", response_model=ForumThreadResponse, status_code=status.HTTP_201_CREATED)

@@ -1,6 +1,6 @@
 from typing import List
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -16,6 +16,7 @@ from ..schemas.user import (
     HousePoints,
     AdminResetPassword,
 )
+from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user, hash_password
 from ..middleware.roles import require_role
 from ..utils.magic_level import get_magic_level
@@ -29,14 +30,28 @@ def _enrich_user(user: User, level_data: dict | None = None) -> dict:
     return data
 
 
-@router.get("/", response_model=List[UserResponse])
+@router.get("/", response_model=Page[UserResponse])
 async def list_users(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
-    result = await db.execute(select(User))
-    users = result.scalars().all()
-    return [_enrich_user(u) for u in users]
+    query = select(User).offset(skip).limit(limit + 1)
+    count_query = select(func.count(User.id))
+    result = await db.execute(query)
+    items = result.scalars().all()
+    has_more = len(items) > limit
+    items = items[:limit]
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+    return Page(
+        items=[_enrich_user(u) for u in items],
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
 @router.get("/houses/{house}/points", response_model=HousePoints)

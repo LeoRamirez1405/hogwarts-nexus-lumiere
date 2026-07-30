@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func, or_
+from sqlalchemy import select, and_, func, or_, update
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
@@ -13,11 +13,21 @@ from ..schemas.article import (
     NotificationResponse, ArticleCommentCreate, ArticleCommentResponse,
 )
 from ..schemas.user import UserResponse
+from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
 from ..notifications_service import notify, notify_all_users, resolve_mentions, N
 
 router = APIRouter()
+
+
+async def clear_other_pinned(db: AsyncSession, keep_id: str):
+    """Ensure at most one pinned article exists by un-pinning all others."""
+    await db.execute(
+        update(Article)
+        .where(and_(Article.id != keep_id, Article.pinned == True))
+        .values(pinned=False)
+    )
 
 
 async def notify_subscribers(db: AsyncSession, article: Article, notification_type: str):
@@ -51,7 +61,7 @@ async def notify_subscribers(db: AsyncSession, article: Article, notification_ty
         await db.commit()
 
 
-@router.get("/", response_model=List[ArticleResponse])
+@router.get("/", response_model=Page[ArticleResponse])
 async def list_articles(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -62,26 +72,40 @@ async def list_articles(
     offset: int = Query(0, ge=0),
 ):
     query = select(Article).options(selectinload(Article.author))
-    
+    count_query = select(func.count(Article.id))
+
     if search:
         search_term = f"%{search}%"
-        query = query.where(
-            or_(
-                Article.title.ilike(search_term),
-                Article.body.ilike(search_term),
-            )
+        search_filter = or_(
+            Article.title.ilike(search_term),
+            Article.body.ilike(search_term),
         )
-    
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
+
     if category:
         query = query.where(Article.category == category)
-    
+        count_query = count_query.where(Article.category == category)
+
     if featured_only:
         query = query.where(Article.featured == True)
-    
-    query = query.order_by(Article.created_at.desc()).limit(limit).offset(offset)
-    
+        count_query = count_query.where(Article.featured == True)
+
+    # Pinned article first so the main story is always on the first page,
+    # then most recent.
+    query = (
+        query.order_by(Article.pinned.desc(), Article.created_at.desc())
+        .limit(limit + 1)
+        .offset(offset)
+    )
+
     result = await db.execute(query)
     articles = result.scalars().all()
+    has_more = len(articles) > limit
+    articles = articles[:limit]
+
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
 
     # Get user's subscriptions
     sub_result = await db.execute(
@@ -93,7 +117,13 @@ async def list_articles(
     for article in articles:
         article.subscribed = article.id in subscribed_ids
 
-    return articles
+    return Page(
+        items=articles,
+        total=total,
+        skip=offset,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
 @router.get("/categories", response_model=List[str])
@@ -150,6 +180,11 @@ async def create_article(
     await db.commit()
     await db.refresh(article)
 
+    # Only one article may be pinned as the main story at a time.
+    if article.pinned:
+        await clear_other_pinned(db, article.id)
+        await db.commit()
+
     # A brand-new article is public news: tell everyone (except the author).
     await notify_all_users(
         db,
@@ -192,6 +227,11 @@ async def update_article(
 
     await db.commit()
     await db.refresh(article)
+
+    # Only one article may be pinned as the main story at a time.
+    if article.pinned:
+        await clear_other_pinned(db, article.id)
+        await db.commit()
 
     # Notify subscribers
     await notify_subscribers(db, article, "article_updated")

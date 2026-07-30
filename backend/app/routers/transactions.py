@@ -1,13 +1,14 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select, func
+from sqlalchemy.orm import joinedload
 
 from ..database import get_db
 from ..models.transaction import Transaction
 from ..models.user import User
 from ..schemas.transaction import TransactionCreate, TransferRequest, TransactionResponse
+from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
 from ..notifications_service import notify, N
@@ -15,36 +16,87 @@ from ..notifications_service import notify, N
 router = APIRouter()
 
 
-@router.get("/", response_model=List[TransactionResponse])
+@router.get("/", response_model=Page[TransactionResponse])
 async def list_transactions(
+    type: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(Transaction)
-        .where(
-            (Transaction.sender_id == current_user.id)
-            | (Transaction.receiver_id == current_user.id)
-        )
-        .order_by(Transaction.created_at.desc())
+    own_filter = (
+        (Transaction.sender_id == current_user.id)
+        | (Transaction.receiver_id == current_user.id)
     )
-    return result.scalars().all()
+    query = (
+        select(Transaction)
+        .options(
+            joinedload(Transaction.sender),
+            joinedload(Transaction.receiver),
+        )
+        .where(own_filter)
+    )
+    count_query = select(func.count(Transaction.id)).where(own_filter)
+    if type:
+        query = query.where(Transaction.type == type)
+        count_query = count_query.where(Transaction.type == type)
+    query = (
+        query.order_by(Transaction.created_at.desc())
+        .offset(skip)
+        .limit(limit + 1)
+    )
+    result = await db.execute(query)
+    items = result.scalars().all()
+    has_more = len(items) > limit
+    items = items[:limit]
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+    return Page(
+        items=items,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
-@router.get("/admin/all", response_model=List[TransactionResponse])
+@router.get("/admin/all", response_model=Page[TransactionResponse])
 async def list_all_transactions_admin(
+    type: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
-    result = await db.execute(
+    query = (
         select(Transaction)
         .options(
-            selectinload(Transaction.sender),
-            selectinload(Transaction.receiver),
+            joinedload(Transaction.sender),
+            joinedload(Transaction.receiver),
         )
-        .order_by(Transaction.created_at.desc())
     )
-    return result.scalars().all()
+    count_query = select(func.count(Transaction.id))
+    if type:
+        query = query.where(Transaction.type == type)
+        count_query = count_query.where(Transaction.type == type)
+    query = (
+        query.order_by(Transaction.created_at.desc())
+        .offset(skip)
+        .limit(limit + 1)
+    )
+    result = await db.execute(query)
+    items = result.scalars().all()
+    has_more = len(items) > limit
+    items = items[:limit]
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+    return Page(
+        items=items,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
 @router.post("/deposit", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
