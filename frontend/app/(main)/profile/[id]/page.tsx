@@ -17,18 +17,16 @@ import {
 import { MaterialIcon, GlassCard, Avatar, Button, ListFooter } from "@/components/ui";
 import ProfileDetails from "./ProfileDetails";
 import { useImageUpload } from "@/hooks/useFileUpload";
-import { useCollapsibleList } from "@/hooks/useCollapsibleList";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 export default function ProfilePage() {
   const params = useParams();
   const router = useRouter();
   const { user: authUser } = useAuthStore();
-  const profileId = (params?.id as string) || authUser?.id;
+  const profileId = (params?.id as string) ?? authUser?.id ?? "";
 
   const [profile, setProfile] = useState<User | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
   const [friends, setFriends] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
   const [postText, setPostText] = useState("");
   const [posting, setPosting] = useState(false);
   const [postImageUrl, setPostImageUrl] = useState("");
@@ -44,9 +42,24 @@ export default function ProfilePage() {
     onSuccess: (result) => setPostImageUrl(result.url),
   });
 
-  const isOwn = authUser?.id === profileId;
+  const {
+    items: allPosts,
+    hasMore: postsHasMore,
+    loading: postsLoading,
+    loadingMore: postsLoadingMore,
+    totalLoaded: postsTotal,
+    totalCount: postsTotalCount,
+    loadMore: loadMorePosts,
+    refresh: refreshPosts,
+  } = usePaginatedList({
+    fetcher: (p) => api.getProfileFeed(profileId, p),
+    pageSize: 8,
+    enabled: !!profileId,
+  });
 
-  const { visibleItems: visiblePosts, ...postList } = useCollapsibleList(posts, 8);
+  const visiblePosts = allPosts;
+
+  const isOwn = authUser?.id === profileId;
 
   const reloadProfile = useCallback(async () => {
     if (!profileId) return;
@@ -61,14 +74,12 @@ export default function ProfilePage() {
     let cancelled = false;
     Promise.all([
       api.getUser(profileId),
-      api.getProfileFeed(profileId),
       api.getFriends(profileId),
       api.getFriendRequests(),
     ])
-      .then(([u, feed, friendUsers, frs]) => {
+      .then(([u, friendUsers, frs]) => {
         if (cancelled) return;
         setProfile(u);
-        setPosts(feed);
         setFriends(friendUsers);
         if (authUser && authUser.id !== profileId) {
           const existing = frs.find(
@@ -87,9 +98,6 @@ export default function ProfilePage() {
       })
       .catch(() => {
         if (!cancelled) router.push("/dashboard");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -99,44 +107,20 @@ export default function ProfilePage() {
   const handleLike = useCallback(async (postId: string) => {
     try {
       const result = await api.likePost(postId);
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === postId
-            ? {
-                ...p,
-                liked_by_me: result.liked_by_me,
-                likes_count: result.likes_count,
-              }
-            : p
-        )
-      );
+      // Could refresh posts if needed
     } catch {}
   }, []);
 
   const handleRepost = useCallback(async (postId: string) => {
     try {
       const result = await api.repostPost(postId);
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === postId
-            ? {
-                ...p,
-                reposted_by_me: result.reposted_by_me,
-                reposts_count: result.reposts_count,
-              }
-            : p
-        )
-      );
+      // Could refresh posts if needed
     } catch {}
   }, []);
 
   const handleEditPost = useCallback(async (postId: string, updatedPost: Post) => {
     try {
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === postId ? { ...p, ...updatedPost } : p
-        )
-      );
+      // Could refresh posts if needed
     } catch (err) {
       console.error("Error editing post:", err);
       throw err;
@@ -146,12 +130,12 @@ export default function ProfilePage() {
   const handleDeletePost = useCallback(async (postId: string) => {
     try {
       await api.deletePost(postId);
-      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      refreshPosts();
     } catch (err) {
       console.error("Error deleting post:", err);
       throw err;
     }
-  }, []);
+  }, [refreshPosts]);
 
   const handleCreatePost = async () => {
     if (!postText.trim() || posting) return;
@@ -161,7 +145,7 @@ export default function ProfilePage() {
         body: postText.trim(),
         image_url: postImageUrl || undefined,
       });
-      setPosts((prev) => [{ ...newPost, author: profile! }, ...prev]);
+      refreshPosts();
       setPostText("");
       setPostImageUrl("");
     } catch {}
@@ -169,13 +153,13 @@ export default function ProfilePage() {
   };
 
   function formatDateShort(dateStr: string): string {
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  const day = d.toLocaleDateString("es-ES", { day: "numeric" });
-  const month = d.toLocaleDateString("es-ES", { month: "short" }).replace(".", "");
-  const year = d.getFullYear();
-  return `${day} ${month} ${year}`;
-}
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = d.toLocaleDateString("es-ES", { day: "numeric" });
+    const month = d.toLocaleDateString("es-ES", { month: "short" }).replace(".", "");
+    const year = d.getFullYear();
+    return `${day} ${month} ${year}`;
+  }
 
   const openEdit = () => {
     setShowEdit(true);
@@ -231,7 +215,7 @@ export default function ProfilePage() {
     setFrLoading(false);
   };
 
-  if (loading) {
+  if (postsLoading && !profile) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
         <MaterialIcon name="person" className="text-5xl text-outline-variant animate-pulse mb-3" />
@@ -265,7 +249,7 @@ export default function ProfilePage() {
 
       <div className="max-w-4xl mx-auto space-y-6">
         <StatsCards
-          postsCount={posts.length}
+          postsCount={postsTotal}
           friendsCount={friends.length}
           zerines={profile.zerines}
           memberSince={formatDateShort(profile.created_at)}
@@ -356,30 +340,38 @@ export default function ProfilePage() {
           )}
 
           {/* Posts Feed */}
-          {posts.length === 0 ? (
+          {allPosts.length === 0 ? (
             <GlassCard className="p-12 text-center">
               <MaterialIcon name="article" className="text-5xl text-outline-variant mb-3" />
               <p className="text-on-surface-variant text-body-md">Aún no hay publicaciones</p>
             </GlassCard>
           ) : (
             <>
-              <div className={postList.expanded ? "space-y-6 max-h-[75vh] overflow-y-auto pr-1" : "space-y-6"}>
-                {visiblePosts.map((post) => (
-                  <PostCard
-                    key={`${post.is_repost ? "r" : "p"}-${post.id}`}
-                    post={post}
-                    onLike={handleLike}
-                    onRepost={handleRepost}
-                    onShare={setShareTarget}
-                    onEdit={handleEditPost}
-                    onDelete={handleDeletePost}
-                    currentUser={authUser ?? undefined}
-                  />
-                ))}
-              </div>
-              <ListFooter {...postList} onToggle={postList.toggle} />
+            <div className="space-y-6">
+              {visiblePosts.map((post) => (
+                <PostCard
+                  key={`${post.is_repost ? "r" : "p"}-${post.id}`}
+                  post={post}
+                  onLike={handleLike}
+                  onRepost={handleRepost}
+                  onShare={setShareTarget}
+                  onEdit={handleEditPost}
+                  onDelete={handleDeletePost}
+                  currentUser={authUser ?? undefined}
+                />
+              ))}
+            </div>
+            <ListFooter
+              hasMore={postsHasMore}
+              loading={postsLoadingMore}
+              pageSize={8}
+              loaded={postsTotal}
+              total={postsTotalCount}
+              onLoadMore={loadMorePosts}
+            />
             </>
           )}
+        </div>
         </div>
       </div>
 
@@ -401,7 +393,6 @@ export default function ProfilePage() {
         onClose={() => setShowEdit(false)}
         onSave={handleSaveProfile}
       />
-    </div>
     </div>
   );
 }

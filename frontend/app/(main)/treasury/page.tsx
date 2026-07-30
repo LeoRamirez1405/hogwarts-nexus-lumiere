@@ -27,7 +27,7 @@ export default function TreasuryPage() {
     Promise.all([api.getTransactions(), api.getMe()])
       .then(([txs, me]) => {
         if (!mountedRef.current) return;
-        setTransactions(txs);
+        setTransactions(txs.items);
         setBalance(me.zerines);
         setUser(me);
       })
@@ -44,7 +44,7 @@ export default function TreasuryPage() {
       try {
         const [txs, me] = await Promise.all([api.getTransactions(), api.getMe()]);
         if (!cancelled) {
-          setTransactions(txs);
+          setTransactions(txs.items);
           setBalance(me.zerines);
           setUser(me);
         }

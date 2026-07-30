@@ -29,7 +29,7 @@ export default function NewChatModal({
       .getRooms()
       .then((rs) => {
         if (cancelled) return;
-        setRooms(rs);
+        setRooms(rs.items);
         setRoomsLoaded(true);
       })
       .catch(() => {

@@ -66,7 +66,7 @@ export default function MessagesPage() {
     Promise.all([api.getConversations(), api.getUsers()])
       .then(([convs, users]) => {
         setConversations(convs);
-        setAllUsers(users.filter((u) => u.id !== authUser?.id));
+        setAllUsers(users.items.filter((u) => u.id !== authUser?.id));
       })
       .catch(() => {})
       .finally(() => setLoading(false));

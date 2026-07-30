@@ -108,12 +108,12 @@ export default function PetsPage() {
       api.getCreatureMarket(),
     ])
       .then(([c, mc, items, inv, s, mk]) => {
-        setCreatures(c);
+        setCreatures(c.items);
         setMyCreatures(mc);
         mc.forEach((uc) => {
           petLevels.current[uc.id] = uc.level;
         });
-        setPetItems(items);
+        setPetItems(items.items);
         setInventory(inv);
         applyStats(s, false);
         setMarket(mk);
@@ -291,7 +291,7 @@ export default function PetsPage() {
 
             <div className="flex flex-wrap gap-4">
               {/* Sanctuary level */}
-              <div className="bg-white/60 backdrop-blur-sm rounded-2xl px-5 py-3 flex items-center gap-3 border border-violet-500/20 min-w-[210px]">
+              <div className="bg-white/60 backdrop-blur-sm rounded-2xl px-5 py-3 flex items-center gap-3 border border-violet-500/20 min-w-52.5">
                 <MaterialIcon name="castle" className="text-violet-600 text-[1.6em]" filled />
                 <div className="flex-1">
                   <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">Santuario</p>
@@ -305,7 +305,7 @@ export default function PetsPage() {
                 </div>
               </div>
               {/* User level */}
-              <div className="bg-white/60 backdrop-blur-sm rounded-2xl px-5 py-3 flex items-center gap-3 border border-amber-500/20 min-w-[210px]">
+              <div className="bg-white/60 backdrop-blur-sm rounded-2xl px-5 py-3 flex items-center gap-3 border border-amber-500/20 min-w-52.5">
                 <MaterialIcon name="military_tech" className="text-amber-600 text-[1.6em]" filled />
                 <div className="flex-1">
                   <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">Nivel Mágico</p>
@@ -350,7 +350,7 @@ export default function PetsPage() {
         {activeTab === "adopt" && (
           <>
             <h2 className="font-display text-headline-lg text-primary mb-6">
-              Criaturas Disponibles para Adopcion
+              Criaturas Disponibles para Adopción
             </h2>
 
             {loading ? (
@@ -378,6 +378,7 @@ export default function PetsPage() {
                       stats={stats}
                       onAdopt={() => openAdoptModal(creature)}
                       adopting={adopting === creature.id}
+                      userZerines={user?.zerines ?? 0}
                     />
                   );
                 })}

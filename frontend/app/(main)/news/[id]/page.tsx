@@ -51,8 +51,9 @@ export default function ArticleDetailPage() {
     if (!params.id) return;
     let cancelled = false;
     Promise.all([api.getArticles()])
-      .then(([all]) => {
+      .then(([page]) => {
         if (cancelled) return;
+        const all = page.items;
         const found = all.find((a) => a.id === params.id);
         if (!found) {
           router.push("/news");

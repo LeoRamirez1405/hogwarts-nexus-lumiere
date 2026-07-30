@@ -20,6 +20,7 @@ export default function NewsAllPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("");
+  const [featuredOnly, setFeaturedOnly] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
@@ -44,13 +45,14 @@ export default function NewsAllPage() {
         };
         if (search) params.search = search;
         if (category !== "all" && category) params.category = category;
+        if (featuredOnly) params.featured_only = "true";
         const data = await api.getArticles(params);
         if (append) {
-          setArticles((prev) => [...prev, ...data]);
+          setArticles((prev) => [...prev, ...data.items]);
         } else {
-          setArticles(data);
+          setArticles(data.items);
         }
-        setHasMore(data.length === PAGE_SIZE);
+        setHasMore(data.has_more);
         setPage(pageNum);
       } catch {
         if (!append) setArticles([]);
@@ -59,7 +61,7 @@ export default function NewsAllPage() {
         setLoading(false);
       }
     },
-    [search, category, PAGE_SIZE]
+    [search, category, featuredOnly, PAGE_SIZE]
   );
 
   useEffect(() => {
@@ -133,6 +135,31 @@ export default function NewsAllPage() {
               </button>
             ))}
           </div>
+
+          {/* Extra filter: destacados (combinable con la categoría) */}
+          <div className="flex flex-wrap items-center gap-3 border-t border-outline-variant/20 pt-4">
+            <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">
+              Filtrar
+            </span>
+            <button
+              type="button"
+              onClick={() => setFeaturedOnly((v) => !v)}
+              aria-pressed={featuredOnly}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-label-sm font-medium transition-all ${
+                featuredOnly
+                  ? "bg-secondary text-on-secondary shadow-[0_0_16px_rgba(119,90,25,0.35)]"
+                  : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+              }`}
+            >
+              <MaterialIcon name="star" className="text-[1.1em]" filled={featuredOnly} />
+              Destacados
+            </button>
+            {featuredOnly && (
+              <span className="text-label-sm text-on-surface-variant">
+                Mostrando solo destacados{category && category !== "all" ? ` en ${category}` : ""}
+              </span>
+            )}
+          </div>
         </form>
       </GlassCard>
 
@@ -162,7 +189,15 @@ export default function NewsAllPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {articles.map((article) => (
               <Link key={article.id} href={`/news/${article.id}`} className="block">
-                <GlassCard className="p-5 h-full parchment-texture" hover glow>
+                <GlassCard
+                  className={`p-5 h-full parchment-texture ${
+                    article.featured
+                      ? "border border-secondary/50 shadow-[0_0_20px_rgba(119,90,25,0.25)]"
+                      : ""
+                  }`}
+                  hover
+                  glow
+                >
                   {article.image_url && (
                     <div className="relative h-40 rounded-xl overflow-hidden mb-4">
                       <Image
@@ -175,10 +210,16 @@ export default function NewsAllPage() {
                       />
                     </div>
                   )}
-                  <div className="mb-3">
+                  <div className="mb-3 flex items-center gap-2">
                     <Badge variant="tag" color="secondary">
                       {article.category}
                     </Badge>
+                    {article.featured && (
+                      <Badge variant="rarity" color="secondary">
+                        <MaterialIcon name="star" className="text-[0.9em] mr-0.5" filled />
+                        Destacado
+                      </Badge>
+                    )}
                   </div>
                   <h2 className="font-display text-body-md text-on-surface leading-snug mb-2 line-clamp-2">
                     {article.title}
