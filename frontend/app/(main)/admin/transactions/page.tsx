@@ -128,7 +128,6 @@ export default function AdminTransactionsPage() {
     totalLoaded: userTotal,
     totalCount: userTotalCount,
     loadMore: loadMoreUserTx,
-    refresh: refreshUserTx,
     loading: userLoading,
   } = usePaginatedList({
     fetcher: (p) => api.getTransactions(p, filter === "all" ? undefined : filter),
@@ -144,7 +143,6 @@ export default function AdminTransactionsPage() {
     totalLoaded: adminTotal,
     totalCount: adminTotalCount,
     loadMore: loadMoreAdminTx,
-    refresh: refreshAdminTx,
     loading: adminLoading,
   } = usePaginatedList({
     fetcher: (p) => api.getAllTransactionsAdmin(p, filter === "all" ? undefined : filter),

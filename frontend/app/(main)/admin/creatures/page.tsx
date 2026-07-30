@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { api, Creature, EnumValue } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
-import { useRouter } from "next/navigation";
 import GlassCard from "@/components/ui/GlassCard";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -54,7 +53,6 @@ const RARITY_COLORS: Record<string, string> = {
 
 export default function AdminCreaturesPage() {
   const { user } = useAuthStore();
-  const router = useRouter();
   const [search, setSearch] = useState("");
   const [editCreature, setEditCreature] = useState<Creature | null>(null);
   const [isNew, setIsNew] = useState(false);

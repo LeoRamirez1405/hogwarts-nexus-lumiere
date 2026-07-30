@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { api, User } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
-import { useRouter } from "next/navigation";
 import GlassCard from "@/components/ui/GlassCard";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -39,7 +38,6 @@ const HOUSES = ["Gryffindor", "Slytherin", "Ravenclaw", "Hufflepuff"];
 
 export default function AdminUsersPage() {
   const { user } = useAuthStore();
-  const router = useRouter();
   const [search, setSearch] = useState("");
   const [editUser, setEditUser] = useState<User | null>(null);
   const [editName, setEditName] = useState("");

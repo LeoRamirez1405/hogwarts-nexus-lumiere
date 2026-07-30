@@ -122,7 +122,7 @@ export default function AdminSettingsPage() {
         refresh();
         setActiveCategoryId(created.id);
       } else if (editCategory) {
-        const updated = await api.updateEnumCategory(editCategory.id, data);
+        await api.updateEnumCategory(editCategory.id, data);
         refresh();
       }
       setEditCategory(null);
