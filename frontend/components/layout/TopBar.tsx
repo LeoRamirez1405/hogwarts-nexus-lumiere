@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/authStore";
@@ -59,6 +60,12 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const notifButtonRef = useRef<HTMLButtonElement>(null);
+  const userMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const notifMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuDropdownRef = useRef<HTMLDivElement>(null);
+  const [notifPosition, setNotifPosition] = useState<{ top: number; right: number } | null>(null);
+  const [userMenuPosition, setUserMenuPosition] = useState<{ top: number; right: number } | null>(null);
   const {
     notifications,
     loading: loadingNotifs,
@@ -70,12 +77,15 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setShowNotifications(false);
-      }
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
-        setShowUserMenu(false);
-      }
+      const target = e.target as Node;
+      const notifOutside =
+        (!notifMenuRef.current || !notifMenuRef.current.contains(target)) &&
+        (!notifButtonRef.current || !notifButtonRef.current.contains(target));
+      if (notifOutside) setShowNotifications(false);
+      const userMenuOutside =
+        (!userMenuDropdownRef.current || !userMenuDropdownRef.current.contains(target)) &&
+        (!userMenuButtonRef.current || !userMenuButtonRef.current.contains(target));
+      if (userMenuOutside) setShowUserMenu(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -174,7 +184,14 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
           {/* Notifications */}
           <div className="relative" ref={notifRef}>
             <button
-              onClick={() => setShowNotifications(!showNotifications)}
+              ref={notifButtonRef}
+              onClick={() => {
+                if (!showNotifications && notifButtonRef.current) {
+                  const r = notifButtonRef.current.getBoundingClientRect();
+                  setNotifPosition({ top: r.bottom + 8, right: window.innerWidth - r.right });
+                }
+                setShowNotifications(!showNotifications);
+              }}
               className="w-10 h-10 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors relative"
               aria-label="Notifications"
             >
@@ -185,91 +202,19 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                 </span>
               )}
             </button>
-            {showNotifications && (
-              <div className="absolute right-0 top-full mt-2 bg-surface rounded-2xl shadow-2xl border border-outline-variant/20 w-[min(20rem,calc(100vw-1.5rem))] z-50 overflow-hidden">
-                <div className="px-4 py-3 border-b border-outline-variant/20 flex items-center justify-between">
-                  <h3 className="text-title-md font-display text-on-surface">
-                    Notificaciones
-                  </h3>
-                  {unreadCount > 0 && (
-                    <button
-                      onClick={markAllAsRead}
-                      className="text-label-sm text-primary font-medium hover:underline"
-                    >
-                      Marcar todo leido
-                    </button>
-                  )}
-                </div>
-                <div className="max-h-80 overflow-y-auto no-scrollbar">
-                  {loadingNotifs ? (
-                    <div className="px-4 py-8 text-center text-on-surface-variant">
-                      <MaterialIcon name="progress_activity" className="text-2xl animate-spin mx-auto mb-2" />
-                      Cargando...
-                    </div>
-                  ) : notifications.length === 0 ? (
-                    <div className="px-4 py-8 text-center text-on-surface-variant">
-                      <MaterialIcon name="notifications_off" className="text-3xl mx-auto mb-2" />
-                      <p className="text-body-md">Sin notificaciones</p>
-                    </div>
-                  ) : (
-                    notifications.map((n) => (
-                      <button
-                        key={n.id}
-                        onClick={() => handleNotificationClick(n)}
-                        className={`flex items-start gap-3 px-4 py-3 hover:bg-surface-container-high transition-colors w-full text-left ${
-                          !n.read ? "bg-primary/5" : ""
-                        }`}
-                      >
-                        <div
-                          className={`w-9 h-9 inline-flex items-center justify-center rounded-full flex-shrink-0 ${notificationMeta(n.type).chip}`}
-                        >
-                          <MaterialIcon
-                            name={notificationMeta(n.type).icon}
-                            className="text-lg"
-                            filled={!n.read}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={`text-body-md ${
-                              !n.read
-                                ? "font-medium text-on-surface"
-                                : "text-on-surface-variant"
-                            }`}
-                          >
-                            {n.title}
-                          </p>
-                          <p className="text-label-sm text-on-surface-variant/60 mt-0.5 line-clamp-1">
-                            {n.body}
-                          </p>
-                          <p className="text-label-sm text-on-surface-variant/40 mt-0.5">
-                            hace {timeAgo(n.created_at)}
-                          </p>
-                        </div>
-                        {!n.read && (
-                          <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                        )}
-                      </button>
-                    ))
-                  )}
-                </div>
-                <div className="border-t border-outline-variant/20 px-4 py-2.5">
-                  <Link
-                    href="/notifications"
-                    onClick={() => setShowNotifications(false)}
-                    className="block w-full text-center text-body-md text-primary font-medium hover:underline"
-                  >
-                    Ver todas
-                  </Link>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Avatar + user menu */}
           <div className="relative flex-shrink-0" ref={userMenuRef}>
             <button
-              onClick={() => setShowUserMenu((v) => !v)}
+              ref={userMenuButtonRef}
+              onClick={() => {
+                if (!showUserMenu && userMenuButtonRef.current) {
+                  const r = userMenuButtonRef.current.getBoundingClientRect();
+                  setUserMenuPosition({ top: r.bottom + 8, right: window.innerWidth - r.right });
+                }
+                setShowUserMenu((v) => !v);
+              }}
               className="flex items-center gap-2 rounded-full hover:opacity-80 transition-opacity"
             >
               <Avatar
@@ -279,37 +224,134 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                 initials={user?.name?.charAt(0).toUpperCase() ?? "?"}
               />
             </button>
-            {showUserMenu && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-surface rounded-2xl shadow-xl border border-outline-variant/20 overflow-hidden z-50">
-                <div className="px-4 py-3 border-b border-outline-variant/20">
-                  <p className="font-display text-body-md text-on-surface truncate">
-                    {user?.name ?? "Usuario"}
-                  </p>
-                  <p className="text-label-sm text-on-surface-variant truncate">
-                    {user?.email}
-                  </p>
-                </div>
-                <Link
-                  href="/profile"
-                  onClick={() => setShowUserMenu(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-body-md text-on-surface hover:bg-surface-container-high transition-colors"
-                >
-                  <MaterialIcon name="person" className="text-lg" />
-                  Mi Perfil
-                </Link>
-                
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-body-md text-error hover:bg-error/10 transition-colors"
-                >
-                  <MaterialIcon name="logout" className="text-lg" />
-                  Cerrar sesión
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>
+
+      {/* Notifications dropdown — portal to escape header stacking context */}
+      {showNotifications && notifPosition && createPortal(
+        <div
+          ref={notifMenuRef}
+          className="fixed bg-surface rounded-2xl shadow-2xl border border-outline-variant/20 w-[min(20rem,calc(100vw-1.5rem))] z-[70] overflow-hidden"
+          style={{ top: notifPosition.top, right: notifPosition.right }}
+        >
+          <div className="px-4 py-3 border-b border-outline-variant/20 flex items-center justify-between">
+            <h3 className="text-title-md font-display text-on-surface">
+              Notificaciones
+            </h3>
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllAsRead}
+                className="text-label-sm text-primary font-medium hover:underline"
+              >
+                Marcar todo leido
+              </button>
+            )}
+          </div>
+          <div className="max-h-80 overflow-y-auto no-scrollbar">
+            {loadingNotifs ? (
+              <div className="px-4 py-8 text-center text-on-surface-variant">
+                <MaterialIcon name="progress_activity" className="text-2xl animate-spin mx-auto mb-2" />
+                Cargando...
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="px-4 py-8 text-center text-on-surface-variant">
+                <MaterialIcon name="notifications_off" className="text-3xl mx-auto mb-2" />
+                <p className="text-body-md">Sin notificaciones</p>
+              </div>
+            ) : (
+              notifications.map((n) => (
+                <div
+                  key={n.id}
+                  className={`flex items-start gap-3 px-4 py-3 hover:bg-surface-container-high transition-colors w-full text-left ${!n.read ? "bg-primary/5" : ""}`}
+                >
+                  <button
+                    onClick={() => handleNotificationClick(n)}
+                    className="flex items-start gap-3 flex-1 min-w-0 text-left"
+                  >
+                    <div
+                      className={`w-9 h-9 inline-flex items-center justify-center rounded-full flex-shrink-0 ${notificationMeta(n.type).chip}`}
+                    >
+                      <MaterialIcon
+                        name={notificationMeta(n.type).icon}
+                        className="text-lg"
+                        filled={!n.read}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className={`text-body-md ${!n.read ? "font-medium text-on-surface" : "text-on-surface-variant"}`}
+                      >
+                        {n.title}
+                      </p>
+                      <p className="text-label-sm text-on-surface-variant/60 mt-0.5 line-clamp-1">
+                        {n.body}
+                      </p>
+                      <p className="text-label-sm text-on-surface-variant/40 mt-0.5">
+                        hace {timeAgo(n.created_at)}
+                      </p>
+                    </div>
+                  </button>
+                  {!n.read && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); markRead(n.id); }}
+                      className="w-8 h-8 inline-flex items-center justify-center rounded-full text-primary hover:bg-primary/10 transition-colors flex-shrink-0"
+                      aria-label="Marcar como leida"
+                      title="Marcar como leida"
+                    >
+                      <MaterialIcon name="check" className="text-lg" />
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+          <div className="border-t border-outline-variant/20 px-4 py-2.5">
+            <Link
+              href="/notifications"
+              onClick={() => setShowNotifications(false)}
+              className="block w-full text-center text-body-md text-primary font-medium hover:underline"
+            >
+              Ver todas
+            </Link>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* User menu dropdown — portal to escape header stacking context */}
+      {showUserMenu && userMenuPosition && createPortal(
+        <div
+          ref={userMenuDropdownRef}
+          className="fixed w-56 bg-surface rounded-2xl shadow-xl border border-outline-variant/20 overflow-hidden z-[70]"
+          style={{ top: userMenuPosition.top, right: userMenuPosition.right }}
+        >
+          <div className="px-4 py-3 border-b border-outline-variant/20">
+            <p className="font-display text-body-md text-on-surface truncate">
+              {user?.name ?? "Usuario"}
+            </p>
+            <p className="text-label-sm text-on-surface-variant truncate">
+              {user?.email}
+            </p>
+          </div>
+          <Link
+            href="/profile"
+            onClick={() => setShowUserMenu(false)}
+            className="flex items-center gap-3 px-4 py-3 text-body-md text-on-surface hover:bg-surface-container-high transition-colors"
+          >
+            <MaterialIcon name="person" className="text-lg" />
+            Mi Perfil
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 text-body-md text-error hover:bg-error/10 transition-colors"
+          >
+            <MaterialIcon name="logout" className="text-lg" />
+            Cerrar sesion
+          </button>
+        </div>,
+        document.body
+      )}
     </header>
   );
 }

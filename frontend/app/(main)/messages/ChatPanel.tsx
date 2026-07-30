@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useAuthStore } from "@/lib/authStore";
 import { api, Message, MessageSendData, ChatRoomMemberResponse, UserSearchResult } from "@/lib/api";
@@ -303,6 +304,8 @@ export default function ChatPanel({
   const dividerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuthStore();
   const [stickerTab, setStickerTab] = useState("magicos");
@@ -415,7 +418,11 @@ export default function ChatPanel({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const isOutside =
+        (!menuRef.current || !menuRef.current.contains(target)) &&
+        (!moreButtonRef.current || !moreButtonRef.current.contains(target));
+      if (isOutside) {
         setShowMenu(false);
         setShowMuteMenu(false);
       }
@@ -711,151 +718,27 @@ export default function ChatPanel({
           </p>
           <p className="text-label-sm text-on-surface-variant">
             {selectedConv?.type === "room"
-              ? `${selectedConv?.online_count ?? 0} en linea`
+              ? (selectedConv?.online_count ?? 0) > 0
+                ? `${selectedConv?.online_count} en linea`
+                : "Nadie en linea"
               : computeOnlineStatus(selectedConv?.last_active_at).text}
           </p>
         </div>
-        <div className="relative" ref={menuRef}>
+        <div>
           <button
-            onClick={() => { setShowMenu(!showMenu); setShowMuteMenu(false); }}
+            ref={moreButtonRef}
+            onClick={() => {
+              if (!showMenu && moreButtonRef.current) {
+                const r = moreButtonRef.current.getBoundingClientRect();
+                setMenuPosition({ top: r.bottom + 8, right: window.innerWidth - r.right });
+              }
+              setShowMenu(!showMenu);
+              setShowMuteMenu(false);
+            }}
             className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
           >
             <MaterialIcon name="more_vert" className="text-xl" />
           </button>
-          {showMenu && (
-            <div className="absolute right-0 top-full mt-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-50 w-56">
-              {selectedConv?.type === "room" ? (
-                <>
-                  <button
-                    onClick={() => { setShowMembers(true); setShowMenu(false); }}
-                    className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-                  >
-                    <MaterialIcon name="group" className="text-xl" />
-                    Ver miembros
-                  </button>
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowMuteMenu(!showMuteMenu)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-                    >
-                      <MaterialIcon name="notifications_off" className="text-xl" />
-                      Silenciar notificaciones
-                      <MaterialIcon name="chevron_right" className="text-lg ml-auto" />
-                    </button>
-                    {showMuteMenu && (
-                      <div className="absolute left-full top-0 ml-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-50 w-48">
-                        <button
-                          onClick={() => handleMuteConversation("8h")}
-                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-                        >
-                          <MaterialIcon name="schedule" className="text-lg" />
-                          8 horas
-                        </button>
-                        <button
-                          onClick={() => handleMuteConversation("24h")}
-                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-                        >
-                          <MaterialIcon name="schedule" className="text-lg" />
-                          24 horas
-                        </button>
-                        <button
-                          onClick={() => handleMuteConversation("forever")}
-                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-                        >
-                          <MaterialIcon name="block" className="text-lg" />
-                          Siempre
-                        </button>
-                        <div className="border-t border-outline-variant/20 my-1" />
-                        <button
-                          onClick={() => handleMuteConversation("off")}
-                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-primary hover:bg-surface-container-high transition-colors w-full text-left"
-                        >
-                          <MaterialIcon name="notifications_active" className="text-lg" />
-                          Activar notificaciones
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleLeaveRoom}
-                    className="flex items-center gap-3 px-4 py-2.5 text-body-md text-error hover:bg-error-container/30 transition-colors w-full text-left"
-                  >
-                    <MaterialIcon name="logout" className="text-xl" />
-                    Salir del grupo
-                  </button>
-                  <div className="border-t border-outline-variant/20 my-1" />
-                  <button
-                    onClick={handleHideConversation}
-                    className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface-variant hover:bg-surface-container-high transition-colors w-full text-left"
-                  >
-                    <MaterialIcon name="delete" className="text-xl" />
-                    Eliminar conversacion
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    href={`/profile/${selectedConv?.id}`}
-                    onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors"
-                  >
-                    <MaterialIcon name="person" className="text-xl" />
-                    Ver perfil
-                  </Link>
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowMuteMenu(!showMuteMenu)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-                    >
-                      <MaterialIcon name="notifications_off" className="text-xl" />
-                      Silenciar notificaciones
-                      <MaterialIcon name="chevron_right" className="text-lg ml-auto" />
-                    </button>
-                    {showMuteMenu && (
-                      <div className="absolute left-full top-0 ml-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-50 w-48">
-                        <button
-                          onClick={() => handleMuteConversation("8h")}
-                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-                        >
-                          <MaterialIcon name="schedule" className="text-lg" />
-                          8 horas
-                        </button>
-                        <button
-                          onClick={() => handleMuteConversation("24h")}
-                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-                        >
-                          <MaterialIcon name="schedule" className="text-lg" />
-                          24 horas
-                        </button>
-                        <button
-                          onClick={() => handleMuteConversation("forever")}
-                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-                        >
-                          <MaterialIcon name="block" className="text-lg" />
-                          Siempre
-                        </button>
-                        <div className="border-t border-outline-variant/20 my-1" />
-                        <button
-                          onClick={() => handleMuteConversation("off")}
-                          className="flex items-center gap-3 px-4 py-2.5 text-body-md text-primary hover:bg-surface-container-high transition-colors w-full text-left"
-                        >
-                          <MaterialIcon name="notifications_active" className="text-lg" />
-                          Activar notificaciones
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleHideConversation}
-                    className="flex items-center gap-3 px-4 py-2.5 text-body-md text-error hover:bg-error-container/30 transition-colors w-full text-left"
-                  >
-                    <MaterialIcon name="delete" className="text-xl" />
-                    Eliminar conversacion
-                  </button>
-                </>
-              )}
-            </div>
-          )}
         </div>
       </div>
 
@@ -1279,6 +1162,146 @@ export default function ChatPanel({
               <MaterialIcon name="send" className="text-lg" />
             </button>
           </div>
+        )}
+
+        {showMenu && menuPosition && createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[60] bg-surface-container-highest rounded-xl shadow-xl py-1 w-56"
+            style={{ top: menuPosition.top, right: menuPosition.right }}
+          >
+            {selectedConv?.type === "room" ? (
+              <>
+                <button
+                  onClick={() => { setShowMembers(true); setShowMenu(false); }}
+                  className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                >
+                  <MaterialIcon name="group" className="text-xl" />
+                  Ver miembros
+                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowMuteMenu(!showMuteMenu)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                  >
+                    <MaterialIcon name="notifications_off" className="text-xl" />
+                    Silenciar notificaciones
+                    <MaterialIcon name="chevron_right" className="text-lg ml-auto" />
+                  </button>
+                  {showMuteMenu && (
+                    <div className="absolute left-full top-0 ml-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-[60] w-48">
+                      <button
+                        onClick={() => handleMuteConversation("8h")}
+                        className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                      >
+                        <MaterialIcon name="schedule" className="text-lg" />
+                        8 horas
+                      </button>
+                      <button
+                        onClick={() => handleMuteConversation("24h")}
+                        className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                      >
+                        <MaterialIcon name="schedule" className="text-lg" />
+                        24 horas
+                      </button>
+                      <button
+                        onClick={() => handleMuteConversation("forever")}
+                        className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                      >
+                        <MaterialIcon name="block" className="text-lg" />
+                        Siempre
+                      </button>
+                      <div className="border-t border-outline-variant/20 my-1" />
+                      <button
+                        onClick={() => handleMuteConversation("off")}
+                        className="flex items-center gap-3 px-4 py-2.5 text-body-md text-primary hover:bg-surface-container-high transition-colors w-full text-left"
+                      >
+                        <MaterialIcon name="notifications_active" className="text-lg" />
+                        Activar notificaciones
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={handleLeaveRoom}
+                  className="flex items-center gap-3 px-4 py-2.5 text-body-md text-error hover:bg-error-container/30 transition-colors w-full text-left"
+                >
+                  <MaterialIcon name="logout" className="text-xl" />
+                  Salir del grupo
+                </button>
+                <div className="border-t border-outline-variant/20 my-1" />
+                <button
+                  onClick={handleHideConversation}
+                  className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface-variant hover:bg-surface-container-high transition-colors w-full text-left"
+                >
+                  <MaterialIcon name="delete" className="text-xl" />
+                  Eliminar conversacion
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href={`/profile/${selectedConv?.id}`}
+                  onClick={() => setShowMenu(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors"
+                >
+                  <MaterialIcon name="person" className="text-xl" />
+                  Ver perfil
+                </Link>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowMuteMenu(!showMuteMenu)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                  >
+                    <MaterialIcon name="notifications_off" className="text-xl" />
+                    Silenciar notificaciones
+                    <MaterialIcon name="chevron_right" className="text-lg ml-auto" />
+                  </button>
+                  {showMuteMenu && (
+                    <div className="absolute left-full top-0 ml-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-[60] w-48">
+                      <button
+                        onClick={() => handleMuteConversation("8h")}
+                        className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                      >
+                        <MaterialIcon name="schedule" className="text-lg" />
+                        8 horas
+                      </button>
+                      <button
+                        onClick={() => handleMuteConversation("24h")}
+                        className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                      >
+                        <MaterialIcon name="schedule" className="text-lg" />
+                        24 horas
+                      </button>
+                      <button
+                        onClick={() => handleMuteConversation("forever")}
+                        className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                      >
+                        <MaterialIcon name="block" className="text-lg" />
+                        Siempre
+                      </button>
+                      <div className="border-t border-outline-variant/20 my-1" />
+                      <button
+                        onClick={() => handleMuteConversation("off")}
+                        className="flex items-center gap-3 px-4 py-2.5 text-body-md text-primary hover:bg-surface-container-high transition-colors w-full text-left"
+                      >
+                        <MaterialIcon name="notifications_active" className="text-lg" />
+                        Activar notificaciones
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={handleHideConversation}
+                  className="flex items-center gap-3 px-4 py-2.5 text-body-md text-error hover:bg-error-container/30 transition-colors w-full text-left"
+                >
+                  <MaterialIcon name="delete" className="text-xl" />
+                  Eliminar conversacion
+                </button>
+              </>
+            )}
+          </div>,
+          document.body
         )}
       </div>
     </div>

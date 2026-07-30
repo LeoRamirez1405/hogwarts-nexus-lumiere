@@ -147,33 +147,41 @@ export default function NotificationsPage() {
           {visible.map((n) => {
             const meta = notificationMeta(n.type);
             return (
-              <button
+              <div
                 key={n.id}
-                onClick={() => handleClick(n)}
                 className={`w-full text-left flex items-start gap-3 p-4 rounded-2xl border transition-colors ${
                   n.read
-                    ? "bg-surface-container-low border-outline-variant/20 hover:bg-surface-container-high"
-                    : "bg-primary/5 border-primary/20 hover:bg-primary/10"
+                    ? "bg-surface-container-low border-outline-variant/20"
+                    : "bg-primary/5 border-primary/20"
                 }`}
               >
-                <div className={`w-10 h-10 rounded-full inline-flex items-center justify-center flex-shrink-0 ${meta.chip}`}>
-                  <MaterialIcon name={meta.icon} className="text-lg" filled={!n.read} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-body-md ${n.read ? "text-on-surface-variant" : "font-semibold text-on-surface"}`}>
-                    {n.title}
-                  </p>
-                  <p className="text-label-sm text-on-surface-variant/70 mt-0.5 line-clamp-2">
-                    {n.body}
-                  </p>
-                  <p className="text-label-sm text-on-surface-variant/40 mt-1">
-                    {timeAgo(n.created_at)}
-                  </p>
-                </div>
+                <button onClick={() => handleClick(n)} className="flex items-start gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity">
+                  <div className={`w-10 h-10 rounded-full inline-flex items-center justify-center flex-shrink-0 ${meta.chip}`}>
+                    <MaterialIcon name={meta.icon} className="text-lg" filled={!n.read} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-body-md ${n.read ? "text-on-surface-variant" : "font-semibold text-on-surface"}`}>
+                      {n.title}
+                    </p>
+                    <p className="text-label-sm text-on-surface-variant/70 mt-0.5 line-clamp-2">
+                      {n.body}
+                    </p>
+                    <p className="text-label-sm text-on-surface-variant/40 mt-1">
+                      {timeAgo(n.created_at)}
+                    </p>
+                  </div>
+                </button>
                 {!n.read && (
-                  <span className="w-2.5 h-2.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); markRead(n.id); }}
+                    className="w-9 h-9 inline-flex items-center justify-center rounded-full text-primary hover:bg-primary/10 transition-colors flex-shrink-0"
+                    aria-label="Marcar como leida"
+                    title="Marcar como leida"
+                  >
+                    <MaterialIcon name="check" className="text-lg" />
+                  </button>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
