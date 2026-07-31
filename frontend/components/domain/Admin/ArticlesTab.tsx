@@ -3,10 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { api, Article, EnumValue } from "@/lib/api";
-import { GlassCard, Button, Badge, SearchBar, Modal, MaterialIcon, ListFooter } from "@/components/ui";
-import { usePaginatedList } from "@/hooks/usePaginatedList";
-import { useDebounce } from "@/hooks/useDebounce";
-import { toastError } from "@/lib/toastStore";
+import { useAdminCrud } from "@/hooks/useAdminCrud";
+import { AdminCrudModal, FormField, InputField, TextareaField, SelectField } from "@/components/ui/AdminCrudModal";
+import ListFooter from "@/components/ui/ListFooter";
+import Switch from "@/components/ui/Switch";
+import Button from "@/components/ui/Button";
+import { toastError, toastSuccess } from "@/lib/toastStore";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
+import { MaterialIcon } from "@/components/ui/MaterialIcon";
 
 interface ArticlesTabProps {
   search: string;
@@ -14,8 +18,7 @@ interface ArticlesTabProps {
 }
 
 export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
-  const [editArticle, setEditArticle] = useState<Article | null>(null);
-  const [isNew, setIsNew] = useState(false);
+  const [articleCategories, setArticleCategories] = useState<EnumValue[]>([]);
   const [form, setForm] = useState({
     title: "",
     body: "",
@@ -24,46 +27,69 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
     featured: false,
     pinned: false,
   });
-  const [pinningId, setPinningId] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const [articleCategories, setArticleCategories] = useState<EnumValue[]>([]);
-  const debouncedSearch = useDebounce(search, 300);
+
   useEffect(() => {
     api.getEnumCategoryByCode("article_category").then((cat) => {
       if (cat) setArticleCategories(cat.values);
     }).catch((e) => toastError("No se pudo cargar las categorías", e));
   }, []);
 
-  const {
-    items: allArticles,
-    hasMore,
-    loading,
-    loadingMore,
-    totalLoaded,
-    totalCount,
-    loadMore,
-    refresh,
-  } = usePaginatedList({
+  const crud = useAdminCrud<Article, Partial<Article>, Partial<Article>>({
+    queryKey: ["admin-articles"],
     fetcher: (p) => api.getArticles({ offset: String(p.skip), limit: String(p.limit) }),
+    createFn: (data) => api.createArticle(data),
+    updateFn: (id, data) => api.updateArticle(id, data),
+    deleteFn: (id) => api.deleteArticle(id),
+    getDisplayName: (a) => a.title,
+    getId: (a) => a.id,
     pageSize: 10,
     enabled: true,
-    queryKey: ["admin-articles"],
+    filterFn: (a, searchTerm) =>
+      !searchTerm ||
+      a.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.category.toLowerCase().includes(searchTerm.toLowerCase()),
+    messages: {
+      create: "Artículo creado",
+      update: "Artículo actualizado",
+      delete: "Artículo eliminado",
+    },
   });
 
-  const filtered = allArticles.filter(
-    (a) =>
-      !debouncedSearch ||
-      a.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      a.category.toLowerCase().includes(debouncedSearch.toLowerCase()),
-  );
-
-  const visibleArticles = filtered;
-
   const openNew = () => {
-    setIsNew(true);
-    setEditArticle(null);
+    setForm({
+      title: "",
+      body: "",
+      category: "",
+      image_url: "",
+      featured: false,
+      pinned: false,
+    });
+    crud.setShowCreate(true);
+  };
+
+  const openEdit = (a: Article) => {
+    setForm({
+      title: a.title,
+      body: a.body,
+      category: a.category,
+      image_url: a.image_url || "",
+      featured: a.featured,
+      pinned: a.pinned ?? false,
+    });
+    crud.setEditItem(a);
+  };
+
+  const handleSave = async () => {
+    await crud.handleSave(crud.editItem!.id, {
+      title: form.title,
+      body: form.body,
+      category: form.category,
+      image_url: form.image_url || undefined,
+      featured: form.featured,
+      pinned: form.pinned,
+    });
     setForm({
       title: "",
       body: "",
@@ -74,43 +100,6 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
     });
   };
 
-  const openEdit = (a: Article) => {
-    setIsNew(false);
-    setEditArticle(a);
-    setForm({
-      title: a.title,
-      body: a.body,
-      category: a.category,
-      image_url: a.image_url || "",
-      featured: a.featured,
-      pinned: a.pinned ?? false,
-    });
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const data = {
-        title: form.title,
-        body: form.body,
-        category: form.category,
-        image_url: form.image_url || undefined,
-        featured: form.featured,
-        pinned: form.pinned,
-      };
-      if (isNew) {
-        await api.createArticle(data);
-        refresh();
-      } else if (editArticle) {
-        await api.updateArticle(editArticle.id, data);
-        refresh();
-      }
-      setEditArticle(null);
-      setIsNew(false);
-    } catch {}
-    setSaving(false);
-  };
-
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -118,195 +107,149 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
     try {
       const result = await api.uploadFile(file);
       setForm((f) => ({ ...f, image_url: result.url }));
-    } catch {}
+      toastSuccess("Imagen subida");
+    } catch (e) {
+      toastError("No se pudo subir la imagen", e);
+    }
     setUploadingImage(false);
     e.target.value = "";
   };
 
-  const handleTogglePin = async (a: Article) => {
-    setPinningId(a.id);
-    try {
-      await api.updateArticle(a.id, { pinned: !a.pinned });
-      refresh();
-    } catch {}
-    setPinningId(null);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Eliminar este artículo?")) return;
-    try {
-      await api.deleteArticle(id);
-      refresh();
-    } catch {}
+  const handleDelete = (id: string) => {
+    confirmDialog({
+      title: "Eliminar artículo?",
+      message: "Esta acción no se puede deshacer.",
+      variant: "danger",
+      icon: "delete",
+      onConfirm: () => crud.handleDelete(id),
+    });
   };
 
   return (
     <>
       <div className="flex flex-col sm:flex-row gap-3 justify-end">
-        <SearchBar
+        <input
+          type="text"
           placeholder="Buscar artículos..."
           value={search}
-          onChange={setSearch}
-          size="sm"
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full sm:w-64 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
         />
-        <Button variant="primary" icon="add" onClick={openNew}>
+        <button
+          onClick={openNew}
+          className="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-full font-medium text-label-sm hover:opacity-90 transition-all active:scale-95 whitespace-nowrap"
+        >
+          <MaterialIcon name="add" className="text-[1.2em]" />
           Nuevo Artículo
-        </Button>
+        </button>
       </div>
 
-      <div className="space-y-4">
-        {loading ? (
-          <div className="text-center py-16">
-            <MaterialIcon
-              name="progress_activity"
-              className="text-4xl text-outline-variant animate-spin mb-3 block mx-auto"
-            />
-            <p className="text-on-surface-variant text-body-md">Cargando...</p>
-          </div>
-        ) : (
-          <>
-            {visibleArticles.map((a) => (
-              <GlassCard key={a.id} className="p-6" hover>
-                <div className="flex flex-col md:flex-row md:items-center gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="tag">{a.category}</Badge>
-                      {a.pinned && (
-                        <Badge variant="rarity" color="primary">
-                          <MaterialIcon name="push_pin" className="text-[0.9em] mr-0.5" filled />
-                          Principal
-                        </Badge>
-                      )}
-                      {a.featured && (
-                        <Badge variant="rarity" color="secondary">
-                          Destacado
-                        </Badge>
-                      )}
-                    </div>
-                    <h3 className="font-display text-title-md text-on-surface mb-1">
-                      {a.title}
-                    </h3>
-                    <p className="text-label-sm text-on-surface-variant line-clamp-1">
-                      {a.body.slice(0, 150)}
-                      {a.body.length > 150 ? "..." : ""}
-                    </p>
+      {crud.loading ? (
+        <div className="text-center py-16">
+          <MaterialIcon name="progress_activity" className="text-4xl text-outline-variant animate-spin mb-3 block mx-auto" />
+          <p className="text-on-surface-variant text-body-md">Cargando...</p>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-4">
+            {crud.filteredItems.map((a) => (
+              <div
+                key={a.id}
+                className="glass-card rounded-xl p-6 hover:bg-surface-container-high transition-colors flex flex-col md:flex-row md:items-center gap-4"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className="px-2 py-0.5 rounded text-label-sm bg-surface-container-high text-on-surface-variant border border-outline-variant/20">{a.category}</span>
+                    {a.pinned && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 rounded text-label-sm bg-primary/10 text-primary border border-primary/30">
+                        <MaterialIcon name="push_pin" className="text-[0.9em]" filled />
+                        Principal
+                      </span>
+                    )}
+                    {a.featured && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 rounded text-label-sm bg-secondary/10 text-secondary border border-secondary/30">
+                        Destacado
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => handleTogglePin(a)}
-                      disabled={pinningId === a.id}
-                      title={a.pinned ? "Quitar como principal" : "Fijar como principal"}
-                      className={`p-2 rounded-full transition-colors disabled:opacity-50 ${
-                        a.pinned
-                          ? "bg-primary/10 text-primary hover:bg-primary/20"
-                          : "hover:bg-surface-container-high text-on-surface-variant hover:text-primary"
-                      }`}
-                    >
-                      <MaterialIcon
-                        name={pinningId === a.id ? "progress_activity" : "push_pin"}
-                        className={`text-lg ${pinningId === a.id ? "animate-spin" : ""}`}
-                        filled={a.pinned}
-                      />
-                    </button>
-                    <button
-                      onClick={() => openEdit(a)}
-                      className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
-                    >
-                      <MaterialIcon name="edit" className="text-lg" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(a.id)}
-                      className="p-2 rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
-                    >
-                      <MaterialIcon name="delete" className="text-lg" />
-                    </button>
-                  </div>
+                  <h3 className="font-display text-title-md text-on-surface mb-1">{a.title}</h3>
+                  <p className="text-label-sm text-on-surface-variant line-clamp-1">{a.body.slice(0, 150)}{a.body.length > 150 ? "..." : ""}</p>
                 </div>
-              </GlassCard>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => openEdit(a)}
+                    className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
+                    title="Editar"
+                  >
+                    <MaterialIcon name="edit" className="text-lg" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(a.id)}
+                    className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
+                    title="Eliminar"
+                  >
+                    <MaterialIcon name="delete" className="text-lg" />
+                  </button>
+                </div>
+              </div>
             ))}
-            {filtered.length === 0 && (
+            {crud.filteredItems.length === 0 && (
               <div className="text-center py-16">
-                <MaterialIcon
-                  name="article"
-                  className="text-5xl text-outline-variant mb-3 block mx-auto"
-                />
-                <p className="text-on-surface-variant text-body-md">
-                  No se encontraron artículos
-                </p>
+                <MaterialIcon name="article" className="text-5xl text-outline-variant mb-3 block mx-auto" />
+                <p className="text-on-surface-variant text-body-md">No se encontraron artículos</p>
               </div>
             )}
-          </>
-        )}
-      </div>
-      <ListFooter
-        hasMore={hasMore}
-        loading={loadingMore}
-        pageSize={10}
-        loaded={totalLoaded}
-        total={totalCount}
-        onLoadMore={loadMore}
-      />
+          </div>
+          <ListFooter
+            hasMore={crud.hasMore}
+            loading={crud.loadingMore}
+            pageSize={10}
+            loaded={crud.totalLoaded}
+            total={crud.totalCount}
+            onLoadMore={crud.loadMore}
+          />
+        </>
+      )}
 
-      {(editArticle || isNew) && (
-        <Modal
+      {(crud.editItem || crud.showCreate) && (
+        <AdminCrudModal
           open
-          onClose={() => {
-            setEditArticle(null);
-            setIsNew(false);
-          }}
+          onClose={() => { crud.setEditItem(null); crud.setShowCreate(false); }}
+          title={crud.showCreate ? "Nuevo Artículo" : "Editar Artículo"}
+          size="lg"
+          saving={crud.saving || crud.creating}
+          onSave={handleSave}
         >
           <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto no-scrollbar">
             <h2 className="font-display text-headline-lg text-on-surface">
-              {isNew ? "Nuevo Artículo" : "Editar Artículo"}
+              {crud.showCreate ? "Nuevo Artículo" : "Editar Artículo"}
             </h2>
             <div className="space-y-4">
-              <div>
-                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
-                  Titulo
-                </label>
-                <input
-                  type="text"
+              <FormField label="Titulo" required>
+                <InputField
                   value={form.title}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, title: e.target.value }))
-                  }
-                  className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
+                  onChange={(v: string) => setForm((f) => ({ ...f, title: v }))}
+                  autoFocus
+                  firstInput
                 />
-              </div>
-              <div>
-                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
-                  Contenido
-                </label>
-                <textarea
+              </FormField>
+              <FormField label="Contenido" required>
+                <TextareaField
                   value={form.body}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, body: e.target.value }))
-                  }
-                  className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors min-h-[160px] resize-none"
+                  onChange={(v: string) => setForm((f) => ({ ...f, body: v }))}
+                  rows={8}
                 />
-              </div>
+              </FormField>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
-                    Categoria
-                  </label>
-                  <select
+                <FormField label="Categoria" required>
+                  <SelectField
                     value={form.category}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, category: e.target.value }))
-                    }
-                    className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
-                  >
-                    <option value="">Seleccionar...</option>
-                    {articleCategories.map((cat) => (
-                      <option key={cat.label} value={cat.label}>{cat.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
-                    Imagen (opcional)
-                  </label>
+                    onChange={(v: string) => setForm((f) => ({ ...f, category: v }))}
+                    options={articleCategories.map((cat) => ({ value: cat.label, label: cat.label }))}
+                    placeholder="Seleccionar..."
+                  />
+                </FormField>
+                <FormField label="Imagen (opcional)">
                   <div className="flex items-center gap-3">
                     {form.image_url && (
                       <Image
@@ -326,94 +269,56 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
                         onChange={handleImageUpload}
                         disabled={uploadingImage}
                       />
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon="upload"
+                      <button
                         onClick={() => imageInputRef.current?.click()}
                         disabled={uploadingImage}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
                       >
                         {uploadingImage ? "Subiendo..." : "Seleccionar archivo"}
-                      </Button>
+                      </button>
                       {form.image_url && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon="delete"
-                          onClick={() =>
-                            setForm((f) => ({ ...f, image_url: "" }))
-                          }
+                        <button
+                          onClick={() => setForm((f) => ({ ...f, image_url: "" }))}
+                          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
                         >
                           Eliminar
-                        </Button>
+                        </button>
                       )}
                     </div>
                   </div>
-                </div>
+                </FormField>
               </div>
               <div className="space-y-3">
-                {/* Principal (pinned, max 1) */}
                 <div className="flex items-center gap-4 rounded-xl bg-surface-container-low border border-outline-variant/20 px-4 py-3">
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={form.pinned}
-                    onClick={() => setForm((f) => ({ ...f, pinned: !f.pinned }))}
-                    className={`relative shrink-0 w-14 h-8 rounded-full transition-colors ${
-                      form.pinned ? "bg-primary" : "bg-outline-variant/40"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform ${
-                        form.pinned ? "translate-x-6" : ""
-                      }`}
+                  <label className="flex items-center gap-4 cursor-pointer flex-1">
+                    <Switch
+                      checked={form.pinned}
+                      onChange={() => setForm((f) => ({ ...f, pinned: !f.pinned }))}
                     />
-                  </button>
-                  <div>
-                    <span className="text-body-md text-on-surface block">
-                      Fijar como principal
-                    </span>
-                    <span className="text-label-sm text-on-surface-variant">
-                      Solo puede haber uno a la vez; se mostrará en grande en El Quisquilloso.
-                    </span>
-                  </div>
+                    <div>
+                      <span className="text-body-md text-on-surface block">Fijar como principal</span>
+                      <span className="text-label-sm text-on-surface-variant">Solo puede haber uno a la vez; se mostrará en grande en El Quisquilloso.</span>
+                    </div>
+                  </label>
                 </div>
-
-                {/* Destacado (featured, many) */}
                 <div className="flex items-center gap-4 rounded-xl bg-surface-container-low border border-outline-variant/20 px-4 py-3">
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={form.featured}
-                    onClick={() => setForm((f) => ({ ...f, featured: !f.featured }))}
-                    className={`relative shrink-0 w-14 h-8 rounded-full transition-colors ${
-                      form.featured ? "bg-secondary" : "bg-outline-variant/40"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform ${
-                        form.featured ? "translate-x-6" : ""
-                      }`}
+                  <label className="flex items-center gap-4 cursor-pointer flex-1">
+                    <Switch
+                      checked={form.featured}
+                      onChange={() => setForm((f) => ({ ...f, featured: !f.featured }))}
                     />
-                  </button>
-                  <div>
-                    <span className="text-body-md text-on-surface block">
-                      Destacado
-                    </span>
-                    <span className="text-label-sm text-on-surface-variant">
-                      Resalta el art&iacute;culo (borde dorado) y aparece en la pesta&ntilde;a &ldquo;Destacadas&rdquo;. Puede haber varios.
-                    </span>
-                  </div>
+                    <div>
+                      <span className="text-body-md text-on-surface block">Destacado</span>
+                      <span className="text-label-sm text-on-surface-variant">Resalta el art&iacute;culo (borde dorado) y aparece en la pesta&ntilde;a &ldquo;Destacadas&rdquo;. Puede haber varios.</span>
+                    </div>
+                  </label>
                 </div>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 pt-4">
               <Button
                 variant="secondary"
-                onClick={() => {
-                  setEditArticle(null);
-                  setIsNew(false);
-                }}
+                onClick={() => { crud.setEditItem(null); crud.setShowCreate(false); }}
                 className="flex-1"
               >
                 Cancelar
@@ -421,14 +326,14 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
               <Button
                 variant="primary"
                 onClick={handleSave}
-                disabled={saving || !form.title || !form.body}
+                disabled={crud.saving || crud.creating || !form.title || !form.body}
                 className="flex-1"
               >
-                {saving ? "Guardando..." : "Guardar"}
+                {crud.saving || crud.creating ? "Guardando..." : "Guardar"}
               </Button>
             </div>
           </div>
-        </Modal>
+        </AdminCrudModal>
       )}
     </>
   );

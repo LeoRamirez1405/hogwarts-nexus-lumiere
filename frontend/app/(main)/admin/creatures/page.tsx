@@ -4,15 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { api, Creature, EnumValue } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
-import GlassCard from "@/components/ui/GlassCard";
-import Button from "@/components/ui/Button";
-import Badge from "@/components/ui/Badge";
-import SearchBar from "@/components/ui/SearchBar";
-import Modal from "@/components/ui/Modal";
+import { useAdminCrud } from "@/hooks/useAdminCrud";
+import { AdminCrudModal, FormField, InputField, TextareaField, SelectField } from "@/components/ui/AdminCrudModal";
 import ListFooter from "@/components/ui/ListFooter";
-import { MaterialIcon } from "@/components/ui";
-import { usePaginatedList } from "@/hooks/usePaginatedList";
-import { useDebounce } from "@/hooks/useDebounce";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 
 const RARITY_LABELS: Record<string, string> = {
@@ -31,12 +28,21 @@ const RARITY_COLORS: Record<string, string> = {
   ethereal: "primary",
 };
 
+const defaultCreateForm: Partial<Creature> = {
+  name: "",
+  description: "",
+  rarity: "common",
+  pet_type: "Criaturas pequeñas",
+  price: 0,
+  image_url: "",
+  required_user_level: 1,
+  required_sanctuary_level: 0,
+  ability: "",
+};
+
 export default function AdminCreaturesPage() {
   const { user } = useAuthStore();
-  const [search, setSearch] = useState("");
-  const debouncedSearch = useDebounce(search, 300);
-  const [editCreature, setEditCreature] = useState<Creature | null>(null);
-  const [isNew, setIsNew] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -48,7 +54,6 @@ export default function AdminCreaturesPage() {
     required_sanctuary_level: "",
     ability: "",
   });
-  const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [petTypes, setPetTypes] = useState<EnumValue[]>([]);
@@ -59,34 +64,29 @@ export default function AdminCreaturesPage() {
     }).catch((e) => toastError("No se pudo cargar los tipos de mascota", e));
   }, []);
 
-  const {
-    items: allItems,
-    hasMore,
-    loading,
-    loadingMore,
-    totalLoaded,
-    totalCount,
-    loadMore,
-    refresh,
-  } = usePaginatedList({
+  const crud = useAdminCrud<Creature, Partial<Creature>, Partial<Creature>>({
+    queryKey: ["admin-creatures"],
     fetcher: (p) => api.getCreatures(p),
+    createFn: (data) => api.createCreature(data),
+    updateFn: (id, data) => api.updateCreature(id, data),
+    deleteFn: (id) => api.deleteCreature(id),
+    getDisplayName: (c) => c.name,
+    getId: (c) => c.id,
     pageSize: 12,
     enabled: user?.role === "admin",
-    queryKey: ["admin-creatures"],
+    defaultCreateForm,
+    messages: {
+      create: "Criatura creada",
+      update: "Criatura actualizada",
+      delete: "Criatura eliminada",
+    },
+    filterFn: (c, search) =>
+      !search ||
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.rarity.toLowerCase().includes(search.toLowerCase()),
   });
 
-  const filtered = allItems.filter(
-    (c) =>
-      !search ||
-      c.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      c.rarity.toLowerCase().includes(debouncedSearch.toLowerCase())
-  );
-
-  const visibleCreatures = filtered;
-
   const openNew = () => {
-    setIsNew(true);
-    setEditCreature(null);
     setForm({
       name: "",
       description: "",
@@ -98,11 +98,10 @@ export default function AdminCreaturesPage() {
       required_sanctuary_level: "",
       ability: "",
     });
+    setShowCreate(true);
   };
 
   const openEdit = (c: Creature) => {
-    setIsNew(false);
-    setEditCreature(c);
     setForm({
       name: c.name,
       description: c.description,
@@ -114,38 +113,39 @@ export default function AdminCreaturesPage() {
       required_sanctuary_level: (c.required_sanctuary_level ?? 0).toString(),
       ability: c.ability || "",
     });
+    crud.setEditItem(c);
   };
 
   const handleSave = async () => {
-    setSaving(true);
-    try {
-      const data = {
-        name: form.name,
-        description: form.description,
-        rarity: form.rarity,
-        pet_type: form.pet_type,
-        price: parseInt(form.price) || 0,
-        image_url: form.image_url || undefined,
-        required_user_level: Math.max(1, parseInt(form.required_user_level) || 1),
-        required_sanctuary_level: Math.max(0, parseInt(form.required_sanctuary_level) || 0),
-        ability: form.ability.trim() || undefined,
-      };
-      if (isNew) {
-        await api.createCreature(data);
-      } else if (editCreature) {
-        await api.updateCreature(editCreature.id, data);
-      }
-      refresh();
-      setEditCreature(null);
-      setIsNew(false);
-      toastSuccess(isNew ? "Criatura creada" : "Criatura actualizada");
-    } catch (e) {
-      toastError(
-        isNew ? "No se pudo crear la criatura" : "No se pudo actualizar la criatura",
-        e
-      );
+    const data: Partial<Creature> = {
+      name: form.name,
+      description: form.description,
+      rarity: form.rarity,
+      pet_type: form.pet_type,
+      price: parseInt(form.price) || 0,
+      image_url: form.image_url || undefined,
+      required_user_level: Math.max(1, parseInt(form.required_user_level) || 1),
+      required_sanctuary_level: Math.max(0, parseInt(form.required_sanctuary_level) || 0),
+      ability: form.ability.trim() || undefined,
+    };
+    if (showCreate) {
+      await crud.handleCreate(data);
+    } else if (crud.editItem) {
+      await crud.handleSave(crud.editItem.id, data);
     }
-    setSaving(false);
+    setForm({
+      name: "",
+      description: "",
+      rarity: "common",
+      pet_type: "Criaturas pequeñas",
+      price: "",
+      image_url: "",
+      required_user_level: "",
+      required_sanctuary_level: "",
+      ability: "",
+    });
+    setShowCreate(false);
+    crud.setEditItem(null);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,15 +173,16 @@ export default function AdminCreaturesPage() {
             Gestionar Criaturas
           </h1>
           <p className="text-on-surface-variant text-body-md mt-1">
-            {totalCount} criaturas en el Santuario
+            {crud.totalCount} criaturas en el Santuario
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
-          <SearchBar
+          <input
+            type="text"
             placeholder="Buscar criaturas..."
-            value={search}
-            onChange={setSearch}
-            size="sm"
+            value={crud.search}
+            onChange={(e) => crud.setSearch(e.target.value)}
+            className="w-full sm:w-64 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
           />
           <Button variant="primary" icon="add" onClick={openNew}>
             Nueva Criatura
@@ -189,7 +190,7 @@ export default function AdminCreaturesPage() {
         </div>
       </div>
 
-      {loading ? (
+      {crud.loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
             <div key={i} className="glass-card rounded-xl p-6 animate-pulse">
@@ -201,126 +202,159 @@ export default function AdminCreaturesPage() {
         </div>
       ) : (
         <>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {visibleCreatures.map((c) => (
-            <GlassCard key={c.id} className="overflow-hidden" hover>
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-3">
-                  <Badge variant="rarity" color={RARITY_COLORS[c.rarity] as "default" | "secondary" | "primary" | "error" | "success"}>
-                    {RARITY_LABELS[c.rarity] || c.rarity}
-                  </Badge>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => openEdit(c)}
-                      className="p-1.5 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
-                    >
-                      <MaterialIcon name="edit" className="text-lg" />
-                    </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {crud.filteredItems.map((c) => (
+              <div key={c.id} className="glass-card rounded-xl overflow-hidden hover:bg-surface-container-high transition-colors">
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-3">
+                    <Badge variant="rarity" color={RARITY_COLORS[c.rarity] as "default" | "secondary" | "primary" | "error" | "success"}>
+                      {RARITY_LABELS[c.rarity] || c.rarity}
+                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEdit(c)}
+                        className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
+                      >
+                        <MaterialIcon name="edit" className="text-lg" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <h3 className="font-display text-title-md text-on-surface mb-1">
-                  {c.name}
-                </h3>
-                <p className="text-label-sm text-on-surface-variant line-clamp-2 mb-3">
-                  {c.description}
-                </p>
-                {c.ability && (
-                  <div className="flex items-start gap-1.5 mb-3 bg-secondary/5 border border-secondary/10 rounded-lg px-2.5 py-1.5">
-                    <MaterialIcon name="auto_awesome" className="text-secondary text-[1em] mt-0.5" filled />
-                    <p className="text-label-sm text-on-surface-variant leading-snug">{c.ability}</p>
+                  <h3 className="font-display text-title-md text-on-surface mb-1">
+                    {c.name}
+                  </h3>
+                  <p className="text-label-sm text-on-surface-variant line-clamp-2 mb-3">
+                    {c.description}
+                  </p>
+                  {c.ability && (
+                    <div className="flex items-start gap-1.5 mb-3 bg-secondary/5 border border-secondary/10 rounded-lg px-2.5 py-1.5">
+                      <MaterialIcon name="auto_awesome" className="text-secondary text-[1em] mt-0.5" filled />
+                      <p className="text-label-sm text-on-surface-variant leading-snug">{c.ability}</p>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <p className="font-display text-title-md text-secondary">
+                      <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled /> {c.price.toLocaleString()}
+                    </p>
+                    <p className="text-label-sm text-on-surface-variant capitalize">
+                      {RARITY_LABELS[c.rarity] || c.rarity}
+                    </p>
                   </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <p className="font-display text-title-md text-secondary">
-                    <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled /> {c.price.toLocaleString()}
-                  </p>
-                  <p className="text-label-sm text-on-surface-variant capitalize">
-                    {RARITY_LABELS[c.rarity] || c.rarity}
-                  </p>
                 </div>
               </div>
-            </GlassCard>
-          ))}
-          {filtered.length === 0 && (
-            <div className="col-span-full text-center py-16">
-              <MaterialIcon
-                name="pets"
-                className="text-5xl text-outline-variant mb-3 block mx-auto"
-              />
-              <p className="text-on-surface-variant text-body-md">
-                No se encontraron criaturas
-              </p>
-            </div>
-          )}
-        </div>
-<ListFooter
-          hasMore={hasMore}
-          loading={loadingMore}
-          pageSize={12}
-          loaded={totalLoaded}
-          total={totalCount}
-          onLoadMore={loadMore}
-        />
+            ))}
+            {crud.filteredItems.length === 0 && (
+              <div className="col-span-full text-center py-16">
+                <MaterialIcon
+                  name="pets"
+                  className="text-5xl text-outline-variant mb-3 block mx-auto"
+                />
+                <p className="text-on-surface-variant text-body-md">
+                  No se encontraron criaturas
+                </p>
+              </div>
+            )}
+          </div>
+          <ListFooter
+            hasMore={crud.hasMore}
+            loading={crud.loadingMore}
+            pageSize={12}
+            loaded={crud.totalLoaded}
+            total={crud.totalCount}
+            onLoadMore={crud.loadMore}
+          />
         </>
       )}
 
-      {(editCreature || isNew) && (
-        <Modal open onClose={() => { setEditCreature(null); setIsNew(false); }}>
+      {(showCreate || crud.editItem) && (
+        <AdminCrudModal
+          open
+          onClose={() => { setShowCreate(false); crud.setEditItem(null); }}
+          title={showCreate ? "Nueva Criatura" : "Editar Criatura"}
+          size="md"
+          saving={crud.saving || crud.creating}
+          onSave={handleSave}
+        >
           <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto no-scrollbar">
             <h2 className="font-display text-headline-lg text-on-surface">
-              {isNew ? "Nueva Criatura" : "Editar Criatura"}
+              {showCreate ? "Nueva Criatura" : "Editar Criatura"}
             </h2>
             <div className="space-y-4">
-              <div>
-                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Nombre</label>
-                <input type="text" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
-              </div>
-              <div>
-                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Descripcion</label>
-                <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors min-h-25 resize-none" />
-              </div>
+              <FormField label="Nombre" required>
+                <InputField
+                  value={form.name}
+                  onChange={(v: string) => setForm((p) => ({ ...p, name: v }))}
+                  autoFocus
+                  firstInput
+                />
+              </FormField>
+              <FormField label="Descripcion">
+                <TextareaField
+                  value={form.description}
+                  onChange={(v: string) => setForm((p) => ({ ...p, description: v }))}
+                />
+              </FormField>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Precio</label>
-                  <input type="number" value={form.price} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
-                </div>
-                <div>
-                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Rareza</label>
-                  <select value={form.rarity} onChange={(e) => setForm((p) => ({ ...p, rarity: e.target.value as Creature["rarity"] }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors">
-                    <option value="common">Comun</option>
-                    <option value="uncommon">Poco Comun</option>
-                    <option value="rare">Raro</option>
-                    <option value="legendary">Legendario</option>
-                    <option value="ethereal">Etereo</option>
-                  </select>
-                </div>
+                <FormField label="Precio" required>
+                  <InputField
+                    type="number"
+                    value={form.price}
+                    onChange={(v: string) => setForm((p) => ({ ...p, price: v }))}
+                    placeholder="0"
+                  />
+                </FormField>
+                <FormField label="Rareza" required>
+                  <SelectField
+                    value={form.rarity}
+                    onChange={(v: string) => setForm((p) => ({ ...p, rarity: v as Creature["rarity"] }))}
+                    options={[
+                      { value: "common", label: "Comun" },
+                      { value: "uncommon", label: "Poco Comun" },
+                      { value: "rare", label: "Raro" },
+                      { value: "legendary", label: "Legendario" },
+                      { value: "ethereal", label: "Etereo" },
+                    ]}
+                    placeholder="Seleccionar..."
+                  />
+                </FormField>
               </div>
-              <div>
-                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Tipo de mascota</label>
-                <select value={form.pet_type} onChange={(e) => setForm((p) => ({ ...p, pet_type: e.target.value as Creature["pet_type"] }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors">
-                  {petTypes.map((pt) => (
-                    <option key={pt.label} value={pt.label}>{pt.label}</option>
-                  ))}
-                </select>
-                <p className="text-label-sm text-on-surface-variant mt-1">Determina que comida y juguetes acepta.</p>
-              </div>
+              <FormField label="Tipo de mascota" required>
+                <SelectField
+                  value={form.pet_type}
+                  onChange={(v: string) => setForm((p) => ({ ...p, pet_type: v as Creature["pet_type"] }))}
+                  options={petTypes.map((pt) => ({ value: pt.label, label: pt.label }))}
+                  placeholder="Seleccionar..."
+                />
+              </FormField>
+              <p className="text-label-sm text-on-surface-variant mt-1">Determina que comida y juguetes acepta.</p>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Nivel mágico req.</label>
-                  <input type="number" min={1} value={form.required_user_level} onChange={(e) => setForm((p) => ({ ...p, required_user_level: e.target.value }))} placeholder="1 = sin requisito" className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
-                </div>
-                <div>
-                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Nivel santuario req.</label>
-                  <input type="number" min={0} value={form.required_sanctuary_level} onChange={(e) => setForm((p) => ({ ...p, required_sanctuary_level: e.target.value }))} placeholder="0 = sin requisito" className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
-                </div>
+                <FormField label="Nivel mágico req.">
+                  <InputField
+                    type="number"
+                    min={1}
+                    value={form.required_user_level}
+                    onChange={(v: string) => setForm((p) => ({ ...p, required_user_level: v }))}
+                    placeholder="1 = sin requisito"
+                  />
+                </FormField>
+                <FormField label="Nivel santuario req.">
+                  <InputField
+                    type="number"
+                    min={0}
+                    value={form.required_sanctuary_level}
+                    onChange={(v: string) => setForm((p) => ({ ...p, required_sanctuary_level: v }))}
+                    placeholder="0 = sin requisito"
+                  />
+                </FormField>
               </div>
-              <div>
-                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Habilidad especial</label>
-                <input type="text" value={form.ability} onChange={(e) => setForm((p) => ({ ...p, ability: e.target.value }))} placeholder="Ej: Doble de Zerines al cuidar" className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
-                <p className="text-label-sm text-on-surface-variant mt-1">Beneficio que comparten todas las mascotas de esta especie.</p>
-              </div>
-              <div>
-                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Imagen (opcional)</label>
+              <FormField label="Habilidad especial">
+                <InputField
+                  value={form.ability}
+                  onChange={(v: string) => setForm((p) => ({ ...p, ability: v }))}
+                  placeholder="Ej: Doble de Zerines al cuidar"
+                />
+              </FormField>
+              <p className="text-label-sm text-on-surface-variant mt-1">Beneficio que comparten todas las mascotas de esta especie.</p>
+              <FormField label="Imagen (opcional)">
                 <div className="flex items-center gap-3">
                   {form.image_url && (
                     <Image
@@ -362,14 +396,14 @@ export default function AdminCreaturesPage() {
                     )}
                   </div>
                 </div>
-              </div>
+              </FormField>
             </div>
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => { setEditCreature(null); setIsNew(false); }} className="flex-1">Cancelar</Button>
-              <Button variant="primary" onClick={handleSave} disabled={saving || !form.name} className="flex-1">{saving ? "Guardando..." : "Guardar"}</Button>
+            <div className="flex gap-3 pt-4">
+              <Button variant="secondary" onClick={() => { setShowCreate(false); crud.setEditItem(null); }} className="flex-1">Cancelar</Button>
+              <Button variant="primary" onClick={handleSave} disabled={crud.saving || crud.creating || !form.name} className="flex-1">{crud.saving || crud.creating ? "Guardando..." : "Guardar"}</Button>
             </div>
           </div>
-        </Modal>
+        </AdminCrudModal>
       )}
     </div>
   );

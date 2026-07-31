@@ -4,15 +4,13 @@ import { useState, useRef } from "react";
 import Image from "next/image";
 import { api, PetItem, PetType, PetItemKind } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
-import GlassCard from "@/components/ui/GlassCard";
-import Button from "@/components/ui/Button";
-import Badge from "@/components/ui/Badge";
-import SearchBar from "@/components/ui/SearchBar";
-import Modal from "@/components/ui/Modal";
+import { useAdminCrud } from "@/hooks/useAdminCrud";
+import { AdminCrudModal, FormField, InputField, TextareaField, SelectField, ToggleButtonGroup } from "@/components/ui/AdminCrudModal";
 import ListFooter from "@/components/ui/ListFooter";
-import { MaterialIcon } from "@/components/ui";
-import { usePaginatedList } from "@/hooks/usePaginatedList";
-import { useDebounce } from "@/hooks/useDebounce";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import { MaterialIcon } from "@/components/ui/MaterialIcon";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 
 const KIND_LABELS: Record<PetItemKind, string> = {
@@ -22,13 +20,21 @@ const KIND_LABELS: Record<PetItemKind, string> = {
 
 type Filter = "all" | PetItemKind;
 
+const defaultCreateForm: Partial<PetItem> = {
+  name: "",
+  description: "",
+  kind: "food",
+  pet_type: "Criaturas pequeñas",
+  price: 0,
+  restore_amount: 10,
+  pack_size: 1,
+  image_url: "",
+};
+
 export default function AdminPetItemsPage() {
   const { user } = useAuthStore();
-  const [search, setSearch] = useState("");
-  const debouncedSearch = useDebounce(search, 300);
   const [filter, setFilter] = useState<Filter>("all");
-  const [editItem, setEditItem] = useState<PetItem | null>(null);
-  const [isNew, setIsNew] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -39,39 +45,33 @@ export default function AdminPetItemsPage() {
     pack_size: "",
     image_url: "",
   });
-  const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  const {
-    items: allItems,
-    hasMore,
-    loading,
-    loadingMore,
-    totalLoaded,
-    totalCount,
-    loadMore,
-    refresh,
-  } = usePaginatedList({
+  const crud = useAdminCrud<PetItem, Partial<PetItem>, Partial<PetItem>>({
+    queryKey: ["admin-pet-items"],
     fetcher: (p) => api.getPetItems({ kind: filter === "all" ? undefined : filter }, p),
+    createFn: (data) => api.createPetItem(data),
+    updateFn: (id, data) => api.updatePetItem(id, data),
+    deleteFn: (id) => api.deletePetItem(id),
+    getDisplayName: (it) => it.name,
+    getId: (it) => it.id,
     pageSize: 12,
     enabled: user?.role === "admin",
-    queryKey: ["admin-pet-items"],
     resetKey: filter,
+    defaultCreateForm,
+    messages: {
+      create: "Objeto creado",
+      update: "Objeto actualizado",
+      delete: "Objeto eliminado",
+    },
+    filterFn: (it, search) =>
+      !search ||
+      it.name.toLowerCase().includes(search.toLowerCase()) ||
+      it.pet_type.toLowerCase().includes(search.toLowerCase()),
   });
 
-  const filtered = allItems.filter(
-    (it) =>
-      !search ||
-      it.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      it.pet_type.toLowerCase().includes(debouncedSearch.toLowerCase()),
-  );
-
-  const visibleItems = filtered;
-
   const openNew = () => {
-    setIsNew(true);
-    setEditItem(null);
     setForm({
       name: "",
       description: "",
@@ -82,11 +82,10 @@ export default function AdminPetItemsPage() {
       pack_size: "",
       image_url: "",
     });
+    setShowCreate(true);
   };
 
   const openEdit = (it: PetItem) => {
-    setIsNew(false);
-    setEditItem(it);
     setForm({
       name: it.name,
       description: it.description ?? "",
@@ -97,37 +96,37 @@ export default function AdminPetItemsPage() {
       pack_size: it.pack_size.toString(),
       image_url: it.image_url ?? "",
     });
+    crud.setEditItem(it);
   };
 
   const handleSave = async () => {
-    setSaving(true);
-    try {
-      const data = {
-        name: form.name,
-        description: form.description,
-        kind: form.kind,
-        pet_type: form.pet_type,
-        price: parseInt(form.price) || 0,
-        restore_amount: Math.max(1, parseInt(form.restore_amount) || 10),
-        pack_size: Math.max(1, parseInt(form.pack_size) || 1),
-        image_url: form.image_url || undefined,
-      };
-      if (isNew) {
-        await api.createPetItem(data);
-      } else if (editItem) {
-        await api.updatePetItem(editItem.id, data);
-      }
-      await refresh();
-      setEditItem(null);
-      setIsNew(false);
-      toastSuccess(isNew ? "Objeto creado" : "Objeto actualizado");
-    } catch (e) {
-      toastError(
-        isNew ? "No se pudo crear el objeto" : "No se pudo guardar el objeto",
-        e
-      );
+    const data: Partial<PetItem> = {
+      name: form.name,
+      description: form.description,
+      kind: form.kind,
+      pet_type: form.pet_type,
+      price: parseInt(form.price) || 0,
+      restore_amount: Math.max(1, parseInt(form.restore_amount) || 10),
+      pack_size: Math.max(1, parseInt(form.pack_size) || 1),
+      image_url: form.image_url || undefined,
+    };
+    if (showCreate) {
+      await crud.handleCreate(data);
+    } else if (crud.editItem) {
+      await crud.handleSave(crud.editItem.id, data);
     }
-    setSaving(false);
+    setForm({
+      name: "",
+      description: "",
+      kind: "food",
+      pet_type: "Criaturas pequeñas",
+      price: "",
+      restore_amount: "",
+      pack_size: "",
+      image_url: "",
+    });
+    setShowCreate(false);
+    crud.setEditItem(null);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,21 +144,19 @@ export default function AdminPetItemsPage() {
     e.target.value = "";
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Eliminar este objeto?")) return;
-    try {
-      await api.deletePetItem(id);
-      await refresh();
-      toastSuccess("Objeto eliminado");
-    } catch (e) {
-      toastError("No se pudo eliminar el objeto", e);
-    }
+  const handleDelete = (id: string) => {
+    confirmDialog({
+      title: "Eliminar objeto?",
+      message: "Esta acción no se puede deshacer.",
+      variant: "danger",
+      icon: "delete",
+      onConfirm: () => crud.handleDelete(id),
+    });
   };
 
   if (user?.role !== "admin") return null;
 
-  // The backend already returns the count for the active `kind` filter.
-  const getDisplayCount = () => totalCount;
+  const getDisplayCount = () => crud.totalCount;
 
   const getDisplayLabel = () => {
     if (getDisplayCount() === 1) {
@@ -182,11 +179,12 @@ export default function AdminPetItemsPage() {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
-          <SearchBar
+          <input
+            type="text"
             placeholder="Buscar objetos..."
-            value={search}
-            onChange={setSearch}
-            size="sm"
+            value={crud.search}
+            onChange={(e) => crud.setSearch(e.target.value)}
+            className="w-full sm:w-64 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
           />
           <Button variant="primary" icon="add" onClick={openNew}>
             Nuevo Objeto
@@ -211,7 +209,7 @@ export default function AdminPetItemsPage() {
         ))}
       </div>
 
-      {loading ? (
+      {crud.loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
             <div key={i} className="glass-card rounded-xl p-6 animate-pulse">
@@ -222,127 +220,157 @@ export default function AdminPetItemsPage() {
         </div>
       ) : (
         <>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {visibleItems.map((it) => (
-            <GlassCard key={it.id} className="overflow-hidden" hover>
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="tag" color={it.kind === "food" ? "success" : "primary"}>
-                      {KIND_LABELS[it.kind]}
-                    </Badge>
-                    <Badge variant="tag">{it.pet_type}</Badge>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {crud.filteredItems.map((it) => (
+              <div key={it.id} className="glass-card rounded-xl overflow-hidden hover:bg-surface-container-high transition-colors">
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="tag" color={it.kind === "food" ? "success" : "primary"}>
+                        {KIND_LABELS[it.kind]}
+                      </Badge>
+                      <Badge variant="tag">{it.pet_type}</Badge>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEdit(it)}
+                        className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
+                      >
+                        <MaterialIcon name="edit" className="text-lg" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(it.id)}
+                        className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
+                      >
+                        <MaterialIcon name="delete" className="text-lg" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => openEdit(it)}
-                      className="p-1.5 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
-                    >
-                      <MaterialIcon name="edit" className="text-lg" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(it.id)}
-                      className="p-1.5 rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
-                    >
-                      <MaterialIcon name="delete" className="text-lg" />
-                    </button>
+                  <h3 className="font-display text-title-md text-on-surface mb-1">
+                    {it.name}
+                  </h3>
+                  <p className="text-label-sm text-on-surface-variant line-clamp-2 mb-3">
+                    {it.description}
+                  </p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="font-display text-title-md text-secondary">
+                      <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled /> {it.price.toLocaleString()}
+                    </p>
+                    <p className="text-label-sm text-success font-medium">
+                      +{it.restore_amount} {it.kind === "food" ? "hambre" : "felicidad"}
+                    </p>
                   </div>
-                </div>
-                <h3 className="font-display text-title-md text-on-surface mb-1">
-                  {it.name}
-                </h3>
-                <p className="text-label-sm text-on-surface-variant line-clamp-2 mb-3">
-                  {it.description}
-                </p>
-                <div className="flex items-center justify-between mb-1">
-                  <p className="font-display text-title-md text-secondary">
-                    <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled /> {it.price.toLocaleString()}
-                  </p>
-                  <p className="text-label-sm text-success font-medium">
-                    +{it.restore_amount} {it.kind === "food" ? "hambre" : "felicidad"}
+                  <p className="text-label-sm text-on-surface-variant">
+                    Lote: {it.pack_size} {it.pack_size === 1 ? "unidad" : "unidades"} por compra
                   </p>
                 </div>
-                <p className="text-label-sm text-on-surface-variant">
-                  Lote: {it.pack_size} {it.pack_size === 1 ? "unidad" : "unidades"} por compra
+              </div>
+            ))}
+            {crud.filteredItems.length === 0 && (
+              <div className="col-span-full text-center py-16">
+                <MaterialIcon
+                  name="pet_supplies"
+                  className="text-5xl text-outline-variant mb-3 block mx-auto"
+                />
+                <p className="text-on-surface-variant text-body-md">
+                  No se encontraron objetos
                 </p>
               </div>
-            </GlassCard>
-          ))}
-          {filtered.length === 0 && (
-            <div className="col-span-full text-center py-16">
-              <MaterialIcon
-                name="pet_supplies"
-                className="text-5xl text-outline-variant mb-3 block mx-auto"
-              />
-              <p className="text-on-surface-variant text-body-md">
-                No se encontraron objetos
-              </p>
-            </div>
-          )}
-        </div>
-        <ListFooter
-            hasMore={hasMore}
-            loading={loadingMore}
+            )}
+          </div>
+          <ListFooter
+            hasMore={crud.hasMore}
+            loading={crud.loadingMore}
             pageSize={12}
-            loaded={totalLoaded}
-            total={totalCount}
-            onLoadMore={loadMore}
+            loaded={crud.totalLoaded}
+            total={crud.totalCount}
+            onLoadMore={crud.loadMore}
           />
         </>
       )}
 
-      {/* Create/Edit Modal */}
-      {(editItem || isNew) && (
-        <Modal open onClose={() => { setEditItem(null); setIsNew(false); }}>
+      {(showCreate || crud.editItem) && (
+        <AdminCrudModal
+          open
+          onClose={() => { setShowCreate(false); crud.setEditItem(null); }}
+          title={showCreate ? "Nuevo Objeto" : "Editar Objeto"}
+          size="md"
+          saving={crud.saving || crud.creating}
+          onSave={handleSave}
+        >
           <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto no-scrollbar">
             <h2 className="font-display text-headline-lg text-on-surface">
-              {isNew ? "Nuevo Objeto" : "Editar Objeto"}
+              {showCreate ? "Nuevo Objeto" : "Editar Objeto"}
             </h2>
             <div className="space-y-4">
-              <div>
-                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Nombre</label>
-                <input type="text" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
-              </div>
-              <div>
-                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Descripcion</label>
-                <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors min-h-[80px] resize-none" />
-              </div>
+              <FormField label="Nombre" required>
+                <InputField
+                  value={form.name}
+                  onChange={(v: string) => setForm((p) => ({ ...p, name: v }))}
+                  autoFocus
+                  firstInput
+                />
+              </FormField>
+              <FormField label="Descripcion">
+                <TextareaField
+                  value={form.description}
+                  onChange={(v: string) => setForm((p) => ({ ...p, description: v }))}
+                />
+              </FormField>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Tipo de objeto</label>
-                  <div className="flex gap-2">
-                    <button onClick={() => setForm((p) => ({ ...p, kind: "food" }))} className={`flex-1 py-2.5 rounded-xl text-label-sm font-medium border transition-all ${form.kind === "food" ? "bg-success text-on-success border-success" : "bg-surface-container-low text-on-surface-variant border-outline-variant/20"}`}>Comida</button>
-                    <button onClick={() => setForm((p) => ({ ...p, kind: "toy" }))} className={`flex-1 py-2.5 rounded-xl text-label-sm font-medium border transition-all ${form.kind === "toy" ? "bg-primary text-on-primary border-primary" : "bg-surface-container-low text-on-surface-variant border-outline-variant/20"}`}>Juguete</button>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Tipo de mascota</label>
-                  <select value={form.pet_type} onChange={(e) => setForm((p) => ({ ...p, pet_type: e.target.value as PetType }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors">
-                    <option value="Aves">Aves</option>
-                    <option value="Bestias">Bestias</option>
-                    <option value="Criaturas pequeñas">Criaturas pequeñas</option>
-                  </select>
-                </div>
+                <FormField label="Tipo de objeto" required>
+                  <ToggleButtonGroup
+                    value={form.kind}
+                    onChange={(v) => setForm((p) => ({ ...p, kind: v }))}
+                    options={[
+                      { value: "food", label: "Comida" },
+                      { value: "toy", label: "Juguete" },
+                    ]}
+                  />
+                </FormField>
+                <FormField label="Tipo de mascota" required>
+                  <SelectField
+                    value={form.pet_type}
+                    onChange={(v: string) => setForm((p) => ({ ...p, pet_type: v as PetType }))}
+                    options={[
+                      { value: "Aves", label: "Aves" },
+                      { value: "Bestias", label: "Bestias" },
+                      { value: "Criaturas pequeñas", label: "Criaturas pequeñas" },
+                    ]}
+                    placeholder="Seleccionar..."
+                  />
+                </FormField>
               </div>
               <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Precio</label>
-                  <input type="number" value={form.price} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
-                </div>
-                <div>
-                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Restaura</label>
-                  <input type="number" value={form.restore_amount} onChange={(e) => setForm((p) => ({ ...p, restore_amount: e.target.value }))} placeholder="1-100" className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
-                </div>
-                <div>
-                  <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Lote (uds.)</label>
-                  <input type="number" value={form.pack_size} onChange={(e) => setForm((p) => ({ ...p, pack_size: e.target.value }))} placeholder="1" className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors" />
-                </div>
+                <FormField label="Precio" required>
+                  <InputField
+                    type="number"
+                    value={form.price}
+                    onChange={(v: string) => setForm((p) => ({ ...p, price: v }))}
+                    placeholder="0"
+                  />
+                </FormField>
+                <FormField label="Restaura" required>
+                  <InputField
+                    type="number"
+                    value={form.restore_amount}
+                    onChange={(v: string) => setForm((p) => ({ ...p, restore_amount: v }))}
+                    placeholder="1-100"
+                  />
+                </FormField>
+                <FormField label="Lote (uds.)" required>
+                  <InputField
+                    type="number"
+                    value={form.pack_size}
+                    onChange={(v: string) => setForm((p) => ({ ...p, pack_size: v }))}
+                    placeholder="1"
+                  />
+                </FormField>
               </div>
               <p className="text-label-sm text-on-surface-variant -mt-2">
-                &quot;Restaura&quot; es cuanto sube la estadistica por uso. &quot;Lote&quot; es cuantas unidades recibe el comprador por compra.
+                &ldquo;Restaura&rdquo; es cuanto sube la estadistica por uso. &ldquo;Lote&rdquo; es cuantas unidades recibe el comprador por compra.
               </p>
-              <div>
-                <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Imagen (opcional)</label>
+              <FormField label="Imagen (opcional)">
                 <div className="flex items-center gap-3">
                   {form.image_url && (
                     <Image
@@ -384,14 +412,14 @@ export default function AdminPetItemsPage() {
                     )}
                   </div>
                 </div>
-              </div>
+              </FormField>
             </div>
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => { setEditItem(null); setIsNew(false); }} className="flex-1">Cancelar</Button>
-              <Button variant="primary" onClick={handleSave} disabled={saving || !form.name} className="flex-1">{saving ? "Guardando..." : "Guardar"}</Button>
+            <div className="flex gap-3 pt-4">
+              <Button variant="secondary" onClick={() => { setShowCreate(false); crud.setEditItem(null); }} className="flex-1">Cancelar</Button>
+              <Button variant="primary" onClick={handleSave} disabled={crud.saving || crud.creating || !form.name} className="flex-1">{crud.saving || crud.creating ? "Guardando..." : "Guardar"}</Button>
             </div>
           </div>
-        </Modal>
+        </AdminCrudModal>
       )}
     </div>
   );

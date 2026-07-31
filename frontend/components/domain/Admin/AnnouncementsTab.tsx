@@ -2,188 +2,141 @@
 
 import { useState } from "react";
 import { api, Announcement } from "@/lib/api";
-import { GlassCard, Button, Modal, MaterialIcon, ListFooter } from "@/components/ui";
-import { usePaginatedList } from "@/hooks/usePaginatedList";
+import { useAdminCrud } from "@/hooks/useAdminCrud";
+import { AdminCrudModal, FormField, TextareaField } from "@/components/ui/AdminCrudModal";
+import ListFooter from "@/components/ui/ListFooter";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
+import { MaterialIcon } from "@/components/ui/MaterialIcon";
 
 export function AnnouncementsTab() {
-  const [editItem, setEditItem] = useState<Announcement | null>(null);
-  const [isNew, setIsNew] = useState(false);
-  const [body, setBody] = useState("");
-  const [saving, setSaving] = useState(false);
-  const {
-    items: allAnnouncements,
-    hasMore,
-    loading,
-    loadingMore,
-    totalLoaded,
-    totalCount,
-    loadMore,
-    refresh,
-  } = usePaginatedList({
+  const crud = useAdminCrud<Announcement, { body: string }, { body: string }>({
+    queryKey: ["admin-announcements"],
     fetcher: (p) => api.getAnnouncements(p),
+    createFn: (data) => api.createAnnouncement(data),
+    updateFn: (id, data) => api.updateAnnouncement(id, data),
+    deleteFn: (id) => api.deleteAnnouncement(id),
+    getDisplayName: (a) => a.body.slice(0, 50),
+    getId: (a) => a.id,
     pageSize: 10,
     enabled: true,
-    queryKey: ["admin-announcements"],
+    messages: {
+      create: "Anuncio creado",
+      update: "Anuncio actualizado",
+      delete: "Anuncio eliminado",
+    },
   });
 
-  const visibleAnnouncements = allAnnouncements;
+  const [form, setForm] = useState({ body: "" });
 
-  const openNew = () => {
-    setIsNew(true);
-    setEditItem(null);
-    setBody("");
+  const handleSave = async () => {
+    if (!form.body.trim()) return;
+    await crud.handleSave(crud.editItem!.id, { body: form.body.trim() });
+    setForm({ body: "" });
+  };
+
+  const handleDelete = (id: string) => {
+    confirmDialog({
+      title: "Eliminar anuncio?",
+      message: "Esta acción no se puede deshacer.",
+      variant: "danger",
+      icon: "delete",
+      onConfirm: () => crud.handleDelete(id),
+    });
+  };
+
+  const openCreate = () => {
+    setForm({ body: "" });
+    crud.setShowCreate(true);
   };
 
   const openEdit = (a: Announcement) => {
-    setIsNew(false);
-    setEditItem(a);
-    setBody(a.body);
-  };
-
-  const handleSave = async () => {
-    if (!body.trim()) return;
-    setSaving(true);
-    try {
-      if (isNew) {
-        await api.createAnnouncement({ body: body.trim() });
-        refresh();
-      } else if (editItem) {
-        await api.updateAnnouncement(editItem.id, {
-          body: body.trim(),
-        });
-        refresh();
-      }
-      setEditItem(null);
-      setIsNew(false);
-    } catch {}
-    setSaving(false);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Eliminar este anuncio?")) return;
-    try {
-      await api.deleteAnnouncement(id);
-      refresh();
-    } catch {}
+    setForm({ body: a.body });
+    crud.setEditItem(a);
   };
 
   return (
     <>
       <div className="flex justify-end">
-        <Button variant="primary" icon="add" onClick={openNew}>
+        <button
+          onClick={openCreate}
+          className="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-full font-medium text-label-sm hover:opacity-90 transition-all active:scale-95 whitespace-nowrap"
+        >
+          <MaterialIcon name="add" className="text-[1.2em]" />
           Nuevo Anuncio
-        </Button>
+        </button>
       </div>
 
-      <div className="space-y-3">
-        {loading ? (
-          <div className="text-center py-16">
-            <MaterialIcon
-              name="progress_activity"
-              className="text-4xl text-outline-variant animate-spin mb-3 block mx-auto"
-            />
-            <p className="text-on-surface-variant text-body-md">Cargando...</p>
-          </div>
-        ) : (
-          <>
-            {visibleAnnouncements.map((a) => (
-              <GlassCard key={a.id} className="p-5" hover>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <MaterialIcon
-                      name="campaign"
-                      className="text-secondary text-xl shrink-0"
-                      filled
-                    />
-                    <p className="text-body-md text-on-surface truncate">
-                      {a.body}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => openEdit(a)}
-                      className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
-                    >
-                      <MaterialIcon name="edit" className="text-lg" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(a.id)}
-                      className="p-2 rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
-                    >
-                      <MaterialIcon name="delete" className="text-lg" />
-                    </button>
-                  </div>
+      {crud.loading ? (
+        <div className="text-center py-16">
+          <MaterialIcon name="progress_activity" className="text-4xl text-outline-variant animate-spin mb-3 block mx-auto" />
+          <p className="text-on-surface-variant text-body-md">Cargando...</p>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-3">
+            {crud.filteredItems.map((a) => (
+              <div
+                key={a.id}
+                className="glass-card rounded-xl p-5 hover:bg-surface-container-high transition-colors flex items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <MaterialIcon name="campaign" className="text-secondary text-xl flex-shrink-0" filled />
+                  <p className="text-body-md text-on-surface truncate">{a.body}</p>
                 </div>
-              </GlassCard>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => openEdit(a)}
+                    className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
+                  >
+                    <MaterialIcon name="edit" className="text-lg" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(a.id)}
+                    className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
+                  >
+                    <MaterialIcon name="delete" className="text-lg" />
+                  </button>
+                </div>
+              </div>
             ))}
-            {allAnnouncements.length === 0 && (
+            {crud.filteredItems.length === 0 && (
               <div className="text-center py-16">
-                <MaterialIcon
-                  name="campaign"
-                  className="text-5xl text-outline-variant mb-3 block mx-auto"
-                />
-                <p className="text-on-surface-variant text-body-md">
-                  No hay anuncios
-                </p>
+                <MaterialIcon name="campaign" className="text-5xl text-outline-variant mb-3 block mx-auto" />
+                <p className="text-on-surface-variant text-body-md">No hay anuncios</p>
               </div>
             )}
-          </>
-        )}
-      </div>
-      <ListFooter
-        hasMore={hasMore}
-        loading={loadingMore}
-        pageSize={10}
-        loaded={totalLoaded}
-        total={totalCount}
-        onLoadMore={loadMore}
-      />
-
-      {(editItem || isNew) && (
-        <Modal
-          open
-          onClose={() => {
-            setEditItem(null);
-            setIsNew(false);
-          }}
-        >
-          <div className="p-6 space-y-5">
-            <h2 className="font-display text-headline-lg text-on-surface">
-              {isNew ? "Nuevo Anuncio" : "Editar Anuncio"}
-            </h2>
-            <div>
-              <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
-                Texto del anuncio
-              </label>
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Ej: La Copa de las Casas arranca el próximo viernes..."
-                className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors min-h-25 resize-none"
-              />
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setEditItem(null);
-                  setIsNew(false);
-                }}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleSave}
-                disabled={saving || !body.trim()}
-                className="flex-1"
-              >
-                {saving ? "Guardando..." : "Guardar"}
-              </Button>
-            </div>
           </div>
-        </Modal>
+          <ListFooter
+            hasMore={crud.hasMore}
+            loading={crud.loadingMore}
+            pageSize={10}
+            loaded={crud.totalLoaded}
+            total={crud.totalCount}
+            onLoadMore={crud.loadMore}
+          />
+        </>
+      )}
+
+      {(crud.editItem || crud.showCreate) && (
+        <AdminCrudModal
+          open
+          onClose={() => { crud.setEditItem(null); crud.setShowCreate(false); }}
+          title={crud.showCreate ? "Nuevo Anuncio" : "Editar Anuncio"}
+          size="md"
+          saving={crud.saving || crud.creating}
+          onSave={handleSave}
+        >
+          <div className="space-y-4">
+            <FormField label="Texto del anuncio" required>
+              <TextareaField
+                value={form.body}
+                onChange={(v: string) => setForm({ body: v })}
+                placeholder="Ej: La Copa de las Casas arranca el próximo viernes..."
+                rows={6}
+              />
+            </FormField>
+          </div>
+        </AdminCrudModal>
       )}
     </>
   );

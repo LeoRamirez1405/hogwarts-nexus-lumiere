@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { api, Transaction } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
@@ -101,37 +101,25 @@ export default function AdminTransactionsPage() {
     }
   }, [user, router]);
 
-  const {
-    items: userTxs,
-    hasMore: userHasMore,
-    loadingMore: userLoadingMore,
-    totalLoaded: userTotal,
-    totalCount: userTotalCount,
-    loadMore: loadMoreUserTx,
-    loading: userLoading,
-  } = usePaginatedList({
+  const userTransactions = usePaginatedList({
     fetcher: (p) => api.getTransactions(p, filter === "all" ? undefined : filter),
     pageSize: 15,
     enabled: true,
     queryKey: ["admin-transactions-user"],
-    resetKey: filter,
+    resetKey: [filter, activeTab],
   });
 
-  const {
-    items: adminTxs,
-    hasMore: adminHasMore,
-    loadingMore: adminLoadingMore,
-    totalLoaded: adminTotal,
-    totalCount: adminTotalCount,
-    loadMore: loadMoreAdminTx,
-    loading: adminLoading,
-  } = usePaginatedList({
+  const adminTransactions = usePaginatedList({
     fetcher: (p) => api.getAllTransactionsAdmin(p, filter === "all" ? undefined : filter),
     pageSize: 15,
-    enabled: user?.role === "admin",
+    enabled: user?.role === "admin" && activeTab === "admin",
     queryKey: ["admin-transactions-all"],
-    resetKey: filter,
+    resetKey: [filter, activeTab],
   });
+
+  // Only the active tab should load data
+  const userLoading = activeTab === "user" ? userTransactions.loading : false;
+  const adminLoading = activeTab === "admin" ? adminTransactions.loading : false;
 
   const filterTx = (tx: Transaction) => {
     const actorName = getActorName(tx);
@@ -144,8 +132,8 @@ export default function AdminTransactionsPage() {
     );
   };
 
-  const filteredUser = userTxs.filter(filterTx);
-  const filteredAdmin = adminTxs.filter(filterTx);
+  const filteredUser = userTransactions.items.filter(filterTx);
+  const filteredAdmin = adminTransactions.items.filter(filterTx);
 
   const visibleUser = filteredUser;
   const visibleAdmin = filteredAdmin;
@@ -153,18 +141,21 @@ export default function AdminTransactionsPage() {
   const visibleTx = activeTab === "user" ? visibleUser : visibleAdmin;
   const filtered = activeTab === "user" ? filteredUser : filteredAdmin;
 
-  const now = new Date();
-  const dayOfWeek = (now.getDay() + 6) % 7;
-  const startOfWeek = new Date(now);
-  startOfWeek.setHours(0, 0, 0, 0);
-  startOfWeek.setDate(now.getDate() - dayOfWeek);
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 7);
+  // Only calculate stats from loaded admin transactions
+  const weekTransactions = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = (now.getDay() + 6) % 7;
+    const startOfWeek = new Date(now);
+    startOfWeek.setHours(0, 0, 0, 0);
+    startOfWeek.setDate(now.getDate() - dayOfWeek);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 7);
 
-  const weekTransactions = adminTxs.filter((t) => {
-    const d = new Date(t.created_at);
-    return d >= startOfWeek && d < endOfWeek;
-  });
+    return adminTransactions.items.filter((t) => {
+      const d = new Date(t.created_at);
+      return d >= startOfWeek && d < endOfWeek;
+    });
+  }, [adminTransactions.items]);
 
   const totalDeposits = weekTransactions
     .filter((t) => t.type === "deposit")
@@ -398,21 +389,21 @@ export default function AdminTransactionsPage() {
               )}
             {activeTab === "user" ? (
               <ListFooter
-                hasMore={userHasMore}
-                loading={userLoadingMore}
+                hasMore={userTransactions.hasMore}
+                loading={userTransactions.loadingMore}
                 pageSize={15}
-                loaded={userTotal}
-                total={userTotalCount}
-                onLoadMore={loadMoreUserTx}
+                loaded={userTransactions.totalLoaded}
+                total={userTransactions.totalCount}
+                onLoadMore={userTransactions.loadMore}
               />
             ) : (
               <ListFooter
-                hasMore={adminHasMore}
-                loading={adminLoadingMore}
+                hasMore={adminTransactions.hasMore}
+                loading={adminTransactions.loadingMore}
                 pageSize={15}
-                loaded={adminTotal}
-                total={adminTotalCount}
-                onLoadMore={loadMoreAdminTx}
+                loaded={adminTransactions.totalLoaded}
+                total={adminTransactions.totalCount}
+                onLoadMore={adminTransactions.loadMore}
               />
             )}
           </div>
@@ -533,26 +524,26 @@ export default function AdminTransactionsPage() {
                       </td>
                     </tr>
                   )}
-</tbody>
+                </tbody>
               </table>
             </div>
             {activeTab === "user" ? (
               <ListFooter
-                hasMore={userHasMore}
-                loading={userLoadingMore}
+                hasMore={userTransactions.hasMore}
+                loading={userTransactions.loadingMore}
                 pageSize={15}
-                loaded={userTotal}
-                total={userTotalCount}
-                onLoadMore={loadMoreUserTx}
+                loaded={userTransactions.totalLoaded}
+                total={userTransactions.totalCount}
+                onLoadMore={userTransactions.loadMore}
               />
             ) : (
               <ListFooter
-                hasMore={adminHasMore}
-                loading={adminLoadingMore}
+                hasMore={adminTransactions.hasMore}
+                loading={adminTransactions.loadingMore}
                 pageSize={15}
-                loaded={adminTotal}
-                total={adminTotalCount}
-                onLoadMore={loadMoreAdminTx}
+                loaded={adminTransactions.totalLoaded}
+                total={adminTransactions.totalCount}
+                onLoadMore={adminTransactions.loadMore}
               />
             )}
           </GlassCard>
