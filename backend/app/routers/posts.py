@@ -16,79 +16,119 @@ from ..notifications_service import notify, notify_like, notify_friends_of_post,
 router = APIRouter()
 
 
+async def _build_posts_response(
+    db: AsyncSession,
+    posts: List[Post],
+    current_user: User,
+) -> List[PostResponse]:
+    """Enrich a page of posts with counts + the current user's state.
+
+    Instead of running 6 queries per post (the old ``_build_post_response``),
+    the whole page is enriched with a constant number of aggregate queries:
+    3 GROUP BY counts + 2 "my state" lookups + 1 editors fetch.
+    """
+    if not posts:
+        return []
+    ids = [p.id for p in posts]
+
+    likes_count = {
+        post_id: count
+        for post_id, count in (
+            await db.execute(
+                select(PostLike.post_id, func.count())
+                .where(PostLike.post_id.in_(ids))
+                .group_by(PostLike.post_id)
+            )
+        ).all()
+    }
+    reposts_count = {
+        post_id: count
+        for post_id, count in (
+            await db.execute(
+                select(PostRepost.post_id, func.count())
+                .where(PostRepost.post_id.in_(ids))
+                .group_by(PostRepost.post_id)
+            )
+        ).all()
+    }
+    comments_count = {
+        post_id: count
+        for post_id, count in (
+            await db.execute(
+                select(PostComment.post_id, func.count())
+                .where(PostComment.post_id.in_(ids))
+                .group_by(PostComment.post_id)
+            )
+        ).all()
+    }
+    liked_ids = set(
+        (
+            await db.execute(
+                select(PostLike.post_id).where(
+                    PostLike.post_id.in_(ids),
+                    PostLike.user_id == current_user.id,
+                )
+            )
+        ).scalars().all()
+    )
+    reposted_ids = set(
+        (
+            await db.execute(
+                select(PostRepost.post_id).where(
+                    PostRepost.post_id.in_(ids),
+                    PostRepost.user_id == current_user.id,
+                )
+            )
+        ).scalars().all()
+    )
+
+    editor_ids = {p.edited_by for p in posts if p.edited_by}
+    editors: dict = {}
+    if editor_ids:
+        for editor in (
+            await db.execute(select(User).where(User.id.in_(editor_ids)))
+        ).scalars().all():
+            editors[editor.id] = editor
+
+    responses: List[PostResponse] = []
+    for post in posts:
+        edited_by_user = None
+        if post.edited_by and post.edited_by in editors:
+            edited_by_user = UserResponse.model_validate(editors[post.edited_by])
+
+        # Build the response from a dict instead of the ORM object to avoid
+        # Pydantic trying to validate edited_by (a string FK) as UserResponse.
+        responses.append(PostResponse.model_validate({
+            "id": post.id,
+            "author_id": post.author_id,
+            "author": post.author,
+            "body": post.body,
+            "image_url": post.image_url,
+            "created_at": post.created_at,
+            "edited_at": post.edited_at,
+            "edited_by": edited_by_user,
+            "likes_count": likes_count.get(post.id, 0),
+            "liked_by_me": post.id in liked_ids,
+            "reposts_count": reposts_count.get(post.id, 0),
+            "reposted_by_me": post.id in reposted_ids,
+            "comments_count": comments_count.get(post.id, 0),
+        }))
+    return responses
+
+
 async def _build_post_response(
     db: AsyncSession,
     post: Post,
     current_user: User,
 ) -> PostResponse:
-    """Enrich a Post with like/repost/comment counts and the current user's state."""
-    likes_count = (
-        await db.execute(
-            select(func.count(PostLike.post_id)).where(PostLike.post_id == post.id)
-        )
-    ).scalar() or 0
-    liked_by_me = (
-        await db.execute(
-            select(PostLike).where(
-                PostLike.post_id == post.id,
-                PostLike.user_id == current_user.id,
-            )
-        )
-    ).scalar_one_or_none() is not None
-
-    reposts_count = (
-        await db.execute(
-            select(func.count(PostRepost.post_id)).where(PostRepost.post_id == post.id)
-        )
-    ).scalar() or 0
-    reposted_by_me = (
-        await db.execute(
-            select(PostRepost).where(
-                PostRepost.post_id == post.id,
-                PostRepost.user_id == current_user.id,
-            )
-        )
-    ).scalar_one_or_none() is not None
-
-    comments_count = (
-        await db.execute(
-            select(func.count(PostComment.id)).where(PostComment.post_id == post.id)
-        )
-    ).scalar() or 0
-
-    # Editor user (if the post was edited)
-    edited_by_user = None
-    if post.edited_by:
-        editor = (
-            await db.execute(select(User).where(User.id == post.edited_by))
-        ).scalar_one_or_none()
-        if editor:
-            edited_by_user = UserResponse.model_validate(editor)
-
-    # Build response from a dict instead of the ORM object to avoid
-    # Pydantic trying to validate edited_by (a string FK) as UserResponse.
-    response = PostResponse.model_validate({
-        "id": post.id,
-        "author_id": post.author_id,
-        "author": post.author,
-        "body": post.body,
-        "image_url": post.image_url,
-        "created_at": post.created_at,
-        "edited_at": post.edited_at,
-        "edited_by": edited_by_user,
-        "likes_count": likes_count,
-        "liked_by_me": liked_by_me,
-        "reposts_count": reposts_count,
-        "reposted_by_me": reposted_by_me,
-        "comments_count": comments_count,
-    })
-    return response
+    """Enrich a single Post (used by mutations and detail endpoints)."""
+    return (await _build_posts_response(db, [post], current_user))[0]
 
 
 @router.get("/", response_model=Page[PostResponse])
 async def list_posts(
     skip: int = Query(0, ge=0),
-    limit: int = Query(1000, ge=1, le=1000),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -103,7 +143,7 @@ async def list_posts(
     posts = posts[:limit]
     total = (await db.execute(select(func.count(Post.id)))).scalar_one()
     return Page(
-        items=[await _build_post_response(db, post, current_user) for post in posts],
+        items=await _build_posts_response(db, posts, current_user),
         total=total,
         skip=skip,
         limit=limit,
@@ -115,7 +155,7 @@ async def list_posts(
 async def list_user_feed(
     user_id: str,
     skip: int = Query(0, ge=0),
-    limit: int = Query(1000, ge=1, le=1000),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -123,7 +163,7 @@ async def list_user_feed(
     ordered by most recent activity. Reposts carry `is_repost` / `reposted_by`."""
     # Posts authored by the user
     authored_result = await db.execute(
-        select(Post).where(Post.author_id == user_id)
+        select(Post).where(Post.author_id == user_id).order_by(Post.created_at.desc())
     )
     authored = list(authored_result.scalars().all())
 
@@ -158,16 +198,16 @@ async def list_user_feed(
     page_entries = entries[skip : skip + limit]
     has_more = skip + limit < total
 
-    responses: List[PostResponse] = []
-    for feed_time, is_repost, post, repost in page_entries:
-        response = await _build_post_response(db, post, current_user)
+    responses = await _build_posts_response(
+        db, [entry[2] for entry in page_entries], current_user
+    )
+    for (feed_time, is_repost, post, repost), response in zip(page_entries, responses):
         if is_repost:
             response.is_repost = True
             response.reposted_by = (
                 UserResponse.model_validate(profile_user) if profile_user else None
             )
             response.reposted_at = repost.created_at
-        responses.append(response)
     return Page(
         items=responses,
         total=total,

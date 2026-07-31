@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
@@ -22,48 +22,78 @@ router = APIRouter()
 FORUM_COMMENT_REWARD = 5
 
 
+async def _build_threads_response(
+    db: AsyncSession,
+    threads: List[ForumThread],
+    current_user: User,
+) -> List[ForumThreadResponse]:
+    """Enrich a page of threads with 4 aggregate queries instead of 4 per thread."""
+    if not threads:
+        return []
+    ids = [t.id for t in threads]
+
+    vote_counts = {
+        thread_id: int(total)
+        for thread_id, total in (
+            await db.execute(
+                select(
+                    ForumThreadVote.thread_id,
+                    func.coalesce(func.sum(ForumThreadVote.value), 0),
+                )
+                .where(ForumThreadVote.thread_id.in_(ids))
+                .group_by(ForumThreadVote.thread_id)
+            )
+        ).all()
+    }
+    my_votes = dict(
+        (
+            await db.execute(
+                select(ForumThreadVote.thread_id, ForumThreadVote.value).where(
+                    ForumThreadVote.thread_id.in_(ids),
+                    ForumThreadVote.user_id == current_user.id,
+                )
+            )
+        ).all()
+    )
+    comment_counts = {
+        thread_id: count
+        for thread_id, count in (
+            await db.execute(
+                select(ForumComment.thread_id, func.count())
+                .where(ForumComment.thread_id.in_(ids))
+                .group_by(ForumComment.thread_id)
+            )
+        ).all()
+    }
+    subscribed_ids = set(
+        (
+            await db.execute(
+                select(ForumSubscription.thread_id).where(
+                    ForumSubscription.thread_id.in_(ids),
+                    ForumSubscription.user_id == current_user.id,
+                )
+            )
+        ).scalars().all()
+    )
+
+    responses: List[ForumThreadResponse] = []
+    for thread in threads:
+        resp = ForumThreadResponse.model_validate(thread)
+        resp.vote_count = int(vote_counts.get(thread.id, 0))
+        resp.my_vote = int(my_votes.get(thread.id, 0) or 0)
+        resp.comment_count = int(comment_counts.get(thread.id, 0))
+        resp.subscribed = thread.id in subscribed_ids
+        if thread.author:
+            resp.author = UserResponse.model_validate(thread.author)
+        responses.append(resp)
+    return responses
+
+
 async def _thread_response(
     db: AsyncSession, thread: ForumThread, current_user: User
 ) -> ForumThreadResponse:
-    vote_count = (
-        await db.execute(
-            select(func.coalesce(func.sum(ForumThreadVote.value), 0)).where(
-                ForumThreadVote.thread_id == thread.id
-            )
-        )
-    ).scalar() or 0
-    my_vote = (
-        await db.execute(
-            select(ForumThreadVote.value).where(
-                ForumThreadVote.thread_id == thread.id,
-                ForumThreadVote.user_id == current_user.id,
-            )
-        )
-    ).scalar_one_or_none() or 0
-    comment_count = (
-        await db.execute(
-            select(func.count(ForumComment.id)).where(
-                ForumComment.thread_id == thread.id
-            )
-        )
-    ).scalar() or 0
-    subscribed = (
-        await db.execute(
-            select(ForumSubscription.id).where(
-                ForumSubscription.thread_id == thread.id,
-                ForumSubscription.user_id == current_user.id,
-            )
-        )
-    ).scalar_one_or_none() is not None
-
-    resp = ForumThreadResponse.model_validate(thread)
-    resp.vote_count = int(vote_count)
-    resp.my_vote = int(my_vote)
-    resp.comment_count = int(comment_count)
-    resp.subscribed = subscribed
-    if thread.author:
-        resp.author = UserResponse.model_validate(thread.author)
-    return resp
+    """Enrich a single thread (used by create / get / vote)."""
+    return (await _build_threads_response(db, [thread], current_user))[0]
 
 
 async def _get_thread(db: AsyncSession, thread_id: str) -> ForumThread:
@@ -82,7 +112,7 @@ async def _get_thread(db: AsyncSession, thread_id: str) -> ForumThread:
 @router.get("/", response_model=Page[ForumThreadResponse])
 async def list_threads(
     skip: int = Query(0, ge=0),
-    limit: int = Query(1000, ge=1, le=1000),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -101,7 +131,7 @@ async def list_threads(
         await db.execute(select(func.count(ForumThread.id)))
     ).scalar_one()
     return Page(
-        items=[await _thread_response(db, t, current_user) for t in threads],
+        items=await _build_threads_response(db, threads, current_user),
         total=total,
         skip=skip,
         limit=limit,
@@ -188,6 +218,11 @@ async def delete_thread(
     thread = await _get_thread(db, thread_id)
     if thread.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="Solo el autor puede eliminar el debate")
+    # Remove votes / comments / subscriptions so the thread can be deleted
+    # without leaving orphans or violating the FK constraints.
+    await db.execute(delete(ForumThreadVote).where(ForumThreadVote.thread_id == thread_id))
+    await db.execute(delete(ForumComment).where(ForumComment.thread_id == thread_id))
+    await db.execute(delete(ForumSubscription).where(ForumSubscription.thread_id == thread_id))
     await db.delete(thread)
     await db.commit()
 

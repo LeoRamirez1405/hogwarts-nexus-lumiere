@@ -1,5 +1,15 @@
-import math
 from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..models.user import User
+from ..models.user_creature import UserCreature
+from ..models.post import Post
+from ..models.article import Article
+from ..models.message import Message
+from ..models.transaction import Transaction
 
 LEVEL_NAMES = [
     "Aprendiz",
@@ -31,56 +41,91 @@ ACTIVITY_XP = {
 }
 
 
-def calculate_xp(user) -> int:
-    creatures = user.creatures if hasattr(user, "creatures") and user.creatures else []
-    creature_xp = sum(
-        ACTIVITY_XP["adopt_creature"]
-        + (c.level - 1) * ACTIVITY_XP["level_up_creature"]
-        for c in creatures
-    )
+async def _batch_xp(db: AsyncSession, user_ids: List[str]) -> Dict[str, int]:
+    """Compute raw XP for many users with a constant handful of GROUP BY queries.
 
-    posts = user.posts if hasattr(user, "posts") and user.posts else []
-    posts_xp = len(posts) * ACTIVITY_XP["create_post"]
+    Replaces the old O(relations) lazy-load per user: the User model now uses
+    ``lazy="raise"`` so the previous 5 eager loads per user (creatures, posts,
+    articles, sent_messages, transactions_sent) are impossible to trigger
+    silently. Aggregates are computed server-side instead.
+    """
+    if not user_ids:
+        return {}
+    xp = {uid: 0 for uid in user_ids}
 
-    articles = user.articles if hasattr(user, "articles") and user.articles else []
-    articles_xp = len(articles) * ACTIVITY_XP["create_article"]
+    # Creatures: base adoption XP + (level - 1) per level above 1.
+    rows = (
+        await db.execute(
+            select(
+                UserCreature.user_id,
+                func.count().label("n"),
+                func.coalesce(func.sum(UserCreature.level - 1), 0).label("levels"),
+            )
+            .where(UserCreature.user_id.in_(user_ids))
+            .group_by(UserCreature.user_id)
+        )
+    ).all()
+    for user_id, n, levels in rows:
+        xp[user_id] += n * ACTIVITY_XP["adopt_creature"] + int(levels or 0) * ACTIVITY_XP["level_up_creature"]
 
-    sent_msgs = (
-        user.sent_messages if hasattr(user, "sent_messages") and user.sent_messages else []
-    )
-    msg_xp = min(len(sent_msgs) * ACTIVITY_XP["send_message"], 100)
+    # Posts / articles: simple counts.
+    for model, id_col, base_xp in (
+        (Post, Post.author_id, ACTIVITY_XP["create_post"]),
+        (Article, Article.author_id, ACTIVITY_XP["create_article"]),
+    ):
+        rows = (
+            await db.execute(
+                select(id_col, func.count()).where(id_col.in_(user_ids)).group_by(id_col)
+            )
+        ).all()
+        for user_id, n in rows:
+            xp[user_id] += n * base_xp
 
-    sent = (
-        user.transactions_sent
-        if hasattr(user, "transactions_sent") and user.transactions_sent
-        else []
-    )
-    purchases_xp = sum(
-        ACTIVITY_XP["buy_product"]
-        for t in sent
-        if getattr(t, "type", None) == "purchase"
-    )
+    # Messages: 0.5 XP each, capped at 100.
+    rows = (
+        await db.execute(
+            select(Message.sender_id, func.count())
+            .where(Message.sender_id.in_(user_ids))
+            .group_by(Message.sender_id)
+        )
+    ).all()
+    for user_id, n in rows:
+        xp[user_id] += min(int(n * ACTIVITY_XP["send_message"]), 100)
 
-    return int(creature_xp + posts_xp + articles_xp + msg_xp + purchases_xp)
+    # Purchases (outgoing transactions of type "purchase").
+    rows = (
+        await db.execute(
+            select(Transaction.sender_id, func.count())
+            .where(
+                Transaction.sender_id.in_(user_ids),
+                Transaction.type == "purchase",
+            )
+            .group_by(Transaction.sender_id)
+        )
+    ).all()
+    for user_id, n in rows:
+        xp[user_id] += n * ACTIVITY_XP["buy_product"]
+
+    return xp
 
 
-def get_magic_level(user) -> dict:
-    xp = calculate_xp(user)
+def magic_level_from_xp(xp: int, last_active_at: Optional[datetime]) -> dict:
+    """Turn a raw XP score into the level descriptor (pure function of XP + decay)."""
     raw_level = 0
     for i, threshold in enumerate(LEVEL_THRESHOLDS):
         if xp >= threshold:
             raw_level = i
 
-    last_active = getattr(user, "last_active_at", None)
     now = datetime.utcnow()
-
-    if last_active and (now - last_active) > timedelta(days=7):
-        decay = min(2, (now - last_active).days // 7)
+    if last_active_at and (now - last_active_at) > timedelta(days=7):
+        decay = min(2, (now - last_active_at).days // 7)
         raw_level = max(0, raw_level - decay)
 
     level = max(1, min(raw_level + 1, 11))
 
-    current_threshold = LEVEL_THRESHOLDS[raw_level] if raw_level < len(LEVEL_THRESHOLDS) else LEVEL_THRESHOLDS[-1]
+    current_threshold = (
+        LEVEL_THRESHOLDS[raw_level] if raw_level < len(LEVEL_THRESHOLDS) else LEVEL_THRESHOLDS[-1]
+    )
     next_threshold = (
         LEVEL_THRESHOLDS[raw_level + 1]
         if raw_level + 1 < len(LEVEL_THRESHOLDS)
@@ -101,11 +146,16 @@ def get_magic_level(user) -> dict:
     }
 
 
-def get_house_points(db, house: str) -> int:
-    from sqlalchemy import select, func
-    from ..models.user import User
+async def get_magic_level(db: AsyncSession, user: User) -> dict:
+    """Compute a single user's magic level using explicit aggregate queries."""
+    xp_map = await _batch_xp(db, [user.id])
+    return magic_level_from_xp(xp_map.get(user.id, 0), user.last_active_at)
 
-    result = db.execute(
-        select(func.coalesce(func.sum(User.house_points), 0)).where(User.house == house)
-    )
-    return result.scalar()
+
+async def get_magic_levels(db: AsyncSession, users: List[User]) -> Dict[str, dict]:
+    """Compute magic levels for a whole page of users with ~5 queries total."""
+    xp_map = await _batch_xp(db, [u.id for u in users])
+    return {
+        u.id: magic_level_from_xp(xp_map.get(u.id, 0), u.last_active_at)
+        for u in users
+    }

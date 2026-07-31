@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 
 from ..config import settings
 from ..database import get_db
@@ -48,7 +48,7 @@ async def _check_requirements(db: AsyncSession, user: User, creature: Creature) 
     if req_user <= 1 and req_sanct <= 0:
         return
     if req_user > 1:
-        user_lvl = get_magic_level(user).get("level", 1)
+        user_lvl = (await get_magic_level(db, user)).get("level", 1)
         if user_lvl < req_user:
             raise HTTPException(
                 status_code=403,
@@ -222,7 +222,7 @@ async def sanctuary_stats(
     s_score = pet_progress.sanctuary_score(pets_count, levels_sum, bought, care, penalty)
     s_level = pet_progress.sanctuary_level(s_score)
 
-    magic = get_magic_level(current_user)
+    magic = await get_magic_level(db, current_user)
 
     return SanctuaryStats(
         sanctuary_level=s_level,
@@ -325,6 +325,8 @@ async def delete_creature(
     creature = result.scalar_one_or_none()
     if not creature:
         raise HTTPException(status_code=404, detail="Creature not found")
+    # Remove adoptions/ownership rows so the species can be deleted without a FK violation.
+    await db.execute(delete(UserCreature).where(UserCreature.creature_id == creature_id))
     await db.delete(creature)
     await db.commit()
 

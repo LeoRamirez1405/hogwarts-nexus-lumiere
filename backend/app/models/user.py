@@ -31,14 +31,19 @@ class User(Base):
     sanctuary_penalty = Column(Integer, default=0, nullable=False)  # accumulated penalties from neglect
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    articles = relationship("Article", back_populates="author", lazy="selectin")
-    posts = relationship("Post", foreign_keys="Post.author_id", back_populates="author", lazy="selectin")
-    sent_messages = relationship("Message", foreign_keys="Message.sender_id", back_populates="sender", lazy="selectin")
-    received_messages = relationship("Message", foreign_keys="Message.receiver_id", back_populates="receiver", lazy="selectin")
-    creatures = relationship("UserCreature", back_populates="user", lazy="selectin")
-    transactions_sent = relationship("Transaction", foreign_keys="Transaction.sender_id", back_populates="sender", lazy="selectin")
-    transactions_received = relationship("Transaction", foreign_keys="Transaction.receiver_id", back_populates="receiver", lazy="selectin")
-    article_subscriptions = relationship("ArticleSubscription", back_populates="user", lazy="selectin")
-    notifications = relationship("Notification", foreign_keys="Notification.user_id", back_populates="user", lazy="selectin")
-    chat_rooms = relationship("ChatRoomMember", back_populates="user", lazy="selectin")
-    chat_rooms_created = relationship("ChatRoom", foreign_keys="ChatRoom.created_by", lazy="selectin")
+    # Collection relationships are lazy="raise" on purpose: they are NEVER
+    # needed when serializing a User (the schemas only read scalar columns) and
+    # eager-loading all 11 of them made every login / auth/me / user listing
+    # fire 11 extra queries. Code that truly needs a collection must load it
+    # with an explicit selectinload() instead of relying on a hidden cascade.
+    articles = relationship("Article", back_populates="author", lazy="raise")
+    posts = relationship("Post", foreign_keys="Post.author_id", back_populates="author", lazy="raise")
+    sent_messages = relationship("Message", foreign_keys="Message.sender_id", back_populates="sender", lazy="raise")
+    received_messages = relationship("Message", foreign_keys="Message.receiver_id", back_populates="receiver", lazy="raise")
+    creatures = relationship("UserCreature", back_populates="user", lazy="raise")
+    transactions_sent = relationship("Transaction", foreign_keys="Transaction.sender_id", back_populates="sender", lazy="raise")
+    transactions_received = relationship("Transaction", foreign_keys="Transaction.receiver_id", back_populates="receiver", lazy="raise")
+    article_subscriptions = relationship("ArticleSubscription", back_populates="user", lazy="raise")
+    notifications = relationship("Notification", foreign_keys="Notification.user_id", back_populates="user", lazy="raise")
+    chat_rooms = relationship("ChatRoomMember", back_populates="user", lazy="raise")
+    chat_rooms_created = relationship("ChatRoom", foreign_keys="ChatRoom.created_by", lazy="raise")
