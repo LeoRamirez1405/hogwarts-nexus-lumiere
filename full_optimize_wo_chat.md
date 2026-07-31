@@ -1,0 +1,813 @@
+# Auditoría General de la Aplicación — Hogwarts Nexus Lumiére
+
+> Fecha: 2026-07-30
+> Alcance: Todas las vistas y sistemas, **excluyendo** mensajería (cubierta en `chat_optimize.md`)
+> Archivos analizados: ~120 archivos (frontend + backend)
+
+---
+
+## Índice
+
+1. [Resumen Ejecutivo](#1-resumen-ejecutivo)
+2. [Seguridad: Hallazgos Críticos](#2-seguridad-hallazgos-críticos)
+3. [Backend: Performance y Bugs](#3-backend-performance-y-bugs)
+4. [Frontend: Patrones y Performance](#4-frontend-patrones-y-performance)
+5. [Dashboard](#5-dashboard)
+6. [Cámara del Tesoro (Treasury)](#6-cámara-del-tesoro-treasury)
+7. [Marketplaces: Borgin & Burkes + Flourish & Blotts](#7-marketplaces-borgin--burkes--flourish--blotts)
+8. [Santuario de Mascotas (Pets)](#8-santuario-de-mascotas-pets)
+9. [El Quisquilloso (News)](#9-el-quisquilloso-news)
+10. [Perfil Social](#10-perfil-social)
+11. [Admin Panel](#11-admin-panel)
+12. [UI Component Library](#12-ui-component-library)
+13. [CSS y Design System](#13-css-y-design-system)
+14. [Plan de Acción por Sprint](#14-plan-de-acción-por-sprint)
+
+---
+
+## 1. Resumen Ejecutivo
+
+| Métrica | Diagnóstico | Impacto |
+|---------|------------|---------|
+| **Seguridad** | ✅ Resuelto (Sprint 1): JWT en env, cookies httpOnly + refresh, proxy.ts, CSP | 🔴→✅ |
+| **Backend N+1 queries** | 6+ patrones identificados (posts, users, forum, etc.) | 🔴 Crítico |
+| **Manejo de errores** | ~95% de catch blocks están vacíos (`catch {}`) | 🔴 Crítico |
+| **Duplicación de código** | `MaterialIcon` redefinido en 10+ archivos | ⚠️ Alto |
+| **Estado global** | Sin React Query/SWR, todo es useState + fetch en useEffect | ⚠️ Alto |
+| **Accesibilidad** | Modales sin focus trap, TabGroup sin roles ARIA | ⚠️ Medio |
+| **CSS Bundle** | 387 líneas + Tailwind v4 + SVG filter pesado | ⚠️ Medio |
+| **Zerines economy** | Race condition en stock, sin rollback en compras secuenciales | 🔴 Crítico |
+
+**Puntaje general de madurez: 5.0/10**
+
+---
+
+## 2. Seguridad: Hallazgos Críticos
+
+### 🔴 2.1 JWT Secret Hardcodeado — ✅ RESUELTO
+
+**Archivo:** `backend/app/config.py:21`
+```python
+JWT_SECRET: str = "hogwarts-nexus-lumiere-secret-key-2024"
+```
+
+La clave secreta JWT estaba hardcodeada en el código fuente. Cualquiera con acceso al repo podía forjar tokens y suplantar cualquier usuario, incluyendo admins.
+
+**Solución aplicada:** `JWT_SECRET` ahora se lee de `backend/.env` (o variable de entorno de deploy) y el backend **se niega a arrancar** si no está definido. Se generó un secreto aleatorio (`secrets.token_hex(32)`) y se documentó en `.env.example`. El mismo valor se copió a `frontend/.env.local` para que `proxy.ts` pueda verificar los tokens.
+
+### 🔴 2.2 Token JWT en localStorage — ✅ RESUELTO
+
+**Frontend:** `lib/authStore.ts` guardaba el token en `localStorage`.
+
+**Riesgo:** Cualquier vulnerabilidad XSS en cualquier página permite a un atacante robar el token. Un token válido por 24h (configurado en backend) daba ventana amplia de ataque.
+
+**Solución aplicada:** Migración completa a cookies **httpOnly** (`access_token` 30min + `refresh_token` 14 días, ambas `SameSite=Lax`, `Secure` en producción vía `COOKIE_SECURE`). El token ya no es accesible desde JS; `lib/api.ts` envía las cookies con `credentials: "include"` y auto-refresca el acceso en un 401 (con deduplicación de refreshes concurrentes) antes de reintentar el request. El frontend restaura la sesión llamando a `GET /auth/me` al montar el layout.
+
+### 🔴 2.3 Sin Content-Security-Policy — ✅ RESUELTO
+
+No había meta tag CSP ni headers configurados. Si un atacante inyecta un script (ej. en un post, comentario, o artículo), se ejecuta sin restricciones.
+
+**Solución aplicada:** CSP por headers en `next.config.ts` (patrón sin nonce de la documentación de Next.js 16) + headers de hardening: `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `X-Frame-Options: DENY`, `Permissions-Policy` (microphone permitido en self para notas de voz). Verificado: `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`, `upgrade-insecure-requests` en producción.
+
+### 🔴 2.4 CORS Inseguro — ✅ PARCIALMENTE RESUELTO
+
+**Backend:** `allow_origins=["*"]` con `allow_credentials=True` — combinación peligrosa.
+
+Ya usaba `allow_origin_regex` + `allow_credentials=True` (no wildcard). Con auth por cookies same-origin vía rewrite de Next.js, el CORS del backend ya no es el plano de ataque principal. Se recomienda fijar `CORS_ORIGINS` explícita en producción.
+
+### ⚠️ 2.5 Sin Refresh Token — ✅ RESUELTO
+
+El JWT único tenía 24h de validez y no había `/auth/refresh`: al expirar, el usuario era redirigido forzosamente al login.
+
+**Solución aplicada:** Nuevo endpoint `POST /auth/refresh` (rate-limit 30/min) que lee el `refresh_token` de la cookie httpOnly, valida que el usuario siga existiendo, y rota **ambas** cookies (access + refresh). La expiración del access token bajó de 1440min → 30min. Nuevo `POST /auth/logout` que limpia ambas cookies.
+
+### ⚠️ 2.6 No hay Middleware de Auth Server-Side — ✅ RESUELTO
+
+No existía `middleware.ts` en Next.js. La protección de rutas era 100% client-side.
+
+**Solución aplicada:** Nuevo `frontend/proxy.ts` (la convención de Next.js 16, que renombró middleware → proxy). Verifica la firma del `access_token` (cookie httpOnly) con `jose` y `JWT_SECRET` antes de renderizar páginas protegidas, redirigiendo a `/login` (307) si no hay sesión válida. Se ignoran prefetches de `next/link`, `/api`, `/uploads`, assets y favicon.
+
+---
+
+## 3. Backend: Performance y Bugs
+
+### 🔴 3.1 N+1 Multimillonario en Posts
+
+**Archivo:** `backend/app/routers/posts.py`
+
+`_build_post_response()` ejecuta **6 queries por cada post**:
+1. `COUNT(*) FROM post_likes WHERE post_id = ?`
+2. `SELECT ... FROM post_likes WHERE post_id = ? AND user_id = ?` (liked_by_me)
+3. `COUNT(*) FROM post_reposts WHERE post_id = ?`
+4. `SELECT ... FROM post_reposts WHERE post_id = ? AND user_id = ?` (reposted_by_me)
+5. `COUNT(*) FROM post_comments WHERE post_id = ?`
+6. `SELECT ... FROM users WHERE id = ?` (editor)
+
+Con `limit=1000` (default), son **6000+ queries** en el peor caso.
+
+**Solución:** Usar `selectinload` + subquery expressions para counts:
+```python
+likes_count = select(func.count(PostLike.user_id)).where(PostLike.post_id == Post.id).correlate(Post).scalar_subquery()
+Post.likes_count = column_property(likes_count)
+```
+
+### 🔴 3.2 N+1 en Users (11 relaciones selectin)
+
+**Archivo:** `backend/app/models/user.py`
+
+El modelo `User` tiene **11 relaciones con `lazy="selectin"`** : `articles`, `posts`, `sent_messages`, `received_messages`, `creatures`, `transactions_sent`, `transactions_received`, `article_subscriptions`, `notifications`, `chat_rooms`, `chat_rooms_created`.
+
+Cada vez que se serializa un `UserResponse` (login, `/auth/me`, listado de users), Pydantic accede a cada relación, disparando 11 queries adicionales.
+
+**Benchmark:**
+| Operación | Queries actuales | Queries óptimas |
+|-----------|-----------------|-----------------|
+| Login | 1 (user) + 11 (selectin) = 12 | 1 |
+| Listar 100 users | 100 + 1100 = 1200 | 2 (count + fetch) |
+| GET /users/:id | 1 + 11 + _enrich_user = ~17 | 2 |
+
+**Solución:** Cambiar a `lazy="raise"` y usar `selectinload()` explícito SOLO cuando se necesita. Esto elimina ~50% de los N+1 del backend.
+
+### 🔴 3.3 N+1 en Forum Threads
+
+**Archivo:** `backend/app/routers/forum.py`
+
+`_thread_response()` ejecuta 4 queries por thread:
+1. Vote sum
+2. My vote
+3. Comment count
+4. Subscribed check
+
+Con `limit=1000`, son **4000+ queries**.
+
+### 🔴 3.4 `_enrich_user` + `get_magic_level` — Triple N+1
+
+**Archivos:** `routers/users.py`, `utils/magic_level.py`
+
+`get_magic_level` itera sobre `user.creatures`, `user.posts`, `user.articles`, `user.sent_messages`, `user.transactions_sent` para calcular XP. Cada acceso dispara un `selectin` query.
+
+`_enrich_user` llama a `get_magic_level` para CADA usuario en listados — agravando el problema.
+
+### 🔴 3.5 `resolve_mentions` Carga TODOS los Usuarios
+
+**Archivo:** `backend/app/notifications_service.py:185`
+```python
+users = await db.execute(select(User))
+```
+
+Cada vez que alguien menciona `@Nombre` en un post/comentario, se carga la tabla completa de usuarios a memoria. Para 10,000 usuarios, son 10,000 filas cargadas.
+
+**Solución:** Usar una query filtrada:
+```python
+users = await db.execute(
+    select(User).where(User.name.ilike(f"%{name}%"))
+)
+```
+
+### 🔴 3.6 `notify_all_users` — Sin Escalar
+
+**Archivo:** `backend/app/notifications_service.py:154`
+
+Cuando un admin crea un artículo o anuncio, se crean N filas `Notification` sincrónicamente (una por cada usuario). Con 10,000 usuarios, son 10,000 inserts en una sola request.
+
+**Solución:** Usar `INSERT INTO ... SELECT` en una sola query:
+```sql
+INSERT INTO notifications (user_id, type, title, body, related_id, actor_id)
+SELECT id, 'new_article', :title, :body, :article_id, :admin_id
+FROM users
+WHERE id != :admin_id
+```
+
+### 🔴 3.7 Race Condition en Stock de Productos
+
+**Archivo:** `backend/app/routers/products.py`
+
+```python
+product = await db.get(Product, product_id)
+if product.stock < data.quantity:  # ← Race condition aquí
+    raise HTTPException(400, "Stock insuficiente")
+product.stock -= data.quantity  # ← Dos requests pueden pasar el check
+```
+
+En PostgreSQL (no SQLite), dos requests concurrentes pueden pasar el `if stock >= quantity` antes de que cualquiera haga el decremento.
+
+**Solución:** Usar `SELECT ... FOR UPDATE` o atomic update:
+```python
+result = await db.execute(
+    update(Product)
+    .where(Product.id == product_id, Product.stock >= data.quantity)
+    .values(stock=Product.stock - data.quantity)
+    .returning(Product.stock)
+)
+```
+
+### ⚠️ 3.8 Default Limits Excesivos
+
+Múltiples endpoints usan `limit=1000` por defecto:
+
+| Endpoint | Limit | Peligro |
+|----------|-------|---------|
+| `GET /posts/` | 1000 | + N+1 → 6000 queries |
+| `GET /forum/` | 1000 | + N+1 → 4000 queries |
+| `GET /announcements/` | 1000 | Sin paginación real |
+| `GET /classifieds/` | 1000 | Sin paginación real |
+| `GET /products/my-purchases` | 1000 | + N+1 en UserProduct |
+
+**Solución:** Reducir defaults a 20-50, forzar paginación con cursor.
+
+### ⚠️ 3.9 Missing Cascades en Modelos
+
+| Modelo | Problema |
+|--------|----------|
+| `User` | Sin cascade — borrar usuario con posts/transacciones falla con FK |
+| `Article` | Sin cascade — borrar artículo con comentarios falla |
+| `ForumThread` | Sin cascade — borrar thread deja votes/comments huérfanos |
+| `Creature` | Sin cascade — borrar criatura deja UserCreatures huérfanos |
+
+### ⚠️ 3.10 Missing Indexes
+
+| Tabla | Columnas | Query Afectada |
+|-------|----------|---------------|
+| `users` | `house` | House points aggregate |
+| `users` | `name` | Búsqueda de usuarios |
+| `products` | `shop`, `category` | Filtrado por tienda/categoría |
+| `notifications` | `(user_id, read)` | Unread count |
+| `notifications` | `(user_id, created_at)` | Listado ordenado |
+| `user_creatures` | `creature_id` | FK join |
+| `user_creatures` | `for_sale` | Market queries |
+
+### ⚠️ 3.11 Seeds en Cada Startup
+
+**Archivo:** `backend/app/main.py:24-27`
+
+```python
+async def seed_data():
+    await seed_users()
+    # ... seeds ejecutados en cada startup
+```
+
+Los seeds corren en CADA inicio del servidor, no solo en la primera vez. Usan `get_or_create` que es seguro pero agrega latencia innecesaria a cada startup.
+
+---
+
+## 4. Frontend: Patrones y Performance
+
+### 🔴 4.1 Sin React Query / SWR / Cache Layer
+
+Cada página hace fetch en `useEffect` y almacena en `useState`. No hay:
+- Caching entre páginas (navegar a perfil y volver a dashboard refetchea todo)
+- Stale-while-revalidate
+- Refetch en focus
+- Request deduplication (dos componentes montados simultáneos hacen el mismo fetch)
+- Retry en fallos de red
+
+**Benchmark de navegación típica:**
+```
+/login → /dashboard: 1 call
+/dashboard → /pets: 7 calls (creatures, myCreatures, petItems, inventory, stats, market, pet_type)
+/pets → /news: 4 calls (articles, announcements, classifieds, forum)
+/news → /profile/me: 4+ calls (profile, friends, posts, friendRequests)
+```
+**Total por sesión típica: ~16+ calls sin caché.**
+
+### 🔴 4.2 `catch {}` Silencioso en Toda la App
+
+Patrón dominante:
+```typescript
+try {
+  await api.something();
+} catch {}  // ← NO HACE NADA
+```
+
+El usuario NUNCA ve errores de red, fallos de operaciones, ni feedback de fallo. Las operaciones fallan silenciosamente.
+
+**Archivos afectados:** Dashboard, Admin (todas las páginas), Pets (catch vacío en feed/play/adopt), News (catch vacío en comentarios), Profile (catch vacío en like/repost).
+
+### 🔴 4.3 Sin Error Boundary Global
+
+Si cualquier componente lanza error en render, la app muestra pantalla blanca. No hay:
+- `error.tsx` a nivel de layout o página
+- Error boundary React
+- Fallback UI para componentes críticos
+
+### 🔴 4.4 `MaterialIcon` Redefinido en 10+ Archivos
+
+Cada archivo admin y varios archivos de página redefinen:
+```tsx
+const MaterialIcon = ({ name, className }: { name: string; className?: string }) => (
+  <span className={`material-symbols-outlined ${className ?? ""}`} style={{ fontVariationSettings: "'FILL' 0, 'wght' 300, 'GRAD' 0" }}>{name}</span>
+);
+```
+
+Ya existe en `components/ui/MaterialIcon.tsx` pero los archivos no lo importan. Esto viola AGENTS.md Regla #6 y agrega ~500 bytes de código duplicado por archivo.
+
+### 🔴 4.5 PostCard de 455 Líneas
+
+`components/domain/Profile/PostCard.tsx` tiene 455 líneas con:
+- Edición inline
+- Borrado con confirm
+- Comments expandibles con emoji picker
+- Like/repost inline
+- Share modal
+
+Todo en un solo componente, sin división en subcomponentes. Esto causa re-renders masivos: cualquier cambio de estado (ej. toggle comments) re-renderiza todo el PostCard.
+
+### ⚠️ 4.6 Sin React.memo ni useCallback
+
+Prácticamente ningún componente usa `React.memo`. Los handlers de eventos (like, repost, comment, delete) se definen como arrow functions inline en el render, creando nuevas referencias en cada render.
+
+En el perfil social, cambiar el texto del post (un useState) re-renderiza toda la lista de posts, el friends grid, y las stats cards.
+
+### ⚠️ 4.7 Client-Side Filtering en Admin
+
+Todas las páginas admin cargan datos paginados pero filtran CLIENT-SIDE:
+```typescript
+const filtered = allItems.filter(item =>
+  item.name.toLowerCase().includes(search.toLowerCase())
+)
+```
+
+Con 12 items por página es aceptable, pero si el admin carga 10+ páginas (120+ items), la búsqueda se vuelve lenta. No hay debounce ni server-side search.
+
+### ⚠️ 4.8 Sin Virtualización de Listas
+
+Ninguna lista usa virtualization. Con paginación de 12-20 items no es crítico, pero el listado de notificaciones, comments, y transacciones admin pueden crecer sin límite.
+
+---
+
+## 5. Dashboard
+
+### Estado Actual
+
+- **API Calls en carga:** 1 (`api.getDashboard()`) + 1 adicional para admin (`api.getAllHousePoints()`)
+- **Líneas totales:** ~430 (page + subcomponentes)
+- **Complejidad:** Baja. Mayormente presentacional.
+
+### Issues
+
+| # | Issue | Severidad |
+|---|-------|-----------|
+| 1 | Error catch vacío: si falla getDashboard(), el usuario ve skeleton infinito | 🔴 |
+| 2 | Sin botón de retry en error state | ⚠️ |
+| 3 | AdminDashboard hace fetch secundario de house points → flash de contenido vacío | ⚠️ |
+| 4 | `data!` non-null assertion → crash si data es null tras error | 🔴 |
+| 5 | Sin polling/revalidation — datos solo se cargan una vez en mount | ⚠️ |
+| 6 | QuickNav oculto en mobile (`hidden lg:grid`) sin alternativa táctil | ℹ️ |
+
+### Recomendaciones
+
+1. Agregar retry button en error state
+2. Mover fetch de house points al mismo `Promise.all` que dashboard data
+3. Reemplazar `data!` con guard condicional
+4. Agregar SWR/react-query para revalidation automática
+
+---
+
+## 6. Cámara del Tesoro (Treasury)
+
+### Estado Actual
+
+- **API Calls en carga:** 2 (`getTransactions()` + `getMe()`)
+- **Líneas totales:** ~730 (page + 4 tabs)
+- **Operaciones:** Deposit, Withdraw, Transfer, History
+
+### Issues
+
+| # | Issue | Severidad |
+|---|-------|-----------|
+| 1 | **TransferTab fetches ALL users** sin paginación en cada búsqueda | 🔴 |
+| 2 | `catch(() => {})` en fetch inicial — error silencioso, usuario ve interfaz vacía | 🔴 |
+| 3 | **Sin confirmación** para transferencias (operación financiera sin "¿Estás seguro?") | 🔴 |
+| 4 | `step="any"` en inputs numéricos — Zerines debe ser integer (💎) | ⚠️ |
+| 5 | Sin optimistic updates — toda operación espera round-trip server | ⚠️ |
+| 6 | Sin balance sticky en tabs — al scrollear, el usuario pierde visión del balance | ℹ️ |
+| 7 | refresh() refetchea todo incluso en tabs que no lo necesitan | ⚠️ |
+| 8 | Fuente dual de balance (user.zerines + balance state local) | ⚠️ |
+
+### Recomendaciones
+
+1. Implementar endpoint `GET /users/search?q=` para búsqueda server-side de usuarios
+2. Agregar modal de confirmación para transferencias y withdrawals
+3. Agregar integer validation (`step="1"` y `pattern="\d+"`)
+4. Implementar optimistic updates con rollback
+5. Sticky balance bar que sigue al scrollear
+6. Refresh condicional según tab activa
+
+---
+
+## 7. Marketplaces: Borgin & Burkes + Flourish & Blotts
+
+### Estado Actual
+
+- **API Calls en carga:** 4 por página (products, categories, purchases, me)
+- **Líneas totales:** ~1,400 (2 páginas + componentes compartidos)
+- **Complejidad:** Alta (carrito, compra secuencial, carrusel)
+
+### Issues
+
+| # | Issue | Severidad |
+|---|-------|-----------|
+| 1 | **Compra secuencial sin rollback** — si item 3/3 falla, items 1-2 ya se cobraron | 🔴 |
+| 2 | **Race condition en stock** — backend sin FOR UPDATE (backend issue, impacto aquí) | 🔴 |
+| 3 | Sin optimistic balance deduction | ⚠️ |
+| 4 | Catálogo sin error state en fallo de red | 🔴 |
+| 5 | Carrusel Hero re-renderiza imágenes en cada cambio de slide | ⚠️ |
+| 6 | Búsqueda client-side sin debounce | ⚠️ |
+| 7 | CartStore sin persistencia — se pierde al refrescar | ⚠️ |
+| 8 | `onError` loop infinito en BookCard (`setImageError(true)` → re-render → onError again) | 🔴 |
+| 9 | HeroCarousel event handlers vacíos (`onMouseEnter={() => {}}`) | ℹ️ |
+| 10 | Sin estado "insufficient Zerines" en tiempo real (balance se calcula al render, no al submit) | ⚠️ |
+
+### Recomendaciones
+
+1. Implementar endpoint `POST /products/batch-purchase` para compras atómicas
+2. Agregar rollback manual en catch de compra (reembolsar items ya procesados)
+3. Implementar optimistic cart checkout con verificación final
+4. Agregar error boundaries para catálogo y carrito
+5. Migrar a react-query para cache + refetch automático de balance
+6. Refactor BookCard onError a patrón seguro (setSrc fallback, no boolean toggle)
+7. Agregar persistencia Zustand para el carrito
+
+---
+
+## 8. Santuario de Mascotas (Pets)
+
+### Estado Actual
+
+- **API Calls en carga:** 7 (`getCreatures`, `getMyCreatures`, `getPetItems`, `getPetInventory`, `getSanctuaryStats`, `getCreatureMarket`, `getPetTypeEnums`)
+- **Líneas totales:** ~1,070 (page + 4 componentes)
+- **Complejidad:** Muy alta (7 fuentes de datos, level-ups, market, inventory)
+
+### Issues
+
+| # | Issue | Severidad |
+|---|-------|-----------|
+| 1 | **7 API calls secuenciales en mount** — la página más pesada de la app | 🔴 |
+| 2 | **Optimistic updates sin rollback** — si API falla, el cambio falso persiste en UI | 🔴 |
+| 3 | **Sin paginación** — myCreatures, market, inventory devuelven todo sin límite | 🔴 |
+| 4 | Catch vacío en feed/play/adopt/buy — errores silenciosos | 🔴 |
+| 5 | `inventoryFor` recalcula en CADA render (O(n*m) por render) | ⚠️ |
+| 6 | Adoptar criatura sin confirmación de Zerines | ⚠️ |
+| 7 | Sin error state — si falla alguna de las 7 calls, la página se queda en loading | 🔴 |
+| 8 | Celebration queue puede crecer sin límite (spam feed = 15 level-ups) | ⚠️ |
+| 9 | `catch {}` en Promise.all significa que si UNA call falla, loading nunca se apaga | 🔴 |
+
+### Recomendaciones
+
+1. Consolidar endpoints: `GET /creatures/my-full-state` que devuelva creatures + inventory + stats en una llamada
+2. Agregar rollback explícito en optimistic updates (guardar snapshot previo)
+3. Implementar paginación server-side (limit 20-50)
+4. Agregar error boundary y toast para feedback de errores
+5. Memoizar `inventoryFor` con `useMemo`
+6. Agregar confirm dialog para adopciones y compras en market
+7. Limitar celebration queue a 3 items máximos
+
+---
+
+## 9. El Quisquilloso (News)
+
+### Estado Actual
+
+- **API Calls en carga:** 4-7 dependiendo de tab activa
+- **Líneas totales:** ~2,100 (main + detail + all + thread + 6 componentes)
+- **Complejidad:** Extremadamente alta (más de 5 `usePaginatedList` concurrentes)
+
+### Issues
+
+| # | Issue | Severidad |
+|---|-------|-----------|
+| 1 | **Article detail fetches ALL articles** — `api.getArticles()` sin filtro, busca client-side | 🔴🔴 |
+| 2 | **5 instancias de usePaginatedList** en una sola página (articles, featured, announcements, classifieds, saved) | 🔴 |
+| 3 | Sin virtualización | ⚠️ |
+| 4 | Client-side sort en cada render (`[...activeItems].sort(byDateDesc)`) | ⚠️ |
+| 5 | Subscribe/unsubscribe refresca 3 listas (articles, featured, saved) | 🔴 |
+| 6 | Sin error state en fallo de carga | 🔴 |
+| 7 | ArticlesListModal duplica lógica de all articles page | ⚠️ |
+| 8 | Mobile: featured image sin `sizes` prop → imagen oversized | ⚠️ |
+| 9 | Búsqueda sin debounce en all articles | ⚠️ |
+| 10 | `MaterialIcon` importado como `<span>` directo + desde `@/components/ui` — inconsistente | ℹ️ |
+
+### El Bug Más Grave de la App
+
+```typescript
+// news/[id]/page.tsx:53
+const all = await api.getArticles();  // Fetch ALL articles
+const article = all.find(a => a.id === params.id);  // Find one client-side
+```
+
+`api.getArticle(id)` EXISTE en `api.ts` pero no se usa. En su lugar, se fetchan TODOS los artículos para encontrar UNO. Con 500 artículos, cada página de detalle descarga 500 solo para mostrar 1.
+
+**Solución:** Reemplazar con `api.getArticle(params.id)`.
+
+### Recomendaciones
+
+1. **Corregir article detail bug** — usar `api.getArticle(id)` (prioridad máxima)
+2. Reducir a 1-2 instancias de `usePaginatedList` — cargar announcements/classifieds bajo demanda
+3. Agregar error handling en todas las operaciones
+4. Agregar debounce en búsqueda
+5. Extraer lógica de `ArticlesListModal` para compartir con all articles page
+
+---
+
+## 10. Perfil Social
+
+### Estado Actual
+
+- **API Calls en carga:** 4+ (profile, friends, posts, friendRequests)
+- **Líneas totales:** ~660 (page + 2 subcomponentes)
+- **Complejidad:** Alta (posts, friends, comments, activity feed)
+
+### Issues
+
+| # | Issue | Severidad |
+|---|-------|-----------|
+| 1 | **Sin infinite scroll** — usa "Load More" manual (ListFooter) | ⚠️ |
+| 2 | Sin optimistic updates en like/repost | ⚠️ |
+| 3 | Catch vacío en like/repost/comment | 🔴 |
+| 4 | Friends list sin paginación (carga todos) | ⚠️ |
+| 5 | Sin unfriend functionality (solo send/accept/reject/cancel) | ℹ️ |
+| 6 | 11 state variables → alta superficie de re-render | ⚠️ |
+| 7 | Sin React.memo en subcomponentes | ⚠️ |
+| 8 | `formatDateShort` redefinida en cada render | ℹ️ |
+| 9 | PostCard 455 líneas (editar, borrar, comments, emojis todo inline) | 🔴 |
+| 10 | Sin lightbox/gallery para imágenes de posts | ℹ️ |
+
+### Recomendaciones
+
+1. Implementar infinite scroll con IntersectionObserver
+2. Agregar optimistic updates para like/repost con rollback en API.ts
+3. Refactor PostCard: extraer CommentSection, EditModal, DeleteModal como subcomponentes
+4. Agregar paginación en friends list
+5. Agregar React.memo en PostCard, FriendsGrid, StatsCards
+6. Agregar unfriend endpoint + UI
+
+---
+
+## 11. Admin Panel
+
+### Estado Actual
+
+- **8 páginas** + **3 sub-tabs** = ~4,700 líneas totales
+- **Patrón:** CRUD con `usePaginatedList` + modals + formularios
+- **API Calls en carga:** 1-3 por página
+
+### Issues
+
+| # | Issue | Severidad |
+|---|-------|-----------|
+| 1 | **catch {} en TODAS las operaciones CRUD** — errores completamente silenciosos | 🔴 |
+| 2 | **`confirm()` nativo** para borrados — inconsistente con design system, bloquea UI thread | ⚠️ |
+| 3 | **Duplicación masiva** — 8 páginas con casi el mismo patrón CRUD | 🔴 |
+| 4 | **Groups page: N+1 API calls** para agregar miembros (`for...of api.addRoomMember`) | 🔴 |
+| 5 | **Groups page: fetchea ALL users** sin paginación | 🔴 |
+| 6 | **Transactions page: 2 usePaginatedList activos** simultáneamente (user + admin) | ⚠️ |
+| 7 | Sin search server-side (filtrado client-side) | ⚠️ |
+| 8 | Sin audit log para acciones administrativas | 🔴 |
+| 9 | Sin protección contra navegación con cambios sin guardar | ⚠️ |
+| 10 | MaterialIcon redefinido en cada archivo admin | ⚠️ |
+
+### Recomendaciones
+
+1. Crear un componente `AdminCrudTable` genérico que acepte columnas, formularios, y handlers — elimina ~70% de código duplicado
+2. Implementar endpoint `POST /rooms/{id}/members/batch` para agregar miembros en bulk
+3. Reemplazar `confirm()` con Modal.confirm del design system
+4. Agregar toast system global para feedback de operaciones
+5. Agregar paginación server-side con search en users
+6. Implementar middleware de audit log
+
+---
+
+## 12. UI Component Library
+
+### Estado Actual
+
+14 componentes en `components/ui/`. Calidad general buena, pero con carencias de accesibilidad y casos esquina.
+
+| Componente | Líneas | Accesibilidad | Issues |
+|-----------|--------|---------------|--------|
+| **Button** | 71 | ✅ disabled nativo | ❌ Sin variante loading |
+| **Modal** | 74 | ❌ Sin focus trap, sin aria-modal | ❌ Sin animación, sin gestión de foco inicial |
+| **TabGroup** | 51 | ❌ Sin role="tablist", aria-selected | ❌ Sin navegación por teclado |
+| **Avatar** | 74 | ❌ Sin loading="lazy", sin error fallback | ⚠️ |
+| **Badge** | 70 | ❌ Sin forwardRef | ℹ️ |
+| **ProgressBar** | 66 | ✅ Bien | ℹ️ |
+| **ListFooter** | 50 | ✅ Bien | ℹ️ |
+| **LevelUpCelebration** | 215 | ❌ Sin role="alert" | ⚠️ Inyecta `<style>` tag en cada mount |
+| **LanguageSelector** | 52 | ❌ Sin i18n real (decorativo) | 🔴 NO conectado a sistema de traducción |
+| **ZerineDisplay** | 70 | ✅ Bien | ℹ️ |
+| **FAB** | 32 | ❌ Sin aria-label | ℹ️ |
+| **SearchBar** | 49 | ❌ Sin aria-label, sin debounce built-in | ⚠️ |
+| **GlassCard** | 44 | ✅ forwardRef | ℹ️ |
+| **MaterialIcon** | 24 | ✅ Bien (single source of truth) | ❌ No importado en 10+ archivos |
+
+### Componentes Faltantes Críticos
+
+| Componente | Uso |
+|-----------|-----|
+| **Toast/Snackbar** | Feedback de operaciones (hoy no existe, excepto inline en Groups) |
+| **ConfirmDialog** | Reemplazar `confirm()` nativo |
+| **Skeleton** | Loaders con forma contextual (hoy cada página implementa su propio skeleton) |
+| **EmptyState** | Componente unificado "No data" con icono + mensaje + CTA |
+| **ErrorBoundary** | Para páginas y componentes críticos |
+| **Dropdown** | Menú contextual (hoy implementado inline en TopBar) |
+| **Tooltip** | Para iconos sin label |
+| **Spinner** | Loading spinner reutilizable |
+| **Pagination** | Componente de paginación (hoy cada página implementa su propia) |
+
+---
+
+## 13. CSS y Design System
+
+### Estado Actual
+
+`globals.css` de 387 líneas + Tailwind v4.
+
+### Issues
+
+| # | Issue | Severidad |
+|---|-------|-----------|
+| 1 | **`.parchment-texture` con SVG `<feTurbulence>`** — filtro fractal pesado que recalcula en cada paint | 🔴 |
+| 2 | **15 font weights** (EB Garamond 5 + Hanken Grotesk 6 + JetBrains Mono 4) = ~600-900KB | 🔴 |
+| 3 | Material Symbols via external `<link>` (no preload) | ⚠️ |
+| 4 | Sin `@layer` usage — todo en cascade default | ℹ️ |
+| 5 | `.material-symbols-outlined` CSS class values sobreescritos por inline style en componente | ℹ️ |
+| 6 | Múltiples `@keyframes` para animaciones de un solo uso | ⚠️ |
+
+### Recomendaciones
+
+1. Reemplazar SVG filter con CSS gradient simulado para reducir costo de paint
+2. Reducir font weights: EB Garamond (400,600,700), Hanken Grotesk (400,500,600,700), JetBrains Mono (500,700)
+3. Agregar `preload` para Material Symbols
+4. Mover animaciones de un solo uso a los componentes que las necesitan
+
+---
+
+## 14. Plan de Acción por Sprint
+
+### Sprint 1 — Seguridad (Semana 1)
+
+> ✅ **COMPLETADO** el 2026-07-30. Implementado: JWT_SECRET en env var, cookies httpOnly (acceso 30min + refresh 14 días con rotación), `/auth/refresh` + `/auth/logout`, guardado de rutas server-side vía `proxy.ts` (Next.js 16), y CSP + headers de seguridad.
+
+| # | Acción | Esfuerzo | Impacto | Estado |
+|---|--------|----------|---------|--------|
+| 1 | Mover JWT_SECRET a env var | 30min | 🔴 Crítico | ✅ Hecho |
+| 2 | Agregar CSP headers en next.config.ts | 2h | 🔴 Crítico | ✅ Hecho |
+| 3 | Implementar refresh token + acortar expiración | 2 días | 🔴 Crítico | ✅ Hecho |
+| 4 | Agregar middleware.ts para auth server-side | 1 día | ⚠️ Alto | ✅ Hecho (`proxy.ts` en Next.js 16) |
+| 5 | Migrar auth de localStorage a httpOnly cookie | 2 días | 🔴 Crítico | ✅ Hecho |
+
+### Sprint 2 — Backend N+1 Killer (Semana 2)
+
+| # | Acción | Esfuerzo | Impacto |
+|---|--------|----------|---------|
+| 1 | Cambiar User `lazy="selectin"` a `lazy="raise"` | 1 día | 🔴 Crítico |
+| 2 | Agregar column_property para likes_count, comments_count en Post | 1 día | 🔴 Crítico |
+| 3 | Agregar column_property para vote_sum, comment_count en ForumThread | 1 día | 🔴 Crítico |
+| 4 | Optimizar `_enrich_user` con consultas explícitas | 1 día | 🔴 Crítico |
+| 5 | Agregar índices compuestos faltantes | 2h | ⚠️ Alto |
+
+### Sprint 3 — Error Handling + Feedback (Semana 3)
+
+| # | Acción | Esfuerzo | Impacto |
+|---|--------|----------|---------|
+| 1 | Crear Toast/Snackbar global con Zustand | 1 día | 🔴 Crítico |
+| 2 | Crear ErrorBoundary component | 4h | 🔴 Crítico |
+| 3 | Agregar error.tsx en layouts | 2h | 🔴 Crítico |
+| 4 | Reemplazar todos los `catch {}` con toast + console.error | 1 día | 🔴 Crítico |
+| 5 | Reemplazar `confirm()` con ConfirmDialog component | 1 día | ⚠️ Alto |
+
+### Sprint 4 — Zerines Economy Hardening (Semana 4)
+
+| # | Acción | Esfuerzo | Impacto |
+|---|--------|----------|---------|
+| 1 | Agregar `SELECT ... FOR UPDATE` en compra de productos | 1 día | 🔴 Crítico |
+| 2 | Agregar confirmación en transferencias | 4h | 🔴 Crítico |
+| 3 | Implementar rollback en compras secuenciales | 1 día | 🔴 Crítico |
+| 4 | Agregar integer validation en inputs de Zerines | 2h | ⚠️ Alto |
+| 5 | Implementar búsqueda server-side de usuarios (TransferTab, Groups) | 1 día | ⚠️ Alto |
+
+### Sprint 5 — News + Article Detail Fix (Semana 5)
+
+| # | Acción | Esfuerzo | Impacto |
+|---|--------|----------|---------|
+| 1 | **Corregir article detail: usar `api.getArticle(id)`** | 1h | 🔴🔴 Crítico |
+| 2 | Reducir instancias de usePaginatedList en News page | 1 día | ⚠️ Alto |
+| 3 | Agregar error handling en News | 4h | 🔴 Crítico |
+| 4 | Agregar debounce en búsqueda de articles | 2h | ⚠️ Alto |
+
+### Sprint 6 — Frontend Performance (Semana 6)
+
+| # | Acción | Esfuerzo | Impacto |
+|---|--------|----------|---------|
+| 1 | Integrar React Query (SWR) para cache + revalidation | 2 días | 🔴 Crítico |
+| 2 | Agregar React.memo en componentes de lista (PostCard, ArticleCard, etc.) | 1 día | ⚠️ Alto |
+| 3 | Refactor PostCard: extraer subcomponentes | 1 día | ⚠️ Alto |
+| 4 | Eliminar MaterialIcon duplicados (importar de components/ui) | 4h | ⚠️ Alto |
+| 5 | Agregar virtualización con react-virtuoso en listas largas | 2 días | ⚠️ Alto |
+
+### Sprint 7 — Admin Refactor (Semana 7)
+
+| # | Acción | Esfuerzo | Impacto |
+|---|--------|----------|---------|
+| 1 | Crear AdminCrudTable genérico | 2 días | 🔴 Crítico (reduce código duplicado ~70%) |
+| 2 | Implementar batch endpoint para miembros de grupo | 1 día | ⚠️ Alto |
+| 3 | Agregar search server-side en admin users | 1 día | ⚠️ Alto |
+| 4 | Agregar audit log | 2 días | ⚠️ Alto |
+| 5 | Agregar lazy loading en tabs de Transactions page | 4h | ⚠️ Alto |
+
+### Sprint 8 — Pets Optimization (Semana 8)
+
+| # | Acción | Esfuerzo | Impacto |
+|---|--------|----------|---------|
+| 1 | Consolidar endpoints de pets en uno solo | 2 días | 🔴 Crítico |
+| 2 | Agregar paginación server-side | 1 día | ⚠️ Alto |
+| 3 | Agregar rollback en optimistic updates | 1 día | 🔴 Crítico |
+| 4 | Memoizar computed values (inventoryFor, meetsRequirements) | 4h | ⚠️ Alto |
+| 5 | Limitar celebration queue | 2h | ℹ️ Bajo |
+
+### Sprint 9 — CSS + Accesibilidad (Semana 9)
+
+| # | Acción | Esfuerzo | Impacto |
+|---|--------|----------|---------|
+| 1 | Optimizar/remover SVG parchment-texture filter | 1 día | ⚠️ Alto |
+| 2 | Reducir font weights | 1 día | ⚠️ Alto |
+| 3 | Agregar focus trap en Modal | 4h | ⚠️ Alto |
+| 4 | Agregar roles ARIA en TabGroup, BottomNav, Dropdowns | 4h | ⚠️ Alto |
+| 5 | Agregar loading="lazy" en imágenes de Avatar | 1h | ℹ️ Bajo |
+
+### Sprint 10 — UI Component Library (Semana 10)
+
+| # | Acción | Esfuerzo | Impacto |
+|---|--------|----------|---------|
+| 1 | Crear Toast/Snackbar system | 1 día | 🔴 Crítico |
+| 2 | Crear ConfirmDialog component (reemplazar confirm()) | 4h | ⚠️ Alto |
+| 3 | Crear Skeleton component loader | 4h | ⚠️ Alto |
+| 4 | Agregar loading variant a Button | 2h | ⚠️ Alto |
+| 5 | Agregar variante EmptyState unificada | 4h | ℹ️ Bajo |
+
+---
+
+## Apéndice A: Resumen de Archivos por Tamaño
+
+| Archivo | Líneas | Problema |
+|---------|--------|----------|
+| `lib/api.ts` | 997 | Monolítico, 80+ métodos, 68 interfaces |
+| `admin/users/page.tsx` | 840 | CRUD inline masivo |
+| `admin/groups/page.tsx` | 794 | CRUD + miembros inline |
+| `treasury/page.tsx + tabs` | 730 | 4 tabs en archivos separados (bien) |
+| `news/page.tsx` | 575 | 5+ listas concurrentes |
+| `admin/transactions/page.tsx` | 581 | 2 listas simultáneas |
+| `pets/page.tsx` | 593 | 7 API calls, alta complejidad |
+| `profile/[id]/page.tsx + ProfileDetails` | 660 | 11 state variables |
+| `PostCard.tsx` | 455 | Monolítico, editable, comments, emojis |
+| `admin/articles/page.tsx + ArticlesTab` | 550 | CRUD + tabs |
+| `admin/settings/page.tsx` | 457 | 2 paneles complejos |
+| `marketplace/*/page.tsx` (cada uno) | ~455 | Casi idénticos entre sí |
+
+## Apéndice B: Bugs Encontrados
+
+| # | Archivo | Línea | Bug | Severidad |
+|---|---------|-------|-----|-----------|
+| 1 | `backend/config.py` | 21 | JWT_SECRET hardcodeado en source | ✅ Resuelto (env var + validación) |
+| 2 | `frontend/news/[id]/page.tsx` | 53 | Fetch ALL articles para mostrar 1 | 🔴 Crítico |
+| 3 | `backend/products.py` | 69-110 | Race condition en stock | 🔴 Crítico |
+| 4 | `backend/users.py` | 227 | Deleting User → FK violation (sin cascade) | 🔴 |
+| 5 | `backend/posts.py` | 91 | Default limit 1000 → 6000 queries | 🔴 |
+| 6 | `backend/notifications_service.py` | 154 | `notify_all_users` crea N rows en loop | ⚠️ |
+| 7 | `backend/notifications_service.py` | 185 | `resolve_mentions` carga todos los users | ⚠️ |
+| 8 | `Marketplace/BookCard.tsx` | ~35 | onError loop infinito | 🔴 |
+| 9 | `frontend/components/ui/Modal.tsx` | ~30 | Sin focus trap | ⚠️ |
+| 10 | `backend/models/article_subscription.py` | 35 | `Notification.read` es String ("true"/"false") no Boolean | ⚠️ |
+| 11 | `backend/forum.py` | 182-192 | Deleting ForumThread no cascades a votes/comments | ⚠️ |
+| 12 | `backend/main.py` | 24-27 | Seeds ejecutados en cada startup | ℹ️ |
+| 13 | `frontend/app/page.tsx` | 10 | localStorage sin typeof window guard | ℹ️ |
+| 14 | `backend/dashboard.py` | 58-66 | Transacciones sin LIMIT en query | ⚠️ |
+| 15 | `backend/notifications.py` | 36-42 | `unread-count` usa fetch + len en vez de count() | ⚠️ |
+
+---
+
+## Conclusión
+
+**La aplicación tiene una base sólida pero sufre de tres problemas sistémicos:**
+
+1. **Seguridad**: JWT secret hardcodeado + tokens en localStorage + sin CSP + sin refresh token. Esto debe corregirse ANTES de cualquier deploy a producción.
+
+2. **N+1 queries generalizado**: El patrón `lazy="selectin"` en User y las 6 queries por post en `_build_post_response` son los peores ofensores. Con uso real (100+ usuarios, 1000+ posts), el backend se vuelve inutilizable.
+
+3. **Error handling inexistente**: `catch {}` en ~95% de las operaciones. El usuario nunca ve errores. Combinado con la ausencia de Error Boundary, la app puede mostrar pantalla blanca en cualquier momento.
+
+**Prioridades inmediatas:**
+1. ✅ ~~JWT_SECRET a env var + CSP headers~~ — **HECHO** (Sprint 1 completo: cookies httpOnly, refresh token, proxy.ts, CSP)
+2. 🔴 Fix article detail bug (usa `api.getArticle(id)`) (1 hora)
+3. 🔴 Reemplazar `catch {}` con toast + error logging en toda la app (1 día)
+4. 🔴 Race condition en stock de productos (1 día)
+5. 🔴 Cambiar User.lazy="selectin" a lazy="raise" (1 día)
+
+**Prioridades semana 2-3:**
+6. Integrar React Query/SWR para cache
+7. Optimizar _build_post_response con column_property
+8. Crear AdminCrudTable genérico
+9. Agregar confirmación en transacciones financieras
+10. Agregar error boundary global
+
+Con estos cambios, la app pasa de 5.0/10 a ~7.5/10 en madurez general.
