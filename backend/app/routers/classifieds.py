@@ -21,7 +21,7 @@ router = APIRouter()
 @router.get("/", response_model=Page[ClassifiedResponse])
 async def list_classifieds(
     skip: int = Query(0, ge=0),
-    limit: int = Query(1000, ge=1, le=1000),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

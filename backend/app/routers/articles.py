@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func, or_, update
+from sqlalchemy import select, and_, func, or_, update, delete
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
@@ -254,6 +254,10 @@ async def delete_article(
     if article.author_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    # Remove comments and subscriptions so the article can be deleted without
+    # a FK violation or orphaned rows.
+    await db.execute(delete(ArticleComment).where(ArticleComment.article_id == article_id))
+    await db.execute(delete(ArticleSubscription).where(ArticleSubscription.article_id == article_id))
     await db.delete(article)
     await db.commit()
 

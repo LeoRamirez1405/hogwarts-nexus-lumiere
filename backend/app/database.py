@@ -148,6 +148,8 @@ _WANTED_INDEXES = [
     ("chat_room_members", ["room_id"]),
     ("chat_room_members", ["user_id"]),
     ("notifications", ["user_id"]),
+    ("notifications", ["user_id", "read"]),
+    ("notifications", ["user_id", "created_at"]),
     ("friend_requests", ["sender_id"]),
     ("friend_requests", ["receiver_id"]),
     ("forum_threads", ["author_id"]),
@@ -158,8 +160,13 @@ _WANTED_INDEXES = [
     ("transactions", ["sender_id"]),
     ("transactions", ["receiver_id"]),
     ("user_creatures", ["user_id"]),
+    ("user_creatures", ["creature_id"]),
+    ("user_creatures", ["for_sale"]),
     ("user_pet_items", ["user_id"]),
     ("user_products", ["user_id"]),
+    ("users", ["house"]),
+    ("users", ["name"]),
+    ("products", ["shop", "category"]),
 ]
 
 

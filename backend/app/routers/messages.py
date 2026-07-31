@@ -565,7 +565,7 @@ async def list_my_rooms(
     current_user: User = Depends(get_current_user),
     all: bool = Query(False),
     skip: int = Query(0, ge=0),
-    limit: int = Query(1000, ge=1, le=1000),
+    limit: int = Query(50, ge=1, le=200),
 ):
     if all and current_user.role == "admin":
         query = select(ChatRoom).options(selectinload(ChatRoom.members))
