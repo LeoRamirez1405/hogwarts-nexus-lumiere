@@ -1,3 +1,5 @@
+import { MaterialIcon } from "./MaterialIcon";
+
 type Size = "sm" | "md" | "lg" | "hero";
 type Variant = "balance" | "price" | "delta";
 type IconStyle = "emoji" | "icon";
@@ -16,21 +18,13 @@ const sizeClasses: Record<Size, string> = {
   hero: "text-display-lg font-display",
 };
 
-function DiamondIcon({ style }: { style: IconStyle }) {
-  if (style === "emoji") {
-    return (
-      <span className="material-symbols-outlined text-[0.85em] mr-1 align-middle" style={{ fontVariationSettings: '"FILL" 1, "wght" 300, "GRAD" 0, "opsz" 24' }}>
-        diamond
-      </span>
-    );
-  }
+function DiamondIcon({ className }: { className?: string }) {
   return (
-    <span
-      className="material-symbols-outlined text-[1em] mr-1 align-middle"
-      style={{ fontVariationSettings: '"FILL" 1, "wght" 300, "GRAD" 0, "opsz" 24' }}
-    >
-      diamond
-    </span>
+    <MaterialIcon
+      name="diamond"
+      filled
+      className={className ?? "text-[0.85em] mr-1 align-middle"}
+    />
   );
 }
 
@@ -38,14 +32,13 @@ export default function ZerineDisplay({
   amount,
   size = "md",
   variant = "balance",
-  iconStyle = "icon",
 }: ZerineDisplayProps) {
   const formatted = amount.toLocaleString();
 
   if (variant === "price") {
     return (
       <span className={`inline-flex items-center text-secondary ${sizeClasses[size]}`}>
-        <DiamondIcon style={iconStyle} />
+        <DiamondIcon />
         {formatted}
       </span>
     );

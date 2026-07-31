@@ -1,5 +1,6 @@
 "use client";
 import { ButtonHTMLAttributes, forwardRef } from "react";
+import { MaterialIcon } from "./MaterialIcon";
 
 type Variant = "primary" | "secondary" | "ghost" | "outline" | "crystal" | "danger";
 type Size = "sm" | "md" | "lg";
@@ -9,6 +10,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: Size;
   icon?: string;
   iconPosition?: "left" | "right";
+  loading?: boolean;
 }
 
 const variantStyles: Record<Variant, string> = {
@@ -27,14 +29,6 @@ const sizeStyles: Record<Size, string> = {
   lg: "px-8 py-4 text-title-md",
 };
 
-function MaterialIcon({ name, className }: { name: string; className?: string }) {
-  return (
-    <span className={`material-symbols-outlined ${className ?? ""}`} style={{ fontVariationSettings: '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24' }}>
-      {name}
-    </span>
-  );
-}
-
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
@@ -42,26 +36,39 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       size = "md",
       icon,
       iconPosition = "left",
+      loading = false,
       className = "",
+      disabled,
       children,
       ...props
     },
     ref
   ) => {
+    const isDisabled = disabled || loading;
     return (
       <button
         ref={ref}
-        className={`inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:pointer-events-none ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+        disabled={isDisabled}
+        aria-busy={loading || undefined}
+        className={`inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
         {...props}
       >
-        {icon && iconPosition === "left" && (
-          <MaterialIcon name={icon} className="text-[1.1em]" />
+        {loading ? (
+          <MaterialIcon
+            name="progress_activity"
+            className="text-[1.1em] animate-spin"
+          />
+        ) : (
+          icon &&
+          iconPosition === "left" && (
+            <MaterialIcon name={icon} className="text-[1.1em]" />
+          )
         )}
         {children}
-        {icon && iconPosition === "right" && (
+        {icon && iconPosition === "right" && !loading && (
           <MaterialIcon name={icon} className="text-[1.1em]" />
         )}
-      </button>
+     </button>
     );
   }
 );

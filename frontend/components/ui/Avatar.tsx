@@ -1,5 +1,5 @@
 "use client";
-import { HTMLAttributes } from "react";
+import { useState, HTMLAttributes, forwardRef } from "react";
 import Image from "next/image";
 import { mediaSrc, isProxiedUpload } from "@/lib/media";
 
@@ -22,7 +22,10 @@ const sizeClasses: Record<Size, string> = {
   xl: "w-32 h-32 md:w-40 md:h-40",
 };
 
-const borderWidthClasses: Record<NonNullable<AvatarProps["borderColor"]>, string> = {
+const borderWidthClasses: Record<
+  NonNullable<AvatarProps["borderColor"]>,
+  string
+> = {
   primary: "ring-2 ring-primary",
   secondary: "ring-2 ring-secondary",
   none: "",
@@ -34,34 +37,46 @@ const statusColors: Record<NonNullable<AvatarProps["status"]>, string> = {
   offline: "bg-outline",
 };
 
-export default function Avatar({
-  src,
-  alt,
-  size = "md",
-  borderColor = "none",
-  status,
-  initials,
-  className = "",
-  ...props
-}: AvatarProps) {
-  return (
-    <div
-      className={`relative inline-flex items-center justify-center rounded-full bg-surface-container-high ${sizeClasses[size]} ${borderWidthClasses[borderColor]} ${className}`}
-      {...props}
-    >
-      <div className="absolute inset-0 rounded-full overflow-hidden flex items-center justify-center">
-        {src ? (
-          <Image
-            src={mediaSrc(src)}
-            alt={alt ?? ""}
-            fill
-            className="object-cover"
-            unoptimized={isProxiedUpload(src)}
-          />
-        ) : (
+const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
+  (
+    {
+      src,
+      alt,
+      size = "md",
+      borderColor = "none",
+      status,
+      initials,
+      className = "",
+      ...props
+    },
+    ref
+  ) => {
+    const [imgError, setImgError] = useState(false);
+
+    return (
+      <div
+        ref={ref}
+        className={`relative inline-flex items-center justify-center rounded-full bg-surface-container-high ${sizeClasses[size]} ${borderWidthClasses[borderColor]} ${className}`}
+        {...props}
+      >
+        <div className="absolute inset-0 rounded-full overflow-hidden flex items-center justify-center">
+          {src && !imgError ? (
+            <Image
+              src={mediaSrc(src)}
+              alt={alt ?? ""}
+              fill
+              sizes={
+                size === "xl" ? "160px" : size === "lg" ? "64px" : "48px"
+              }
+              className="object-cover"
+              loading="lazy"
+              unoptimized={isProxiedUpload(src)}
+              onError={() => setImgError(true)}
+            />
+          ) : (
           <span className="text-on-surface-variant font-medium text-[0.85em] select-none">
-            {initials ?? "?"}
-          </span>
+              {initials ?? "?"}
+            </span>
         )}
       </div>
       {status && (
@@ -71,4 +86,9 @@ export default function Avatar({
       )}
     </div>
   );
-}
+  }
+);
+
+Avatar.displayName = "Avatar";
+
+export default Avatar;
