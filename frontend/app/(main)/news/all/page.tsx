@@ -6,6 +6,7 @@ import Image from "next/image";
 import { MaterialIcon } from "@/components/ui";
 import { GlassCard, Badge, Button, SearchBar } from "@/components/ui";
 import { api, Article } from "@/lib/api";
+import { useDebounce } from "@/hooks/useDebounce";
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("es-ES", {
@@ -26,6 +27,8 @@ export default function NewsAllPage() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 12;
 
+  const debouncedSearch = useDebounce(search, 300);
+
   const fetchCategories = useCallback(async () => {
     try {
       const data = await api.getArticleCategories();
@@ -43,7 +46,7 @@ export default function NewsAllPage() {
           limit: String(PAGE_SIZE),
           offset: String((pageNum - 1) * PAGE_SIZE),
         };
-        if (search) params.search = search;
+        if (debouncedSearch) params.search = debouncedSearch;
         if (category !== "all" && category) params.category = category;
         if (featuredOnly) params.featured_only = "true";
         const data = await api.getArticles(params);
@@ -61,7 +64,7 @@ export default function NewsAllPage() {
         setLoading(false);
       }
     },
-    [search, category, featuredOnly, PAGE_SIZE]
+    [debouncedSearch, category, featuredOnly, PAGE_SIZE]
   );
 
   useEffect(() => {

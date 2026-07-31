@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, Article } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
+import { toastError } from "@/lib/toastStore";
 import { GlassCard, Badge, Button, MaterialIcon, TabGroup, ListFooter } from "@/components/ui";
 import {
   FeaturedArticle,
@@ -155,24 +156,29 @@ export default function NewsPage() {
       } else {
         await api.subscribeArticle(articleId);
       }
+      // Only refresh the active list(s) to avoid unnecessary refetches
       refreshArticles();
-      refreshFeatured();
-      refreshSaved();
-    } catch {
-      // error
+      if (filter === "featured") {
+        refreshFeatured();
+      }
+      if (activeTab === "saved") {
+        refreshSaved();
+      }
+    } catch (e) {
+      toastError("No se pudo cambiar la suscripción", e);
     }
-  }, [authUser, allArticles, featuredArticles, refreshArticles, refreshFeatured, refreshSaved]);
+  }, [authUser, allArticles, featuredArticles, filter, activeTab, refreshArticles, refreshFeatured, refreshSaved]);
 
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
   }, []);
 
-  const byDateDesc = (a: Article, b: Article) =>
-    new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  const byDateDesc = useCallback((a: Article, b: Article) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime(), []);
 
   // El artículo principal es el fijado (pinned); si no hay ninguno, el más reciente.
-  const mostRecent = [...allArticles].sort(byDateDesc)[0];
-  const featured = allArticles.find((a) => a.pinned) ?? mostRecent;
+  const mostRecent = useMemo(() => [...allArticles].sort(byDateDesc)[0], [allArticles, byDateDesc]);
+  const featured = useMemo(() => allArticles.find((a) => a.pinned) ?? mostRecent, [allArticles, mostRecent]);
 
   // Cada pestaña tiene su propia lista paginada con lazy loading independiente.
   const isFeatured = filter === "featured";
@@ -184,7 +190,7 @@ export default function NewsPage() {
   const activeListLoading = isFeatured ? featuredLoading : false;
   const loadMoreActive = isFeatured ? loadMoreFeatured : loadMoreArticles;
 
-  const sortedArticles = [...activeItems].sort(byDateDesc);
+  const sortedArticles = useMemo(() => [...activeItems].sort(byDateDesc), [activeItems, byDateDesc]);
 
   const visibleArticles = sortedArticles;
   const visibleSaved = allSaved;
@@ -285,6 +291,7 @@ export default function NewsPage() {
                       alt={featured.title}
                       fill
                       className="object-cover"
+                      sizes="100vw"
                       unoptimized={isLocalUpload(featured.image_url)}
                     />
                     <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent" />

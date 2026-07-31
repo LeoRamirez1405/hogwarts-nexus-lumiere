@@ -1,11 +1,12 @@
 "use client";
 
-import { forwardRef, useImperativeHandle } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/ui";
-import { GlassCard, Badge, Button, ListFooter } from "@/components/ui";
+import { GlassCard, Badge, Button, ListFooter, Modal } from "@/components/ui";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { api, ForumThread as Thread } from "@/lib/api";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 
 interface ForumThreadsProps {
   votedThread: string | null;
@@ -26,6 +27,7 @@ export const ForumThreads = forwardRef<ForumThreadsHandle, ForumThreadsProps>(fu
 }, ref) {
   const router = useRouter();
   const avatarLetters = ["A", "B", "C"];
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const {
     items: allThreads,
     hasMore,
@@ -53,7 +55,9 @@ export const ForumThreads = forwardRef<ForumThreadsHandle, ForumThreadsProps>(fu
     try {
       await api.voteThread(threadId, dir);
       refresh();
-    } catch {}
+    } catch (e) {
+      toastError("No se pudo votar", e);
+    }
   };
 
   const handleDelete = async (threadId: string) => {
@@ -61,7 +65,11 @@ export const ForumThreads = forwardRef<ForumThreadsHandle, ForumThreadsProps>(fu
       await api.deleteThread(threadId);
       onDeleteThread?.(threadId);
       refresh();
-    } catch {}
+      toastSuccess("Debate eliminado");
+    } catch (e) {
+      toastError("No se pudo eliminar el debate", e);
+    }
+    setDeleteConfirmId(null);
   };
 
   const visibleThreads = allThreads;
@@ -167,9 +175,7 @@ thread.my_vote === 1
                         icon="delete"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (confirm("¿Eliminar este debate? Esta acción no se puede deshacer.")) {
-                            handleDelete(thread.id);
-                          }
+                          setDeleteConfirmId(thread.id);
                         }}
                         className="text-error hover:bg-error-container/10"
                         aria-label="Eliminar debate"
@@ -207,9 +213,7 @@ thread.my_vote === 1
                         icon="delete"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (confirm("¿Eliminar este debate? Esta acción no se puede deshacer.")) {
-                            handleDelete(thread.id);
-                          }
+                          setDeleteConfirmId(thread.id);
                         }}
                         className="text-error hover:bg-error-container/10"
                         aria-label="Eliminar debate"
@@ -243,6 +247,28 @@ thread.my_vote === 1
             Se el primero en iniciar una discusion
           </p>
         </GlassCard>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleteConfirmId && (
+        <Modal
+          open={true}
+          onClose={() => setDeleteConfirmId(null)}
+          size="sm"
+          title="Eliminar debate"
+        >
+          <p className="text-body-md text-on-surface-variant mb-6">
+            ¿Estás seguro de que quieres eliminar este debate? Esta acción no se puede deshacer.
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button variant="ghost" size="md" onClick={() => setDeleteConfirmId(null)}>
+              Cancelar
+            </Button>
+            <Button variant="primary" size="md" onClick={() => handleDelete(deleteConfirmId)} className="bg-error text-on-error hover:bg-error/90">
+              Eliminar
+            </Button>
+          </div>
+        </Modal>
       )}
     </div>
   );

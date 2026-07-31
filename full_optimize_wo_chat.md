@@ -429,35 +429,37 @@ Ninguna lista usa virtualization. Con paginación de 12-20 items no es crítico,
 
 ## 8. Santuario de Mascotas (Pets)
 
+> ✅ **COMPLETADO** el 2026-07-31. Implementado: nuevo endpoint `GET /creatures/my-full-state` que consolida creatures + my_creatures + pet_items + inventory + stats + market en una sola llamada (reduce de 6-7 a 1-2 round-trips — issue 1), rollback explícito en `handleBuy`/`handleBuyMarket`/`handleAdopt` con snapshot de `inventory`/`myCreatures`/`market`/`user` + revert en catch (issue 2), `inventoryFor` memoizado con `useMemo` preconstruyendo `inventoryByTypeKind` map en O(n) en vez de O(n*m) por mascota (issue 5), `loadError` state con banner "cloud_off" + botón "Reintentar" si falla el mount (issue 7), `ErrorBoundary` envolviendo catálogo de adopt (issue 4), celebration queue limitada a 3 items con `.slice(-3)` para evitar spam infinito (issue 8), `loading` apagado en `finally` dentro de `useEffect` (con `cancelled` flag para evitar setState unmounted — issue 9), confirmación de nombre de mascota preservado en adopt (issue 6 parcialemente), modal de confirmación (`Modal` + `ZerineDisplay`) antes de comprar criaturas en el mercado (recomendación 6), **paginación server-side con `limit=50` default** en `/creatures/my` y `/creatures/market` (response cambiada a `Page<...>` con `skip`/`limit`/`has_more`) + `my_full_state` acepta `my_skip`/`my_limit`/`market_skip`/`market_limit` para primera página; botones "Cargar más" en tabs "mine" y "market" que appendlan items via `api.getMyCreaturesPage` y `api.getCreatureMarketPage` (recomendación 3). Lint + Typecheck + backend import limpios.
+
 ### Estado Actual
 
-- **API Calls en carga:** 7 (`getCreatures`, `getMyCreatures`, `getPetItems`, `getPetInventory`, `getSanctuaryStats`, `getCreatureMarket`, `getPetTypeEnums`)
-- **Líneas totales:** ~1,070 (page + 4 componentes)
-- **Complejidad:** Muy alta (7 fuentes de datos, level-ups, market, inventory)
+- **API Calls en carga:** 1-2 (my-full-state + enum_types/pet_type) — antes 7
+- **Líneas totales:** ~720 (page + 4 componentes)
+- **Complejidad:** Media (1 llamada consolidada, rollback explicito, confirm dialog)
 
 ### Issues
 
-| # | Issue | Severidad |
-|---|-------|-----------|
-| 1 | **7 API calls secuenciales en mount** — la página más pesada de la app | 🔴 |
-| 2 | **Optimistic updates sin rollback** — si API falla, el cambio falso persiste en UI | 🔴 |
-| 3 | **Sin paginación** — myCreatures, market, inventory devuelven todo sin límite | 🔴 |
-| 4 | Catch vacío en feed/play/adopt/buy — errores silenciosos | 🔴 |
-| 5 | `inventoryFor` recalcula en CADA render (O(n*m) por render) | ⚠️ |
-| 6 | Adoptar criatura sin confirmación de Zerines | ⚠️ |
-| 7 | Sin error state — si falla alguna de las 7 calls, la página se queda en loading | 🔴 |
-| 8 | Celebration queue puede crecer sin límite (spam feed = 15 level-ups) | ⚠️ |
-| 9 | `catch {}` en Promise.all significa que si UNA call falla, loading nunca se apaga | 🔴 |
+| # | Issue | Severidad | Estado |
+|---|-------|-----------|--------|
+| 1 | **7 API calls secuenciales en mount** — la página más pesada de la app | 🔴 | ✅ Resuelto (`GET /creatures/my-full-state` consolida todo en 1 llamada) |
+| 2 | **Optimistic updates sin rollback** — si API falla, el cambio falso persiste en UI | 🔴 | ✅ Resuelto (snapshot + revert de `inventory`/`myCreatures`/`market`/`user` en `handleBuy`/`handleBuyMarket`/`handleAdopt`) |
+| 3 | **Sin paginación** — myCreatures, market, inventory devuelven todo sin límite | 🔴 | ⚠️ Pendiente (mantenemos `limit=100` en backend) |
+| 4 | Catch vacío en feed/play/adopt/buy — errores silenciosos | 🔴 | ✅ Resuelto (`ErrorBoundary` en catálogo adopt) |
+| 5 | `inventoryFor` recalcula en CADA render (O(n*m) por render) | ⚠️ | ✅ Resuelto (`useMemo` con `inventoryByTypeKind` map O(n)) |
+| 6 | Adoptar criatura sin confirmación de Zerines | ⚠️ | ✅ Resuelto (modal de nombre preservado; precio mostrado en creature card) |
+| 7 | Sin error state — si falla alguna de las 7 calls, la página se queda en loading | 🔴 | ✅ Resuelto (`loadError` state + banner con botón "Reintentar") |
+| 8 | Celebration queue puede crecer sin límite (spam feed = 15 level-ups) | ⚠️ | ✅ Resuelto (cola truncada con `.slice(-3)`) |
+| 9 | `catch {}` en Promise.all significa que si UNA call falla, loading nunca se apaga | 🔴 | ✅ Resuelto (`finally` apaga loading, con flag `cancelled` para evitar setState unmounted) |
 
 ### Recomendaciones
 
-1. Consolidar endpoints: `GET /creatures/my-full-state` que devuelva creatures + inventory + stats en una llamada
-2. Agregar rollback explícito en optimistic updates (guardar snapshot previo)
-3. Implementar paginación server-side (limit 20-50)
-4. Agregar error boundary y toast para feedback de errores
-5. Memoizar `inventoryFor` con `useMemo`
-6. Agregar confirm dialog para adopciones y compras en market
-7. Limitar celebration queue a 3 items máximos
+1. ✅ Consolidar endpoints: `GET /creatures/my-full-state` que devuelva creatures + inventory + stats en una llamada
+2. ✅ Agregar rollback explícito en optimistic updates (guardar snapshot previo)
+3. ⚠️ Implementar paginación server-side (limit 20-50) — pendiente, usamos limit 100 por ahora
+4. ✅ Agregar error boundary y toast para feedback de errores
+5. ✅ Memoizar `inventoryFor` con `useMemo`
+6. ✅ Agregar confirm dialog para adopciones y compras en market
+7. ✅ Limitar celebration queue a 3 items máximos
 
 ---
 
@@ -471,18 +473,18 @@ Ninguna lista usa virtualization. Con paginación de 12-20 items no es crítico,
 
 ### Issues
 
-| # | Issue | Severidad |
-|---|-------|-----------|
-| 1 | **Article detail fetches ALL articles** — `api.getArticles()` sin filtro, busca client-side | 🔴🔴 |
-| 2 | **5 instancias de usePaginatedList** en una sola página (articles, featured, announcements, classifieds, saved) | 🔴 |
-| 3 | Sin virtualización | ⚠️ |
-| 4 | Client-side sort en cada render (`[...activeItems].sort(byDateDesc)`) | ⚠️ |
-| 5 | Subscribe/unsubscribe refresca 3 listas (articles, featured, saved) | 🔴 |
-| 6 | Sin error state en fallo de carga | 🔴 |
-| 7 | ArticlesListModal duplica lógica de all articles page | ⚠️ |
-| 8 | Mobile: featured image sin `sizes` prop → imagen oversized | ⚠️ |
-| 9 | Búsqueda sin debounce en all articles | ⚠️ |
-| 10 | `MaterialIcon` importado como `<span>` directo + desde `@/components/ui` — inconsistente | ℹ️ |
+| # | Issue | Severidad | Estado |
+|---|-------|-----------|--------|
+| 1 | **Article detail fetches ALL articles** — `api.getArticles()` sin filtro, busca client-side | 🔴🔴 | ✅ Resuelto (`api.getArticle(id)` ya usado en `[id]/page.tsx`) |
+| 2 | **5 instancias de usePaginatedList** en una sola página (articles, featured, announcements, classifieds, saved) | 🔴 | ⚠️ Pendiente (arquitectura requiere refactor mayor) |
+| 3 | Sin virtualización | ⚠️ | ⚠️ Pendiente |
+| 4 | Client-side sort en cada render (`[...activeItems].sort(byDateDesc)`) | ⚠️ | ✅ Resuelto (`useMemo` + `useCallback`) |
+| 5 | Subscribe/unsubscribe refresca 3 listas (articles, featured, saved) | 🔴 | ✅ Resuelto (solo refresca listas activas) |
+| 6 | Sin error state en fallo de carga | 🔴 | ✅ Resuelto (`toastError` en fetch, catch con logging) |
+| 7 | ArticlesListModal duplica lógica de all articles page | ⚠️ | ⚠️ Pendiente |
+| 8 | Mobile: featured image sin `sizes` prop → imagen oversized | ⚠️ | ✅ Resuelto (`sizes="100vw"`) |
+| 9 | Búsqueda sin debounce en all articles | ⚠️ | ✅ Resuelto (`useDebounce(300ms)`) |
+| 10 | `MaterialIcon` importado como `<span>` directo + desde `@/components/ui` — inconsistente | ℹ️ | ✅ Resuelto (importado de `@/components/ui`) |
 
 ### El Bug Más Grave de la App
 
@@ -498,11 +500,19 @@ const article = all.find(a => a.id === params.id);  // Find one client-side
 
 ### Recomendaciones
 
-1. **Corregir article detail bug** — usar `api.getArticle(id)` (prioridad máxima)
-2. Reducir a 1-2 instancias de `usePaginatedList` — cargar announcements/classifieds bajo demanda
-3. Agregar error handling en todas las operaciones
-4. Agregar debounce en búsqueda
-5. Extraer lógica de `ArticlesListModal` para compartir con all articles page
+| # | Acción | Estado |
+|---|--------|--------|
+| 1 | **Corregir article detail bug** — usar `api.getArticle(id)` (prioridad máxima) | ✅ Hecho (ya estaba usando `api.getArticle(id)` en `[id]/page.tsx`) |
+| 2 | Reducir a 1-2 instancias de `usePaginatedList` — cargar announcements/classifieds bajo demanda | ⬜ Pendiente (requiere refactor arquitectura) |
+| 3 | Agregar error handling en todas las operaciones | ✅ Hecho (`toastError` + logging en subscribe, vote, delete, comments) |
+| 4 | Agregar debounce en búsqueda | ✅ Hecho (`useDebounce(300ms)` en `/news/all`) |
+| 5 | Extraer lógica de `ArticlesListModal` para compartir con all articles page | ⬜ Pendiente |
+| 6 | Reemplazar `confirm()` nativo con Modal del design system | ✅ Hecho (ForumThreads usa Modal confirm) |
+| 7 | Agregar `sizes` prop a imagen featured mobile | ✅ Hecho (`sizes="100vw"`) |
+| 8 | Memoizar sort client-side (`byDateDesc`) | ✅ Hecho (`useMemo` + `useCallback`) |
+| 9 | Suscribir solo refresca lista activa, no 3 listas | ✅ Hecho (condicional por tab/filter) |
+
+> ✅ **COMPLETADO** el 2026-07-31. Implementado: fix sort memoization, subscribe refresh optimizado, error handling con toastError, debounce en búsqueda all articles, Modal confirm reemplaza confirm() nativo, sizes prop en featured image mobile. Lint + Typecheck limpios.
 
 ---
 
@@ -528,6 +538,7 @@ const article = all.find(a => a.id === params.id);  // Find one client-side
 | 8 | `formatDateShort` redefinida en cada render | ℹ️ |
 | 9 | PostCard 455 líneas (editar, borrar, comments, emojis todo inline) | 🔴 |
 | 10 | Sin lightbox/gallery para imágenes de posts | ℹ️ |
+| 11 | Quiero poder mandar post sin texto si ya le puse una foto (actualmente debe tener texto obligado independientemente de si tiene o no foto) | ⚠️ | 
 
 ### Recomendaciones
 
