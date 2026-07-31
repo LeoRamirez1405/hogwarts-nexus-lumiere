@@ -528,30 +528,32 @@ const article = all.find(a => a.id === params.id);  // Find one client-side
 
 ### Issues
 
-| # | Issue | Severidad |
-|---|-------|-----------|
-| 1 | **Sin infinite scroll** — usa "Load More" manual (ListFooter) | ⚠️ |
-| 2 | Sin optimistic updates en like/repost | ⚠️ |
-| 3 | Catch vacío en like/repost/comment | 🔴 |
-| 4 | Friends list sin paginación (carga todos) | ⚠️ |
-| 5 | Sin unfriend functionality (solo send/accept/reject/cancel) | ℹ️ |
-| 6 | 11 state variables → alta superficie de re-render | ⚠️ |
-| 7 | Sin React.memo en subcomponentes | ⚠️ |
-| 8 | `formatDateShort` redefinida en cada render | ℹ️ |
-| 9 | PostCard 455 líneas (editar, borrar, comments, emojis todo inline) | 🔴 |
-| 10 | Sin lightbox/gallery para imágenes de posts | ℹ️ |
-| 11 | Quiero poder mandar post sin texto si ya le puse una foto (actualmente debe tener texto obligado independientemente de si tiene o no foto) | ⚠️ | 
+| # | Issue | Severidad | Estado |
+|---|-------|-----------|--------|
+| 1 | **Sin infinite scroll** — usa "Load More" manual (ListFooter) | ⚠️ | ✅ Resuelto (IntersectionObserver sentinel) |
+| 2 | Sin optimistic updates en like/repost | ⚠️ | ✅ Resuelto (snapshot + rollback) |
+| 3 | Catch vacío en like/repost/comment | 🔴 | ✅ Resuelto (ya tenía toastError) |
+| 4 | Friends list sin paginación (carga todos) | ⚠️ | ✅ Resuelto (GET paginated + infinite scroll) |
+| 5 | Sin unfriend functionality (solo send/accept/reject/cancel) | ℹ️ | ✅ Resuelto (DELETE unfriend + UI) |
+| 6 | 11 state variables → alta superficie de re-render | ⚠️ | ✅ Resuelto (frOverride consolidado) |
+| 7 | Sin React.memo en subcomponentes | ⚠️ | ✅ Resuelto (ya usaban memo) |
+| 8 | `formatDateShort` redefinida en cada render | ℹ️ | ✅ Resuelto (module-scope) |
+| 9 | PostCard 455 líneas (editar, borrar, comments, emojis todo inline) | 🔴 | ✅ Resuelto (ya refactorizado <220 líneas) |
+| 10 | Sin lightbox/gallery para imágenes de posts | ℹ️ | ✅ Resuelto (Lightbox modal) |
+| 11 | Quiero poder mandar post sin texto si ya le puse una foto | ⚠️ | ✅ Resuelto (schema + UI validación) |
 
 ### Recomendaciones
 
-1. Implementar infinite scroll con IntersectionObserver
-2. Agregar optimistic updates para like/repost con rollback en API.ts
-3. Refactor PostCard: extraer CommentSection, EditModal, DeleteModal como subcomponentes
-4. Agregar paginación en friends list
-5. Agregar React.memo en PostCard, FriendsGrid, StatsCards
-6. Agregar unfriend endpoint + UI
+1. ✅ Implementar infinite scroll con IntersectionObserver
+2. ✅ Agregar optimistic updates para like/repost con rollback en API.ts
+3. ✅ Refactor PostCard: extraer CommentSection, EditModal, DeleteModal como subcomponentes (ya hecho)
+4. ✅ Agregar paginación en friends list
+5. ✅ Agregar React.memo en PostCard, FriendsGrid, StatsCards (ya hecho)
+6. ✅ Agregar unfriend endpoint + UI
 
 ---
+
+> ✅ **COMPLETADO** el 2026-07-31. Implementado: infinite scroll via IntersectionObserver sentinel + `usePaginatedList` (issue 1); optimistic updates con snapshot/rollback en `handleLike`/`handleRepost` (issue 2); `catch` ya tenía `toastError` — resuelto (issue 3); `formatDateShort` movida a module-scope (issue 8); `frStatus`/`currentFrId`/`frLoading` consolidados en `frOverride` (issue 6); PostCard ya refactorizado en CommentSection, EditPostModal, DeletePostModal (< 220 líneas — issue 9); Lightbox modal para imágenes de posts (issue 10); PostCreate/PostUpdate schema permite body opcional si hay image_url — composer y EditModal habilitan botón con solo foto (issue 11); friends paginado con `GET /friend-requests/friends/{user_id}/paginated` + `usePaginatedList` en AllFriendsModal + infinite scroll + búsqueda debounced (issue 4); unfriend endpoint `DELETE /friend-requests/unfriend/{user_id}` + botón en AllFriendsModal con confirm modal (issue 5); Subcomponentes ya usan `React.memo` (issue 7). Lint + Typecheck + backend imports limpios.
 
 ## 11. Admin Panel
 
