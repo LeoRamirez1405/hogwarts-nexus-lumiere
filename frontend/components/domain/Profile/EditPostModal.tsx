@@ -24,12 +24,13 @@ export const EditPostModal = memo(function EditPostModal({
 
   const handleSave = async () => {
     const text = editText.trim();
-    if (!text || saving) return;
+    const image = editImageUrl.trim();
+    if ((!text && !image) || saving) return;
     setSaving(true);
     try {
       const updated = await api.updatePost(post.id, {
-        body: text,
-        image_url: editImageUrl || undefined,
+        body: text || undefined,
+        image_url: image || undefined,
       });
       onSaved?.(updated);
       onClose();
@@ -78,7 +79,7 @@ export const EditPostModal = memo(function EditPostModal({
             size="sm"
             icon="check"
             onClick={handleSave}
-            disabled={!editText.trim() || saving}
+            disabled={(!editText.trim() && !editImageUrl.trim()) || saving}
           >
             {saving ? "Guardando..." : "Guardar"}
           </Button>

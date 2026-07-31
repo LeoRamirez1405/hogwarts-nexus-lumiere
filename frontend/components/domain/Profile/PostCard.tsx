@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Post, User } from "@/lib/api";
 import { mediaSrc } from "@/lib/media";
-import { GlassCard, Avatar, MaterialIcon } from "@/components/ui";
+import { GlassCard, Avatar, MaterialIcon, Lightbox } from "@/components/ui";
 import { CommentSection } from "./CommentSection";
 import { EditPostModal } from "./EditPostModal";
 import { DeletePostModal } from "./DeletePostModal";
@@ -59,6 +59,7 @@ function PostCardComponent({
   const [commentCount, setCommentCount] = useState(post.comments_count ?? 0);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
 
   const isAuthor = currentUser?.id === post.author_id;
 
@@ -132,8 +133,9 @@ function PostCardComponent({
               alt="Post"
               width={600}
               height={400}
-              className="w-full h-auto object-cover"
+              className="w-full h-auto object-cover cursor-zoom-in"
               unoptimized
+              onClick={() => setShowLightbox(true)}
             />
           </div>
         )}
@@ -208,6 +210,14 @@ function PostCardComponent({
           post={post}
           onClose={() => setShowDeleteModal(false)}
           onDeleted={(id) => onDelete?.(id)}
+        />
+      )}
+
+      {showLightbox && post.image_url && (
+        <Lightbox
+          src={mediaSrc(post.image_url)}
+          alt="Imagen de la publicación"
+          onClose={() => setShowLightbox(false)}
         />
       )}
     </>
