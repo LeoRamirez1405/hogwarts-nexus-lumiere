@@ -30,13 +30,13 @@
 | Métrica | Diagnóstico | Impacto |
 |---------|------------|---------|
 | **Seguridad** | ✅ Resuelto (Sprint 1): JWT en env, cookies httpOnly + refresh, proxy.ts, CSP | 🔴→✅ |
-| **Backend N+1 queries** | 6+ patrones identificados (posts, users, forum, etc.) | 🔴 Crítico |
+| **Backend N+1 queries** | 6+ patrones identificados (posts, users, forum, etc.) | 🔴→✅ (Sección 3 completa) |
 | **Manejo de errores** | ~95% de catch blocks están vacíos (`catch {}`) | 🔴 Crítico |
 | **Duplicación de código** | `MaterialIcon` redefinido en 10+ archivos | ⚠️ Alto |
 | **Estado global** | Sin React Query/SWR, todo es useState + fetch en useEffect | ⚠️ Alto |
 | **Accesibilidad** | Modales sin focus trap, TabGroup sin roles ARIA | ⚠️ Medio |
 | **CSS Bundle** | 387 líneas + Tailwind v4 + SVG filter pesado | ⚠️ Medio |
-| **Zerines economy** | Race condition en stock, sin rollback en compras secuenciales | 🔴 Crítico |
+| **Zerines economy** | Race condition en stock, sin rollback en compras secuenciales | 🔴→⚠️ (stock arreglado; rollback batch pendiente) |
 
 **Puntaje general de madurez: 5.0/10**
 
@@ -91,7 +91,9 @@ No existía `middleware.ts` en Next.js. La protección de rutas era 100% client-
 
 ## 3. Backend: Performance y Bugs
 
-### 🔴 3.1 N+1 Multimillonario en Posts
+> ✅ **COMPLETADO** el 2026-07-30. Todos los items 3.1–3.11 implementados y verificados con smoke test (backend completo: batch queries, lazy="raise", broadcast por INSERT..SELECT, update atómico de stock, cascadas manuales, índices y seeds gated). Detalle de implementación en cada item.
+
+### 🔴 3.1 N+1 Multimillonario en Posts — ✅ RESUELTO
 
 **Archivo:** `backend/app/routers/posts.py`
 
@@ -105,13 +107,9 @@ No existía `middleware.ts` en Next.js. La protección de rutas era 100% client-
 
 Con `limit=1000` (default), son **6000+ queries** en el peor caso.
 
-**Solución:** Usar `selectinload` + subquery expressions para counts:
-```python
-likes_count = select(func.count(PostLike.user_id)).where(PostLike.post_id == Post.id).correlate(Post).scalar_subquery()
-Post.likes_count = column_property(likes_count)
-```
+**Solución aplicada:** `_build_posts_response()` por página con **6 queries agregadas** (likes/reposts/comments con GROUP BY + liked/reposted_ids + editors), en vez de 6 queries por post. Default `limit` bajado 1000→50 (max 200). `list_user_feed` también batcheado y ordenado por `created_at`.
 
-### 🔴 3.2 N+1 en Users (11 relaciones selectin)
+### 🔴 3.2 N+1 en Users (11 relaciones selectin) — ✅ RESUELTO
 
 **Archivo:** `backend/app/models/user.py`
 
@@ -126,9 +124,9 @@ Cada vez que se serializa un `UserResponse` (login, `/auth/me`, listado de users
 | Listar 100 users | 100 + 1100 = 1200 | 2 (count + fetch) |
 | GET /users/:id | 1 + 11 + _enrich_user = ~17 | 2 |
 
-**Solución:** Cambiar a `lazy="raise"` y usar `selectinload()` explícito SOLO cuando se necesita. Esto elimina ~50% de los N+1 del backend.
+**Solución aplicada:** Las 11 relaciones cambiadas a `lazy="raise"`; ningún serializador accede ya a relaciones sin `selectinload`/queries explícitas. `_enrich_user` y `get_magic_level` migrados a queries agregadas (ver 3.4).
 
-### 🔴 3.3 N+1 en Forum Threads
+### 🔴 3.3 N+1 en Forum Threads — ✅ RESUELTO
 
 **Archivo:** `backend/app/routers/forum.py`
 
@@ -140,7 +138,9 @@ Cada vez que se serializa un `UserResponse` (login, `/auth/me`, listado de users
 
 Con `limit=1000`, son **4000+ queries**.
 
-### 🔴 3.4 `_enrich_user` + `get_magic_level` — Triple N+1
+**Solución aplicada:** `_build_threads_response()` por página con queries agregadas (vote sums, my votes, comment counts, subscriptions). Default `limit` 1000→50 (max 200). El DELETE de thread ahora limpia votes/comments/subscriptions antes de borrar (ver 3.9).
+
+### 🔴 3.4 `_enrich_user` + `get_magic_level` — Triple N+1 — ✅ RESUELTO
 
 **Archivos:** `routers/users.py`, `utils/magic_level.py`
 
@@ -148,7 +148,9 @@ Con `limit=1000`, son **4000+ queries**.
 
 `_enrich_user` llama a `get_magic_level` para CADA usuario en listados — agravando el problema.
 
-### 🔴 3.5 `resolve_mentions` Carga TODOS los Usuarios
+**Solución aplicada:** `magic_level.py` reescrito: `_batch_xp(db, user_ids)` calcula XP por usuario con ~5 queries GROUP BY (creatures, posts, articles, messages, purchases); `get_magic_level(db, user)` ahora async y nuevo `get_magic_levels(db, users)` para listados. `_enrich_users(db, users)` aplica el batch en `list_users`.
+
+### 🔴 3.5 `resolve_mentions` Carga TODOS los Usuarios — ✅ RESUELTO
 
 **Archivo:** `backend/app/notifications_service.py:185`
 ```python
@@ -157,28 +159,17 @@ users = await db.execute(select(User))
 
 Cada vez que alguien menciona `@Nombre` en un post/comentario, se carga la tabla completa de usuarios a memoria. Para 10,000 usuarios, son 10,000 filas cargadas.
 
-**Solución:** Usar una query filtrada:
-```python
-users = await db.execute(
-    select(User).where(User.name.ilike(f"%{name}%"))
-)
-```
+**Solución aplicada:** En vez de cargar la tabla completa, se consulta solo `User.name.ilike(f"{primera_palabra}%")` por cada mención (`or_` de cláusulas), evitando el `select(User)` completo.
 
-### 🔴 3.6 `notify_all_users` — Sin Escalar
+### 🔴 3.6 `notify_all_users` — Sin Escalar — ✅ RESUELTO
 
 **Archivo:** `backend/app/notifications_service.py:154`
 
 Cuando un admin crea un artículo o anuncio, se crean N filas `Notification` sincrónicamente (una por cada usuario). Con 10,000 usuarios, son 10,000 inserts en una sola request.
 
-**Solución:** Usar `INSERT INTO ... SELECT` en una sola query:
-```sql
-INSERT INTO notifications (user_id, type, title, body, related_id, actor_id)
-SELECT id, 'new_article', :title, :body, :article_id, :admin_id
-FROM users
-WHERE id != :admin_id
-```
+**Solución aplicada:** Un solo `INSERT INTO notifications ... SELECT` (id vía `gen_random_uuid()` en Postgres o `hex(randomblob(16))` en SQLite, `created_at` como valor bindeado), excluyendo al autor con `WHERE`. N notifications en 1 statement en vez de N round-trips.
 
-### 🔴 3.7 Race Condition en Stock de Productos
+### 🔴 3.7 Race Condition en Stock de Productos — ✅ RESUELTO
 
 **Archivo:** `backend/app/routers/products.py`
 
@@ -191,17 +182,9 @@ product.stock -= data.quantity  # ← Dos requests pueden pasar el check
 
 En PostgreSQL (no SQLite), dos requests concurrentes pueden pasar el `if stock >= quantity` antes de que cualquiera haga el decremento.
 
-**Solución:** Usar `SELECT ... FOR UPDATE` o atomic update:
-```python
-result = await db.execute(
-    update(Product)
-    .where(Product.id == product_id, Product.stock >= data.quantity)
-    .values(stock=Product.stock - data.quantity)
-    .returning(Product.stock)
-)
-```
+**Solución aplicada:** Update atómico con condición de stock: `update(Product).where(Product.id==id, Product.stock>=quantity).values(stock=Product.stock-quantity, weekly_sales=Product.weekly_sales+quantity)`; si `rowcount == 0` → HTTP 400 "Insufficient stock". Verificado con smoke test (oversell rechazado).
 
-### ⚠️ 3.8 Default Limits Excesivos
+### ⚠️ 3.8 Default Limits Excesivos — ✅ RESUELTO
 
 Múltiples endpoints usan `limit=1000` por defecto:
 
@@ -213,9 +196,9 @@ Múltiples endpoints usan `limit=1000` por defecto:
 | `GET /classifieds/` | 1000 | Sin paginación real |
 | `GET /products/my-purchases` | 1000 | + N+1 en UserProduct |
 
-**Solución:** Reducir defaults a 20-50, forzar paginación con cursor.
+**Solución aplicada:** Defaults reducidos a `50` con máximo `200` en todos los endpoints listados (posts, forum, announcements, classifieds, my-purchases) + `GET /messages/rooms`. El frontend siempre envía `limit` explícito, así que no hay impacto de contrato.
 
-### ⚠️ 3.9 Missing Cascades en Modelos
+### ⚠️ 3.9 Missing Cascades en Modelos — ✅ RESUELTO
 
 | Modelo | Problema |
 |--------|----------|
@@ -224,7 +207,9 @@ Múltiples endpoints usan `limit=1000` por defecto:
 | `ForumThread` | Sin cascade — borrar thread deja votes/comments huérfanos |
 | `Creature` | Sin cascade — borrar criatura deja UserCreatures huérfanos |
 
-### ⚠️ 3.10 Missing Indexes
+**Solución aplicada:** Borrados manuales previos en los routers (`delete()` de filas hijas antes del borrado padre): `_delete_user_relations` en users (limpia ~20 tablas relacionadas), Article → comments+subscriptions, ForumThread → votes/comments/subscriptions, Creature → UserCreatures. Verificado con smoke test y `PRAGMA foreign_keys=ON`.
+
+### ⚠️ 3.10 Missing Indexes — ✅ RESUELTO
 
 | Tabla | Columnas | Query Afectada |
 |-------|----------|---------------|
@@ -236,7 +221,9 @@ Múltiples endpoints usan `limit=1000` por defecto:
 | `user_creatures` | `creature_id` | FK join |
 | `user_creatures` | `for_sale` | Market queries |
 
-### ⚠️ 3.11 Seeds en Cada Startup
+**Solución aplicada:** Agregados a `_WANTED_INDEXES` en `backend/app/database.py` (creados en cada arranque vía `CREATE INDEX IF NOT EXISTS`): `users(house)`, `users(name)`, `products(shop, category)`, `notifications(user_id, read)`, `notifications(user_id, created_at)`, `user_creatures(creature_id)`, `user_creatures(for_sale)`.
+
+### ⚠️ 3.11 Seeds en Cada Startup — ✅ RESUELTO
 
 **Archivo:** `backend/app/main.py:24-27`
 
@@ -247,6 +234,8 @@ async def seed_data():
 ```
 
 Los seeds corren en CADA inicio del servidor, no solo en la primera vez. Usan `get_or_create` que es seguro pero agrega latencia innecesaria a cada startup.
+
+**Solución aplicada:** Los seeds pesados (`seed_data`) ahora corren solo en la primera ejecución, gateados por el FeatureFlag `system.initial_seed_done` en `backend/app/main.py`. Los backfills idempotentes y baratos (`seed_pet_supplies`, `seed_feature_flags`) siguen corriendo en cada arranque para que BDs legadas se actualicen.
 
 ---
 
@@ -658,13 +647,15 @@ const article = all.find(a => a.id === params.id);  // Find one client-side
 
 ### Sprint 2 — Backend N+1 Killer (Semana 2)
 
-| # | Acción | Esfuerzo | Impacto |
-|---|--------|----------|---------|
-| 1 | Cambiar User `lazy="selectin"` a `lazy="raise"` | 1 día | 🔴 Crítico |
-| 2 | Agregar column_property para likes_count, comments_count en Post | 1 día | 🔴 Crítico |
-| 3 | Agregar column_property para vote_sum, comment_count en ForumThread | 1 día | 🔴 Crítico |
-| 4 | Optimizar `_enrich_user` con consultas explícitas | 1 día | 🔴 Crítico |
-| 5 | Agregar índices compuestos faltantes | 2h | ⚠️ Alto |
+> ✅ **COMPLETADO** el 2026-07-30 junto con toda la sección 3 (3.1–3.11). Nota: en vez de `column_property`, los counts se resolvieron con funciones batch de agregación (una query GROUP BY por página), lo que evita duplicar lógica en los modelos.
+
+| # | Acción | Esfuerzo | Impacto | Estado |
+|---|--------|----------|---------|--------|
+| 1 | Cambiar User `lazy="selectin"` a `lazy="raise"` | 1 día | 🔴 Crítico | ✅ Hecho |
+| 2 | Optimizar posts (likes/comments counts) | 1 día | 🔴 Crítico | ✅ Hecho (batch aggregation) |
+| 3 | Optimizar forum (vote_sum, comment_count) | 1 día | 🔴 Crítico | ✅ Hecho (batch aggregation) |
+| 4 | Optimizar `_enrich_user` con consultas explícitas | 1 día | 🔴 Crítico | ✅ Hecho (`_batch_xp` + `get_magic_levels`) |
+| 5 | Agregar índices compuestos faltantes | 2h | ⚠️ Alto | ✅ Hecho |
 
 ### Sprint 3 — Error Handling + Feedback (Semana 3)
 
@@ -678,10 +669,10 @@ const article = all.find(a => a.id === params.id);  // Find one client-side
 
 ### Sprint 4 — Zerines Economy Hardening (Semana 4)
 
-| # | Acción | Esfuerzo | Impacto |
-|---|--------|----------|---------|
-| 1 | Agregar `SELECT ... FOR UPDATE` en compra de productos | 1 día | 🔴 Crítico |
-| 2 | Agregar confirmación en transferencias | 4h | 🔴 Crítico |
+| # | Acción | Esfuerzo | Impacto | Estado |
+|---|--------|----------|---------|--------|
+| 1 | Agregar `SELECT ... FOR UPDATE` en compra de productos | 1 día | 🔴 Crítico | ✅ Hecho (update atómico con condición de stock) |
+| 2 | Agregar confirmación en transferencias | 4h | 🔴 Crítico | ⬜ Pendiente |
 | 3 | Implementar rollback en compras secuenciales | 1 día | 🔴 Crítico |
 | 4 | Agregar integer validation en inputs de Zerines | 2h | ⚠️ Alto |
 | 5 | Implementar búsqueda server-side de usuarios (TransferTab, Groups) | 1 día | ⚠️ Alto |
@@ -770,16 +761,16 @@ const article = all.find(a => a.id === params.id);  // Find one client-side
 |---|---------|-------|-----|-----------|
 | 1 | `backend/config.py` | 21 | JWT_SECRET hardcodeado en source | ✅ Resuelto (env var + validación) |
 | 2 | `frontend/news/[id]/page.tsx` | 53 | Fetch ALL articles para mostrar 1 | 🔴 Crítico |
-| 3 | `backend/products.py` | 69-110 | Race condition en stock | 🔴 Crítico |
-| 4 | `backend/users.py` | 227 | Deleting User → FK violation (sin cascade) | 🔴 |
-| 5 | `backend/posts.py` | 91 | Default limit 1000 → 6000 queries | 🔴 |
-| 6 | `backend/notifications_service.py` | 154 | `notify_all_users` crea N rows en loop | ⚠️ |
-| 7 | `backend/notifications_service.py` | 185 | `resolve_mentions` carga todos los users | ⚠️ |
+| 3 | `backend/products.py` | 69-110 | Race condition en stock | ✅ Resuelto (update atómico + 400 si rowcount 0) |
+| 4 | `backend/users.py` | 227 | Deleting User → FK violation (sin cascade) | ✅ Resuelto (`_delete_user_relations` + verificado con FKs ON) |
+| 5 | `backend/posts.py` | 91 | Default limit 1000 → 6000 queries | ✅ Resuelto (batch + limit 50) |
+| 6 | `backend/notifications_service.py` | 154 | `notify_all_users` crea N rows en loop | ✅ Resuelto (INSERT..SELECT) |
+| 7 | `backend/notifications_service.py` | 185 | `resolve_mentions` carga todos los users | ✅ Resuelto (búsqueda filtrada por palabra) |
 | 8 | `Marketplace/BookCard.tsx` | ~35 | onError loop infinito | 🔴 |
 | 9 | `frontend/components/ui/Modal.tsx` | ~30 | Sin focus trap | ⚠️ |
 | 10 | `backend/models/article_subscription.py` | 35 | `Notification.read` es String ("true"/"false") no Boolean | ⚠️ |
-| 11 | `backend/forum.py` | 182-192 | Deleting ForumThread no cascades a votes/comments | ⚠️ |
-| 12 | `backend/main.py` | 24-27 | Seeds ejecutados en cada startup | ℹ️ |
+| 11 | `backend/forum.py` | 182-192 | Deleting ForumThread no cascades a votes/comments | ✅ Resuelto (delete manual previo) |
+| 12 | `backend/main.py` | 24-27 | Seeds ejecutados en cada startup | ✅ Resuelto (gate por FeatureFlag `system.initial_seed_done`) |
 | 13 | `frontend/app/page.tsx` | 10 | localStorage sin typeof window guard | ℹ️ |
 | 14 | `backend/dashboard.py` | 58-66 | Transacciones sin LIMIT en query | ⚠️ |
 | 15 | `backend/notifications.py` | 36-42 | `unread-count` usa fetch + len en vez de count() | ⚠️ |
@@ -798,10 +789,9 @@ const article = all.find(a => a.id === params.id);  // Find one client-side
 
 **Prioridades inmediatas:**
 1. ✅ ~~JWT_SECRET a env var + CSP headers~~ — **HECHO** (Sprint 1 completo: cookies httpOnly, refresh token, proxy.ts, CSP)
-2. 🔴 Fix article detail bug (usa `api.getArticle(id)`) (1 hora)
-3. 🔴 Reemplazar `catch {}` con toast + error logging en toda la app (1 día)
-4. 🔴 Race condition en stock de productos (1 día)
-5. 🔴 Cambiar User.lazy="selectin" a lazy="raise" (1 día)
+2. ✅ ~~Sección 3 backend: N+1, race condition stock, cascades, límites, índices, seeds~~ — **HECHO** el 2026-07-30 (3.1–3.11)
+3. 🔴 Fix article detail bug (usa `api.getArticle(id)`) (1 hora)
+4. 🔴 Reemplazar `catch {}` con toast + error logging en toda la app (1 día)
 
 **Prioridades semana 2-3:**
 6. Integrar React Query/SWR para cache
