@@ -10,30 +10,10 @@ import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
 import ListFooter from "@/components/ui/ListFooter";
+import { MaterialIcon } from "@/components/ui";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
-
-function MaterialIcon({
-  name,
-  className,
-  filled = false,
-}: {
-  name: string;
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <span
-      className={`material-symbols-outlined ${className ?? ""}`}
-      style={{
-        fontVariationSettings: filled
-          ? '"FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24'
-          : '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24',
-      }}
-    >
-      {name}
-    </span>
-  );
-}
+import { useDebounce } from "@/hooks/useDebounce";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 
 const RARITY_LABELS: Record<string, string> = {
   common: "Comun",
@@ -54,6 +34,7 @@ const RARITY_COLORS: Record<string, string> = {
 export default function AdminCreaturesPage() {
   const { user } = useAuthStore();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [editCreature, setEditCreature] = useState<Creature | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [form, setForm] = useState({
@@ -75,7 +56,7 @@ export default function AdminCreaturesPage() {
   useEffect(() => {
     api.getEnumCategoryByCode("pet_type").then((cat) => {
       if (cat) setPetTypes(cat.values);
-    }).catch(() => {});
+    }).catch((e) => toastError("No se pudo cargar los tipos de mascota", e));
   }, []);
 
   const {
@@ -91,13 +72,14 @@ export default function AdminCreaturesPage() {
     fetcher: (p) => api.getCreatures(p),
     pageSize: 12,
     enabled: user?.role === "admin",
+    queryKey: ["admin-creatures"],
   });
 
   const filtered = allItems.filter(
     (c) =>
       !search ||
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.rarity.toLowerCase().includes(search.toLowerCase())
+      c.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      c.rarity.toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
   const visibleCreatures = filtered;
@@ -156,7 +138,13 @@ export default function AdminCreaturesPage() {
       refresh();
       setEditCreature(null);
       setIsNew(false);
-    } catch {}
+      toastSuccess(isNew ? "Criatura creada" : "Criatura actualizada");
+    } catch (e) {
+      toastError(
+        isNew ? "No se pudo crear la criatura" : "No se pudo actualizar la criatura",
+        e
+      );
+    }
     setSaving(false);
   };
 
@@ -167,7 +155,10 @@ export default function AdminCreaturesPage() {
     try {
       const result = await api.uploadFile(file);
       setForm((p) => ({ ...p, image_url: result.url }));
-    } catch {}
+      toastSuccess("Imagen subida");
+    } catch (e) {
+      toastError("No se pudo subir la imagen", e);
+    }
     setUploadingImage(false);
     e.target.value = "";
   };

@@ -1,0 +1,164 @@
+"use client";
+
+import { memo, useEffect, useState } from "react";
+import Link from "next/link";
+import { api, PostComment, User } from "@/lib/api";
+import { Avatar, MaterialIcon } from "@/components/ui";
+import { toastError } from "@/lib/toastStore";
+
+const EMOJIS = [
+  "😀","😂","😍","🥳","😎","🤩","💀","👻","🔥","✨",
+  "❤️","💎","⚡","🌟","🎉","🎊","🦋","🐱","🦉","🏰",
+  "🪄","📜","🧪","⚗️","🔮","🗝️","🧣","📚","🍲","🪄",
+];
+
+function initialsOf(name?: string): string {
+  return (name ?? "")
+    .split(" ")
+    .map((n) => n[0])
+    .join("");
+}
+
+interface CommentSectionProps {
+  postId: string;
+  currentUser?: User;
+  onLoadedCount?: (count: number) => void;
+}
+
+/** Expandible comment thread + composer for a single post. Loads comments on
+ * mount (it only mounts once the user expands the section). */
+export const CommentSection = memo(function CommentSection({
+  postId,
+  currentUser,
+  onLoadedCount,
+}: CommentSectionProps) {
+  const [comments, setComments] = useState<PostComment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getComments(postId)
+      .then((data) => {
+        if (cancelled) return;
+        setComments(data);
+        onLoadedCount?.(data.length);
+      })
+      .catch((e) => {
+        if (!cancelled) toastError("No se pudieron cargar los comentarios", e);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [postId, onLoadedCount]);
+
+  const handleComment = async () => {
+    const text = commentText.trim();
+    if (!text || sending) return;
+    setSending(true);
+    try {
+      const created = await api.addComment(postId, text);
+      setComments((prev) => [...prev, created]);
+      onLoadedCount?.(comments.length + 1);
+      setCommentText("");
+    } catch (e) {
+      toastError("No se pudo enviar el comentario", e);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const insertEmoji = (emoji: string) => {
+    setCommentText((prev) => prev + emoji);
+    setShowEmojiPicker(false);
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-outline-variant/20 space-y-3">
+      {loading && (
+        <p className="text-label-sm text-on-surface-variant">
+          Cargando comentarios...
+        </p>
+      )}
+      {!loading && comments.length === 0 && (
+        <p className="text-label-sm text-on-surface-variant/70">
+          Aun no hay comentarios. Se el primero.
+        </p>
+      )}
+      {comments.map((c) => (
+        <Link
+          key={c.id}
+          href={`/profile/${c.user_id}`}
+          className="flex items-start gap-2 group"
+        >
+          <Avatar
+            size="sm"
+            src={c.author?.avatar_url}
+            alt={c.author?.name}
+            initials={initialsOf(c.author?.name)}
+            className="w-7! h-7!"
+          />
+          <div className="flex-1 bg-surface-container-low rounded-xl px-3 py-2">
+            <p className="text-label-sm font-semibold text-on-surface group-hover:text-primary transition-colors">
+              {c.author?.name ?? "Usuario"}
+            </p>
+            <p className="text-body-md text-on-surface">{c.body}</p>
+          </div>
+        </Link>
+      ))}
+      <div className="flex items-start gap-2 relative">
+        <Avatar
+          size="sm"
+          src={currentUser?.avatar_url}
+          alt={currentUser?.name}
+          initials={initialsOf(currentUser?.name) || "?"}
+          className="w-7! h-7!"
+        />
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleComment()}
+            placeholder="Escribe un comentario..."
+            className="w-full bg-surface-container-low rounded-xl px-3 py-2 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-outline-variant/20 focus:border-primary/40 transition-colors pr-10"
+          />
+          <button
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
+            aria-label="Insertar emoji"
+          >
+            <MaterialIcon name="mood" className="text-lg" />
+          </button>
+          {showEmojiPicker && (
+            <div className="absolute bottom-full right-0 mb-2 bg-surface-container-highest rounded-xl shadow-xl p-3 grid grid-cols-5 gap-1 z-20 w-64">
+              {EMOJIS.map((e) => (
+                <button
+                  key={e}
+                  onClick={() => insertEmoji(e)}
+                  className="p-1.5 rounded-lg hover:bg-surface-container-high text-lg transition-colors"
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={handleComment}
+          disabled={!commentText.trim() || sending}
+          className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-30 transition-opacity"
+          aria-label="Enviar comentario"
+        >
+          <MaterialIcon name="send" className="text-lg" />
+        </button>
+      </div>
+    </div>
+  );
+});

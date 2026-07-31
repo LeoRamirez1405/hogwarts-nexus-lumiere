@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import { User } from "@/lib/api";
 import { Avatar } from "@/components/ui";
@@ -10,7 +11,11 @@ interface FriendsGridProps {
   onShowAll?: () => void;
 }
 
-export function FriendsGrid({ friends, showAll = false, onShowAll }: FriendsGridProps) {
+export const FriendsGrid = memo(function FriendsGrid({
+  friends,
+  showAll = false,
+  onShowAll,
+}: FriendsGridProps) {
   const displayFriends = showAll ? friends : friends.slice(0, 6);
 
   return (
@@ -46,4 +51,4 @@ export function FriendsGrid({ friends, showAll = false, onShowAll }: FriendsGrid
       )}
     </div>
   );
-}
+});

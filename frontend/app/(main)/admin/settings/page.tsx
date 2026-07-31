@@ -13,30 +13,10 @@ import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
 import Switch from "@/components/ui/Switch";
 import ListFooter from "@/components/ui/ListFooter";
+import { MaterialIcon } from "@/components/ui";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
-
-function MaterialIcon({
-  name,
-  className,
-  filled = false,
-}: {
-  name: string;
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <span
-      className={`material-symbols-outlined ${className ?? ""}`}
-      style={{
-        fontVariationSettings: filled
-          ? '"FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24'
-          : '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24',
-      }}
-    >
-      {name}
-    </span>
-  );
-}
+import { useDebounce } from "@/hooks/useDebounce";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 
 const CATEGORY_ICONS: Record<string, string> = {
   pet_type: "pets",
@@ -51,6 +31,7 @@ export default function AdminSettingsPage() {
   const { user } = useAuthStore();
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const setFlagInStore = useFeatureFlagStore((s) => s.setFlag);
 
   const {
@@ -69,6 +50,7 @@ export default function AdminSettingsPage() {
     },
     pageSize: 10,
     enabled: true,
+    queryKey: ["admin-enum-categories"],
   });
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
 
@@ -81,7 +63,7 @@ export default function AdminSettingsPage() {
     api
       .getFeatureFlags()
       .then(({ items }) => setFlags(items))
-      .catch(() => {})
+      .catch((e) => toastError("No se pudo cargar las secciones", e))
       .finally(() => setFlagsLoading(false));
   }, []);
 
@@ -95,7 +77,10 @@ export default function AdminSettingsPage() {
         prev.map((f) => (f.key === flag.key ? updated : f))
       );
       setFlagInStore(updated);
-    } catch {}
+      toastSuccess(updated.enabled ? "Sección activada" : "Sección desactivada");
+    } catch (e) {
+      toastError("No se pudo actualizar la visibilidad de la sección", e);
+    }
     setFlagUpdating(null);
   };
 
@@ -118,8 +103,8 @@ export default function AdminSettingsPage() {
   const [savingValue, setSavingValue] = useState(false);
 
   const filteredCategories = allItems.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.code.toLowerCase().includes(search.toLowerCase())
+    c.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    c.code.toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
   // Derive the effectively active category id: prefer user selection, fallback to first
@@ -163,7 +148,13 @@ export default function AdminSettingsPage() {
       }
       setEditCategory(null);
       setIsNewCategory(false);
-    } catch {}
+      toastSuccess(isNewCategory ? "Categoría creada" : "Categoría actualizada");
+    } catch (e) {
+      toastError(
+        isNewCategory ? "No se pudo crear la categoría" : "No se pudo actualizar la categoría",
+        e
+      );
+    }
     setSavingCategory(false);
   };
 
@@ -200,7 +191,13 @@ export default function AdminSettingsPage() {
       }
       setEditValue(null);
       setIsNewValue(false);
-    } catch {}
+      toastSuccess(isNewValue ? "Valor creado" : "Valor actualizado");
+    } catch (e) {
+      toastError(
+        isNewValue ? "No se pudo crear el valor" : "No se pudo actualizar el valor",
+        e
+      );
+    }
     setSavingValue(false);
   };
 
@@ -209,7 +206,10 @@ export default function AdminSettingsPage() {
     try {
       await api.deleteEnumValue(valueId);
       refresh();
-    } catch {}
+      toastSuccess("Valor eliminado");
+    } catch (e) {
+      toastError("No se pudo eliminar el valor", e);
+    }
   };
 
   const isSystemCategory = (code: string) => SYSTEM_CATEGORIES.includes(code);

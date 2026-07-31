@@ -23,6 +23,7 @@ export function AnnouncementsTab() {
     fetcher: (p) => api.getAnnouncements(p),
     pageSize: 10,
     enabled: true,
+    queryKey: ["admin-announcements"],
   });
 
   const visibleAnnouncements = allAnnouncements;

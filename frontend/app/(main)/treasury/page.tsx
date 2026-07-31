@@ -7,6 +7,7 @@ import { useFeatureFlag } from "@/lib/featureFlagStore";
 import GlassCard from "@/components/ui/GlassCard";
 import TabGroup from "@/components/ui/TabGroup";
 import { CrystalHero, DepositTab, WithdrawTab, TransferTab, HistoryTab } from "@/components/domain/Treasury";
+import { toastError } from "@/lib/toastStore";
 
 export default function TreasuryPage() {
   const { user, setUser } = useAuthStore();
@@ -38,7 +39,7 @@ export default function TreasuryPage() {
         setBalance(me.zerines);
         setUser(me);
       })
-      .catch(() => {})
+      .catch((e) => toastError("No se pudo actualizar tu tesoro", e))
       .finally(() => {
         if (mountedRef.current) setLoading(false);
       });
@@ -55,8 +56,8 @@ export default function TreasuryPage() {
           setBalance(me.zerines);
           setUser(me);
         }
-      } catch {
-        // ignore
+      } catch (e) {
+        if (!cancelled) toastError("No se pudo cargar tu tesoro", e);
       } finally {
         if (!cancelled) setLoading(false);
       }

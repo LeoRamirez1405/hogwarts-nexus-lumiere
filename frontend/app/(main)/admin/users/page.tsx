@@ -9,36 +9,17 @@ import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
 import ListFooter from "@/components/ui/ListFooter";
+import { MaterialIcon } from "@/components/ui";
+import { useDebounce } from "@/hooks/useDebounce";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
-
-function MaterialIcon({
-  name,
-  className,
-  filled = false,
-}: {
-  name: string;
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <span
-      className={`material-symbols-outlined ${className ?? ""}`}
-      style={{
-        fontVariationSettings: filled
-          ? '"FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24'
-          : '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24',
-      }}
-    >
-      {name}
-    </span>
-  );
-}
+import { toastError, toastSuccess } from "@/lib/toastStore";
 
 const HOUSES = ["Gryffindor", "Slytherin", "Ravenclaw", "Hufflepuff"];
 
 export default function AdminUsersPage() {
   const { user } = useAuthStore();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [editName, setEditName] = useState("");
   const [editRole, setEditRole] = useState<"admin" | "user">("user");
@@ -81,12 +62,13 @@ const {
     fetcher: (p) => api.getUsers(p),
     pageSize: 12,
     enabled: user?.role === "admin",
+    queryKey: ["admin-users"],
   });
 
   const filtered = allItems.filter(
     (u) =>
-      (u.name.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase())) &&
+      (u.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        u.email.toLowerCase().includes(debouncedSearch.toLowerCase())) &&
       (!houseFilter || u.house === houseFilter)
   );
 
@@ -103,7 +85,10 @@ const {
       });
       refresh();
       setEditUser(null);
-    } catch {}
+      toastSuccess("Usuario actualizado");
+    } catch (e) {
+      toastError("No se pudo actualizar el usuario", e);
+    }
     setSaving(false);
   };
 
@@ -112,7 +97,10 @@ const {
     try {
       await api.deleteUser(id);
       refresh();
-    } catch {}
+      toastSuccess("Usuario eliminado");
+    } catch (e) {
+      toastError("No se pudo eliminar el usuario", e);
+    }
   };
 
   const handleCreate = async () => {

@@ -5,30 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
-import { GlassCard, Button } from "@/components/ui";
-
-function MaterialIcon({
-  name,
-  className,
-  filled = false,
-}: {
-  name: string;
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <span
-      className={`material-symbols-outlined ${className ?? ""}`}
-      style={{
-        fontVariationSettings: filled
-          ? '"FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24'
-          : '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24',
-      }}
-    >
-      {name}
-    </span>
-  );
-}
+import { GlassCard, Button, MaterialIcon } from "@/components/ui";
 
 type ReportType = "bug" | "suggestion";
 

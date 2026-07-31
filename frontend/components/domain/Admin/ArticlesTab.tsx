@@ -5,6 +5,8 @@ import Image from "next/image";
 import { api, Article, EnumValue } from "@/lib/api";
 import { GlassCard, Button, Badge, SearchBar, Modal, MaterialIcon, ListFooter } from "@/components/ui";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
+import { useDebounce } from "@/hooks/useDebounce";
+import { toastError } from "@/lib/toastStore";
 
 interface ArticlesTabProps {
   search: string;
@@ -27,10 +29,11 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [articleCategories, setArticleCategories] = useState<EnumValue[]>([]);
+  const debouncedSearch = useDebounce(search, 300);
   useEffect(() => {
     api.getEnumCategoryByCode("article_category").then((cat) => {
       if (cat) setArticleCategories(cat.values);
-    }).catch(() => {});
+    }).catch((e) => toastError("No se pudo cargar las categorías", e));
   }, []);
 
   const {
@@ -46,13 +49,14 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
     fetcher: (p) => api.getArticles({ offset: String(p.skip), limit: String(p.limit) }),
     pageSize: 10,
     enabled: true,
+    queryKey: ["admin-articles"],
   });
 
   const filtered = allArticles.filter(
     (a) =>
-      !search ||
-      a.title.toLowerCase().includes(search.toLowerCase()) ||
-      a.category.toLowerCase().includes(search.toLowerCase()),
+      !debouncedSearch ||
+      a.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      a.category.toLowerCase().includes(debouncedSearch.toLowerCase()),
   );
 
   const visibleArticles = filtered;

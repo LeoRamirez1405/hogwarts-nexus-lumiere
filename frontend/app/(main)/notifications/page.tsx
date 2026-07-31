@@ -12,6 +12,7 @@ import {
 import { GlassCard, MaterialIcon } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
 import { useNotificationStore } from "@/lib/notificationStore";
+import { Virtuoso } from "react-virtuoso";
 
 function timeAgo(dateStr: string): string {
   const d = new Date(dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr + "Z");
@@ -143,8 +144,9 @@ export default function NotificationsPage() {
           </p>
         </GlassCard>
       ) : (
-        <div className="space-y-2">
-          {visible.map((n) => {
+        <Virtuoso
+          data={visible}
+          itemContent={(index, n: Notification) => {
             const meta = notificationMeta(n.type);
             return (
               <div
@@ -155,7 +157,10 @@ export default function NotificationsPage() {
                     : "bg-primary/5 border-primary/20"
                 }`}
               >
-                <button onClick={() => handleClick(n)} className="flex items-start gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity">
+                <button
+                  onClick={() => handleClick(n)}
+                  className="flex items-start gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+                >
                   <div className={`w-10 h-10 rounded-full inline-flex items-center justify-center flex-shrink-0 ${meta.chip}`}>
                     <MaterialIcon name={meta.icon} className="text-lg" filled={!n.read} />
                   </div>
@@ -183,8 +188,8 @@ export default function NotificationsPage() {
                 )}
               </div>
             );
-          })}
-        </div>
+          }}
+        />
       )}
     </div>
   );

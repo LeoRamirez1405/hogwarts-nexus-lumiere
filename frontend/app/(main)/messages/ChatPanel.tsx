@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui";
 import { MaterialIcon, getInitials, STICKER_PACKS, computeOnlineStatus, isOnline } from "./helpers";
 import { MessageBubble } from "./MessageRenderers";
 import PollCreator from "./PollCreator";
+import { Virtuoso } from "react-virtuoso";
 
 async function blobToWav(blob: Blob): Promise<Blob> {
   const audioCtx = new AudioContext();
@@ -874,31 +875,40 @@ export default function ChatPanel({
                   Inicio de la conversacion
                 </p>
               )}
-              {messages.map((msg) => (
-                <div key={msg.id}>
-                  {firstUnreadId && msg.id === firstUnreadId && (
-                    <div ref={dividerRef} className="flex items-center gap-2 my-3">
-                      <div className="flex-1 h-px bg-primary/30" />
-                      <span className="text-label-sm font-medium text-primary bg-primary/10 px-3 py-0.5 rounded-full whitespace-nowrap">
-                        {unreadCount && unreadCount > 0
-                          ? `${unreadCount} mensaje${unreadCount !== 1 ? "s" : ""} no leido${unreadCount !== 1 ? "s" : ""}`
-                          : "No leidos"}
-                      </span>
-                      <div className="flex-1 h-px bg-primary/30" />
-                    </div>
-                  )}
-                  <MessageBubble
-                    message={msg}
-                    isOwn={msg.sender_id === user?.id}
-                    onReply={(m) => setReplyingTo(m)}
-                    onReactionChange={onRefresh}
-                    onScrollToMessage={scrollToMessage}
-                    onTogglePin={onTogglePin}
-                    members={isRoom ? roomMembers : undefined}
-                  />
-                </div>
-              ))}
+              <Virtuoso
+                data={messages}
+                itemContent={(index, msg: Message) => (
+                  <div key={msg.id}>
+                    {firstUnreadId && msg.id === firstUnreadId && (
+                      <div ref={dividerRef} className="flex items-center gap-2 my-3">
+                        <div className="flex-1 h-px bg-primary/30" />
+                        <span className="text-label-sm font-medium text-primary bg-primary/10 px-3 py-0.5 rounded-full whitespace-nowrap">
+                          {unreadCount && unreadCount > 0
+                            ? `${unreadCount} mensaje${unreadCount !== 1 ? "s" : ""} no leido${unreadCount !== 1 ? "s" : ""}`
+                            : "No leidos"}
+                        </span>
+                        <div className="flex-1 h-px bg-primary/30" />
+                      </div>
+                    )}
+                    <MessageBubble
+                      message={msg}
+                      isOwn={msg.sender_id === user?.id}
+                      onReply={(m) => setReplyingTo(m)}
+                      onReactionChange={onRefresh}
+                      onScrollToMessage={scrollToMessage}
+                      onTogglePin={onTogglePin}
+                      members={isRoom ? roomMembers : undefined}
+                    />
+                  </div>
+                )}
+                style={{ height: "100%" }}
+              />
               <div ref={messagesEndRef} />
+              {!hasMore && (
+                <p className="text-center text-label-sm text-on-surface-variant/50 py-2">
+                  Inicio de la conversacion
+                </p>
+              )}
             </>
           )}
         </div>

@@ -41,6 +41,7 @@ export default function BorginBurkesPage() {
       api.getProducts("borgin", p, activeFilter === "Todos" ? undefined : activeFilter),
     pageSize: 12,
     enabled: true,
+    queryKey: ["shop-products", "borgin"],
     resetKey: activeFilter,
   });
 
@@ -56,6 +57,7 @@ export default function BorginBurkesPage() {
     fetcher: (p) => api.getMyPurchases(p),
     pageSize: 9,
     enabled: true,
+    queryKey: ["my-purchases"],
   });
 
   const BORGIN_FILTERS = ["Todos", ...borginCategories.map((c) => c.label)];

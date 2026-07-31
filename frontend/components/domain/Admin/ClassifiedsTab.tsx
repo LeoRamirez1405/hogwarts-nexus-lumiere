@@ -23,6 +23,7 @@ export function ClassifiedsTab() {
     fetcher: (p) => api.getClassifieds(p),
     pageSize: 10,
     enabled: true,
+    queryKey: ["admin-classifieds"],
   });
 
   const visibleClassifieds = allClassifieds;

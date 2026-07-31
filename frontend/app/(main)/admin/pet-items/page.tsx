@@ -10,30 +10,10 @@ import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
 import ListFooter from "@/components/ui/ListFooter";
+import { MaterialIcon } from "@/components/ui";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
-
-function MaterialIcon({
-  name,
-  className,
-  filled = false,
-}: {
-  name: string;
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <span
-      className={`material-symbols-outlined ${className ?? ""}`}
-      style={{
-        fontVariationSettings: filled
-          ? '"FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24'
-          : '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24',
-      }}
-    >
-      {name}
-    </span>
-  );
-}
+import { useDebounce } from "@/hooks/useDebounce";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 
 const KIND_LABELS: Record<PetItemKind, string> = {
   food: "Comida",
@@ -45,6 +25,7 @@ type Filter = "all" | PetItemKind;
 export default function AdminPetItemsPage() {
   const { user } = useAuthStore();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [filter, setFilter] = useState<Filter>("all");
   const [editItem, setEditItem] = useState<PetItem | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -75,14 +56,15 @@ export default function AdminPetItemsPage() {
     fetcher: (p) => api.getPetItems({ kind: filter === "all" ? undefined : filter }, p),
     pageSize: 12,
     enabled: user?.role === "admin",
+    queryKey: ["admin-pet-items"],
     resetKey: filter,
   });
 
   const filtered = allItems.filter(
     (it) =>
       !search ||
-      it.name.toLowerCase().includes(search.toLowerCase()) ||
-      it.pet_type.toLowerCase().includes(search.toLowerCase()),
+      it.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      it.pet_type.toLowerCase().includes(debouncedSearch.toLowerCase()),
   );
 
   const visibleItems = filtered;
@@ -138,7 +120,13 @@ export default function AdminPetItemsPage() {
       await refresh();
       setEditItem(null);
       setIsNew(false);
-    } catch {}
+      toastSuccess(isNew ? "Objeto creado" : "Objeto actualizado");
+    } catch (e) {
+      toastError(
+        isNew ? "No se pudo crear el objeto" : "No se pudo guardar el objeto",
+        e
+      );
+    }
     setSaving(false);
   };
 
@@ -149,7 +137,10 @@ export default function AdminPetItemsPage() {
     try {
       const result = await api.uploadFile(file);
       setForm((p) => ({ ...p, image_url: result.url }));
-    } catch {}
+      toastSuccess("Imagen subida");
+    } catch (e) {
+      toastError("No se pudo subir la imagen", e);
+    }
     setUploadingImage(false);
     e.target.value = "";
   };
@@ -159,7 +150,10 @@ export default function AdminPetItemsPage() {
     try {
       await api.deletePetItem(id);
       await refresh();
-    } catch {}
+      toastSuccess("Objeto eliminado");
+    } catch (e) {
+      toastError("No se pudo eliminar el objeto", e);
+    }
   };
 
   if (user?.role !== "admin") return null;

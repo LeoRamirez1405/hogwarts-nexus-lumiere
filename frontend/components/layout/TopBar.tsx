@@ -9,6 +9,7 @@ import { Notification } from "@/lib/api";
 import { useNotificationStore } from "@/lib/notificationStore";
 import { notificationMeta, autoClearedByPath } from "@/lib/notificationMeta";
 import Avatar from "@/components/ui/Avatar";
+import { MaterialIcon } from "@/components/ui";
 
 interface TopBarProps {
   onMenuToggle?: () => void;
@@ -28,29 +29,6 @@ const desktopNavItems: DesktopNavItem[] = [
   { label: "Mercado", href: "/marketplace/flourish-blotts" },
   { label: "Mascotas", href: "/pets" },
 ];
-
-function MaterialIcon({
-  name,
-  className,
-  filled = false,
-}: {
-  name: string;
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <span
-      className={`material-symbols-outlined ${className ?? ""}`}
-      style={{
-        fontVariationSettings: filled
-          ? '"FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24'
-          : '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24',
-      }}
-    >
-      {name}
-    </span>
-  );
-}
 
 export default function TopBar({ onMenuToggle }: TopBarProps) {
   const pathname = usePathname();

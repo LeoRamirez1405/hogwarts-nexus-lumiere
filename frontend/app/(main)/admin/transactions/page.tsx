@@ -8,30 +8,9 @@ import GlassCard from "@/components/ui/GlassCard";
 import SearchBar from "@/components/ui/SearchBar";
 import Avatar from "@/components/ui/Avatar";
 import ListFooter from "@/components/ui/ListFooter";
+import { MaterialIcon } from "@/components/ui";
+import { useDebounce } from "@/hooks/useDebounce";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
-
-function MaterialIcon({
-  name,
-  className,
-  filled = false,
-}: {
-  name: string;
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <span
-      className={`material-symbols-outlined ${className ?? ""}`}
-      style={{
-        fontVariationSettings: filled
-          ? '"FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24'
-          : '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24',
-      }}
-    >
-      {name}
-    </span>
-  );
-}
 
 function formatAmount(amount: number) {
   return amount.toLocaleString();
@@ -112,6 +91,7 @@ export default function AdminTransactionsPage() {
   const { user } = useAuthStore();
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [filter, setFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"user" | "admin">("admin");
 
@@ -133,6 +113,7 @@ export default function AdminTransactionsPage() {
     fetcher: (p) => api.getTransactions(p, filter === "all" ? undefined : filter),
     pageSize: 15,
     enabled: true,
+    queryKey: ["admin-transactions-user"],
     resetKey: filter,
   });
 
@@ -148,6 +129,7 @@ export default function AdminTransactionsPage() {
     fetcher: (p) => api.getAllTransactionsAdmin(p, filter === "all" ? undefined : filter),
     pageSize: 15,
     enabled: user?.role === "admin",
+    queryKey: ["admin-transactions-all"],
     resetKey: filter,
   });
 
@@ -155,10 +137,10 @@ export default function AdminTransactionsPage() {
     const actorName = getActorName(tx);
     return (
       !search ||
-      tx.description?.toLowerCase().includes(search.toLowerCase()) ||
-      actorName.toLowerCase().includes(search.toLowerCase()) ||
-      tx.sender?.email?.toLowerCase().includes(search.toLowerCase()) ||
-      tx.receiver?.email?.toLowerCase().includes(search.toLowerCase())
+      tx.description?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      actorName.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      tx.sender?.email?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      tx.receiver?.email?.toLowerCase().includes(debouncedSearch.toLowerCase())
     );
   };
 

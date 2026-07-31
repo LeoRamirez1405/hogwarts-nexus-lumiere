@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/authStore";
 import { User } from "@/lib/api";
 import Avatar from "@/components/ui/Avatar";
+import { MaterialIcon } from "@/components/ui";
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -51,29 +52,6 @@ const adminNavItems: NavItem[] = [
   },
   { icon: "settings", label: "Configuración", href: "/admin/settings" },
 ];
-
-function MaterialIcon({
-  name,
-  className,
-  filled = false,
-}: {
-  name: string;
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <span
-      className={`material-symbols-outlined ${className ?? ""}`}
-      style={{
-        fontVariationSettings: filled
-          ? '"FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24'
-          : '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24',
-      }}
-    >
-      {name}
-    </span>
-  );
-}
 
 function NavLink({
   item,

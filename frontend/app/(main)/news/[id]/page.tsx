@@ -5,8 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { api, Article, ArticleComment } from "@/lib/api";
-import { GlassCard, Badge, Button, Avatar } from "@/components/ui";
+import { GlassCard, Badge, Button, Avatar, MaterialIcon } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("es-ES", {
@@ -43,39 +44,45 @@ export default function ArticleDetailPage() {
   const [comments, setComments] = useState<ArticleComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [posting, setPosting] = useState(false);
-  const [liked, setLiked] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
 
   useEffect(() => {
     if (!params.id) return;
     let cancelled = false;
-    Promise.all([api.getArticles()])
-      .then(([page]) => {
+    (async () => {
+      setLoading(true);
+      try {
+        const found = await api.getArticle(params.id);
         if (cancelled) return;
-        const all = page.items;
-        const found = all.find((a) => a.id === params.id);
-        if (!found) {
-          router.push("/news");
-          return;
-        }
         setArticle(found);
         setSubscribed(found.subscribed ?? false);
-        setRelated(
-          all.filter((a) => a.id !== found.id && a.category === found.category).slice(0, 3)
-        );
-        api.getArticleComments(found.id)
-          .then((cs) => {
-            if (!cancelled) setComments(cs);
-          })
-          .catch(() => {});
-      })
-      .catch(() => {
-        if (!cancelled) router.push("/news");
-      })
-      .finally(() => {
+        try {
+          const [cs, relatedPage] = await Promise.all([
+            api.getArticleComments(found.id),
+            api.getArticles({
+              category: found.category ?? "",
+              limit: "4",
+              offset: "0",
+            }),
+          ]);
+          if (cancelled) return;
+          setComments(cs);
+          setRelated(
+            relatedPage.items.filter((a) => a.id !== found.id).slice(0, 3)
+          );
+        } catch (e) {
+          if (!cancelled) toastError("No se pudieron cargar los comentarios", e);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          toastError("No se pudo abrir el articulo", e);
+          router.push("/news");
+        }
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -87,13 +94,15 @@ export default function ArticleDetailPage() {
     try {
       if (subscribed) {
         await api.unsubscribeArticle(article.id);
+        toastSuccess("Guardado eliminado");
       } else {
         await api.subscribeArticle(article.id);
+        toastSuccess("Guardado en tu Quisquilloso");
       }
       setSubscribed((v) => !v);
-      setArticle((a) => a ? { ...a, subscribed: !a.subscribed } : null);
-    } catch {
-      // error
+      setArticle((a) => (a ? { ...a, subscribed: !a.subscribed } : null));
+    } catch (e) {
+      toastError("No se pudo cambiar la suscripcion", e);
     } finally {
       setSubscribing(false);
     }
@@ -106,8 +115,8 @@ export default function ArticleDetailPage() {
       const created = await api.createArticleComment(article.id, newComment.trim());
       setComments((prev) => [created, ...prev]);
       setNewComment("");
-    } catch {
-      // error
+    } catch (e) {
+      toastError("No se pudo enviar tu carta", e);
     } finally {
       setPosting(false);
     }
@@ -116,9 +125,10 @@ export default function ArticleDetailPage() {
   if (loading || !article) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
-        <span className="material-symbols-outlined text-5xl text-outline-variant animate-spin mb-3">
-          progress_activity
-        </span>
+        <MaterialIcon
+          name="progress_activity"
+          className="text-5xl text-outline-variant animate-spin mb-3"
+        />
         <p className="text-on-surface-variant text-body-md">
           Abriendo edicion...
         </p>
@@ -133,7 +143,7 @@ export default function ArticleDetailPage() {
         onClick={() => router.push("/news")}
         className="inline-flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors"
       >
-        <span className="material-symbols-outlined text-xl">arrow_back</span>
+        <MaterialIcon name="arrow_back" className="text-xl" />
         <span className="text-body-md">Volver al Quisquilloso</span>
       </button>
 
@@ -212,29 +222,14 @@ export default function ArticleDetailPage() {
         <div className="flex items-center justify-between mt-8 pt-6 border-t border-outline-variant/20">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setLiked((v) => !v)}
-              className="w-10 h-10 inline-flex items-center justify-center rounded-full bg-surface-container-high hover:bg-secondary-container text-on-surface-variant hover:text-on-secondary-container transition-colors"
-              aria-label="Me gusta"
-            >
-              <span
-                className="material-symbols-outlined text-xl"
-                style={{
-                  fontVariationSettings: liked
-                    ? '"FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24'
-                    : '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24',
-                }}
-              >
-                favorite
-              </span>
-            </button>
-            <button
               onClick={() => {
                 navigator.clipboard?.writeText(window.location.href);
               }}
               className="w-10 h-10 inline-flex items-center justify-center rounded-full bg-surface-container-high hover:bg-primary-container text-on-surface-variant hover:text-on-primary-container transition-colors"
               aria-label="Compartir"
+              title="Copiar enlace"
             >
-              <span className="material-symbols-outlined text-xl">share</span>
+              <MaterialIcon name="share" className="text-xl" />
             </button>
           </div>
           <div className="flex items-center gap-2">
@@ -265,15 +260,7 @@ export default function ArticleDetailPage() {
       {/* Comments */}
       <section className="max-w-3xl mx-auto">
         <h2 className="font-display text-headline-lg text-on-surface mb-4 flex items-center gap-2">
-          <span
-            className="material-symbols-outlined text-secondary"
-            style={{
-              fontVariationSettings:
-                '"FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24',
-            }}
-          >
-            comment
-          </span>
+          <MaterialIcon name="comment" className="text-secondary" filled />
           Cartas al Director ({comments.length})
         </h2>
 
@@ -351,15 +338,7 @@ export default function ArticleDetailPage() {
       {related.length > 0 && (
         <section className="max-w-4xl mx-auto">
           <h2 className="font-display text-headline-lg text-on-surface mb-4 flex items-center gap-2">
-            <span
-              className="material-symbols-outlined text-primary"
-              style={{
-                fontVariationSettings:
-                  '"FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24',
-              }}
-            >
-              auto_stories
-            </span>
+            <MaterialIcon name="auto_stories" className="text-primary" filled />
             Mas de {article.category}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

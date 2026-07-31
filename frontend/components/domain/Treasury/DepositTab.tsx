@@ -14,13 +14,13 @@ export function DepositTab({ onDone }: DepositTabProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const parsed = parseFloat(amount) || 0;
-  const invalidAmount = !amount || parsed <= 0;
+  const parsed = parseInt(amount, 10) || 0;
+  const invalidAmount = !amount || parsed <= 0 || !Number.isInteger(parsed);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const parsed = parseFloat(amount);
-    if (!parsed || parsed <= 0) {
+    const parsed = parseInt(amount, 10);
+    if (!parsed || parsed <= 0 || !Number.isInteger(parsed)) {
       setError("Ingrese una cantidad valida");
       return;
     }
@@ -54,7 +54,7 @@ export function DepositTab({ onDone }: DepositTabProps) {
           <input
             type="number"
             min="1"
-            step="any"
+            step="1"
             placeholder="0"
             value={amount}
             onChange={(e) => {

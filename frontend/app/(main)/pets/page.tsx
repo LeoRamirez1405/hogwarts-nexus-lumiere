@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useFeatureFlag } from "@/lib/featureFlagStore";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 import { TabGroup, LevelUpCelebration, Modal, Button } from "@/components/ui";
 import type { LevelUpEvent } from "@/components/ui/LevelUpCelebration";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
@@ -95,7 +96,9 @@ export default function PetsPage() {
       try {
         const s = await api.getSanctuaryStats();
         applyStats(s, celebrate);
-      } catch {}
+      } catch (e) {
+        toastError("No se pudo actualizar las estadísticas del santuario", e);
+      }
     },
     [applyStats]
   );
@@ -120,11 +123,13 @@ export default function PetsPage() {
         applyStats(s, false);
         setMarket(mk);
       })
-      .catch(() => {})
+      .catch((e) => toastError("No se pudo cargar la menajería", e))
       .finally(() => setLoading(false));
-    api.getEnumCategoryByCode("pet_type").then((cat) => {
-      if (cat) setPetTypeValues(cat.values);
-    }).catch(() => {});
+    api.getEnumCategoryByCode("pet_type")
+      .then((cat) => {
+        if (cat) setPetTypeValues(cat.values);
+      })
+      .catch((e) => toastError("No se pudieron cargar los tipos de mascota", e));
   }, [applyStats, showMarket]);
 
   const validActiveTab =
@@ -134,7 +139,9 @@ export default function PetsPage() {
     try {
       const me = await api.getMe();
       setUser(me);
-    } catch {}
+    } catch (e) {
+      toastError("No se pudo actualizar tu perfil", e);
+    }
   };
 
   // Detect a pet level-up from an updated UserCreature and celebrate it.
@@ -168,7 +175,9 @@ export default function PetsPage() {
       await refreshStats();
       setAdoptModal(null);
       setAdoptPetName("");
-    } catch {
+      toastSuccess(`${petName ?? adopted.creature?.name ?? "Tu mascota"} te acompaña ahora`);
+    } catch (e) {
+      toastError("No se pudo adoptar la criatura", e);
     } finally {
       setAdopting(null);
     }
@@ -192,7 +201,9 @@ export default function PetsPage() {
       });
       await refreshUser();
       await refreshStats();
-    } catch {
+      toastSuccess(`${item.name} añadido a tu inventario`);
+    } catch (e) {
+      toastError("No se pudo comprar el item", e);
     } finally {
       setBuying(null);
     }
@@ -202,6 +213,8 @@ export default function PetsPage() {
     if (!item.pet_item) return;
     const mode = item.pet_item.kind === "food" ? "feed" : "play";
     setUsing(item.id);
+    const prevCreatures = myCreatures;
+    const prevInventory = inventory;
     try {
       const updated =
         mode === "feed"
@@ -218,7 +231,10 @@ export default function PetsPage() {
       );
       setPicker(null);
       await refreshStats();
-    } catch {
+    } catch (e) {
+      setMyCreatures(prevCreatures);
+      setInventory(prevInventory);
+      toastError("No se pudo usar el item", e);
     } finally {
       setUsing(null);
     }
@@ -226,20 +242,29 @@ export default function PetsPage() {
 
   const handleListForSale = async (ucId: string) => {
     const price = parseInt(sellPrice) || 0;
-    if (price <= 0) return;
+    if (price <= 0) {
+      toastError("Ingresa un precio valido para vender");
+      return;
+    }
     try {
       const updated = await api.listCreatureForSale(ucId, price);
       setMyCreatures((prev) => prev.map((c) => (c.id === ucId ? updated : c)));
       setSellFor(null);
       setSellPrice("");
-    } catch {}
+      toastSuccess("Tu mascota esta a la venta en el mercado");
+    } catch (e) {
+      toastError("No se pudo publicar la mascota en el mercado", e);
+    }
   };
 
   const handleUnlist = async (ucId: string) => {
     try {
       const updated = await api.unlistCreature(ucId);
       setMyCreatures((prev) => prev.map((c) => (c.id === ucId ? updated : c)));
-    } catch {}
+      toastSuccess("Tu mascota ya no esta a la venta");
+    } catch (e) {
+      toastError("No se pudo quitar la mascota del mercado", e);
+    }
   };
 
   const handleBuyMarket = async (m: MarketCreature) => {
@@ -251,7 +276,9 @@ export default function PetsPage() {
       setMarket((prev) => prev.filter((x) => x.id !== m.id));
       await refreshUser();
       await refreshStats();
-    } catch {
+      toastSuccess(`${bought.creature?.name ?? "La mascota"} ahora es tuya`);
+    } catch (e) {
+      toastError("No se pudo comprar la mascota", e);
     } finally {
       setBuyingPet(null);
     }

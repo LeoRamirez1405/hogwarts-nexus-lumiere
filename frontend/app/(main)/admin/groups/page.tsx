@@ -11,31 +11,10 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import ListFooter from "@/components/ui/ListFooter";
+import { MaterialIcon } from "@/components/ui";
 import Image from "next/image";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
-
-function MaterialIcon({
-  name,
-  className,
-  filled = false,
-}: {
-  name: string;
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <span
-      className={`material-symbols-outlined ${className ?? ""}`}
-      style={{
-        fontVariationSettings: filled
-          ? '"FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24'
-          : '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24',
-      }}
-    >
-      {name}
-    </span>
-  );
-}
+import { useDebounce } from "@/hooks/useDebounce";
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("es-ES", {
@@ -64,6 +43,7 @@ export default function AdminGroupsPage() {
   const { user } = useAuthStore();
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState<string | null>(null);
   const [showMembers, setShowMembers] = useState<string | null>(null);
@@ -78,6 +58,7 @@ export default function AdminGroupsPage() {
   });
   const [editRoom, setEditRoom] = useState<ChatRoomBrief | null>(null);
   const [memberSearch, setMemberSearch] = useState("");
+  const debouncedMemberSearch = useDebounce(memberSearch, 300);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -101,6 +82,7 @@ export default function AdminGroupsPage() {
     fetcher: (p) => api.getRooms(user?.role === "admin" ? true : undefined, p),
     pageSize: 10,
     enabled: user?.role === "admin",
+    queryKey: ["admin-rooms"],
   });
 
   useEffect(() => {
@@ -254,16 +236,16 @@ export default function AdminGroupsPage() {
 
   const filteredRooms = allRooms.filter(
     (r) =>
-      r.name.toLowerCase().includes(search.toLowerCase()) ||
-      r.description?.toLowerCase().includes(search.toLowerCase())
+      r.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      r.description?.toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
   const visibleRooms = filteredRooms;
 
   const filteredUsers = allUsers.filter(
     (u) =>
-      u.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
-      u.email.toLowerCase().includes(memberSearch.toLowerCase())
+      u.name.toLowerCase().includes(debouncedMemberSearch.toLowerCase()) ||
+      u.email.toLowerCase().includes(debouncedMemberSearch.toLowerCase())
   );
 
   const availableUsers = filteredUsers.filter(

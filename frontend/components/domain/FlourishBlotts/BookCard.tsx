@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import Image from "next/image";
 import { Product } from "@/lib/api";
 import { getFallbackForProduct } from "@/lib/fallbacks";
@@ -12,22 +12,30 @@ interface BookCardProps {
   onAddToCart: (product: Product) => void;
 }
 
-export function BookCard({ product, onAddToCart }: BookCardProps) {
+export const BookCard = memo(function BookCard({
+  product,
+  onAddToCart,
+}: BookCardProps) {
   const theme = useTheme();
-  const [imageError, setImageError] = useState(false);
+  const fallbackSrc = getFallbackForProduct("flourish", theme);
+  const [src, setSrc] = useState<string>(() => product.image_url || fallbackSrc);
 
-  const fallbackSrc = getFallbackForProduct('flourish', theme);
+  // Safe fallback: on error, swap src to the bundled placeholder and stop.
+  // Never toggles a boolean in state, so there is no onError render loop.
+  const handleImageError = () => {
+    if (src !== fallbackSrc) setSrc(fallbackSrc);
+  };
 
   return (
     <div className="glass-card rounded-3xl p-6 group cursor-pointer hover:-translate-y-2 transition-all duration-300">
       <div className="relative h-64 rounded-2xl overflow-hidden mb-4">
         <Image
-          src={product.image_url || fallbackSrc}
+          src={src}
           alt={product.name}
           fill
           className="object-cover group-hover:scale-105 transition-transform duration-500"
-          unoptimized={product.image_url?.startsWith("http://localhost:8000/uploads/") || product.image_url?.startsWith("/fallbacks/")}
-          onError={() => !imageError && setImageError(true)}
+          unoptimized={src.startsWith("http://localhost:8000/uploads/") || src.startsWith("/fallbacks/")}
+          onError={handleImageError}
         />
         <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-primary font-bold text-label-sm shadow-sm">
           {product.category}
@@ -50,4 +58,4 @@ export function BookCard({ product, onAddToCart }: BookCardProps) {
       </div>
     </div>
   );
-}
+});

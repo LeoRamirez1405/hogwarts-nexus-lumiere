@@ -5,9 +5,10 @@ import Image from "next/image";
 import { api, Product, EnumValue } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
-import { SearchBar, MaterialIcon, TabGroup, ListFooter } from "@/components/ui";
+import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary } from "@/components/ui";
 import { BookCard, HeroCarousel, CartSidebar, SuccessModal } from "@/components/domain/FlourishBlotts";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
 
@@ -42,6 +43,7 @@ export default function FlourishBlottsPage() {
       api.getProducts("flourish", p, activeFilter === "Todos" ? undefined : activeFilter),
     pageSize: 12,
     enabled: true,
+    queryKey: ["shop-products", "flourish"],
     resetKey: activeFilter,
   });
 
@@ -57,6 +59,7 @@ export default function FlourishBlottsPage() {
     fetcher: (p) => api.getMyPurchases(p),
     pageSize: 9,
     enabled: true,
+    queryKey: ["my-purchases"],
   });
 
   // Compute display slides with duplicates for infinite loop
@@ -79,9 +82,11 @@ export default function FlourishBlottsPage() {
   }, [allShopItems]);
 
   useEffect(() => {
-    api.getEnumCategoryByCode("book_category").then((cat) => {
-      if (cat) setBookCategories(cat.values);
-    }).catch(() => {});
+    api.getEnumCategoryByCode("book_category")
+      .then((cat) => {
+        if (cat) setBookCategories(cat.values);
+      })
+      .catch((e) => toastError("No se pudieron cargar las categorías", e));
   }, []);
 
   const nextSlide = () => {
@@ -130,8 +135,10 @@ export default function FlourishBlottsPage() {
       // Refresh user balance
       const updatedUser = await api.getMe();
       setUser(updatedUser);
+      toastSuccess("Compra realizada con éxito");
     } catch (err: unknown) {
       console.error(err);
+      toastError("No se pudo completar la compra", err);
     } finally {
       setSubmitting(false);
     }
@@ -267,6 +274,7 @@ export default function FlourishBlottsPage() {
 
           {/* Catalog Grid */}
           <div ref={catalogRef} className="max-w-7xl mx-auto">
+            <ErrorBoundary>
             {booksLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {[1, 2, 3].map((i) => (
@@ -310,6 +318,7 @@ export default function FlourishBlottsPage() {
               />
               </>
             )}
+            </ErrorBoundary>
           </div>
         </>
       )}
@@ -317,6 +326,7 @@ export default function FlourishBlottsPage() {
       {/* ===== MI BIBLIOTECA ===== */}
       {activeTab === "library" && (
         <div className="max-w-7xl mx-auto">
+          <ErrorBoundary>
           {purchasesLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
@@ -420,6 +430,7 @@ export default function FlourishBlottsPage() {
               />
             </>
           )}
+          </ErrorBoundary>
         </div>
       )}
 

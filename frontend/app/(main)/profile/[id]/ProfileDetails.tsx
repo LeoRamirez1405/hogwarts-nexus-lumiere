@@ -2,31 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { api, User, HousePoints } from "@/lib/api";
-import { GlassCard, ProgressBar } from "@/components/ui";
+import { GlassCard, ProgressBar, MaterialIcon } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
-
-function MaterialIcon({
-  name,
-  className,
-  filled = false,
-}: {
-  name: string;
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <span
-      className={`material-symbols-outlined ${className ?? ""}`}
-      style={{
-        fontVariationSettings: filled
-          ? '"FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24'
-          : '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24',
-      }}
-    >
-      {name}
-    </span>
-  );
-}
 
 function InlineEditable({
   icon,

@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { EB_Garamond, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
+import { QueryProvider } from "@/components/providers/QueryProvider";
+import { ToastViewport } from "@/components/ui/ToastViewport";
 import "./globals.css";
 
 const ebGaramond = EB_Garamond({
@@ -55,7 +57,10 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,300,0,0;24,400,1,0&display=swap"
         />
       </head>
-      <body className="min-h-full flex flex-col antialiased">{children}</body>
+      <body className="min-h-full flex flex-col antialiased">
+        <QueryProvider>{children}</QueryProvider>
+        <ToastViewport />
+      </body>
     </html>
   );
 }

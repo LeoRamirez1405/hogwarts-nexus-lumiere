@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { MaterialIcon } from "@/components/ui";
 
 interface StatsCardsProps {
@@ -9,7 +10,12 @@ interface StatsCardsProps {
   memberSince: string;
 }
 
-export function StatsCards({ postsCount, friendsCount, zerines, memberSince }: StatsCardsProps) {
+export const StatsCards = memo(function StatsCards({
+  postsCount,
+  friendsCount,
+  zerines,
+  memberSince,
+}: StatsCardsProps) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <div className="glass-card rounded-2xl p-4 text-center">
@@ -34,4 +40,4 @@ export function StatsCards({ postsCount, friendsCount, zerines, memberSince }: S
       </div>
     </div>
   );
-}
+});

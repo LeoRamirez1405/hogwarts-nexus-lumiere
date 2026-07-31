@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { useAuthStore } from "@/lib/authStore";
-import { api, User, Post } from "@/lib/api";
+import { api, Post } from "@/lib/api";
 import {
   ProfileHeader,
   PostCard,
@@ -18,6 +20,7 @@ import { MaterialIcon, GlassCard, Avatar, Button, ListFooter } from "@/component
 import ProfileDetails from "./ProfileDetails";
 import { useImageUpload } from "@/hooks/useFileUpload";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 
 export default function ProfilePage() {
   const params = useParams();
@@ -25,15 +28,13 @@ export default function ProfilePage() {
   const { user: authUser } = useAuthStore();
   const profileId = (params?.id as string) ?? authUser?.id ?? "";
 
-  const [profile, setProfile] = useState<User | null>(null);
-  const [friends, setFriends] = useState<User[]>([]);
   const [postText, setPostText] = useState("");
   const [posting, setPosting] = useState(false);
   const [postImageUrl, setPostImageUrl] = useState("");
   const [showEdit, setShowEdit] = useState(false);
   const [shareTarget, setShareTarget] = useState<Post | null>(null);
   const [showAllFriends, setShowAllFriends] = useState(false);
-  const [frStatus, setFrStatus] = useState<"none" | "pending_sent" | "pending_received" | "accepted" | "rejected">("none");
+  const [frStatus, setFrStatus] = useState<null | "none" | "pending_sent" | "pending_received" | "accepted" | "rejected">(null);
   const [currentFrId, setCurrentFrId] = useState<string | null>(null);
   const [frLoading, setFrLoading] = useState(false);
 
@@ -50,87 +51,114 @@ export default function ProfilePage() {
     totalLoaded: postsTotal,
     totalCount: postsTotalCount,
     loadMore: loadMorePosts,
-    refresh: refreshPosts,
   } = usePaginatedList({
     fetcher: (p) => api.getProfileFeed(profileId, p),
     pageSize: 8,
     enabled: !!profileId,
+    queryKey: ["profile-feed", profileId],
   });
 
   const visiblePosts = allPosts;
 
+  const {
+    data: profile,
+    refetch: refetchProfile,
+    isError: profileError,
+  } = useQuery({
+    queryKey: ["profile", profileId],
+    queryFn: () => api.getUser(profileId),
+    enabled: !!profileId,
+  });
+
+  const { data: friends = [] } = useQuery({
+    queryKey: ["friends", profileId],
+    queryFn: () => api.getFriends(profileId),
+    enabled: !!profileId,
+  });
+
+  const { data: friendRequests = [] } = useQuery({
+    queryKey: ["friend-requests"],
+    queryFn: () => api.getFriendRequests(),
+    enabled: !!authUser && authUser.id !== profileId,
+  });
+
   const isOwn = authUser?.id === profileId;
 
-  const reloadProfile = useCallback(async () => {
-    if (!profileId) return;
-    try {
-      const u = await api.getUser(profileId);
-      setProfile(u);
-    } catch {}
-  }, [profileId]);
-
   useEffect(() => {
-    if (!profileId) return;
-    let cancelled = false;
-    Promise.all([
-      api.getUser(profileId),
-      api.getFriends(profileId),
-      api.getFriendRequests(),
-    ])
-      .then(([u, friendUsers, frs]) => {
-        if (cancelled) return;
-        setProfile(u);
-        setFriends(friendUsers);
-        if (authUser && authUser.id !== profileId) {
-          const existing = frs.find(
-            (fr) =>
-              (fr.sender_id === authUser.id && fr.receiver_id === profileId) ||
-              (fr.sender_id === profileId && fr.receiver_id === authUser.id)
-          );
-          if (existing) {
-            setCurrentFrId(existing.id);
-            if (existing.status === "accepted") setFrStatus("accepted");
-            else if (existing.status === "rejected") setFrStatus("rejected");
-            else if (existing.sender_id === authUser.id) setFrStatus("pending_sent");
-            else setFrStatus("pending_received");
-          }
-        }
-      })
-      .catch(() => {
-        if (!cancelled) router.push("/dashboard");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [profileId, router, authUser]);
+    if (profileError) router.push("/dashboard");
+  }, [profileError, router]);
 
-  const handleLike = useCallback(async (postId: string) => {
-    try {
-      await api.likePost(postId);
-      refreshPosts();
-    } catch {}
-  }, [refreshPosts]);
+  // Derive friend-request state from the query result during render.
+  // Local state (frStatus/currentFrId) only overrides after a user action;
+  // "no override yet" is represented by null.
+  const existingFr = useMemo(() => {
+    if (!authUser || authUser.id === profileId) return null;
+    return (
+      friendRequests.find(
+        (fr) =>
+          (fr.sender_id === authUser.id && fr.receiver_id === profileId) ||
+          (fr.sender_id === profileId && fr.receiver_id === authUser.id)
+      ) ?? null
+    );
+  }, [friendRequests, authUser, profileId]);
 
-  const handleRepost = useCallback(async (postId: string) => {
-    try {
-      await api.repostPost(postId);
-      refreshPosts();
-    } catch {}
-  }, [refreshPosts]);
+  const derivedFrStatus: "none" | "pending_sent" | "pending_received" | "accepted" | "rejected" =
+    !existingFr
+      ? "none"
+      : existingFr.status === "accepted"
+        ? "accepted"
+        : existingFr.status === "rejected"
+          ? "rejected"
+          : existingFr.sender_id === authUser?.id
+            ? "pending_sent"
+            : "pending_received";
 
-  const handleEditPost = useCallback(async () => {
-    refreshPosts();
-  }, [refreshPosts]);
+  const effectiveFrStatus = frStatus ?? derivedFrStatus;
+  const effectiveFrId = currentFrId ?? existingFr?.id ?? null;
 
-  const handleDeletePost = useCallback(async (postId: string) => {
-    try {
-      await api.deletePost(postId);
-      refreshPosts();
-    } catch (err) {
-      console.error("Error deleting post:", err);
-      throw err;
-    }
-  }, [refreshPosts]);
+  const handleLike = useCallback(
+    async (postId: string) => {
+      try {
+        await api.likePost(postId);
+        queryClient.invalidateQueries({ queryKey: ["profile-feed", profileId] });
+      } catch (e) {
+        toastError("No se pudo dar like", e);
+      }
+    },
+    [profileId]
+  );
+
+  const handleRepost = useCallback(
+    async (postId: string) => {
+      try {
+        await api.repostPost(postId);
+        queryClient.invalidateQueries({ queryKey: ["profile-feed", profileId] });
+      } catch (e) {
+        toastError("No se pudo repostear", e);
+      }
+    },
+    [profileId]
+  );
+
+  const handleEditPost = useCallback(
+    async () => {
+      queryClient.invalidateQueries({ queryKey: ["profile-feed", profileId] });
+    },
+    [profileId]
+  );
+
+  const handleDeletePost = useCallback(
+    async (postId: string) => {
+      try {
+        await api.deletePost(postId);
+        queryClient.invalidateQueries({ queryKey: ["profile-feed", profileId] });
+      } catch (err) {
+        console.error("Error deleting post:", err);
+        throw err;
+      }
+    },
+    [profileId]
+  );
 
   const handleCreatePost = async () => {
     if (!postText.trim() || posting) return;
@@ -140,11 +168,14 @@ export default function ProfilePage() {
         body: postText.trim(),
         image_url: postImageUrl || undefined,
       });
-      refreshPosts();
+      await queryClient.invalidateQueries({ queryKey: ["profile-feed", profileId] });
       setPostText("");
       setPostImageUrl("");
-    } catch {}
-    setPosting(false);
+    } catch (e) {
+      toastError("No se pudo publicar", e);
+    } finally {
+      setPosting(false);
+    }
   };
 
   function formatDateShort(dateStr: string): string {
@@ -160,8 +191,9 @@ export default function ProfilePage() {
     setShowEdit(true);
   };
 
-  const handleSaveProfile = async (updated: User) => {
-    setProfile(updated);
+  const handleSaveProfile = (updated: typeof profile) => {
+    if (!updated) return;
+    queryClient.setQueryData(["profile", profileId], updated);
     const { setUser } = useAuthStore.getState();
     setUser(updated);
     setShowEdit(false);
@@ -174,40 +206,56 @@ export default function ProfilePage() {
       const fr = await api.sendFriendRequest(profile.id);
       setCurrentFrId(fr.id);
       setFrStatus("pending_sent");
-    } catch {}
-    setFrLoading(false);
+    } catch (e) {
+      toastError("No se pudo enviar la solicitud", e);
+    } finally {
+      setFrLoading(false);
+    }
   };
 
   const handleAcceptFriendRequest = async () => {
-    if (!currentFrId) return;
+    if (!effectiveFrId) return;
     setFrLoading(true);
     try {
-      await api.acceptFriendRequest(currentFrId);
+      await api.acceptFriendRequest(effectiveFrId);
       setFrStatus("accepted");
-    } catch {}
-    setFrLoading(false);
+      queryClient.invalidateQueries({ queryKey: ["friends", profileId] });
+      toastSuccess("Solicitud aceptada");
+    } catch (e) {
+      toastError("No se pudo aceptar la solicitud", e);
+    } finally {
+      setFrLoading(false);
+    }
   };
 
   const handleRejectFriendRequest = async () => {
-    if (!currentFrId) return;
+    if (!effectiveFrId) return;
     setFrLoading(true);
     try {
-      await api.rejectFriendRequest(currentFrId);
+      await api.rejectFriendRequest(effectiveFrId);
       setFrStatus("rejected");
       setCurrentFrId(null);
-    } catch {}
-    setFrLoading(false);
+      queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
+    } catch (e) {
+      toastError("No se pudo rechazar la solicitud", e);
+    } finally {
+      setFrLoading(false);
+    }
   };
 
   const handleCancelFriendRequest = async () => {
-    if (!currentFrId) return;
+    if (!effectiveFrId) return;
     setFrLoading(true);
     try {
-      await api.cancelFriendRequest(currentFrId);
+      await api.cancelFriendRequest(effectiveFrId);
       setFrStatus("none");
       setCurrentFrId(null);
-    } catch {}
-    setFrLoading(false);
+      queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
+    } catch (e) {
+      toastError("No se pudo cancelar la solicitud", e);
+    } finally {
+      setFrLoading(false);
+    }
   };
 
   if (postsLoading && !profile) {
@@ -231,7 +279,7 @@ export default function ProfilePage() {
         onFriendAction={
           !isOwn
             ? {
-                status: frStatus,
+                status: effectiveFrStatus,
                 loading: frLoading,
                 onSend: handleSendFriendRequest,
                 onAccept: handleAcceptFriendRequest,
@@ -253,7 +301,7 @@ export default function ProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column */}
         <div className="space-y-6 lg:col-span-1">
-          <ProfileDetails profile={profile} isOwn={isOwn} onUpdate={reloadProfile} />
+          <ProfileDetails profile={profile} isOwn={isOwn} onUpdate={refetchProfile} />
 
           <FriendsGrid friends={friends} onShowAll={() => setShowAllFriends(true)} />
 
@@ -381,13 +429,15 @@ export default function ProfilePage() {
       )}
 
       {/* Edit Profile Modal */}
-      <EditProfileModal
-        profile={profile!}
-        authUser={authUser!}
-        isOpen={showEdit}
-        onClose={() => setShowEdit(false)}
-        onSave={handleSaveProfile}
-      />
+      {showEdit && profile && authUser && (
+        <EditProfileModal
+          profile={profile}
+          authUser={authUser}
+          isOpen={showEdit}
+          onClose={() => setShowEdit(false)}
+          onSave={handleSaveProfile}
+        />
+      )}
     </div>
   );
 }

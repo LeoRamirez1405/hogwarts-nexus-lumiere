@@ -54,6 +54,7 @@ export default function NewsPage() {
     fetcher: (p) => api.getArticles({ offset: String(p.skip), limit: String(p.limit) }),
     pageSize: 9,
     enabled: true,
+    queryKey: ["news-articles"],
   });
 
   // Featured articles paginated list (Destacadas) — own lazy loading
@@ -71,6 +72,7 @@ export default function NewsPage() {
       api.getArticles({ offset: String(p.skip), limit: String(p.limit), featured_only: "true" }),
     pageSize: 9,
     enabled: filter === "featured",
+    queryKey: ["news-featured"],
   });
 
   // Announcements
@@ -81,6 +83,7 @@ export default function NewsPage() {
     fetcher: (p) => api.getAnnouncements(p),
     pageSize: 20,
     enabled: true,
+    queryKey: ["news-announcements"],
   });
 
   // Classifieds
@@ -91,6 +94,7 @@ export default function NewsPage() {
     fetcher: (p) => api.getClassifieds(p),
     pageSize: 20,
     enabled: true,
+    queryKey: ["news-classifieds"],
   });
 
   // Saved articles (subscribed)
@@ -107,6 +111,7 @@ export default function NewsPage() {
     fetcher: (p) => api.getArticles({ skip: String(p.skip), limit: String(p.limit), subscribed: "true" }),
     pageSize: 9,
     enabled: activeTab === "saved",
+    queryKey: ["news-saved"],
   });
 
   const handleVote = useCallback(

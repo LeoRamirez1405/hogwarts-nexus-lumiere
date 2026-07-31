@@ -11,35 +11,16 @@ import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
 import ListFooter from "@/components/ui/ListFooter";
+import { MaterialIcon } from "@/components/ui";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
-
-function MaterialIcon({
-  name,
-  className,
-  filled = false,
-}: {
-  name: string;
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <span
-      className={`material-symbols-outlined ${className ?? ""}`}
-      style={{
-        fontVariationSettings: filled
-          ? '"FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24'
-          : '"FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24',
-      }}
-    >
-      {name}
-    </span>
-  );
-}
+import { useDebounce } from "@/hooks/useDebounce";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 
 export default function AdminProductsPage() {
   const { user } = useAuthStore();
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [filter, setFilter] = useState<"all" | "borgin" | "flourish">("all");
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -71,6 +52,7 @@ export default function AdminProductsPage() {
     fetcher: (p) => api.getProducts(filter === "all" ? undefined : filter, p),
     pageSize: 12,
     enabled: user?.role === "admin",
+    queryKey: ["admin-products"],
     resetKey: filter,
   });
 
@@ -81,17 +63,17 @@ export default function AdminProductsPage() {
     }
     api.getEnumCategoryByCode("borgin_category").then((c) => {
       if (c) setBorginCategories(c.values);
-    }).catch(() => {});
+    }).catch((e) => toastError("No se pudieron cargar las categorías de Borgin & Burkes", e));
     api.getEnumCategoryByCode("book_category").then((c) => {
       if (c) setFlourishCategories(c.values);
-    }).catch(() => {});
+    }).catch((e) => toastError("No se pudieron cargar las categorías de libros", e));
   }, [user, router]);
 
   const filtered = allItems.filter(
     (p) =>
       !search ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.category.toLowerCase().includes(search.toLowerCase()),
+      p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      p.category.toLowerCase().includes(debouncedSearch.toLowerCase()),
   );
 
   const visibleProducts = filtered;
@@ -144,7 +126,13 @@ export default function AdminProductsPage() {
       refresh();
       setEditProduct(null);
       setIsNew(false);
-    } catch {}
+      toastSuccess(isNew ? "Producto creado" : "Producto actualizado");
+    } catch (e) {
+      toastError(
+        isNew ? "No se pudo crear el producto" : "No se pudo guardar el producto",
+        e
+      );
+    }
     setSaving(false);
   };
 
@@ -155,7 +143,10 @@ export default function AdminProductsPage() {
     try {
       const result = await api.uploadFile(file);
       setForm((p) => ({ ...p, image_url: result.url }));
-    } catch {}
+      toastSuccess("Imagen subida");
+    } catch (e) {
+      toastError("No se pudo subir la imagen", e);
+    }
     setUploadingImage(false);
     e.target.value = "";
   };
@@ -165,7 +156,10 @@ export default function AdminProductsPage() {
     try {
       await api.deleteProduct(id);
       refresh();
-    } catch {}
+      toastSuccess("Producto eliminado");
+    } catch (e) {
+      toastError("No se pudo eliminar el producto", e);
+    }
   };
 
   if (user?.role !== "admin") return null;

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { api, Notification } from "./api";
+import { toastError } from "./toastStore";
 
 interface NotificationState {
   notifications: Notification[];
@@ -30,8 +31,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     try {
       const notifications = await api.getNotifications();
       set({ notifications, loaded: true });
-    } catch {
-      /* keep previous state on failure */
+    } catch (e) {
+      toastError("No se pudieron cargar las notificaciones", e);
     } finally {
       set({ loading: false });
     }
@@ -47,8 +48,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
     try {
       await api.markNotificationsRead([id]);
-    } catch {
+    } catch (e) {
       /* optimistic update stays; next load() reconciles */
+      toastError("No se pudo marcar la notificación como leída", e);
     }
   },
 
@@ -58,8 +60,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     set({ notifications: notifications.map((n) => ({ ...n, read: true })) });
     try {
       await api.markAllNotificationsRead();
-    } catch {
+    } catch (e) {
       /* optimistic update stays; next load() reconciles */
+      toastError("No se pudo marcar todo como leído", e);
     }
   },
 
@@ -77,8 +80,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
     try {
       await api.markNotificationsRead(matchIds);
-    } catch {
+    } catch (e) {
       /* optimistic update stays; next load() reconciles */
+      console.error("No se pudo marcar notificaciones como leídas", e);
     }
   },
 }));

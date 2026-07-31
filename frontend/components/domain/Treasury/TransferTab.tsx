@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, User } from "@/lib/api";
 import { Button, SearchBar, MaterialIcon } from "@/components/ui";
+import { toastError } from "@/lib/toastStore";
 
 interface TransferTabProps {
   balance: number;
@@ -16,12 +17,13 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const queryRef = useRef("");
 
-  const parsed = parseFloat(amount) || 0;
-  const invalidAmount = !amount || parsed <= 0;
+  const parsed = parseInt(amount, 10) || 0;
+  const invalidAmount = !amount || parsed <= 0 || !Number.isInteger(parsed);
   const insufficient = parsed > balance;
 
   useEffect(() => {
@@ -45,8 +47,11 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
             )
           );
         })
-        .catch(() => {
-          if (queryRef.current === query) setResults([]);
+        .catch((e) => {
+          if (queryRef.current === query) {
+            setResults([]);
+            toastError("No se pudo buscar usuarios", e);
+          }
         })
         .finally(() => {
           if (queryRef.current === query) setSearching(false);
@@ -61,7 +66,7 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
       setError("Selecciona un destinatario");
       return;
     }
-    if (!parsed || parsed <= 0) {
+    if (!parsed || parsed <= 0 || !Number.isInteger(parsed)) {
       setError("Ingrese una cantidad valida");
       return;
     }
@@ -77,6 +82,11 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
       setError("La descripcion no puede exceder 500 caracteres");
       return;
     }
+    if (!confirming) {
+      setError(null);
+      setConfirming(true);
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -86,6 +96,7 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
       setQuery("");
       setSelected(null);
       setResults([]);
+      setConfirming(false);
       onDone();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error desconocido");
@@ -167,12 +178,13 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
           <input
             type="number"
             min="1"
-            step="any"
+            step="1"
             placeholder="0"
             value={amount}
             onChange={(e) => {
               setAmount(e.target.value);
               setError(null);
+              setConfirming(false);
             }}
             className="w-48 bg-transparent outline-none text-center font-display text-5xl text-on-surface placeholder:text-outline-variant/40 border-b-2 border-outline-variant/30 focus:border-primary transition-colors"
           />
@@ -224,15 +236,45 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
       )}
 
       <div className="text-center">
-        <Button
-          type="submit"
-          variant="crystal"
-          size="lg"
-          icon="send"
-          disabled={submitting || invalidAmount || !selected || insufficient || !description.trim()}
-        >
-          {submitting ? "Enviando..." : "Transferir Zerines"}
-        </Button>
+        {confirming ? (
+          <div className="inline-flex flex-col items-center gap-3">
+            <p className="text-body-md text-on-surface-variant">
+              ¿Confirmar transferencia de{" "}
+              <span className="font-bold text-on-surface">{parsed.toLocaleString()}</span>{" "}
+              Zerines a <span className="font-bold text-on-surface">{selected?.name}</span>?
+            </p>
+            <div className="flex items-center gap-3">
+              <Button
+                type="submit"
+                variant="crystal"
+                size="lg"
+                icon="send"
+                disabled={submitting}
+              >
+                {submitting ? "Enviando..." : "Sí, confirmar"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                onClick={() => setConfirming(false)}
+                disabled={submitting}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            type="submit"
+            variant="crystal"
+            size="lg"
+            icon="send"
+            disabled={submitting || invalidAmount || !selected || insufficient || !description.trim()}
+          >
+            {submitting ? "Enviando..." : "Transferir Zerines"}
+          </Button>
+        )}
       </div>
     </form>
   );

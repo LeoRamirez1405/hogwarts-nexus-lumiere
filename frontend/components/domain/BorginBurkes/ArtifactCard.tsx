@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import Image from "next/image";
 import { Product } from "@/lib/api";
 import { ZerineDisplay } from "@/components/ui";
@@ -12,22 +12,30 @@ interface ArtifactCardProps {
   onAddToCart: (product: Product) => void;
 }
 
-export function ArtifactCard({ product, onAddToCart }: ArtifactCardProps) {
-  const [imageError, setImageError] = useState(false);
+export const ArtifactCard = memo(function ArtifactCard({
+  product,
+  onAddToCart,
+}: ArtifactCardProps) {
   const theme = useTheme();
+  const fallbackSrc = getFallbackImageByContext("artifact", theme);
+  const [src, setSrc] = useState<string>(() => product.image_url || fallbackSrc);
 
-  const fallbackSrc = getFallbackImageByContext('artifact', theme);
+  // Safe fallback: on error, swap src to the bundled placeholder and stop.
+  // Never toggles a boolean in state, so there is no onError render loop.
+  const handleImageError = () => {
+    if (src !== fallbackSrc) setSrc(fallbackSrc);
+  };
 
   return (
     <div className="group cursor-pointer hover:-translate-y-2 transition-all duration-300 bg-[#2a2828] border border-secondary/20 rounded-3xl p-6">
       <div className="relative h-64 rounded-2xl overflow-hidden mb-4">
         <Image
-          src={product.image_url || fallbackSrc}
+          src={src}
           alt={product.name}
           fill
           className="object-cover group-hover:scale-105 transition-transform duration-500"
-          unoptimized={product.image_url?.startsWith("http://localhost:8000/uploads/") || product.image_url?.startsWith("/fallbacks/")}
-          onError={() => !imageError && setImageError(true)}
+          unoptimized={src.startsWith("http://localhost:8000/uploads/") || src.startsWith("/fallbacks/")}
+          onError={handleImageError}
         />
         <span className="absolute top-4 left-4 bg-black/60 backdrop-blur-md text-secondary-fixed text-label-sm uppercase px-3 py-1 rounded-full">
           {product.category}
@@ -55,4 +63,4 @@ export function ArtifactCard({ product, onAddToCart }: ArtifactCardProps) {
       </div>
     </div>
   );
-}
+});

@@ -39,6 +39,7 @@ export const ForumThreads = forwardRef<ForumThreadsHandle, ForumThreadsProps>(fu
     fetcher: (p) => api.getThreads(p),
     pageSize: 8,
     enabled: true,
+    queryKey: ["forum-threads"],
   });
 
   useImperativeHandle(ref, () => ({

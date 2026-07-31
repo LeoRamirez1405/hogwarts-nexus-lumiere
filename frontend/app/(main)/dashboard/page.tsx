@@ -1,37 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { api, DashboardData } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import GlassCard from "@/components/ui/GlassCard";
-import { MaterialIcon } from "@/components/ui";
+import { Button, MaterialIcon } from "@/components/ui";
 import { SkeletonCard, SkeletonLines, AdminDashboard, UserDashboard } from "@/components/domain/Dashboard";
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .getDashboard()
-      .then((result) => {
-        if (!cancelled) setData(result);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Error al cargar el panel");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ["dashboard"],
+    queryFn: () => api.getDashboard(),
+  });
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-8">
         <div className="animate-pulse space-y-3">
@@ -52,26 +36,32 @@ export default function DashboardPage() {
     );
   }
 
-  if (error) {
+  if (isError || !data) {
     return (
       <GlassCard>
         <div className="p-12 text-center">
           <MaterialIcon name="error_outline" className="text-6xl text-error mb-4 block mx-auto" />
           <p className="text-on-surface text-title-md mb-2">Error al cargar el panel</p>
-          <p className="text-on-surface-variant text-body-md">{error}</p>
+          <p className="text-on-surface-variant text-body-md mb-6">
+            {error instanceof Error ? error.message : "No se pudieron cargar los datos"}
+          </p>
+          <Button variant="primary" icon="refresh" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? "Reintentando..." : "Reintentar"}
+          </Button>
         </div>
       </GlassCard>
     );
   }
 
   const isAdmin = user?.role === "admin";
+  const dashboard: DashboardData = data;
 
   return (
     <div className="space-y-8">
       {isAdmin ? (
-        <AdminDashboard data={data!} />
+        <AdminDashboard data={dashboard} />
       ) : (
-        <UserDashboard data={data!} currentUserId={user?.id} />
+        <UserDashboard data={dashboard} currentUserId={user?.id} />
       )}
     </div>
   );

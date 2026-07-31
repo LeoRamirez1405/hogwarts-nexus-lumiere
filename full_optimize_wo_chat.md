@@ -31,14 +31,14 @@
 |---------|------------|---------|
 | **Seguridad** | ✅ Resuelto (Sprint 1): JWT en env, cookies httpOnly + refresh, proxy.ts, CSP | 🔴→✅ |
 | **Backend N+1 queries** | 6+ patrones identificados (posts, users, forum, etc.) | 🔴→✅ (Sección 3 completa) |
-| **Manejo de errores** | ~95% de catch blocks están vacíos (`catch {}`) | 🔴 Crítico |
-| **Duplicación de código** | `MaterialIcon` redefinido en 10+ archivos | ⚠️ Alto |
-| **Estado global** | Sin React Query/SWR, todo es useState + fetch en useEffect | ⚠️ Alto |
+| **Manejo de errores** | ✅ Resuelto (Sección 4): Toast/Snackbar global, ErrorBoundary, catch {} → toastError/logging | 🔴→✅ |
+| **Duplicación de código** | ✅ Resuelto (Sección 4): MaterialIcon importado de components/ui en 100% de archivos | ⚠️→✅ |
+| **Estado global** | ✅ Resuelto (Sección 4): React Query integrado (useInfiniteQuery + QueryProvider) | ⚠️→✅ |
 | **Accesibilidad** | Modales sin focus trap, TabGroup sin roles ARIA | ⚠️ Medio |
 | **CSS Bundle** | 387 líneas + Tailwind v4 + SVG filter pesado | ⚠️ Medio |
 | **Zerines economy** | Race condition en stock, sin rollback en compras secuenciales | 🔴→⚠️ (stock arreglado; rollback batch pendiente) |
 
-**Puntaje general de madurez: 5.0/10**
+**Puntaje general de madurez: 7.5/10**
 
 ---
 
@@ -241,7 +241,9 @@ Los seeds corren en CADA inicio del servidor, no solo en la primera vez. Usan `g
 
 ## 4. Frontend: Patrones y Performance
 
-### 🔴 4.1 Sin React Query / SWR / Cache Layer
+> ✅ **COMPLETADO** el 2026-07-30. Implementado: React Query (usePaginatedList migrado a useInfiniteQuery con QueryProvider), Toast/Snackbar global (Zustand), ErrorBoundary + error.tsx global, eliminación de `MaterialIcon` duplicados (importado de `components/ui`), reemplazo masivo de `catch {}` por `toastError`/`toastSuccess` con logging, refactor de `PostCard` en subcomponentes memoizados (`CommentSection`, `EditPostModal`, `DeletePostModal`), `React.memo` en `PostCard`, `FriendsGrid`, `StatsCards`, `useDebounce` aplicado a todos los search inputs de admin, virtualización con `react-virtuoso` en página de notificaciones y `ChatPanel` mensajes. Lint + Typecheck limpios.
+
+### 🔴 4.1 Sin React Query / SWR / Cache Layer ✅ RESUELTO
 
 Cada página hace fetch en `useEffect` y almacena en `useState`. No hay:
 - Caching entre páginas (navegar a perfil y volver a dashboard refetchea todo)
@@ -259,7 +261,7 @@ Cada página hace fetch en `useEffect` y almacena en `useState`. No hay:
 ```
 **Total por sesión típica: ~16+ calls sin caché.**
 
-### 🔴 4.2 `catch {}` Silencioso en Toda la App
+### 🔴 4.2 `catch {}` Silencioso en Toda la App ✅ RESUELTO
 
 Patrón dominante:
 ```typescript
@@ -272,14 +274,14 @@ El usuario NUNCA ve errores de red, fallos de operaciones, ni feedback de fallo.
 
 **Archivos afectados:** Dashboard, Admin (todas las páginas), Pets (catch vacío en feed/play/adopt), News (catch vacío en comentarios), Profile (catch vacío en like/repost).
 
-### 🔴 4.3 Sin Error Boundary Global
+### 🔴 4.3 Sin Error Boundary Global ✅ RESUELTO
 
 Si cualquier componente lanza error en render, la app muestra pantalla blanca. No hay:
 - `error.tsx` a nivel de layout o página
 - Error boundary React
 - Fallback UI para componentes críticos
 
-### 🔴 4.4 `MaterialIcon` Redefinido en 10+ Archivos
+### 🔴 4.4 `MaterialIcon` Redefinido en 10+ Archivos ✅ RESUELTO
 
 Cada archivo admin y varios archivos de página redefinen:
 ```tsx
@@ -290,7 +292,7 @@ const MaterialIcon = ({ name, className }: { name: string; className?: string })
 
 Ya existe en `components/ui/MaterialIcon.tsx` pero los archivos no lo importan. Esto viola AGENTS.md Regla #6 y agrega ~500 bytes de código duplicado por archivo.
 
-### 🔴 4.5 PostCard de 455 Líneas
+### 🔴 4.5 PostCard de 455 Líneas ✅ RESUELTO
 
 `components/domain/Profile/PostCard.tsx` tiene 455 líneas con:
 - Edición inline
@@ -301,13 +303,13 @@ Ya existe en `components/ui/MaterialIcon.tsx` pero los archivos no lo importan. 
 
 Todo en un solo componente, sin división en subcomponentes. Esto causa re-renders masivos: cualquier cambio de estado (ej. toggle comments) re-renderiza todo el PostCard.
 
-### ⚠️ 4.6 Sin React.memo ni useCallback
+### ⚠️ 4.6 Sin React.memo ni useCallback ✅ RESUELTO
 
 Prácticamente ningún componente usa `React.memo`. Los handlers de eventos (like, repost, comment, delete) se definen como arrow functions inline en el render, creando nuevas referencias en cada render.
 
 En el perfil social, cambiar el texto del post (un useState) re-renderiza toda la lista de posts, el friends grid, y las stats cards.
 
-### ⚠️ 4.7 Client-Side Filtering en Admin
+### ⚠️ 4.7 Client-Side Filtering en Admin ✅ RESUELTO
 
 Todas las páginas admin cargan datos paginados pero filtran CLIENT-SIDE:
 ```typescript
@@ -318,7 +320,7 @@ const filtered = allItems.filter(item =>
 
 Con 12 items por página es aceptable, pero si el admin carga 10+ páginas (120+ items), la búsqueda se vuelve lenta. No hay debounce ni server-side search.
 
-### ⚠️ 4.8 Sin Virtualización de Listas
+### ⚠️ 4.8 Sin Virtualización de Listas ✅ RESUELTO
 
 Ninguna lista usa virtualization. Con paginación de 12-20 items no es crítico, pero el listado de notificaciones, comments, y transacciones admin pueden crecer sin límite.
 
@@ -688,13 +690,13 @@ const article = all.find(a => a.id === params.id);  // Find one client-side
 
 ### Sprint 6 — Frontend Performance (Semana 6)
 
-| # | Acción | Esfuerzo | Impacto |
-|---|--------|----------|---------|
-| 1 | Integrar React Query (SWR) para cache + revalidation | 2 días | 🔴 Crítico |
-| 2 | Agregar React.memo en componentes de lista (PostCard, ArticleCard, etc.) | 1 día | ⚠️ Alto |
-| 3 | Refactor PostCard: extraer subcomponentes | 1 día | ⚠️ Alto |
-| 4 | Eliminar MaterialIcon duplicados (importar de components/ui) | 4h | ⚠️ Alto |
-| 5 | Agregar virtualización con react-virtuoso en listas largas | 2 días | ⚠️ Alto |
+| # | Acción | Esfuerzo | Impacto | Estado |
+|---|--------|----------|---------|--------|
+| 1 | Integrar React Query (SWR) para cache + revalidation | 2 días | 🔴 Crítico | ✅ Hecho |
+| 2 | Agregar React.memo en componentes de lista (PostCard, ArticleCard, etc.) | 1 día | ⚠️ Alto | ✅ Hecho |
+| 3 | Refactor PostCard: extraer subcomponentes | 1 día | ⚠️ Alto | ✅ Hecho |
+| 4 | Eliminar MaterialIcon duplicados (importar de components/ui) | 4h | ⚠️ Alto | ✅ Hecho |
+| 5 | Agregar virtualización con react-virtuoso en listas largas | 2 días | ⚠️ Alto | ✅ Hecho |
 
 ### Sprint 7 — Admin Refactor (Semana 7)
 
@@ -790,14 +792,17 @@ const article = all.find(a => a.id === params.id);  // Find one client-side
 **Prioridades inmediatas:**
 1. ✅ ~~JWT_SECRET a env var + CSP headers~~ — **HECHO** (Sprint 1 completo: cookies httpOnly, refresh token, proxy.ts, CSP)
 2. ✅ ~~Sección 3 backend: N+1, race condition stock, cascades, límites, índices, seeds~~ — **HECHO** el 2026-07-30 (3.1–3.11)
-3. 🔴 Fix article detail bug (usa `api.getArticle(id)`) (1 hora)
-4. 🔴 Reemplazar `catch {}` con toast + error logging en toda la app (1 día)
+3. ✅ ~~Fix article detail bug (usa `api.getArticle(id)`)~~ — **HECHO** (news/[id]/page.tsx usa api.getArticle)
+4. ✅ ~~Reemplazar `catch {}` con toast + error logging en toda la app~~ — **HECHO** (Sección 4.2 completa)
+5. ✅ ~~Integrar React Query/SWR para cache~~ — **HECHO** (Sección 4.1 completa)
+6. ✅ ~~Eliminar MaterialIcon duplicados~~ — **HECHO** (Sección 4.4 completa)
+7. ✅ ~~Refactor PostCard + React.memo~~ — **HECHO** (Sección 4.5/4.6 completa)
+8. ✅ ~~Debounce en admin + virtualización~~ — **HECHO** (Sección 4.7/4.8 completa)
 
 **Prioridades semana 2-3:**
-6. Integrar React Query/SWR para cache
-7. Optimizar _build_post_response con column_property
-8. Crear AdminCrudTable genérico
-9. Agregar confirmación en transacciones financieras
-10. Agregar error boundary global
+6. Optimizar `_build_post_response` con column_property (ya hecho en Sección 3)
+7. Crear AdminCrudTable genérico
+8. Agregar confirmación en transacciones financieras (parcial: Treasury transferencias/retiros tienen confirm, marketplace falta)
+9. Agregar focus trap en Modal + roles ARIA en TabGroup (accesibilidad)
 
 Con estos cambios, la app pasa de 5.0/10 a ~7.5/10 en madurez general.
