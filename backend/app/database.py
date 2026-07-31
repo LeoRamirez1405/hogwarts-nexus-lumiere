@@ -117,6 +117,11 @@ def _run_migrations(sync_conn):
         ("users", "last_active_at", "DATETIME"),
         ("notifications", "actor_id", "VARCHAR"),
         ("user_creatures", "attention_warned", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("user_conversation_preferences", "last_message_id", "VARCHAR"),
+        ("user_conversation_preferences", "last_message_body", "TEXT"),
+        ("user_conversation_preferences", "last_message_at", "DATETIME"),
+        ("user_conversation_preferences", "last_message_sender_id", "VARCHAR"),
+        ("user_conversation_preferences", "unread_count", "INTEGER NOT NULL DEFAULT 0"),
     ]
     for table, column, ddl in wanted:
         if table not in existing_tables:
@@ -144,6 +149,10 @@ _WANTED_INDEXES = [
     ("messages", ["sender_id"]),
     ("messages", ["receiver_id"]),
     ("messages", ["created_at"]),
+    ("messages", ["room_id", "created_at"]),
+    ("messages", ["sender_id", "receiver_id", "created_at"]),
+    ("messages", ["room_id", "read"]),
+    ("messages", ["pinned"]),
     ("message_reactions", ["message_id"]),
     ("chat_room_members", ["room_id"]),
     ("chat_room_members", ["user_id"]),

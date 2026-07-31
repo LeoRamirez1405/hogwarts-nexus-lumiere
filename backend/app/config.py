@@ -65,8 +65,17 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str = os.getenv("CLOUDINARY_API_KEY", "")
     CLOUDINARY_API_SECRET: str = os.getenv("CLOUDINARY_API_SECRET", "")
 
+    # Redis settings for caching and pub/sub
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    REDIS_MAX_CONNECTIONS: int = 10
+
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""
+
+    # VAPID keys for Web Push
+    VAPID_PUBLIC_KEY: str = os.getenv("VAPID_PUBLIC_KEY", "")
+    VAPID_PRIVATE_KEY: str = os.getenv("VAPID_PRIVATE_KEY", "")
+    VAPID_SUBJECT: str = os.getenv("VAPID_SUBJECT", "mailto:admin@hogwarts-nexus.example")
 
     class Config:
         env_file = ".env"

@@ -21,3 +21,13 @@ services:
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: COOKIE_SECURE
+        value: "true"
