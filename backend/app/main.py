@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from .config import settings
 from .rate_limit import limiter
 from .database import init_db
-from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags
+from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, audit_logs
 from .models import friend_request  # noqa: F401
 from .retention import retention_loop
 from .pet_care import pet_care_loop
@@ -114,6 +114,7 @@ app.include_router(classifieds.router, prefix="/classifieds", tags=["classifieds
 app.include_router(forum.router, prefix="/forum", tags=["forum"])
 app.include_router(enum_types.router, prefix="/enum-types", tags=["enum-types"])
 app.include_router(feature_flags.router, prefix="/feature-flags", tags=["feature-flags"])
+app.include_router(audit_logs.router, prefix="/audit-logs", tags=["audit-logs"])
 
 # Serve locally-stored uploads (avatars, post images, etc.) as static files so
 # the frontend can load them by absolute URL. In production Cloudinary is used

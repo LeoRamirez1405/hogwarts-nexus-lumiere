@@ -1,6 +1,6 @@
 from typing import List
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete, or_, update
 
@@ -31,6 +31,7 @@ from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user, hash_password
 from ..middleware.roles import require_role
 from ..utils.magic_level import get_magic_level, get_magic_levels
+from .audit_logs import log_audit
 
 router = APIRouter()
 
@@ -250,6 +251,7 @@ async def create_user(
     data: AdminCreateUser,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
+    request: Request = None,
 ):
     existing = await db.execute(select(User).where(User.email == data.email))
     if existing.scalar_one_or_none():
@@ -265,6 +267,15 @@ async def create_user(
     db.add(user)
     await db.commit()
     await db.refresh(user)
+    await log_audit(
+        db,
+        actor=current_user,
+        action="create",
+        entity_type="User",
+        entity_id=user.id,
+        details={"name": user.name, "email": user.email, "role": user.role, "house": user.house},
+        request=request,
+    )
     return await _enrich_user(db, user)
 
 
@@ -295,6 +306,7 @@ async def update_user(
     update_data: UserUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     if current_user.id != user_id and current_user.role != "admin":
         raise HTTPException(
@@ -310,6 +322,9 @@ async def update_user(
             detail="User not found",
         )
 
+    # Capture old values for audit log
+    old_values = {c.name: getattr(user, c.name) for c in user.__table__.columns}
+
     update_dict = update_data.model_dump(exclude_unset=True)
     for key, value in update_dict.items():
         setattr(user, key, value)
@@ -317,6 +332,18 @@ async def update_user(
     user.last_active_at = datetime.utcnow()
     await db.commit()
     await db.refresh(user)
+
+    if current_user.role == "admin" and current_user.id != user_id:
+        await log_audit(
+            db,
+            actor=current_user,
+            action="update",
+            entity_type="User",
+            entity_id=user.id,
+            details={"old": old_values, "new": update_dict},
+            request=request,
+        )
+
     return await _enrich_user(db, user)
 
 
@@ -326,6 +353,7 @@ async def set_user_title(
     data: AdminTitleUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
+    request: Request = None,
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -335,9 +363,21 @@ async def set_user_title(
             detail="User not found",
         )
 
+    old_title = user.official_title
     user.official_title = data.official_title
     await db.commit()
     await db.refresh(user)
+
+    await log_audit(
+        db,
+        actor=current_user,
+        action="update",
+        entity_type="User",
+        entity_id=user.id,
+        details={"field": "official_title", "old": old_title, "new": data.official_title},
+        request=request,
+    )
+
     return await _enrich_user(db, user)
 
 
@@ -347,15 +387,28 @@ async def adjust_house_points(
     data: HousePointsAdjust,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
+    request: Request = None,
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(404, "Usuario no encontrado")
 
-    user.house_points = max(0, (user.house_points or 0) + data.points)
+    old_points = user.house_points or 0
+    user.house_points = max(0, old_points + data.points)
     await db.commit()
     await db.refresh(user)
+
+    await log_audit(
+        db,
+        actor=current_user,
+        action="house_points_adjust",
+        entity_type="User",
+        entity_id=user.id,
+        details={"points_change": data.points, "old_total": old_points, "new_total": user.house_points, "reason": data.reason},
+        request=request,
+    )
+
     return await _enrich_user(db, user)
 
 
@@ -365,6 +418,7 @@ async def admin_reset_password(
     data: AdminResetPassword,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
+    request: Request = None,
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -374,6 +428,17 @@ async def admin_reset_password(
     user.password_hash = hash_password(data.new_password)
     await db.commit()
     await db.refresh(user)
+
+    await log_audit(
+        db,
+        actor=current_user,
+        action="password_reset",
+        entity_type="User",
+        entity_id=user.id,
+        details={"target_user": user.name},
+        request=request,
+    )
+
     return await _enrich_user(db, user)
 
 
@@ -382,6 +447,7 @@ async def delete_user(
     user_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
+    request: Request = None,
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -391,6 +457,18 @@ async def delete_user(
             detail="User not found",
         )
 
+    deleted_user_name = user.name
+
     await _delete_user_relations(db, user_id)
     await db.delete(user)
     await db.commit()
+
+    await log_audit(
+        db,
+        actor=current_user,
+        action="delete",
+        entity_type="User",
+        entity_id=user_id,
+        details={"deleted_user_name": deleted_user_name},
+        request=request,
+    )
