@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { api, User, ChatRoomBrief } from "@/lib/api";
 import { Avatar, Badge } from "@/components/ui";
 import { MaterialIcon, getInitials } from "./helpers";
+import { useDebounce } from "@/hooks/useDebounce";
 
 export default function NewChatModal({
   allUsers,
@@ -17,6 +18,7 @@ export default function NewChatModal({
   onClose: () => void;
 }) {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [tab, setTab] = useState<"users" | "rooms">("users");
   const [rooms, setRooms] = useState<ChatRoomBrief[]>([]);
   const [roomsLoaded, setRoomsLoaded] = useState(false);
@@ -46,13 +48,13 @@ export default function NewChatModal({
 
   const filteredUsers = allUsers.filter(
     (u) =>
-      !search ||
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase())
+      !debouncedSearch ||
+      u.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      u.email.toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
-  const filteredRooms = search
-    ? rooms.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
+  const filteredRooms = debouncedSearch
+    ? rooms.filter((r) => r.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
     : rooms;
 
   return (

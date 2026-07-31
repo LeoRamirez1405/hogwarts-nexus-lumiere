@@ -10,6 +10,7 @@ import { MaterialIcon, getInitials, STICKER_PACKS, computeOnlineStatus, isOnline
 import { MessageBubble } from "./MessageRenderers";
 import PollCreator from "./PollCreator";
 import { Virtuoso } from "react-virtuoso";
+import { wsClient } from "@/lib/ws";
 
 async function blobToWav(blob: Blob): Promise<Blob> {
   const audioCtx = new AudioContext();
@@ -268,7 +269,11 @@ export default function ChatPanel({
   unreadCount,
   pinnedMessages,
   onTogglePin,
+  onEditMessage,
+  onDeleteMessage,
   targetMessageId,
+  typingUsers,
+  onlineUsers,
 }: {
   messages: Message[];
   selectedConv: SelectedConv | null;
@@ -286,7 +291,11 @@ export default function ChatPanel({
   unreadCount?: number;
   pinnedMessages?: Message[];
   onTogglePin?: (message: Message) => void;
+  onEditMessage?: (messageId: string, conversationId: string, body: string) => void;
+  onDeleteMessage?: (messageId: string, conversationId: string) => void;
   targetMessageId?: string | null;
+  typingUsers?: Map<string, string>;
+  onlineUsers?: Map<string, boolean>;
 }) {
   const [input, setInput] = useState("");
   const [showMenu, setShowMenu] = useState(false);
@@ -297,6 +306,26 @@ export default function ChatPanel({
   const [showStickers, setShowStickers] = useState(false);
   const [showPoll, setShowPoll] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+
+  const handleEdit = useCallback(
+    (message: Message) => {
+      // TODO: Implement edit modal/inline edit
+      const newBody = prompt("Editar mensaje:", message.body || "");
+      if (newBody !== null && newBody !== message.body && newBody.trim() && onEditMessage) {
+        onEditMessage(message.id, selectedConv?.id || "", newBody.trim());
+      }
+    },
+    [onEditMessage, selectedConv?.id]
+  );
+
+  const handleDelete = useCallback(
+    (message: Message) => {
+      if (confirm("¿Eliminar este mensaje?") && onDeleteMessage) {
+        onDeleteMessage(message.id, selectedConv?.id || "");
+      }
+    },
+    [onDeleteMessage, selectedConv?.id]
+  );
   const [mentionSearch, setMentionSearch] = useState("");
   const [mentionResults, setMentionResults] = useState<UserSearchResult[]>([]);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
@@ -509,6 +538,33 @@ export default function ChatPanel({
     clearInputState();
   };
 
+  const handleInputChange = useCallback(
+    (value: string) => {
+      setInput(value);
+      if (selectedConv?.id && wsClient.isConnected()) {
+        wsClient.typingStart(selectedConv.id);
+      }
+      const atIndex = value.lastIndexOf("@");
+      if (atIndex >= 0 && (atIndex === 0 || value[atIndex - 1] === " ")) {
+        const query = value.slice(atIndex + 1);
+        if (query.length > 0 && !query.includes(" ")) {
+          setMentionSearch(query);
+          return;
+        }
+      }
+      setMentionSearch("");
+      setShowMentionDropdown(false);
+      setMentionResults([]);
+    },
+    [selectedConv]
+  );
+
+  const handleTypingStop = useCallback(() => {
+    if (selectedConv?.id && wsClient.isConnected()) {
+      wsClient.typingStop(selectedConv.id);
+    }
+  }, [selectedConv]);
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -622,21 +678,6 @@ export default function ChatPanel({
     inputRef.current?.focus();
   };
 
-  const handleInputChange = (value: string) => {
-    setInput(value);
-    const atIndex = value.lastIndexOf("@");
-    if (atIndex >= 0 && (atIndex === 0 || value[atIndex - 1] === " ")) {
-      const query = value.slice(atIndex + 1);
-      if (query.length > 0 && !query.includes(" ")) {
-        setMentionSearch(query);
-        return;
-      }
-    }
-    setMentionSearch("");
-    setShowMentionDropdown(false);
-    setMentionResults([]);
-  };
-
   const handleHideConversation = () => {
     if (!selectedConv) return;
     const convType = selectedConv.type === "room" ? "room" : "dm";
@@ -710,7 +751,9 @@ export default function ChatPanel({
           status={
             selectedConv?.type === "room"
               ? undefined
-              : computeOnlineStatus(selectedConv?.last_active_at).status
+              : onlineUsers?.get(selectedConv?.id || "") === true
+                ? "online"
+                : computeOnlineStatus(selectedConv?.last_active_at).status
           }
         />
         <div className="flex-1">
@@ -722,7 +765,9 @@ export default function ChatPanel({
               ? (selectedConv?.online_count ?? 0) > 0
                 ? `${selectedConv?.online_count} en linea`
                 : "Nadie en linea"
-              : computeOnlineStatus(selectedConv?.last_active_at).text}
+              : onlineUsers?.get(selectedConv?.id || "") === true
+                ? "En linea"
+                : computeOnlineStatus(selectedConv?.last_active_at).text}
           </p>
         </div>
         <div>
@@ -897,6 +942,8 @@ export default function ChatPanel({
                       onReactionChange={onRefresh}
                       onScrollToMessage={scrollToMessage}
                       onTogglePin={onTogglePin}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
                       members={isRoom ? roomMembers : undefined}
                     />
                   </div>
@@ -904,6 +951,18 @@ export default function ChatPanel({
                 style={{ height: "100%" }}
               />
               <div ref={messagesEndRef} />
+              {typingUsers && typingUsers.size > 0 && (
+                <div className="flex items-center gap-2 px-4 py-2 text-label-sm text-on-surface-variant animate-pulse">
+                  <span className="flex items-center gap-1">
+                    <span className="flex gap-[2px]">
+                      <span className="w-1.5 h-1.5 bg-on-surface-variant/50 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-1.5 h-1.5 bg-on-surface-variant/50 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-1.5 h-1.5 bg-on-surface-variant/50 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </span>
+                    {Array.from(typingUsers.values()).join(", ")} {typingUsers.size === 1 ? "está escribiendo..." : "están escribiendo..."}
+                  </span>
+                </div>
+              )}
               {!hasMore && (
                 <p className="text-center text-label-sm text-on-surface-variant/50 py-2">
                   Inicio de la conversacion
@@ -1126,6 +1185,7 @@ export default function ChatPanel({
                 type="text"
                 value={input}
                 onChange={(e) => handleInputChange(e.target.value)}
+                onBlur={handleTypingStop}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();

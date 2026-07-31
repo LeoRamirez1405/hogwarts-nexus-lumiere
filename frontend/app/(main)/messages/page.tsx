@@ -1,18 +1,89 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { useAuthStore } from "@/lib/authStore";
 import { useNotificationStore } from "@/lib/notificationStore";
 import { api, Conversation, Message, MessagePage, MessageSendData, User, ChatRoomMemberResponse } from "@/lib/api";
 import { SearchBar } from "@/components/ui";
 import { MaterialIcon } from "./helpers";
 import ConversationItem from "./ConversationItem";
-import ChatPanel, { SelectedConv } from "./ChatPanel";
-import NewChatModal from "./NewChatModal";
-import ThirdPane from "./ThirdPane";
+import { SelectedConv } from "./ChatPanel";
+import { wsClient } from "@/lib/ws";
+import { getAccessTokenFromCookie } from "@/lib/cookies";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useIndexedDBMessages, useOutbox } from "@/hooks/useIndexedDB";
+
+const ChatPanel = dynamic(() => import("./ChatPanel").then((mod) => mod.default), {
+  loading: () => <ChatPanelSkeleton />,
+  ssr: false,
+});
+const NewChatModal = dynamic(() => import("./NewChatModal").then((mod) => mod.default), {
+  ssr: false,
+});
+const ThirdPane = dynamic(() => import("./ThirdPane").then((mod) => mod.default), {
+  ssr: false,
+});
+
+function ChatPanelSkeleton() {
+  return (
+    <div className="flex-1 flex flex-col min-w-0">
+      <div className="h-16 border-b border-outline-variant/20 animate-pulse bg-surface-container-lowest" />
+      <div className="flex-1 overflow-y-auto animate-pulse space-y-4 p-4">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="flex gap-3">
+            <div className="w-10 h-10 rounded-full bg-surface-container-high" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-1/4 bg-surface-container-high rounded" />
+              <div className="h-3 w-1/2 bg-surface-container-high rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="h-24 border-t border-outline-variant/20 animate-pulse bg-surface-container-lowest" />
+    </div>
+  );
+}
 
 const PAGE_SIZE = 30;
-const POLL_MS = 5000;
+
+interface WSNewMessage {
+  c: string;
+  m: Message;
+}
+
+interface WSTyping {
+  c: string;
+  u: string;
+}
+
+interface WSPresence {
+  u: string;
+  s: "online" | "offline";
+}
+
+interface WSReadReceipt {
+  c: string;
+  m: string;
+  u: string;
+  ts: number;
+}
+
+interface WSReactionUpdate {
+  c: string;
+  m: string;
+  r: Message["reactions"];
+}
+
+interface WSDelete {
+  c: string;
+  m: string;
+}
+
+interface WSEdit {
+  c: string;
+  m: Message;
+}
 
 const byCreatedAsc = (a: Message, b: Message) =>
   a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0;
@@ -34,8 +105,21 @@ export default function MessagesPage() {
   const [roomMembers, setRoomMembers] = useState<ChatRoomMemberResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [showNewChat, setShowNewChat] = useState(false);
   const [targetMessageId, setTargetMessageId] = useState<string | null>(null);
+
+  // Typing indicator state: conversationId -> Set of {userId, username}
+  const [typingUsers, setTypingUsers] = useState<Map<string, Map<string, string>>>(new Map());
+  // Presence state: userId -> online/offline
+  const [onlineUsers, setOnlineUsers] = useState<Map<string, boolean>>(new Map());
+
+  // IndexedDB for offline support
+  const { cachedMessages, saveMessages: saveMessagesToDB } = useIndexedDBMessages(
+    selectedId,
+    selectedType
+  );
+  const { outboxMessages, processOutbox, addMessage: addToOutbox } = useOutbox();
 
   // Refs to read current values inside callbacks/intervals without stale deps.
   const selectedIdRef = useRef<string | null>(null);
@@ -60,6 +144,29 @@ export default function MessagesPage() {
     []
   );
 
+  // Merge the newest page into current state: refresh existing (reactions,
+  // read, pinned) and append genuinely new messages — without disturbing the
+  // unread divider or older pages already loaded.
+  const refreshCurrent = useCallback(async () => {
+    const id = selectedIdRef.current;
+    const type = selectedTypeRef.current;
+    if (!id || !type) return;
+    try {
+      const page = await fetchPage(id, type);
+      setMessages((prev) => {
+        if (prev.length === 0) return page.messages;
+        const fresh = new Map(page.messages.map((m) => [m.id, m]));
+        const merged = prev.map((m) => fresh.get(m.id) ?? m);
+        const existing = new Set(prev.map((m) => m.id));
+        const incoming = page.messages.filter((m) => !existing.has(m.id));
+        if (incoming.length === 0) return merged;
+        return [...merged, ...incoming].sort(byCreatedAsc);
+      });
+    } catch {
+      /* ignore */
+    }
+  }, [fetchPage]);
+
   // Initial data (conversation list + users).
   useEffect(() => {
     if (!authUser) return;
@@ -71,6 +178,164 @@ export default function MessagesPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [authUser]);
+
+  // Online/Offline detection and outbox processing
+  useEffect(() => {
+    const handleOnline = () => {
+      if (outboxMessages.length > 0) {
+        processOutbox(async (data, conversationId, conversationType) => {
+          if (conversationType === "room") {
+            return api.sendRoomMessage(conversationId, data);
+          }
+          return api.sendMessage(data);
+        });
+      }
+    };
+
+    window.addEventListener("online", handleOnline);
+    // Also process on mount if already online
+    if (navigator.onLine && outboxMessages.length > 0) {
+      handleOnline();
+    }
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [outboxMessages, processOutbox]);
+
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    if (!authUser) return;
+
+    const token = getAccessTokenFromCookie();
+    if (!token) return;
+
+    wsClient.connect(token);
+
+    const unsubNewMessage = wsClient.on("new_message", (msg: WSNewMessage) => {
+      const conversationId = msg.c;
+      const message = msg.m;
+
+      // Add message to current conversation if it's the active one
+      if (selectedId === conversationId) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === message.id)) return prev;
+          const updated = [...prev, message].sort((a, b) =>
+            a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0
+          );
+          // Save to IndexedDB
+          saveMessagesToDB(updated);
+          return updated;
+        });
+      }
+
+      // Update conversation list with new last message
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conversationId ? { ...c, last_message: message, unread_count: c.id !== selectedId ? c.unread_count + 1 : c.unread_count } : c
+        )
+      );
+    });
+
+    const unsubTyping = wsClient.on("typing", (msg: WSTyping) => {
+      setTypingUsers((prev) => {
+        const next = new Map(prev);
+        const conversationTyping = next.get(msg.c) || new Map();
+        conversationTyping.set(msg.u, ""); // username will be filled from conversation data
+        next.set(msg.c, conversationTyping);
+        return next;
+      });
+    });
+
+    const unsubTypingStop = wsClient.on("typing_stop", (msg: WSTyping) => {
+      setTypingUsers((prev) => {
+        const next = new Map(prev);
+        const conversationTyping = next.get(msg.c);
+        if (conversationTyping) {
+          conversationTyping.delete(msg.u);
+          if (conversationTyping.size === 0) {
+            next.delete(msg.c);
+          }
+        }
+        return next;
+      });
+    });
+
+    const unsubPresence = wsClient.on("presence", (msg: WSPresence) => {
+      setOnlineUsers((prev) => {
+        const next = new Map(prev);
+        next.set(msg.u, msg.s === "online");
+        return next;
+      });
+
+      // Update online status in conversation list
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.type === "direct" && c.id === msg.u) {
+            return { ...c, last_active_at: msg.s === "online" ? new Date().toISOString() : c.last_active_at };
+          }
+          if (c.type === "room") {
+            // For rooms, we could update online_count
+            return c;
+          }
+          return c;
+        })
+      );
+    });
+
+    const unsubReadReceipt = wsClient.on("read_receipt", (msg: WSReadReceipt) => {
+      // Update message read status
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msg.m ? { ...m, read: true } : m
+        )
+      );
+    });
+
+    const unsubReactionUpdate = wsClient.on("reaction_update", (msg: WSReactionUpdate) => {
+      // Update message reactions
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msg.m ? { ...m, reactions: msg.r } : m
+        )
+      );
+    });
+
+    const unsubDelete = wsClient.on("delete", (msg: WSDelete) => {
+      // Remove deleted message
+      setMessages((prev) => prev.filter((m) => m.id !== msg.m));
+    });
+
+    const unsubEdit = wsClient.on("edit", (msg: WSEdit) => {
+      // Update edited message
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msg.m.id ? { ...m, ...msg.m } : m
+        )
+      );
+    });
+
+    const unsubCatchUp = wsClient.on("catch_up_requested", () => {
+      // Re-fetch conversations and current messages when app comes to foreground
+      if (selectedId) {
+        refreshCurrent();
+      }
+      api.getConversations().then(setConversations).catch(() => {});
+    });
+
+    return () => {
+      unsubNewMessage();
+      unsubTyping();
+      unsubTypingStop();
+      unsubPresence();
+      unsubReadReceipt();
+      unsubReactionUpdate();
+      unsubDelete();
+      unsubEdit();
+      unsubCatchUp();
+      // Don't disconnect WS on unmount - keep it alive for other pages
+    };
+  }, [authUser, selectedId, refreshCurrent, saveMessagesToDB]);
 
   // Deep-link from a mention notification: /messages?room=..&msg=..
   useEffect(() => {
@@ -104,18 +369,24 @@ export default function MessagesPage() {
     const type = selectedType;
 
     (async () => {
-      // Reset previous conversation state (inside async so it isn't a
-      // synchronous setState in the effect body).
-      setMessages([]);
+      // Show cached messages immediately while fetching fresh data
+      if (cachedMessages.length > 0) {
+        setMessages(cachedMessages);
+      }
+
+      // Reset previous conversation state
       setHasMore(false);
       setFirstUnreadId(null);
       setUnreadCount(0);
       setPinnedMessages([]);
       setLoadingOlder(false);
+
       try {
         const page = await fetchPage(id, type);
         if (cancelled) return;
         setMessages(page.messages);
+        // Save to IndexedDB for offline access
+        saveMessagesToDB(page.messages);
         setHasMore(page.has_more);
         setFirstUnreadId(page.first_unread_id ?? null);
         setUnreadCount(page.unread_count);
@@ -124,7 +395,7 @@ export default function MessagesPage() {
           prev.map((c) => (c.id === id ? { ...c, unread_count: 0 } : c))
         );
       } catch {
-        if (!cancelled) setMessages([]);
+        if (!cancelled && cachedMessages.length === 0) setMessages([]);
       }
 
       try {
@@ -149,7 +420,7 @@ export default function MessagesPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedId, selectedType, fetchPage]);
+  }, [selectedId, selectedType, fetchPage, cachedMessages, saveMessagesToDB]);
 
   // Opening a conversation clears its related notifications (DM message, room
   // mention, or being added to a group) — so reaching the chat counts as
@@ -183,46 +454,17 @@ export default function MessagesPage() {
         const older = page.messages.filter((m) => !existing.has(m.id));
         return [...older, ...prev];
       });
+      // Save older messages to IndexedDB
+      if (page.messages.length > 0) {
+        saveMessagesToDB(page.messages);
+      }
       setHasMore(page.has_more);
     } catch {
       /* keep current messages on failure */
     } finally {
       setLoadingOlder(false);
     }
-  }, [fetchPage]);
-
-  // Merge the newest page into current state: refresh existing (reactions,
-  // read, pinned) and append genuinely new messages — without disturbing the
-  // unread divider or older pages already loaded.
-  const refreshCurrent = useCallback(async () => {
-    const id = selectedIdRef.current;
-    const type = selectedTypeRef.current;
-    if (!id || !type) return;
-    try {
-      const page = await fetchPage(id, type);
-      setMessages((prev) => {
-        if (prev.length === 0) return page.messages;
-        const fresh = new Map(page.messages.map((m) => [m.id, m]));
-        const merged = prev.map((m) => fresh.get(m.id) ?? m);
-        const existing = new Set(prev.map((m) => m.id));
-        const incoming = page.messages.filter((m) => !existing.has(m.id));
-        if (incoming.length === 0) return merged;
-        return [...merged, ...incoming].sort(byCreatedAsc);
-      });
-    } catch {
-      /* ignore */
-    }
-  }, [fetchPage]);
-
-  // Poll the open conversation and the conversation list.
-  useEffect(() => {
-    if (!selectedId) return;
-    const timer = setInterval(() => {
-      refreshCurrent();
-      api.getConversations().then(setConversations).catch(() => {});
-    }, POLL_MS);
-    return () => clearInterval(timer);
-  }, [selectedId, refreshCurrent]);
+  }, [fetchPage, saveMessagesToDB]);
 
   // Notification jump: keep loading older pages until the target is present.
   useEffect(() => {
@@ -232,7 +474,7 @@ export default function MessagesPage() {
   }, [targetMessageId, selectedId, messages, hasMore, loadingOlder, loadOlder]);
 
   const handleSend = async (data: MessageSendData) => {
-    if (!selectedId) return;
+    if (!selectedId || !selectedType) return;
     try {
       const msg =
         selectedType === "room"
@@ -243,7 +485,9 @@ export default function MessagesPage() {
         prev.map((c) => (c.id === selectedId ? { ...c, last_message: msg } : c))
       );
     } catch (err) {
-      console.error("Send failed", err);
+      console.error("Send failed, adding to outbox:", err);
+      // Add to outbox for retry when online
+      addToOutbox(data, selectedId, selectedType);
     }
   };
 
@@ -264,6 +508,34 @@ export default function MessagesPage() {
     }
   };
 
+  const handleEditMessage = async (messageId: string, conversationId: string, body: string) => {
+    try {
+      await api.editMessage(messageId, body);
+      // Optimistic update
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId ? { ...m, body, edited: true, edited_at: new Date().toISOString() } : m
+        )
+      );
+      // Also send via WebSocket for real-time sync
+      wsClient.editMessage(messageId, conversationId, body);
+    } catch (err) {
+      console.error("Edit failed", err);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string, conversationId: string) => {
+    try {
+      await api.deleteMessage(messageId);
+      // Optimistic update
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      // Also send via WebSocket for real-time sync
+      wsClient.deleteMessage(messageId, conversationId);
+    } catch (err) {
+      console.error("Delete failed", err);
+    }
+  };
+
   const selectConversation = (id: string, type: "direct" | "room") => {
     setTargetMessageId(null);
     setSelectedId(id);
@@ -277,9 +549,9 @@ export default function MessagesPage() {
 
   const selectedConversation = conversations.find((c) => c.id === selectedId);
 
-  const filtered = search
+  const filtered = debouncedSearch
     ? conversations.filter((c) =>
-        c.name.toLowerCase().includes(search.toLowerCase())
+        c.name.toLowerCase().includes(debouncedSearch.toLowerCase())
       )
     : conversations;
 
@@ -412,36 +684,42 @@ export default function MessagesPage() {
         </div>
       </div>
 
-        {/* Chat Panel */}
+{/* Chat Panel */}
         <div
           className={`${
             selectedId ? "flex" : "hidden xl:flex"
           } flex-1 flex-col min-w-0`}
         >
           {selectedConv ? (
-            <ChatPanel
-              messages={messages}
-              selectedConv={selectedConv}
-              onSend={handleSend}
-              onBack={() => {
-                setSelectedId(null);
-                setSelectedType(null);
-                setRoomMembers([]);
-              }}
-              showBack
-              roomMembers={selectedType === "room" ? roomMembers : undefined}
-              onHideConversation={handleHideConversation}
-              onLeaveRoom={handleLeaveRoom}
-              onRefresh={refreshCurrent}
-              hasMore={hasMore}
-              loadingOlder={loadingOlder}
-              onLoadOlder={loadOlder}
-              firstUnreadId={firstUnreadId}
-              unreadCount={unreadCount}
-              pinnedMessages={pinnedMessages}
-              onTogglePin={handleTogglePin}
-              targetMessageId={targetMessageId}
-            />
+            <Suspense fallback={<ChatPanelSkeleton />}>
+              <ChatPanel
+                messages={messages}
+                selectedConv={selectedConv}
+                onSend={handleSend}
+                onBack={() => {
+                  setSelectedId(null);
+                  setSelectedType(null);
+                  setRoomMembers([]);
+                }}
+                showBack
+                roomMembers={selectedType === "room" ? roomMembers : undefined}
+                onHideConversation={handleHideConversation}
+                onLeaveRoom={handleLeaveRoom}
+                onRefresh={refreshCurrent}
+                hasMore={hasMore}
+                loadingOlder={loadingOlder}
+                onLoadOlder={loadOlder}
+                firstUnreadId={firstUnreadId}
+                unreadCount={unreadCount}
+                pinnedMessages={pinnedMessages}
+                onTogglePin={handleTogglePin}
+                onEditMessage={handleEditMessage}
+                onDeleteMessage={handleDeleteMessage}
+                targetMessageId={targetMessageId}
+                typingUsers={typingUsers.get(selectedConv.id) || new Map()}
+                onlineUsers={onlineUsers}
+              />
+            </Suspense>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
               <div className="w-24 h-24 rounded-full bg-secondary-container/30 flex items-center justify-center mb-4">
@@ -453,36 +731,47 @@ export default function MessagesPage() {
             </div>
               <h3 className="font-display text-headline-lg text-on-surface mb-2">
                 La Lechuza
-          </h3>
+            </h3>
               <p className="text-on-surface-variant text-body-md max-w-sm">
                 Selecciona una conversacion para empezar a intercambiar pergaminos
-          </p>
-        </div>
+            </p>
+          </div>
           )}
-      </div>
+        </div>
 
         {/* Third pane on 2xl+ */}
         {selectedConversation && selectedConversation.type === "direct" && (
-          <ThirdPane
-            selectedConv={selectedConversation}
-            messageCount={messages.length}
-          />
+          <Suspense fallback={<div className="hidden 2xl:flex flex-col w-72 border-l border-outline-variant/20 bg-surface-container-low p-6 animate-pulse space-y-4">
+            <div className="w-24 h-24 rounded-full bg-surface-container-high mx-auto" />
+            <div className="h-6 w-1/2 mx-auto bg-surface-container-high rounded" />
+            <div className="h-6 w-1/3 mx-auto bg-surface-container-high rounded" />
+            <div className="h-8 w-full bg-surface-container-high rounded" />
+          </div>}>
+            <ThirdPane
+              selectedConv={selectedConversation}
+              messageCount={messages.length}
+            />
+          </Suspense>
         )}
     </div>
 
       {showNewChat && (
-        <NewChatModal
-          allUsers={allUsers}
-          onSelectUser={(id) => {
-            setShowNewChat(false);
-            selectConversation(id, "direct");
-          }}
-          onSelectRoom={(id) => {
-            setShowNewChat(false);
-            selectConversation(id, "room");
-          }}
-          onClose={() => setShowNewChat(false)}
-        />
+        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-pulse">
+          <div className="w-96 h-[80vh] max-h-[80vh] rounded-2xl bg-surface" />
+        </div>}>
+          <NewChatModal
+            allUsers={allUsers}
+            onSelectUser={(id) => {
+              setShowNewChat(false);
+              selectConversation(id, "direct");
+            }}
+            onSelectRoom={(id) => {
+              setShowNewChat(false);
+              selectConversation(id, "room");
+            }}
+            onClose={() => setShowNewChat(false)}
+          />
+        </Suspense>
       )}
   </div>
   );

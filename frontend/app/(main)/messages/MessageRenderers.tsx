@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Message, MessageReaction, ChatRoomMemberResponse } from "@/lib/api";
@@ -16,7 +16,7 @@ import {
 
 const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
-export function PollView({
+export const PollView = React.memo(function PollView({
   poll,
   isOwn,
 }: {
@@ -81,17 +81,17 @@ export function PollView({
       </div>
     </div>
   );
-}
+});
 
-export function StickerView({ sticker }: { sticker: string }) {
+export const StickerView = React.memo(function StickerView({ sticker }: { sticker: string }) {
   return (
     <div className="text-6xl select-none" style={{ lineHeight: 1 }}>
       {sticker}
     </div>
   );
-}
+});
 
-export function VoiceView({
+export const VoiceView = React.memo(function VoiceView({
   message,
   isOwn,
 }: {
@@ -193,9 +193,9 @@ export function VoiceView({
       </div>
     </div>
   );
-}
+});
 
-export function DocumentView({
+export const DocumentView = React.memo(function DocumentView({
   message,
   isOwn,
 }: {
@@ -235,9 +235,9 @@ export function DocumentView({
       <MaterialIcon name="open_in_new" className={isOwn ? "text-white/70" : "text-on-surface-variant"} />
     </a>
   );
-}
+});
 
-export function PostShareView({
+export const PostShareView = React.memo(function PostShareView({
   message,
   isOwn,
 }: {
@@ -323,9 +323,9 @@ export function PostShareView({
       )}
     </Link>
   );
-}
+});
 
-function ReplyPreview({ message, onScrollToMessage }: { message: Message; onScrollToMessage?: (id: string) => void }) {
+const ReplyPreview = React.memo(function ReplyPreview({ message, onScrollToMessage }: { message: Message; onScrollToMessage?: (id: string) => void }) {
   if (!message.reply_to) return null;
   const r = message.reply_to;
   const senderName = r.sender?.name || "Alguien";
@@ -352,9 +352,9 @@ function ReplyPreview({ message, onScrollToMessage }: { message: Message; onScro
       <p className="text-label-sm opacity-70 truncate">{preview}</p>
     </button>
   );
-}
+});
 
-function ReactionBar({
+const ReactionBar = React.memo(function ReactionBar({
   reactions,
   messageId,
   onReacted,
@@ -436,9 +436,9 @@ function ReactionBar({
       })}
     </div>
   );
-}
+});
 
-function ReactionPicker({
+const ReactionPicker = React.memo(function ReactionPicker({
   messageId,
   onReacted,
 }: {
@@ -518,12 +518,12 @@ function ReactionPicker({
       )}
     </div>
   );
-}
+});
 
 // Need api import for ReactionPicker
 import { api } from "@/lib/api";
 
-function MentionText({ text, isOwn, members }: { text: string; isOwn: boolean; members?: ChatRoomMemberResponse[] }) {
+const MentionText = React.memo(function MentionText({ text, isOwn, members }: { text: string; isOwn: boolean; members?: ChatRoomMemberResponse[] }) {
   const mentionRegex = /@([A-Za-z\u00C0-\u017F]+(?: [A-Za-z\u00C0-\u017F]+)*)/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
@@ -567,15 +567,17 @@ function MentionText({ text, isOwn, members }: { text: string; isOwn: boolean; m
     parts.push(text.slice(lastIndex));
   }
   return <>{parts}</>;
-}
+});
 
-export function MessageBubble({
+export const MessageBubble = React.memo(function MessageBubble({
   message,
   isOwn,
   onReply,
   onReactionChange,
   onScrollToMessage,
   onTogglePin,
+  onEdit,
+  onDelete,
   members,
 }: {
   message: Message;
@@ -584,6 +586,8 @@ export function MessageBubble({
   onReactionChange?: () => void;
   onScrollToMessage?: (id: string) => void;
   onTogglePin?: (msg: Message) => void;
+  onEdit?: (msg: Message) => void;
+  onDelete?: (msg: Message) => void;
   members?: ChatRoomMemberResponse[];
 }) {
   const kind = message.kind || "text";
@@ -709,6 +713,25 @@ export function MessageBubble({
           messageId={message.id}
           onReacted={onReactionChange}
         />
+        {/* Edit/Delete for own messages */}
+        {isOwn && onEdit && message.kind === "text" && !message.edited && (
+          <button
+            onClick={() => onEdit(message)}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant/60 hover:text-on-surface-variant transition-colors"
+            title="Editar"
+          >
+            <MaterialIcon name="edit" className="text-base" />
+          </button>
+        )}
+        {isOwn && onDelete && (
+          <button
+            onClick={() => onDelete(message)}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-error-container/30 text-error/60 hover:text-error transition-colors"
+            title="Eliminar"
+          >
+            <MaterialIcon name="delete" className="text-base" />
+          </button>
+        )}
       </div>
 
       {isOwn && (
@@ -718,4 +741,4 @@ export function MessageBubble({
       )}
     </div>
   );
-}
+});
