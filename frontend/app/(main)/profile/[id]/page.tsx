@@ -22,6 +22,15 @@ import { useImageUpload } from "@/hooks/useFileUpload";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 
+function formatDateShort(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const day = d.toLocaleDateString("es-ES", { day: "numeric" });
+  const month = d.toLocaleDateString("es-ES", { month: "short" }).replace(".", "");
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+}
+
 export default function ProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -34,11 +43,21 @@ export default function ProfilePage() {
   const [showEdit, setShowEdit] = useState(false);
   const [shareTarget, setShareTarget] = useState<Post | null>(null);
   const [showAllFriends, setShowAllFriends] = useState(false);
-  const [frStatus, setFrStatus] = useState<null | "none" | "pending_sent" | "pending_received" | "accepted" | "rejected">(null);
-  const [currentFrId, setCurrentFrId] = useState<string | null>(null);
-  const [frLoading, setFrLoading] = useState(false);
+
+  /**
+   * Local override for the friend request displayed in the header — applied
+   * only after the user clicks a friend action.Kept together so we don't
+   * scatter 3 small states that always move as one. `status` and `frId` are
+   * null when there's no override yet; we then derive from the server data.
+   */
+  const [frOverride, setFrOverride] = useState<{
+    status: "none" | "pending_sent" | "pending_received" | "accepted" | "rejected" | null;
+    frId: string | null;
+    loading: boolean;
+  }>({ status: null, frId: null, loading: false });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const { handleFileSelect: handlePostImageUpload, uploading: uploadingPostImage } = useImageUpload({
     onSuccess: (result) => setPostImageUrl(result.url),
   });
@@ -88,6 +107,24 @@ export default function ProfilePage() {
     if (profileError) router.push("/dashboard");
   }, [profileError, router]);
 
+  // Infinite scroll: trigger `loadMorePosts` whenever the sentinel
+  // element becomes visible at the bottom of the feed. Disables itself
+  // while a page is already loading or there are no more pages.
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && postsHasMore && !postsLoadingMore) {
+          loadMorePosts();
+        }
+      },
+      { rootMargin: "200px 0px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [postsHasMore, postsLoadingMore, loadMorePosts]);
+
   // Derive friend-request state from the query result during render.
   // Local state (frStatus/currentFrId) only overrides after a user action;
   // "no override yet" is represented by null.
@@ -113,15 +150,40 @@ export default function ProfilePage() {
             ? "pending_sent"
             : "pending_received";
 
-  const effectiveFrStatus = frStatus ?? derivedFrStatus;
-  const effectiveFrId = currentFrId ?? existingFr?.id ?? null;
+  const effectiveFrStatus = frOverride.status ?? derivedFrStatus;
+  const effectiveFrId = frOverride.frId ?? existingFr?.id ?? null;
 
   const handleLike = useCallback(
     async (postId: string) => {
+      // Optimistic update: flip liked_by_me + adjust likes_count in every
+      // cached page of the profile feed so the UI reflects the click before
+      // the server confirms. Reverted on error.
+      const queryKey = ["profile-feed", profileId];
+      const previous = queryClient.getQueryData(queryKey);
+      queryClient.setQueryData<{ pages?: { items: Post[] }[] }>(queryKey, (old) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            items: page.items.map((p) =>
+              p.id === postId
+                ? {
+                    ...p,
+                    liked_by_me: !p.liked_by_me,
+                    likes_count: (p.likes_count ?? 0) + (p.liked_by_me ? -1 : 1),
+                  }
+                : p
+            ),
+          })),
+        };
+      });
       try {
         await api.likePost(postId);
-        queryClient.invalidateQueries({ queryKey: ["profile-feed", profileId] });
+        queryClient.invalidateQueries({ queryKey });
       } catch (e) {
+        // Revert optimistic update and inform.
+        queryClient.setQueryData(queryKey, previous);
         toastError("No se pudo dar like", e);
       }
     },
@@ -130,10 +192,31 @@ export default function ProfilePage() {
 
   const handleRepost = useCallback(
     async (postId: string) => {
+      const queryKey = ["profile-feed", profileId];
+      const previous = queryClient.getQueryData(queryKey);
+      queryClient.setQueryData<{ pages?: { items: Post[] }[] }>(queryKey, (old) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            items: page.items.map((p) =>
+              p.id === postId
+                ? {
+                    ...p,
+                    reposted_by_me: !p.reposted_by_me,
+                    reposts_count: (p.reposts_count ?? 0) + (p.reposted_by_me ? -1 : 1),
+                  }
+                : p
+            ),
+          })),
+        };
+      });
       try {
         await api.repostPost(postId);
-        queryClient.invalidateQueries({ queryKey: ["profile-feed", profileId] });
+        queryClient.invalidateQueries({ queryKey });
       } catch (e) {
+        queryClient.setQueryData(queryKey, previous);
         toastError("No se pudo repostear", e);
       }
     },
@@ -161,11 +244,13 @@ export default function ProfilePage() {
   );
 
   const handleCreatePost = async () => {
-    if (!postText.trim() || posting) return;
+    const hasText = postText.trim().length > 0;
+    const hasImage = postImageUrl.trim().length > 0;
+    if ((!hasText && !hasImage) || posting) return;
     setPosting(true);
     try {
       await api.createPost({
-        body: postText.trim(),
+        body: hasText ? postText.trim() : undefined,
         image_url: postImageUrl || undefined,
       });
       await queryClient.invalidateQueries({ queryKey: ["profile-feed", profileId] });
@@ -177,15 +262,6 @@ export default function ProfilePage() {
       setPosting(false);
     }
   };
-
-  function formatDateShort(dateStr: string): string {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    const day = d.toLocaleDateString("es-ES", { day: "numeric" });
-    const month = d.toLocaleDateString("es-ES", { month: "short" }).replace(".", "");
-    const year = d.getFullYear();
-    return `${day} ${month} ${year}`;
-  }
 
   const openEdit = () => {
     setShowEdit(true);
@@ -201,60 +277,53 @@ export default function ProfilePage() {
 
   const handleSendFriendRequest = async () => {
     if (!profile || !authUser) return;
-    setFrLoading(true);
+    setFrOverride((s) => ({ ...s, loading: true }));
     try {
       const fr = await api.sendFriendRequest(profile.id);
-      setCurrentFrId(fr.id);
-      setFrStatus("pending_sent");
+      setFrOverride({ status: "pending_sent", frId: fr.id, loading: false });
     } catch (e) {
       toastError("No se pudo enviar la solicitud", e);
-    } finally {
-      setFrLoading(false);
+      setFrOverride((s) => ({ ...s, loading: false }));
     }
   };
 
   const handleAcceptFriendRequest = async () => {
     if (!effectiveFrId) return;
-    setFrLoading(true);
+    setFrOverride((s) => ({ ...s, loading: true }));
     try {
       await api.acceptFriendRequest(effectiveFrId);
-      setFrStatus("accepted");
+      setFrOverride({ status: "accepted", frId: effectiveFrId, loading: false });
       queryClient.invalidateQueries({ queryKey: ["friends", profileId] });
       toastSuccess("Solicitud aceptada");
     } catch (e) {
       toastError("No se pudo aceptar la solicitud", e);
-    } finally {
-      setFrLoading(false);
+      setFrOverride((s) => ({ ...s, loading: false }));
     }
   };
 
   const handleRejectFriendRequest = async () => {
     if (!effectiveFrId) return;
-    setFrLoading(true);
+    setFrOverride((s) => ({ ...s, loading: true }));
     try {
       await api.rejectFriendRequest(effectiveFrId);
-      setFrStatus("rejected");
-      setCurrentFrId(null);
+      setFrOverride({ status: "rejected", frId: null, loading: false });
       queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
     } catch (e) {
       toastError("No se pudo rechazar la solicitud", e);
-    } finally {
-      setFrLoading(false);
+      setFrOverride((s) => ({ ...s, loading: false }));
     }
   };
 
   const handleCancelFriendRequest = async () => {
     if (!effectiveFrId) return;
-    setFrLoading(true);
+    setFrOverride((s) => ({ ...s, loading: true }));
     try {
       await api.cancelFriendRequest(effectiveFrId);
-      setFrStatus("none");
-      setCurrentFrId(null);
+      setFrOverride({ status: "none", frId: null, loading: false });
       queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
     } catch (e) {
       toastError("No se pudo cancelar la solicitud", e);
-    } finally {
-      setFrLoading(false);
+      setFrOverride((s) => ({ ...s, loading: false }));
     }
   };
 
@@ -280,7 +349,7 @@ export default function ProfilePage() {
           !isOwn
             ? {
                 status: effectiveFrStatus,
-                loading: frLoading,
+                loading: frOverride.loading,
                 onSend: handleSendFriendRequest,
                 onAccept: handleAcceptFriendRequest,
                 onReject: handleRejectFriendRequest,
@@ -372,7 +441,7 @@ export default function ProfilePage() {
                       variant="primary"
                       size="sm"
                       onClick={handleCreatePost}
-                      disabled={!postText.trim() || posting}
+                      disabled={(!postText.trim() && !postImageUrl.trim()) || posting}
                     >
                       {posting ? "Publicando..." : "Compartir"}
                     </Button>
@@ -412,6 +481,8 @@ export default function ProfilePage() {
               total={postsTotalCount}
               onLoadMore={loadMorePosts}
             />
+            {/* Sentinel for IntersectionObserver-driven infinite scroll */}
+            <div ref={sentinelRef} aria-hidden className="h-1 w-full" />
             </>
           )}
         </div>
@@ -425,7 +496,15 @@ export default function ProfilePage() {
 
       {/* All Friends Modal */}
       {showAllFriends && (
-        <AllFriendsModal friends={friends} isOpen={showAllFriends} onClose={() => setShowAllFriends(false)} />
+        <AllFriendsModal
+          userId={profileId}
+          initialFriends={friends}
+          isOpen={showAllFriends}
+          onClose={() => setShowAllFriends(false)}
+          onUnfriend={() => {
+            queryClient.invalidateQueries({ queryKey: ["friends", profileId] });
+          }}
+        />
       )}
 
       {/* Edit Profile Modal */}
