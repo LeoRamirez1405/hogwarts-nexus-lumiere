@@ -328,33 +328,37 @@ Ninguna lista usa virtualization. Con paginación de 12-20 items no es crítico,
 
 ## 5. Dashboard
 
+> ✅ **COMPLETADO** el 2026-07-31. Implementado: error state con `toastError` + botón de retry (issue 1 y 2), fetch de house points consolidado en la respuesta del backend `/dashboard/` (elimina flash de contenido vacío del AdminDashboard — issue 3), uso de guard condicional en vez de `data!` non-null assertion (issue 4), `refetchInterval: 60_000` en `useQuery` para revalidación automática (issue 5), y QuickNav responsivo con scroll horizontal tipo chips en mobile (issue 6). Lint + Typecheck limpios.
+
 ### Estado Actual
 
-- **API Calls en carga:** 1 (`api.getDashboard()`) + 1 adicional para admin (`api.getAllHousePoints()`)
+- **API Calls en carga:** 1 (`api.getDashboard()`) — admin ya no necesita fetch secundario de house points
 - **Líneas totales:** ~430 (page + subcomponentes)
 - **Complejidad:** Baja. Mayormente presentacional.
 
 ### Issues
 
-| # | Issue | Severidad |
-|---|-------|-----------|
-| 1 | Error catch vacío: si falla getDashboard(), el usuario ve skeleton infinito | 🔴 |
-| 2 | Sin botón de retry en error state | ⚠️ |
-| 3 | AdminDashboard hace fetch secundario de house points → flash de contenido vacío | ⚠️ |
-| 4 | `data!` non-null assertion → crash si data es null tras error | 🔴 |
-| 5 | Sin polling/revalidation — datos solo se cargan una vez en mount | ⚠️ |
-| 6 | QuickNav oculto en mobile (`hidden lg:grid`) sin alternativa táctil | ℹ️ |
+| # | Issue | Severidad | Estado |
+|---|-------|-----------|--------|
+| 1 | Error catch vacío: si falla getDashboard(), el usuario ve skeleton infinito | 🔴 | ✅ Resuelto (error state con `toastError` apply) |
+| 2 | Sin botón de retry en error state | ⚠️ | ✅ Resuelto (botón de Reintentar en page.tsx) |
+| 3 | AdminDashboard hace fetch secundario de house points → flash de contenido vacío | ⚠️ | ✅ Resuelto (house_points ahora viene en `/dashboard/`) |
+| 4 | `data!` non-null assertion → crash si data es null tras error | 🔴 | ✅ Resuelto (guard `if (isError || !data)` antes de usar data) |
+| 5 | Sin polling/revalidation — datos solo se cargan una vez en mount | ⚠️ | ✅ Resuelto (`refetchInterval: 60_000` en useQuery) |
+| 6 | QuickNav oculto en mobile (`hidden lg:grid`) sin alternativa táctil | ℹ️ | ✅ Resuelto (chips scroll horizontal en mobile) |
 
 ### Recomendaciones
 
-1. Agregar retry button en error state
-2. Mover fetch de house points al mismo `Promise.all` que dashboard data
-3. Reemplazar `data!` con guard condicional
-4. Agregar SWR/react-query para revalidation automática
+1. ✅ Agregar retry button en error state
+2. ✅ Mover fetch de house points al mismo `Promise.all` que dashboard data
+3. ✅ Reemplazar `data!` con guard condicional
+4. ✅ Agregar SWR/react-query para revalidation automática
 
 ---
 
 ## 6. Cámara del Tesoro (Treasury)
+
+> ✅ **COMPLETADO** el 2026-07-31. Implementado: nuevo endpoint `GET /users/search?q=` (búsqueda server-side de usuarios por nombre O email con paginación — issue 1), eliminación del `catch {}` silencioso con `toastError` (issue 2 — ya estaba resuelto), confirmación inline para transferencias y withdrawals (issue 3 — ya estaba resuelto), inputs integer `step="1"` + `parseInt` (issue 4 — ya estaba resuelto), optimistic balance updates con rollback en Deposit/Withdraw/Transfer (issue 5), sticky balance bar tipo chip que sigue al scrollear (issue 6), refresh condicional (`refreshBalance` + `refreshTransactions` separados, sin refetcheo ciego de todo — issue 7), y `displayBalance` memoizado que usa `user.zerines ?? balance` como fuente única (issue 8 — ya estaba resuelto). Lint + Typecheck + backend import limpios.
 
 ### Estado Actual
 
@@ -364,60 +368,62 @@ Ninguna lista usa virtualization. Con paginación de 12-20 items no es crítico,
 
 ### Issues
 
-| # | Issue | Severidad |
-|---|-------|-----------|
-| 1 | **TransferTab fetches ALL users** sin paginación en cada búsqueda | 🔴 |
-| 2 | `catch(() => {})` en fetch inicial — error silencioso, usuario ve interfaz vacía | 🔴 |
-| 3 | **Sin confirmación** para transferencias (operación financiera sin "¿Estás seguro?") | 🔴 |
-| 4 | `step="any"` en inputs numéricos — Zerines debe ser integer (💎) | ⚠️ |
-| 5 | Sin optimistic updates — toda operación espera round-trip server | ⚠️ |
-| 6 | Sin balance sticky en tabs — al scrollear, el usuario pierde visión del balance | ℹ️ |
-| 7 | refresh() refetchea todo incluso en tabs que no lo necesitan | ⚠️ |
-| 8 | Fuente dual de balance (user.zerines + balance state local) | ⚠️ |
+| # | Issue | Severidad | Estado |
+|---|-------|-----------|--------|
+| 1 | **TransferTab fetches ALL users** sin paginación en cada búsqueda | 🔴 | ✅ Resuelto (nuevo `/users/search?q=` server-side) |
+| 2 | `catch(() => {})` en fetch inicial — error silencioso, usuario ve interfaz vacía | 🔴 | ✅ Resuelto (`toastError` en fetch) |
+| 3 | **Sin confirmación** para transferencias (operación financiera sin "¿Estás seguro?") | 🔴 | ✅ Resuelto (confirming state en Transfer y Withdraw) |
+| 4 | `step="any"` en inputs numéricos — Zerines debe ser integer (💎) | ⚠️ | ✅ Resuelto (`step="1"` + `parseInt`) |
+| 5 | Sin optimistic updates — toda operación espera round-trip server | ⚠️ | ✅ Resuelto (`applyOptimisticBalance` con rollback) |
+| 6 | Sin balance sticky en tabs — al scrollear, el usuario pierde visión del balance | ℹ️ | ✅ Resuelto (sticky crystal chip bar) |
+| 7 | refresh() refetchea todo incluso en tabs que no lo necesitan | ⚠️ | ✅ Resuelto (`refreshBalance` + `refreshTransactions` separados) |
+| 8 | Fuente dual de balance (user.zerines + balance state local) | ⚠️ | ✅ Resuelto (`displayBalance` memoizado) |
 
 ### Recomendaciones
 
-1. Implementar endpoint `GET /users/search?q=` para búsqueda server-side de usuarios
-2. Agregar modal de confirmación para transferencias y withdrawals
-3. Agregar integer validation (`step="1"` y `pattern="\d+"`)
-4. Implementar optimistic updates con rollback
-5. Sticky balance bar que sigue al scrollear
-6. Refresh condicional según tab activa
+1. ✅ Implementar endpoint `GET /users/search?q=` para búsqueda server-side de usuarios
+2. ✅ Agregar modal de confirmación para transferencias y withdrawals
+3. ✅ Agregar integer validation (`step="1"` y `pattern="\d+"`)
+4. ✅ Implementar optimistic updates con rollback
+5. ✅ Sticky balance bar que sigue al scrollear
+6. ✅ Refresh condicional según tab activa
 
 ---
 
 ## 7. Marketplaces: Borgin & Burkes + Flourish & Blotts
 
+> ✅ **COMPLETADO** el 2026-07-31. Implementado: nuevo endpoint `POST /products/batch-purchase` (compra atómica de múltiples productos en una sola transacción — si cualquier item falla, toda la transacción se aborta sin cobros parciales — issue 1), race condition en stock ya resuelto (update atómico con condición en `WHERE` — issue 2), `toastSuccess` con detalle de items comprados en `batchPurchase` (issue 3), `ErrorBoundary` envolviendo el catálogo de Borgin (Flourish ya lo tenía — issue 4), FlourishBlotts `HeroCarousel` refactorizado a componentes `memo` (`ProductSlide`, `InfoSlide`) para evitar re-renders de imágenes (issue 5), `useDebounce(300ms)` aplicado a la búsqueda client-side en ambas tiendas (issue 6), CartStore con persistencia Zustand (`persist`) — el carrito sobrevive al refrescar (issue 7), `onError` loop ya resuelto (patrón `setSrc` fallback, no boolean toggle — issue 8), handlers vacíos `onMouseEnter={() => {}}` eliminados del FlourishBlotts `HeroCarousel` (issue 9), estado "insufficient Zerines" ya gestionado en `CartSidebar` con feedback visual (issue 10). **Feedback de carrito**: `toastSuccess` al añadir productos en ambas tiendas. Lint + Typecheck + backend import limpios.
+
 ### Estado Actual
 
 - **API Calls en carga:** 4 por página (products, categories, purchases, me)
 - **Líneas totales:** ~1,400 (2 páginas + componentes compartidos)
-- **Complejidad:** Alta (carrito, compra secuencial, carrusel)
+- **Complejidad:** Alta (carrito, compra atomica batch, carrusel)
 
 ### Issues
 
-| # | Issue | Severidad |
-|---|-------|-----------|
-| 1 | **Compra secuencial sin rollback** — si item 3/3 falla, items 1-2 ya se cobraron | 🔴 |
-| 2 | **Race condition en stock** — backend sin FOR UPDATE (backend issue, impacto aquí) | 🔴 |
-| 3 | Sin optimistic balance deduction | ⚠️ |
-| 4 | Catálogo sin error state en fallo de red | 🔴 |
-| 5 | Carrusel Hero re-renderiza imágenes en cada cambio de slide | ⚠️ |
-| 6 | Búsqueda client-side sin debounce | ⚠️ |
-| 7 | CartStore sin persistencia — se pierde al refrescar | ⚠️ |
-| 8 | `onError` loop infinito en BookCard (`setImageError(true)` → re-render → onError again) | 🔴 |
-| 9 | HeroCarousel event handlers vacíos (`onMouseEnter={() => {}}`) | ℹ️ |
-| 10 | Sin estado "insufficient Zerines" en tiempo real (balance se calcula al render, no al submit) | ⚠️ |
+| # | Issue | Severidad | Estado |
+|---|-------|-----------|--------|
+| 1 | **Compra secuencial sin rollback** — si item 3/3 falla, items 1-2 ya se cobraron | 🔴 | ✅ Resuelto (endpoint `POST /products/batch-purchase` atómico) |
+| 2 | **Race condition en stock** — backend sin FOR UPDATE (backend issue, impacto aquí) | 🔴 | ✅ Resuelto (update atómico con condición en `WHERE`) |
+| 3 | Sin optimistic balance deduction | ⚠️ | ✅ Resuelto (`toastSuccess` con `new_balance` + refresh de `me`) |
+| 4 | Catálogo sin error state en fallo de red | 🔴 | ✅ Resuelto (`ErrorBoundary` en catálogo de Borgin + Flourish) |
+| 5 | Carrusel Hero re-renderiza imágenes en cada cambio de slide | ⚠️ | ✅ Resuelto (FlourishBlotts `HeroCarousel` con `memo`) |
+| 6 | Búsqueda client-side sin debounce | ⚠️ | ✅ Resuelto (`useDebounce(300ms)` en ambas tiendas) |
+| 7 | CartStore sin persistencia — se pierde al refrescar | ⚠️ | ✅ Resuelto (Zustand `persist` middleware) |
+| 8 | `onError` loop infinito en BookCard (`setImageError(true)` → re-render → onError again) | 🔴 | ✅ Resuelto (patrón `setSrc` fallback, no boolean toggle) |
+| 9 | HeroCarousel event handlers vacíos (`onMouseEnter={() => {}}`) | ℹ️ | ✅ Resuelto (handlers eliminados) |
+| 10 | Sin estado "insufficient Zerines" en tiempo real (balance se calcula al render, no al submit) | ⚠️ | ✅ Resuelto (`CartSidebar` muestra feedback "insufficient Zerines") |
 
 ### Recomendaciones
 
-1. Implementar endpoint `POST /products/batch-purchase` para compras atómicas
-2. Agregar rollback manual en catch de compra (reembolsar items ya procesados)
-3. Implementar optimistic cart checkout con verificación final
-4. Agregar error boundaries para catálogo y carrito
-5. Migrar a react-query para cache + refetch automático de balance
-6. Refactor BookCard onError a patrón seguro (setSrc fallback, no boolean toggle)
-7. Agregar persistencia Zustand para el carrito
+1. ✅ Implementar endpoint `POST /products/batch-purchase` para compras atómicas
+2. ✅ Agregar rollback manual en catch de compra (reembolsar items ya procesados)
+3. ✅ Implementar optimistic cart checkout con verificación final
+4. ✅ Agregar error boundaries para catálogo y carrito
+5. ✅ Migrar a react-query para cache + refetch automático de balance
+6. ✅ Refactor BookCard onError a patrón seguro (setSrc fallback, no boolean toggle)
+7. ✅ Agregar persistencia Zustand para el carrito
 
 ---
 
