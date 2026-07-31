@@ -193,6 +193,8 @@ export function TransferTab({ balance, onDone, applyOptimisticBalance, onErrorRo
               setError(null);
               setConfirming(false);
             }}
+            inputMode="numeric"
+            enterKeyHint="next"
             className="w-48 bg-transparent outline-none text-center font-display text-5xl text-on-surface placeholder:text-outline-variant/40 border-b-2 border-outline-variant/30 focus:border-primary transition-colors"
           />
         </div>
@@ -230,6 +232,8 @@ export function TransferTab({ balance, onDone, applyOptimisticBalance, onErrorRo
             setError(null);
           }}
           className="w-full px-6 py-3 rounded-full bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:border-primary transition-colors"
+          autoComplete="off"
+          enterKeyHint="done"
         />
         <div className="flex justify-end mt-1">
           <span className="text-label-sm text-on-surface-variant">
