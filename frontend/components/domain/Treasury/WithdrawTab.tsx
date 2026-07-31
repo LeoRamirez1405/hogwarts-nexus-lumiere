@@ -3,13 +3,16 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { Button, MaterialIcon } from "@/components/ui";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 
 interface WithdrawTabProps {
   balance: number;
-  onDone: () => void;
+  onDone: () => void | Promise<void>;
+  applyOptimisticBalance: (delta: number) => () => void;
+  onErrorRollback: () => void | Promise<void>;
 }
 
-export function WithdrawTab({ balance, onDone }: WithdrawTabProps) {
+export function WithdrawTab({ balance, onDone, applyOptimisticBalance, onErrorRollback }: WithdrawTabProps) {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -45,14 +48,21 @@ export function WithdrawTab({ balance, onDone }: WithdrawTabProps) {
     }
     setSubmitting(true);
     setError(null);
+    const revert = applyOptimisticBalance(-parsed);
     try {
       await api.withdraw(parsed, description.trim());
       setAmount("");
       setDescription("");
       setConfirming(false);
-      onDone();
+      toastSuccess("Retiro realizado", `${parsed.toLocaleString()} Zerines retirados de tu bóveda`);
+      await onDone();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      revert();
+      await onErrorRollback();
+      setConfirming(false);
+      const msg = err instanceof Error ? err.message : "Error desconocido";
+      setError(msg);
+      toastError("No se pudo completar el retiro", err);
     } finally {
       setSubmitting(false);
     }

@@ -3,14 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { api, User } from "@/lib/api";
 import { Button, SearchBar, MaterialIcon } from "@/components/ui";
-import { toastError } from "@/lib/toastStore";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 
 interface TransferTabProps {
   balance: number;
-  onDone: () => void;
+  onDone: () => void | Promise<void>;
+  applyOptimisticBalance: (delta: number) => () => void;
+  onErrorRollback: () => void | Promise<void>;
 }
 
-export function TransferTab({ balance, onDone }: TransferTabProps) {
+export function TransferTab({ balance, onDone, applyOptimisticBalance, onErrorRollback }: TransferTabProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<User[]>([]);
   const [selected, setSelected] = useState<User | null>(null);
@@ -31,21 +33,16 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
   }, [query]);
 
   useEffect(() => {
-    if (!query || query.length < 2) return;
+    if (!query || query.length < 2) {
+      return;
+    }
     const timer = setTimeout(() => {
       setSearching(true);
       api
-        .getUsers()
-        .then((users) => {
+        .searchUsersServer(query, { limit: 20 })
+        .then((page) => {
           if (queryRef.current !== query) return;
-          const q = query.toLowerCase();
-          setResults(
-            users.items.filter(
-              (u) =>
-                u.name.toLowerCase().includes(q) ||
-                u.email.toLowerCase().includes(q)
-            )
-          );
+          setResults(page.items);
         })
         .catch((e) => {
           if (queryRef.current === query) {
@@ -89,6 +86,7 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
     }
     setSubmitting(true);
     setError(null);
+    const revert = applyOptimisticBalance(-parsed);
     try {
       await api.transfer(selected.id, parsed, description.trim());
       setAmount("");
@@ -97,9 +95,15 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
       setSelected(null);
       setResults([]);
       setConfirming(false);
-      onDone();
+      toastSuccess("Transferencia realizada", `${parsed.toLocaleString()} Zerines enviados a ${selected.name}`);
+      await onDone();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      revert();
+      await onErrorRollback();
+      setConfirming(false);
+      const msg = err instanceof Error ? err.message : "Error desconocido";
+      setError(msg);
+      toastError("No se pudo completar la transferencia", err);
     } finally {
       setSubmitting(false);
     }
@@ -112,7 +116,10 @@ export function TransferTab({ balance, onDone }: TransferTabProps) {
           <SearchBar
             placeholder="Buscar usuario por nombre o email..."
             value={query}
-            onChange={setQuery}
+            onChange={(v) => {
+              setQuery(v);
+              if (!v || v.length < 2) setResults([]);
+            }}
             size="md"
           />
           {searching && (

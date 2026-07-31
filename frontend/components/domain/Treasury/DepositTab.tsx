@@ -3,12 +3,15 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { Button, MaterialIcon } from "@/components/ui";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 
 interface DepositTabProps {
-  onDone: () => void;
+  onDone: () => void | Promise<void>;
+  applyOptimisticBalance: (delta: number) => () => void;
+  onErrorRollback: () => void | Promise<void>;
 }
 
-export function DepositTab({ onDone }: DepositTabProps) {
+export function DepositTab({ onDone, applyOptimisticBalance, onErrorRollback }: DepositTabProps) {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -34,13 +37,19 @@ export function DepositTab({ onDone }: DepositTabProps) {
     }
     setSubmitting(true);
     setError(null);
+    const revert = applyOptimisticBalance(parsed);
     try {
       await api.deposit(parsed, description.trim());
       setAmount("");
       setDescription("");
-      onDone();
+      toastSuccess("Depósito realizado", `${parsed.toLocaleString()} Zerines añadidos a tu bóveda`);
+      await onDone();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      revert();
+      await onErrorRollback();
+      const msg = err instanceof Error ? err.message : "Error desconocido";
+      setError(msg);
+      toastError("No se pudo completar el depósito", err);
     } finally {
       setSubmitting(false);
     }
