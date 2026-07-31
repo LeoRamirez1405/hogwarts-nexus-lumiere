@@ -14,3 +14,4 @@ export { MaterialIcon } from "./MaterialIcon";
 export { default as ListFooter } from "./ListFooter";
 export { default as Switch } from "./Switch";
 export { ErrorBoundary } from "./ErrorBoundary";
+export { default as Lightbox } from "./Lightbox";
