@@ -1,8 +1,7 @@
 "use client";
 
-import { DashboardData, api } from "@/lib/api";
+import { DashboardData } from "@/lib/api";
 import { useFeatureFlag } from "@/lib/featureFlagStore";
-import { useQuery } from "@tanstack/react-query";
 import GlassCard from "@/components/ui/GlassCard";
 import Link from "next/link";
 import { MaterialIcon } from "@/components/ui";
@@ -92,20 +91,13 @@ function HouseRankingCard({ houses }: { houses: { house: string; points: number 
 export function AdminDashboard({ data }: { data: DashboardData }) {
   const showWinningHouse = useFeatureFlag("dashboard.winning_house");
 
-  const { data: housePoints } = useQuery({
-    queryKey: ["house-points"],
-    queryFn: () => api.getAllHousePoints(),
-    enabled: showWinningHouse,
-  });
-
-  const houseRanking = housePoints
-    ? (() => {
-        const allHouses = ["Gryffindor", "Slytherin", "Ravenclaw", "Hufflepuff"];
-        const arr = allHouses.map((house) => ({ house, points: housePoints[house] ?? 0 }));
-        arr.sort((a, b) => b.points - a.points);
-        return arr;
-      })()
-    : [];
+  const housePoints = data.house_points ?? {};
+  const houseRanking = (() => {
+    const allHouses = ["Gryffindor", "Slytherin", "Ravenclaw", "Hufflepuff"];
+    const arr = allHouses.map((house) => ({ house, points: housePoints[house] ?? 0 }));
+    arr.sort((a, b) => b.points - a.points);
+    return arr;
+  })();
 
   const kpis = [
     { label: "Usuarios", value: data.total_users ?? 0, icon: "people", bg: "bg-primary", text: "text-on-primary" },

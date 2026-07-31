@@ -6,6 +6,7 @@ import { useAuthStore } from "@/lib/authStore";
 import GlassCard from "@/components/ui/GlassCard";
 import { Button, MaterialIcon } from "@/components/ui";
 import { SkeletonCard, SkeletonLines, AdminDashboard, UserDashboard } from "@/components/domain/Dashboard";
+import { toastError } from "@/lib/toastStore";
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -13,6 +14,7 @@ export default function DashboardPage() {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => api.getDashboard(),
+    refetchInterval: 60_000,
   });
 
   if (isLoading) {
@@ -45,7 +47,15 @@ export default function DashboardPage() {
           <p className="text-on-surface-variant text-body-md mb-6">
             {error instanceof Error ? error.message : "No se pudieron cargar los datos"}
           </p>
-          <Button variant="primary" icon="refresh" onClick={() => refetch()} disabled={isFetching}>
+          <Button
+            variant="primary"
+            icon="refresh"
+            onClick={() => {
+              toastError("Error al cargar el panel", error);
+              refetch();
+            }}
+            disabled={isFetching}
+          >
             {isFetching ? "Reintentando..." : "Reintentar"}
           </Button>
         </div>
