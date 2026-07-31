@@ -384,19 +384,19 @@ Y en store: `navigator.vibrate?.([100, 50, 100])` para error.
 - [x] Prompt de instalación PWA (en TopBar user menu + banner)
 - [x] Push permission request en login/onboarding (auto-subscribe on login)
 
-### Sprint 2 — Gestos Nativos Core (2 semanas)
-- [ ] `useSwipeable` hook + integración en `HeroCarousel`, `QuickNav`, `TabGroup`
-- [ ] `PullToRefresh` wrapper para feeds (Profile, News, Notifications, Marketplace)
-- [ ] `SwipeActionRow` para listas (Notifications, AllFriends, PostCard mobile)
-- [ ] `LongPressContextMenu` para PostCard (edit/delete), ArtifactCard, PetCard
-- [ ] Pinch-to-zoom en `Lightbox` + swipe-to-dismiss
+### Sprint 2 — Gestos Nativos Core (2 semanas) ✅ COMPLETADO
+- [x] `useSwipeable` hook + integración en `HeroCarousel`, `QuickNav`, `TabGroup`
+- [x] `PullToRefresh` wrapper para feeds (Profile, News, Notifications, Marketplace)
+- [x] `SwipeActionRow` para listas (Notifications, AllFriends, PostCard mobile)
+- [x] `LongPressContextMenu` para PostCard (edit/delete), ArtifactCard, PetCard
+- [x] Pinch-to-zoom en `Lightbox` + swipe-to-dismiss
 
-### Sprint 3 — Formularios Mobile-First (1 semana)
-- [ ] `inputMode`, `autocomplete`, `enterKeyHint` en todos los inputs
-- [ ] `NumberStepper` component para depósitos/transferencias
-- [ ] `useAutoResizeTextarea` hook
-- [ ] SearchBar clear button (mobile)
-- [ ] Reemplazar `window.confirm()` en `useUnsavedChangesGuard` por `ConfirmDialog`
+### Sprint 3 — Formularios Mobile-First (1 semana) ✅ COMPLETADO
+- [x] `inputMode`, `autocomplete`, `enterKeyHint` en todos los inputs
+- [x] `NumberStepper` component para depósitos/transferencias
+- [x] `useAutoResizeTextarea` hook
+- [x] SearchBar clear button (mobile)
+- [x] Reemplazar `window.confirm()` en `useUnsavedChangesGuard` por `ConfirmDialog`
 
 ### Sprint 4 — Accesibilidad & Polish (1 semana)
 - [ ] `@media (prefers-reduced-motion)` en `globals.css`
@@ -526,60 +526,3 @@ Y en store: `navigator.vibrate?.([100, 50, 100])` para error.
 | `components/domain/BorginBurkes/CartSidebar.tsx` | 40-44 | Side drawer (debería bottom sheet) |
 
 ---
-
-## ✅ Sprint 1 Completion Summary (2026-07-31)
-
-### Frontend Files Created/Modified
-- `app/manifest.ts` — Web App Manifest with icons, share_target, shortcuts
-- `public/icons/icon-192.svg`, `icon-512.svg`, `maskable-512.svg` — PWA icons
-- `public/sw.js` — Service Worker with push, caching, share-target, background sync
-- `hooks/usePWA.ts` — Service Worker registration, push subscription, PWA install hooks
-- `components/providers/PWAProvider.tsx` — Auto-subscribe to push on login
-- `components/pwa/PWAInstallPrompt.tsx` — Install banner/button/inline variants
-- `components/pwa/PushSubscriptionButton.tsx` — Push toggle button (card/inline/icon)
-- `components/pwa/index.ts` — Barrel export
-- `app/api/push/vapid-public-key/route.ts` — Proxy for VAPID public key
-- `app/api/push/subscribe/route.ts` — Proxy for push subscription
-- `app/api/push/unsubscribe/route.ts` — Proxy for push unsubscription
-- `components/layout/TopBar.tsx` — Added PushSubscriptionButton + PWAInstallPrompt to user menu
-- `app/layout.tsx` — Added PWAProvider to provider tree
-
-### Backend Files Created/Modified
-- `app/config.py` — Added VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT settings
-- `app/models/push_subscription.py` — PushSubscription model with user relationship
-- `app/models/__init__.py` — Export PushSubscription
-- `app/models/user.py` — Added push_subscriptions relationship
-- `app/schemas/push_subscription.py` — Pydantic schemas for push API
-- `app/routers/push.py` — Push endpoints (vapid-public-key, subscribe, unsubscribe, send-test, list)
-- `app/main.py` — Registered push router
-- `requirements.txt` — Added webpush dependency
-- `.env.example` — Added VAPID configuration docs
-
-### Features Implemented
-- ✅ **PWA Installable**: manifest + icons + SW + HTTPS-ready dev server
-- ✅ **Push Notifications**: VAPID keys, browser subscription, backend storage, test send
-- ✅ **Auto-subscribe on login**: PWAProvider subscribes user after SW ready
-- ✅ **Install Prompt**: Banner (mobile), inline (desktop), button variants
-- ✅ **Push Toggle**: User menu button + card variant for settings pages
-- ✅ **Service Worker**: Cache-first for static, network-first for API, stale-while-revalidate for pages
-- ✅ **Share Target API**: `/share-target` handler for native share integration
-- ✅ **Background Sync**: Foundation for offline action sync
-
-### Configuration Required
-Generate VAPID keys and add to backend `.env`:
-```bash
-npx web-push generate-vapid-keys
-```
-Then set:
-```
-VAPID_PUBLIC_KEY=your_public_key
-VAPID_PRIVATE_KEY=your_private_key
-VAPID_SUBJECT=mailto:admin@yourdomain.com
-```
-
-### Next Steps (Sprint 2)
-- Implement swipe gestures (HeroCarousel, QuickNav, lists)
-- Add PullToRefresh to feeds
-- Add SwipeActionRow for list items
-- Implement LongPressContextMenu
-- Add pinch-to-zoom in Lightbox
