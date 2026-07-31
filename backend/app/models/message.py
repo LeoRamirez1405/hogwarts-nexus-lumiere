@@ -25,6 +25,8 @@ class Message(Base):
     metadata_json = Column(Text, nullable=True)  # JSON string: polls, transcriptions
     read = Column(Boolean, default=False, nullable=False)
     pinned = Column(Boolean, default=False, nullable=False)
+    edited = Column(Boolean, default=False, nullable=False)
+    edited_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     sender = relationship(

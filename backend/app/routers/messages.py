@@ -10,6 +10,7 @@ import tempfile
 import os
 import re
 import cloudinary.uploader
+import redis.asyncio as redis
 
 from pathlib import Path
 
@@ -45,6 +46,70 @@ from ..middleware.roles import require_role
 from .audit_logs import log_audit
 
 UPLOAD_DIR = Path("uploads")
+
+# Redis client for caching
+_redis_client: redis.Redis | None = None
+
+
+def get_redis() -> redis.Redis:
+    global _redis_client
+    if _redis_client is None:
+        _redis_client = redis.from_url(
+            settings.REDIS_URL,
+            max_connections=settings.REDIS_MAX_CONNECTIONS,
+            decode_responses=True,
+        )
+    return _redis_client
+
+
+async def _close_redis():
+    global _redis_client
+    if _redis_client:
+        await _redis_client.close()
+        _redis_client = None
+
+
+async def _get_cached_conversations(user_id: str) -> List[ConversationResponse] | None:
+    """Get cached conversations from Redis."""
+    r = get_redis()
+    try:
+        cached = await r.get(f"conv:{user_id}")
+        if cached:
+            return [ConversationResponse.model_validate_json(item) for item in json.loads(cached)]
+    except Exception:
+        pass
+    return None
+
+
+async def _set_cached_conversations(user_id: str, conversations: List[ConversationResponse]) -> None:
+    """Cache conversations in Redis with TTL 30s."""
+    r = get_redis()
+    try:
+        data = json.dumps([c.model_dump(mode="json") for c in conversations])
+        await r.setex(f"conv:{user_id}", 30, data)
+    except Exception:
+        pass
+
+
+async def _invalidate_conversations_cache(user_id: str) -> None:
+    """Invalidate conversations cache for a user."""
+    r = get_redis()
+    try:
+        await r.delete(f"conv:{user_id}")
+    except Exception:
+        pass
+
+
+async def _invalidate_conversations_caches(user_ids: List[str]) -> None:
+    """Invalidate conversations cache for multiple users."""
+    if not user_ids:
+        return
+    r = get_redis()
+    try:
+        keys = [f"conv:{uid}" for uid in user_ids]
+        await r.delete(*keys)
+    except Exception:
+        pass
 
 
 def _delete_attachment_file(attachment_url: Optional[str]) -> None:
@@ -126,7 +191,9 @@ def serialize_poll(poll: Poll, user_id: str) -> PollResponse:
 
 
 async def serialize_message(
-    db: AsyncSession, msg: Message, current_user_id: str
+    db: AsyncSession, msg: Message, current_user_id: str,
+    expand_sender: bool = False, expand_receiver: bool = False,
+    expand_reactions: bool = False, expand_reply_to: bool = False,
 ) -> MessageResponse:
     poll_data = None
     if msg.kind == "poll" and msg.poll:
@@ -139,20 +206,28 @@ async def serialize_message(
             pass
 
     reply_to_data = None
-    if msg.reply_to_id and msg.reply_to:
-        reply_to_data = await serialize_message(db, msg.reply_to, current_user_id)
+    if expand_reply_to and msg.reply_to_id and msg.reply_to:
+        reply_to_data = await serialize_message(
+            db, msg.reply_to, current_user_id,
+            expand_sender=expand_sender, expand_receiver=expand_receiver,
+            expand_reactions=expand_reactions,
+        )
 
     reactions_out = []
-    for r in (msg.reactions or []):
-        reactions_out.append(
-            MessageReactionResponse(
-                id=r.id,
-                message_id=r.message_id,
-                user_id=r.user_id,
-                emoji=r.emoji,
-                created_at=r.created_at,
+    if expand_reactions:
+        for r in (msg.reactions or []):
+            reactions_out.append(
+                MessageReactionResponse(
+                    id=r.id,
+                    message_id=r.message_id,
+                    user_id=r.user_id,
+                    emoji=r.emoji,
+                    created_at=r.created_at,
+                )
             )
-        )
+
+    sender_data = msg.sender if expand_sender else None
+    receiver_data = msg.receiver if expand_receiver else None
 
     return MessageResponse(
         id=msg.id,
@@ -168,9 +243,11 @@ async def serialize_message(
         metadata=metadata,
         read=msg.read,
         pinned=bool(msg.pinned),
+        edited=bool(msg.edited),
+        edited_at=msg.edited_at,
         created_at=msg.created_at,
-        sender=msg.sender,
-        receiver=msg.receiver,
+        sender=sender_data,
+        receiver=receiver_data,
         room=None,
         poll=poll_data,
         reply_to=reply_to_data,
@@ -208,51 +285,31 @@ def serialize_room(room: ChatRoom, user_id: str) -> ChatRoomResponse:
 async def build_conversations(
     db: AsyncSession, current_user: User
 ) -> List[ConversationResponse]:
-    # Get hidden conversation IDs and DM mute status for this user
+    # Get all conversation preferences for this user (includes denormalized last_message + unread_count)
     prefs_result = await db.execute(
         select(UserConversationPreference).where(
-            and_(
-                UserConversationPreference.user_id == current_user.id,
-            )
+            UserConversationPreference.user_id == current_user.id
         )
     )
     all_prefs = prefs_result.scalars().all()
-    hidden_dm_ids = {p.conversation_id for p in all_prefs if p.hidden and p.conversation_type == "dm"}
-    hidden_room_ids = {p.conversation_id for p in all_prefs if p.hidden and p.conversation_type == "room"}
-    # map dm-user-id -> muted_until (only if still active)
+
+    # Separate DM and room preferences
+    dm_prefs = [p for p in all_prefs if p.conversation_type == "dm"]
+    room_prefs = [p for p in all_prefs if p.conversation_type == "room"]
+
+    hidden_dm_ids = {p.conversation_id for p in dm_prefs if p.hidden}
+    hidden_room_ids = {p.conversation_id for p in room_prefs if p.hidden}
+
+    # DM mute status
     muted_dm: dict[str, Optional[datetime]] = {}
-    for p in all_prefs:
-        if p.conversation_type == "dm" and p.muted_until is not None:
+    for p in dm_prefs:
+        if p.muted_until is not None:
             if p.muted_until > datetime.utcnow():
                 muted_dm[p.conversation_id] = p.muted_until
             elif p.muted_until <= datetime.utcnow():
-                # expired mute: clear it lazily
                 p.muted_until = None
 
-    result = await db.execute(
-        select(Message)
-        .options(selectinload(Message.sender))
-        .where(
-            or_(
-                Message.sender_id == current_user.id,
-                Message.receiver_id == current_user.id,
-            )
-        )
-        .order_by(Message.created_at.desc())
-    )
-    dms = result.scalars().all()
-
-    room_result = await db.execute(
-        select(ChatRoom)
-        .join(ChatRoomMember, ChatRoom.id == ChatRoomMember.room_id)
-        .where(ChatRoomMember.user_id == current_user.id)
-        .options(
-            selectinload(ChatRoom.members).selectinload(ChatRoomMember.user),
-        )
-    )
-    rooms = room_result.scalars().all()
-
-    # Load this user's room memberships (mute status + last-read marker)
+    # Room memberships for mute status and last_read_at
     membership_result = await db.execute(
         select(ChatRoomMember).where(ChatRoomMember.user_id == current_user.id)
     )
@@ -263,74 +320,123 @@ async def build_conversations(
             muted_rooms[m.room_id] = m.muted_until
         last_read_map[m.room_id] = m.last_read_at
 
-    dm_map = {}
-    for msg in dms:
-        other_id = (
-            msg.receiver_id if msg.sender_id == current_user.id else msg.sender_id
-        )
-        if not other_id:
-            continue
-        if other_id in hidden_dm_ids:
-            continue
-        if other_id not in dm_map:
-            other_result = await db.execute(
-                select(User).where(User.id == other_id)
-            )
-            other = other_result.scalar_one_or_none()
-            if other:
-                dm_is_muted = other_id in muted_dm
-                dm_map[other_id] = ConversationResponse(
-                    type="direct",
-                    id=other.id,
-                    name=other.name,
-                    avatar_url=other.avatar_url,
-                    subtitle=other.house,
-                    last_message=await serialize_message(db, msg, current_user.id),
-                    unread_count=0,
-                    is_muted=dm_is_muted,
-                    last_active_at=other.last_active_at,
-                )
-        if msg.receiver_id == current_user.id and not msg.read:
-            dm_map[other_id].unread_count += 1
+    # Get user IDs and room IDs we need to load
+    dm_user_ids = [p.conversation_id for p in dm_prefs if p.conversation_id not in hidden_dm_ids]
+    room_ids = [p.conversation_id for p in room_prefs if p.conversation_id not in hidden_room_ids]
 
-    room_convs = []
-    for room in rooms:
-        if room.id in hidden_room_ids:
-            continue
-        msg_result = await db.execute(
-            select(Message)
-            .where(Message.room_id == room.id)
-            .order_by(Message.created_at.desc())
-            .limit(1)
-            .options(selectinload(Message.sender))
+    # Batch load users for DMs
+    dm_users = {}
+    if dm_user_ids:
+        users_result = await db.execute(select(User).where(User.id.in_(dm_user_ids)))
+        dm_users = {u.id: u for u in users_result.scalars().all()}
+
+    # Batch load rooms
+    rooms = {}
+    if room_ids:
+        rooms_result = await db.execute(
+            select(ChatRoom)
+            .where(ChatRoom.id.in_(room_ids))
+            .options(selectinload(ChatRoom.members).selectinload(ChatRoomMember.user))
         )
-        last_msg = msg_result.scalars().first()
-        unread = 0
-        if last_msg:
-            last_read = last_read_map.get(room.id)
-            count_filters = [
-                Message.room_id == room.id,
-                Message.sender_id != current_user.id,
-            ]
-            if last_read is not None:
-                count_filters.append(Message.created_at > last_read)
-            count_result = await db.execute(
-                select(func.count(Message.id)).where(and_(*count_filters))
+        rooms = {r.id: r for r in rooms_result.scalars().all()}
+
+    # Build DM conversations using denormalized data
+    dm_map = {}
+    for pref in dm_prefs:
+        if pref.conversation_id in hidden_dm_ids:
+            continue
+        other = dm_users.get(pref.conversation_id)
+        if not other:
+            continue
+        dm_is_muted = pref.conversation_id in muted_dm
+
+        # Create a minimal last_message from denormalized data
+        last_message = None
+        if pref.last_message_id and pref.last_message_at:
+            last_message = MessageResponse(
+                id=pref.last_message_id,
+                sender_id=pref.last_message_sender_id or "",
+                receiver_id=current_user.id if pref.last_message_sender_id != current_user.id else other.id,
+                room_id=None,
+                reply_to_id=None,
+                kind="text",
+                body=pref.last_message_body,
+                attachment_url=None,
+                attachment_type=None,
+                attachment_name=None,
+                metadata=None,
+                read=True,
+                pinned=False,
+                created_at=pref.last_message_at,
+                sender=other if pref.last_message_sender_id == other.id else None,
+                receiver=other if pref.last_message_sender_id != other.id else None,
+                room=None,
+                poll=None,
+                reply_to=None,
+                reactions=[],
             )
-            unread = count_result.scalar() or 0
+
+        dm_map[pref.conversation_id] = ConversationResponse(
+            type="direct",
+            id=other.id,
+            name=other.name,
+            avatar_url=other.avatar_url,
+            subtitle=other.house,
+            last_message=last_message,
+            unread_count=pref.unread_count if not dm_is_muted else 0,
+            is_muted=dm_is_muted,
+            last_active_at=other.last_active_at,
+        )
+
+    # Build room conversations using denormalized data
+    room_convs = []
+    now = datetime.utcnow()
+    for pref in room_prefs:
+        if pref.conversation_id in hidden_room_ids:
+            continue
+        room = rooms.get(pref.conversation_id)
+        if not room:
+            continue
 
         is_muted = False
-        if room.id in muted_rooms:
-            mu = muted_rooms[room.id]
-            if mu is None or mu > datetime.utcnow():
+        if pref.conversation_id in muted_rooms:
+            mu = muted_rooms[pref.conversation_id]
+            if mu is None or mu > now:
                 is_muted = True
 
-        now = datetime.utcnow()
         online_count = sum(
             1 for m in room.members
             if m.user and m.user.last_active_at
             and (now - m.user.last_active_at).total_seconds() < 300
         )
+
+        # Create last_message from denormalized data
+        last_message = None
+        if pref.last_message_id and pref.last_message_at:
+            sender_id = pref.last_message_sender_id or ""
+            sender = next((m.user for m in room.members if m.user_id == sender_id), None)
+            last_message = MessageResponse(
+                id=pref.last_message_id,
+                sender_id=sender_id,
+                receiver_id=None,
+                room_id=room.id,
+                reply_to_id=None,
+                kind="text",
+                body=pref.last_message_body,
+                attachment_url=None,
+                attachment_type=None,
+                attachment_name=None,
+                metadata=None,
+                read=True,
+                pinned=False,
+                created_at=pref.last_message_at,
+                sender=sender,
+                receiver=None,
+                room=None,
+                poll=None,
+                reply_to=None,
+                reactions=[],
+            )
 
         room_convs.append(
             ConversationResponse(
@@ -339,12 +445,8 @@ async def build_conversations(
                 name=room.name,
                 avatar_url=room.avatar_url,
                 subtitle=f"{len(room.members)} miembros",
-                last_message=(
-                    await serialize_message(db, last_msg, current_user.id)
-                    if last_msg
-                    else None
-                ),
-                unread_count=unread if not is_muted else 0,
+                last_message=last_message,
+                unread_count=pref.unread_count if not is_muted else 0,
                 online_count=online_count,
             )
         )
@@ -362,7 +464,15 @@ async def get_conversations(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await build_conversations(db, current_user)
+    # Try cache first
+    cached = await _get_cached_conversations(current_user.id)
+    if cached is not None:
+        return cached
+    
+    # Build and cache
+    conversations = await build_conversations(db, current_user)
+    await _set_cached_conversations(current_user.id, conversations)
+    return conversations
 
 
 async def create_mention_notifications(
@@ -510,7 +620,117 @@ async def send_message(
     if notified:
         await db.commit()
 
+    # Update denormalized conversation preferences for sender and recipients
+    await _update_conversation_preferences(db, message, current_user)
+
     return await serialize_message(db, message, current_user.id)
+
+
+async def _update_conversation_preferences(
+    db: AsyncSession, message: Message, sender: User
+):
+    """Update UserConversationPreference denormalized fields for sender and all recipients."""
+    from datetime import datetime
+
+    body_preview = (message.body or "")[:200] if message.body else ""
+    if not body_preview and message.attachment_url:
+        body_preview = "📎 Adjunto"
+
+    # Determine conversation key
+    if message.room_id:
+        conversation_type = "room"
+        conversation_id = message.room_id
+        # Get all room members
+        member_result = await db.execute(
+            select(ChatRoomMember.user_id).where(ChatRoomMember.room_id == message.room_id)
+        )
+        recipient_ids = [row[0] for row in member_result.all()]
+    else:
+        conversation_type = "dm"
+        conversation_id = message.receiver_id
+        recipient_ids = [message.receiver_id] if message.receiver_id else []
+
+    # Collect all user IDs that need cache invalidation
+    affected_user_ids = {sender.id}
+    affected_user_ids.update(recipient_ids)
+
+    # Update for sender
+    await _upsert_conversation_pref(
+        db,
+        user_id=sender.id,
+        conversation_type=conversation_type,
+        conversation_id=conversation_id,
+        last_message_id=message.id,
+        last_message_body=body_preview,
+        last_message_at=message.created_at,
+        last_message_sender_id=sender.id,
+        # Don't increment unread for sender
+        unread_increment=0,
+    )
+
+    # Update for each recipient (increment unread)
+    for recipient_id in recipient_ids:
+        if recipient_id == sender.id:
+            continue
+        await _upsert_conversation_pref(
+            db,
+            user_id=recipient_id,
+            conversation_type=conversation_type,
+            conversation_id=conversation_id,
+            last_message_id=message.id,
+            last_message_body=body_preview,
+            last_message_at=message.created_at,
+            last_message_sender_id=sender.id,
+            unread_increment=1,
+        )
+
+    await db.commit()
+
+    # Invalidate conversations cache for all affected users
+    await _invalidate_conversations_caches(list(affected_user_ids))
+
+
+async def _upsert_conversation_pref(
+    db: AsyncSession,
+    user_id: str,
+    conversation_type: str,
+    conversation_id: str,
+    last_message_id: str,
+    last_message_body: str,
+    last_message_at: datetime,
+    last_message_sender_id: str,
+    unread_increment: int,
+):
+    """Upsert a UserConversationPreference with denormalized message data."""
+    result = await db.execute(
+        select(UserConversationPreference).where(
+            and_(
+                UserConversationPreference.user_id == user_id,
+                UserConversationPreference.conversation_type == conversation_type,
+                UserConversationPreference.conversation_id == conversation_id,
+            )
+        )
+    )
+    pref = result.scalar_one_or_none()
+    if pref:
+        pref.last_message_id = last_message_id
+        pref.last_message_body = last_message_body
+        pref.last_message_at = last_message_at
+        pref.last_message_sender_id = last_message_sender_id
+        if unread_increment > 0:
+            pref.unread_count += unread_increment
+    else:
+        pref = UserConversationPreference(
+            user_id=user_id,
+            conversation_type=conversation_type,
+            conversation_id=conversation_id,
+            last_message_id=last_message_id,
+            last_message_body=last_message_body,
+            last_message_at=last_message_at,
+            last_message_sender_id=last_message_sender_id,
+            unread_count=unread_increment,
+        )
+        db.add(pref)
 
 
 @router.post(
@@ -706,7 +926,13 @@ async def get_room_messages(
     current_user: User = Depends(get_current_user),
     limit: int = Query(30, ge=1, le=100),
     before: Optional[str] = None,
+    expand: str = Query("", description="Comma-separated list of relations to expand: sender,receiver,reactions,reply_to"),
 ):
+    expand_sender = "sender" in expand
+    expand_receiver = "receiver" in expand
+    expand_reactions = "reactions" in expand
+    expand_reply_to = "reply_to" in expand
+
     member_result = await db.execute(
         select(ChatRoomMember).where(
             and_(
@@ -745,10 +971,25 @@ async def get_room_messages(
         ).scalar() or 0
 
     eff_limit = _initial_limit(limit, unread_count, first_unread_id is not None)
+    
+    # Build query with conditional eager loading based on expand
+    query_options = []
+    if expand_sender:
+        query_options.append(selectinload(Message.sender))
+    if expand_receiver:
+        query_options.append(selectinload(Message.receiver))
+    if expand_reactions:
+        query_options.append(selectinload(Message.reactions))
+    if expand_reply_to:
+        query_options.append(selectinload(Message.reply_to).selectinload(Message.sender))
+    
+    # Always load poll for poll messages
+    query_options.append(selectinload(Message.poll).selectinload(Poll.options).selectinload(PollOption.votes))
+    
     query = (
         select(Message)
         .where(Message.room_id == room_id)
-        .options(*_ROOM_MSG_OPTS)
+        .options(*query_options)
         .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(eff_limit + 1)
     )
@@ -768,7 +1009,14 @@ async def get_room_messages(
             member.last_read_at = newest
     await db.commit()
 
-    out = [await serialize_message(db, m, current_user.id) for m in rows]
+    out = [
+        await serialize_message(
+            db, m, current_user.id,
+            expand_sender=expand_sender, expand_receiver=expand_receiver,
+            expand_reactions=expand_reactions, expand_reply_to=expand_reply_to,
+        )
+        for m in rows
+    ]
     out.reverse()  # oldest-first for rendering
     return MessagePage(
         messages=out,
@@ -1226,6 +1474,58 @@ async def remove_reaction(
     await db.commit()
 
 
+class MessageEditRequest(BaseModel):
+    body: str
+
+
+@router.patch("/{message_id}", response_model=MessageResponse)
+async def edit_message(
+    message_id: str,
+    edit_data: MessageEditRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    msg_result = await db.execute(select(Message).where(Message.id == message_id))
+    message = msg_result.scalar_one_or_none()
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    # Only sender can edit
+    if message.sender_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the sender can edit this message")
+
+    # Only text messages can be edited
+    if message.kind != "text":
+        raise HTTPException(status_code=400, detail="Only text messages can be edited")
+
+    message.body = edit_data.body
+    message.edited = True
+    message.edited_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(message)
+
+    return await serialize_message(db, message, current_user.id, expand_sender=True)
+
+
+@router.delete("/{message_id}", status_code=204)
+async def delete_message(
+    message_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    msg_result = await db.execute(select(Message).where(Message.id == message_id))
+    message = msg_result.scalar_one_or_none()
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    # Only sender can delete
+    if message.sender_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the sender can delete this message")
+
+    await db.delete(message)
+    await db.commit()
+
+
 @router.put("/rooms/{room_id}/toggle-close", response_model=ChatRoomResponse)
 async def toggle_room_closed(
     room_id: str,
@@ -1675,7 +1975,13 @@ async def get_messages(
     current_user: User = Depends(get_current_user),
     limit: int = Query(30, ge=1, le=100),
     before: Optional[str] = None,
+    expand: str = Query("", description="Comma-separated list of relations to expand: sender,receiver,reactions,reply_to"),
 ):
+    expand_sender = "sender" in expand
+    expand_receiver = "receiver" in expand
+    expand_reactions = "reactions" in expand
+    expand_reply_to = "reply_to" in expand
+
     convo_filter = or_(
         and_(
             Message.sender_id == current_user.id,
@@ -1711,14 +2017,21 @@ async def get_messages(
         ).scalar() or 0
 
     eff_limit = _initial_limit(limit, unread_count, first_unread_id is not None)
+    
+    # Build query with conditional eager loading based on expand
+    query_options = []
+    if expand_sender:
+        query_options.append(selectinload(Message.sender))
+    if expand_receiver:
+        query_options.append(selectinload(Message.receiver))
+    if expand_reactions:
+        query_options.append(selectinload(Message.reactions))
+    if expand_reply_to:
+        query_options.append(selectinload(Message.reply_to).selectinload(Message.sender))
+    
     query = (
         select(Message)
-        .options(
-            selectinload(Message.sender),
-            selectinload(Message.receiver),
-            selectinload(Message.reply_to).selectinload(Message.sender),
-            selectinload(Message.reactions),
-        )
+        .options(*query_options)
         .where(convo_filter)
         .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(eff_limit + 1)
@@ -1748,7 +2061,14 @@ async def get_messages(
         )
     await db.commit()
 
-    out = [await serialize_message(db, m, current_user.id) for m in rows]
+    out = [
+        await serialize_message(
+            db, m, current_user.id,
+            expand_sender=expand_sender, expand_receiver=expand_receiver,
+            expand_reactions=expand_reactions, expand_reply_to=expand_reply_to,
+        )
+        for m in rows
+    ]
     out.reverse()  # oldest-first for rendering
     return MessagePage(
         messages=out,

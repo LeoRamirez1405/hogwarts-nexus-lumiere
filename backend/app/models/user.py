@@ -47,3 +47,4 @@ class User(Base):
     notifications = relationship("Notification", foreign_keys="Notification.user_id", back_populates="user", lazy="raise")
     chat_rooms = relationship("ChatRoomMember", back_populates="user", lazy="raise")
     chat_rooms_created = relationship("ChatRoom", foreign_keys="ChatRoom.created_by", lazy="raise")
+    push_subscriptions = relationship("PushSubscription", back_populates="user", lazy="raise")

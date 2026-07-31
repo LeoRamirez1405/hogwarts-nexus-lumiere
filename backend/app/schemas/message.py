@@ -142,6 +142,8 @@ class MessageResponse(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     read: bool
     pinned: bool = False
+    edited: bool = False
+    edited_at: Optional[datetime] = None
     created_at: datetime
     sender: Optional[UserResponse] = None
     receiver: Optional[UserResponse] = None
@@ -184,6 +186,88 @@ class ConversationResponse(BaseModel):
 
 class MuteRequest(BaseModel):
     duration: str  # "8h" | "24h" | "forever" | "off"
+
+
+# WebSocket message types
+class WSMessageBase(BaseModel):
+    t: str  # message type: "msg", "typing", "read", "presence", "reaction", "delete", "edit", "ping", "pong"
+
+
+class WSSendMessage(WSMessageBase):
+    t: str = "send_message"
+    c: str  # conversation_id (room_id or user_id)
+    m: Dict[str, Any]  # message data
+    ts: int
+
+
+class WSTypingStart(WSMessageBase):
+    t: str = "typing_start"
+    c: str  # conversation_id
+
+
+class WSTypingStop(WSMessageBase):
+    t: str = "typing_stop"
+    c: str  # conversation_id
+
+
+class WSMarkRead(WSMessageBase):
+    t: str = "mark_read"
+    c: str  # conversation_id
+    m: str  # message_id
+
+
+class WSPing(WSMessageBase):
+    t: str = "ping"
+
+
+# Server -> Client
+class WSNewMessage(WSMessageBase):
+    t: str = "new_message"
+    c: str  # conversation_id
+    m: Dict[str, Any]  # full message
+
+
+class WSTyping(WSMessageBase):
+    t: str = "typing"
+    c: str  # conversation_id
+    u: str  # user_id
+
+
+class WSPresence(WSMessageBase):
+    t: str = "presence"
+    u: str  # user_id
+    s: str  # status: "online" | "offline"
+
+
+class WSReadReceipt(WSMessageBase):
+    t: str = "read_receipt"
+    c: str  # conversation_id
+    m: str  # message_id
+    u: str  # read_by user_id
+    ts: int
+
+
+class WSReactionUpdate(WSMessageBase):
+    t: str = "reaction_update"
+    c: str  # conversation_id
+    m: str  # message_id
+    r: List[MessageReactionResponse]
+
+
+class WSMessageDelete(WSMessageBase):
+    t: str = "delete"
+    c: str  # conversation_id
+    m: str  # message_id
+
+
+class WSMessageEdit(WSMessageBase):
+    t: str = "edit"
+    c: str  # conversation_id
+    m: Dict[str, Any]  # updated message
+
+
+class WSPong(WSMessageBase):
+    t: str = "pong"
 
 
 class UserSearchResult(BaseModel):

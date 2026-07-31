@@ -1,4 +1,5 @@
 from typing import List, Optional
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -19,6 +20,9 @@ router = APIRouter()
 @router.get("/", response_model=Page[TransactionResponse])
 async def list_transactions(
     type: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -40,6 +44,19 @@ async def list_transactions(
     if type:
         query = query.where(Transaction.type == type)
         count_query = count_query.where(Transaction.type == type)
+    if user_id:
+        query = query.where(
+            (Transaction.sender_id == user_id) | (Transaction.receiver_id == user_id)
+        )
+        count_query = count_query.where(
+            (Transaction.sender_id == user_id) | (Transaction.receiver_id == user_id)
+        )
+    if date_from:
+        query = query.where(Transaction.created_at >= date_from)
+        count_query = count_query.where(Transaction.created_at >= date_from)
+    if date_to:
+        query = query.where(Transaction.created_at <= date_to)
+        count_query = count_query.where(Transaction.created_at <= date_to)
     query = (
         query.order_by(Transaction.created_at.desc())
         .offset(skip)
@@ -63,6 +80,9 @@ async def list_transactions(
 @router.get("/admin/all", response_model=Page[TransactionResponse])
 async def list_all_transactions_admin(
     type: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -79,6 +99,19 @@ async def list_all_transactions_admin(
     if type:
         query = query.where(Transaction.type == type)
         count_query = count_query.where(Transaction.type == type)
+    if user_id:
+        query = query.where(
+            (Transaction.sender_id == user_id) | (Transaction.receiver_id == user_id)
+        )
+        count_query = count_query.where(
+            (Transaction.sender_id == user_id) | (Transaction.receiver_id == user_id)
+        )
+    if date_from:
+        query = query.where(Transaction.created_at >= date_from)
+        count_query = count_query.where(Transaction.created_at >= date_from)
+    if date_to:
+        query = query.where(Transaction.created_at <= date_to)
+        count_query = count_query.where(Transaction.created_at <= date_to)
     query = (
         query.order_by(Transaction.created_at.desc())
         .offset(skip)

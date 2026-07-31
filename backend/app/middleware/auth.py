@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import Depends, HTTPException, Request, Response, status
+from fastapi import Depends, HTTPException, Request, Response, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -137,5 +137,25 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
         )
+
+    return user
+
+
+async def get_current_user_ws(
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[User]:
+    """WebSocket authentication via query parameter token."""
+    try:
+        payload = decode_token(token)
+    except HTTPException:
+        return None
+
+    user_id = payload.get("sub")
+    if user_id is None:
+        return None
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
 
     return user

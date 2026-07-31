@@ -69,6 +69,12 @@ class UserConversationPreference(Base):
     conversation_id = Column(String, nullable=False)  # user_id for DM, room_id for room
     hidden = Column(Boolean, default=False, nullable=False)
     muted_until = Column(DateTime, nullable=True)  # None = not muted, datetime = muted until
+    # Denormalized columns for conversation list performance
+    last_message_id = Column(String, nullable=True)
+    last_message_body = Column(Text, nullable=True)
+    last_message_at = Column(DateTime, nullable=True)
+    last_message_sender_id = Column(String, nullable=True)
+    unread_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     user = relationship("User", lazy="selectin")
