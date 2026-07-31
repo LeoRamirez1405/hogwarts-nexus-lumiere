@@ -141,6 +141,8 @@ export const api = {
   // Users
   getUsers: (pagination?: PaginationParams) =>
     request<Page<User>>("/users/" + buildQuery(pagination ?? {})),
+  searchUsersServer: (q: string, pagination?: PaginationParams) =>
+    request<Page<User>>("/users/search" + buildQuery({ q, ...(pagination ?? {}) })),
   getUser: (id: string) => request<User>(`/users/${id}`),
   updateUser: (id: string, data: Partial<User>) =>
     request<User>(`/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
@@ -183,6 +185,11 @@ export const api = {
     request<Product>(`/products/${id}/purchase`, {
       method: "POST",
       body: JSON.stringify({ quantity: quantity || 1 }),
+    }),
+  batchPurchase: (items: { product_id: string; quantity: number }[]) =>
+    request<BatchPurchaseResult>("/products/batch-purchase", {
+      method: "POST",
+      body: JSON.stringify({ items }),
     }),
   getMyPurchases: (pagination?: PaginationParams) =>
     request<Page<UserProduct>>("/products/my-purchases" + buildQuery(pagination ?? {})),
@@ -606,6 +613,22 @@ export interface UserProduct {
   purchased_at: string;
 }
 
+export interface BatchPurchaseItemResult {
+  product_id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  status: string;
+  error?: string;
+}
+
+export interface BatchPurchaseResult {
+  success: boolean;
+  purchased: BatchPurchaseItemResult[];
+  total_spent: number;
+  new_balance: number;
+}
+
 export interface Article {
   id: string;
   title: string;
@@ -886,6 +909,7 @@ export interface DashboardData {
   total_articles?: number;
   total_creatures?: number;
   total_zerines_in_circulation?: number;
+  house_points?: Record<string, number>;
   recent_transactions?: Transaction[];
   // User fields
   zerines?: number;
