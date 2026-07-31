@@ -28,31 +28,52 @@ function buildQuery(params: Record<string, string | number | undefined | null>):
   return parts.length ? `?${parts.join("&")}` : "";
 }
 
+async function attemptRefresh(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Deduplicate concurrent 401s: only one refresh round-trip per wave.
+let refreshPromise: Promise<boolean> | null = null;
+
+const AUTH_ENDPOINTS = new Set(["/auth/login", "/auth/register", "/auth/refresh"]);
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const doFetch = (): Promise<Response> =>
+    fetch(`${API_BASE}${path}`, {
+      ...options,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...((options.headers as Record<string, string>) || {}),
+      },
+    });
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...((options.headers as Record<string, string>) || {}),
-  };
+  let res = await doFetch();
 
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+  // Expired access token? Try the refresh cookie once, then retry.
+  if (res.status === 401 && typeof window !== "undefined" && !AUTH_ENDPOINTS.has(path)) {
+    refreshPromise = refreshPromise ?? attemptRefresh().finally(() => { refreshPromise = null; });
+    if (await refreshPromise) {
+      res = await doFetch();
+    }
   }
-
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }));
-    if (res.status === 401 && typeof window !== "undefined") {
-      localStorage.removeItem("token");
+    if (res.status === 401 && typeof window !== "undefined" && !AUTH_ENDPOINTS.has(path)) {
       window.location.href = "/login";
     }
     throw new Error(error.detail || "Request failed");
@@ -67,27 +88,29 @@ async function uploadFile<T>(
   file: File,
   fieldName: string = "file"
 ): Promise<T> {
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
   const formData = new FormData();
   formData.append(fieldName, file);
 
-  const headers: Record<string, string> = {};
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
+  const doFetch = (): Promise<Response> =>
+    fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      credentials: "include",
+      headers: {} as Record<string, string>,
+      body: formData,
+    });
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers,
-    body: formData,
-  });
+  let res = await doFetch();
+
+  if (res.status === 401 && typeof window !== "undefined") {
+    refreshPromise = refreshPromise ?? attemptRefresh().finally(() => { refreshPromise = null; });
+    if (await refreshPromise) {
+      res = await doFetch();
+    }
+  }
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }));
     if (res.status === 401 && typeof window !== "undefined") {
-      localStorage.removeItem("token");
       window.location.href = "/login";
     }
     throw new Error(error.detail || "Upload failed");
@@ -99,7 +122,7 @@ async function uploadFile<T>(
 export const api = {
   // Auth
   login: (email: string, password: string) =>
-    request<{ access_token: string; token_type: string; user: User }>(
+    request<{ token_type: string; user: User }>(
       "/auth/login",
       { method: "POST", body: JSON.stringify({ email, password }) }
     ),
@@ -112,6 +135,8 @@ export const api = {
   }) => request<User>("/auth/register", { method: "POST", body: JSON.stringify(data) }),
 
   getMe: () => request<User>("/auth/me"),
+  refresh: () => request<{ token_type: string }>("/auth/refresh", { method: "POST" }),
+  logout: () => request<{ message: string }>("/auth/logout", { method: "POST" }),
 
   // Users
   getUsers: (pagination?: PaginationParams) =>
@@ -464,21 +489,33 @@ export const api = {
 
   // Support
   sendSupportReport: (type: string, description: string, screenshot?: File) => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     const formData = new FormData();
     formData.append("report_type", type);
     formData.append("description", description);
     if (screenshot) formData.append("screenshot", screenshot);
 
-    return fetch(`${API_BASE}/support`, {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: formData,
-    }).then(async (res) => {
+    const doFetch = () =>
+      fetch(`${API_BASE}/support`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+    return (async () => {
+      let res = await doFetch();
+      if (res.status === 401 && typeof window !== "undefined") {
+        refreshPromise = refreshPromise ?? attemptRefresh().finally(() => { refreshPromise = null; });
+        if (await refreshPromise) res = await doFetch();
+      }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Error al enviar");
+      if (!res.ok) {
+        if (res.status === 401 && typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+        throw new Error(data.detail || "Error al enviar");
+      }
       return data;
-    });
+    })();
   },
 
   // Enum Types (Admin Settings)
