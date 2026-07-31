@@ -86,4 +86,4 @@ No entregar codigo con errores de lint o tipos.
 - Borgin & Burkes usa tema oscuro: inverse-surface `#313030` + gold
 - Glassmorphism: usar clase `glass-card`
 - Fuentes: EB Garamond (display), Hanken Grotesk (body), JetBrains Mono (labels)
-- Zerines: moneda fake, mostrar con 💎, integer amounts
+
