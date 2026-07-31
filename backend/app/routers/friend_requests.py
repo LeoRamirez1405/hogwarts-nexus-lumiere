@@ -1,18 +1,41 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, func
 
 from ..database import get_db
 from ..models.friend_request import FriendRequest
 from ..models.user import User
 from ..schemas.friend_request import FriendRequestCreate, FriendRequestResponse
 from ..schemas.user import UserResponse
+from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..notifications_service import notify, N
 from sqlalchemy.orm import selectinload
 
 router = APIRouter()
+
+
+async def _collect_friends(db: AsyncSession, user_id: str) -> List[User]:
+    """Return all Users considered friends of `user_id` (accepted requests,
+    both directions)."""
+    result = await db.execute(
+        select(FriendRequest).where(
+            or_(
+                FriendRequest.sender_id == user_id,
+                FriendRequest.receiver_id == user_id,
+            ),
+            FriendRequest.status == "accepted",
+        ).options(selectinload(FriendRequest.sender), selectinload(FriendRequest.receiver))
+    )
+    rows = result.scalars().all()
+    friends: List[User] = []
+    for fr in rows:
+        if fr.sender_id == user_id and fr.receiver:
+            friends.append(fr.receiver)
+        elif fr.receiver_id == user_id and fr.sender:
+            friends.append(fr.sender)
+    return friends
 
 
 @router.get("/", response_model=List[FriendRequestResponse])
@@ -38,23 +61,58 @@ async def list_friends(
     current_user: User = Depends(get_current_user),
 ):
     """Devuelve los usuarios amigos de user_id (solicitudes aceptadas en ambos sentidos)."""
+    return await _collect_friends(db, user_id)
+
+
+@router.get("/friends/{user_id}/paginated", response_model=Page[UserResponse])
+async def list_friends_paginated(
+    user_id: str,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Same set as `GET /friend-requests/friends/{user_id}` but paginated —
+    useful for accounts with many friends (e.g. through AllFriendsModal)."""
+    friends = await _collect_friends(db, user_id)
+    total = len(friends)
+    page = friends[skip : skip + limit]
+    has_more = skip + limit < total
+    return Page(
+        items=[UserResponse.model_validate(u) for u in page],
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
+
+
+@router.delete(
+    "/unfriend/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def unfriend(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete the accepted friendship between `current_user` and `user_id`.
+    Removes the underlying friend request record (idempotent: returns 204 even
+    if no accepted record existed). The other user is not notified."""
     result = await db.execute(
         select(FriendRequest).where(
             or_(
-                FriendRequest.sender_id == user_id,
-                FriendRequest.receiver_id == user_id,
+                (FriendRequest.sender_id == current_user.id) & (FriendRequest.receiver_id == user_id),
+                (FriendRequest.sender_id == user_id) & (FriendRequest.receiver_id == current_user.id),
             ),
             FriendRequest.status == "accepted",
-        ).options(selectinload(FriendRequest.sender), selectinload(FriendRequest.receiver))
+        )
     )
-    rows = result.scalars().all()
-    friends: List[User] = []
-    for fr in rows:
-        if fr.sender_id == user_id and fr.receiver:
-            friends.append(fr.receiver)
-        elif fr.receiver_id == user_id and fr.sender:
-            friends.append(fr.sender)
-    return friends
+    fr = result.scalar_one_or_none()
+    if fr:
+        await db.delete(fr)
+        await db.commit()
+    return None
 
 
 @router.post("/", response_model=FriendRequestResponse, status_code=status.HTTP_201_CREATED)
