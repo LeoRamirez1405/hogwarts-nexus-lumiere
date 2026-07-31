@@ -13,25 +13,27 @@ export default function AuthProvider({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { user, token, setAuth, setLoading, isLoading } = useAuthStore();
+  const { user, setAuth, setLoading, isLoading } = useAuthStore();
   const loadFlags = useFeatureFlagStore((s) => s.load);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    if (storedToken && !user) {
-      api
-        .getMe()
-        .then((u) => setAuth(u, storedToken))
-        .catch(() => {
-          localStorage.removeItem("token");
-          router.replace("/login");
-        });
-    } else if (!storedToken && !user) {
-      router.replace("/login");
-    } else {
+    if (user) {
       setLoading(false);
+      return;
     }
-  }, [user, token, setAuth, setLoading, router]);
+    let cancelled = false;
+    api
+      .getMe()
+      .then((u) => {
+        if (!cancelled) setAuth(u);
+      })
+      .catch(() => {
+        if (!cancelled) router.replace("/login");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, setAuth, setLoading, router]);
 
   useEffect(() => {
     if (user) {

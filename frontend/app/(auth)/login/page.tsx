@@ -22,7 +22,7 @@ export default function LoginPage() {
 
     try {
       const res = await api.login(email, password);
-      setAuth(res.user, res.access_token);
+      setAuth(res.user);
       router.push("/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");

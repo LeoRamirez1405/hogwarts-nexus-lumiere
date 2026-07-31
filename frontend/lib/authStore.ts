@@ -1,11 +1,10 @@
 import { create } from "zustand";
-import { User } from "./api";
+import { api, User } from "./api";
 
 interface AuthState {
   user: User | null;
-  token: string | null;
   isLoading: boolean;
-  setAuth: (user: User, token: string) => void;
+  setAuth: (user: User) => void;
   setUser: (user: User) => void;
   logout: () => void;
   setLoading: (loading: boolean) => void;
@@ -13,20 +12,12 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  token: null,
   isLoading: true,
-  setAuth: (user, token) => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("token", token);
-    }
-    set({ user, token, isLoading: false });
-  },
+  setAuth: (user) => set({ user, isLoading: false }),
   setUser: (user) => set({ user }),
   logout: () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("token");
-    }
-    set({ user: null, token: null, isLoading: false });
+    api.logout().catch(() => {});
+    set({ user: null, isLoading: false });
   },
   setLoading: (isLoading) => set({ isLoading }),
 }));

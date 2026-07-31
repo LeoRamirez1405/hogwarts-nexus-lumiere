@@ -18,7 +18,7 @@ const byCreatedAsc = (a: Message, b: Message) =>
   a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0;
 
 export default function MessagesPage() {
-  const { user: authUser, token } = useAuthStore();
+  const { user: authUser } = useAuthStore();
   const markNotifsReadMatching = useNotificationStore((s) => s.markReadMatching);
   const storeNotifications = useNotificationStore((s) => s.notifications);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -62,7 +62,7 @@ export default function MessagesPage() {
 
   // Initial data (conversation list + users).
   useEffect(() => {
-    if (!token) return;
+    if (!authUser) return;
     Promise.all([api.getConversations(), api.getUsers()])
       .then(([convs, users]) => {
         setConversations(convs);
@@ -70,7 +70,7 @@ export default function MessagesPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [authUser, token]);
+  }, [authUser]);
 
   // Deep-link from a mention notification: /messages?room=..&msg=..
   useEffect(() => {

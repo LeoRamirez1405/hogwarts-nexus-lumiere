@@ -7,12 +7,7 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      router.replace("/dashboard");
-    } else {
-      router.replace("/login");
-    }
+    router.replace("/dashboard");
   }, [router]);
 
   return (
