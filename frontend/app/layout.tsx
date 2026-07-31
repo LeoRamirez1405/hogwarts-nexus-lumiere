@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { EB_Garamond, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { QueryProvider } from "@/components/providers/QueryProvider";
+import { PWAProvider } from "@/components/providers/PWAProvider";
 import { ToastViewport } from "@/components/ui/ToastViewport";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import "./globals.css";
@@ -61,7 +62,11 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col antialiased">
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          <PWAProvider>
+            {children}
+          </PWAProvider>
+        </QueryProvider>
         <ToastViewport />
         <ConfirmDialog />
       </body>

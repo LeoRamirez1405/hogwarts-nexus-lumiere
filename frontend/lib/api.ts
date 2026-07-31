@@ -439,6 +439,15 @@ export const api = {
   removeReaction: (messageId: string, emoji: string) =>
     request<void>(`/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`, { method: "DELETE" }),
 
+  // Message edit/delete
+  editMessage: (messageId: string, body: string) =>
+    request<Message>(`/messages/${messageId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ body }),
+    }),
+  deleteMessage: (messageId: string) =>
+    request<void>(`/messages/${messageId}`, { method: "DELETE" }),
+
   // Room management
   toggleRoomClosed: (roomId: string) =>
     request<ChatRoomResponse>(`/messages/rooms/${roomId}/toggle-close`, { method: "PUT" }),
@@ -490,10 +499,10 @@ export const api = {
     }),
 
   // Transactions
-  getTransactions: (pagination?: PaginationParams, type?: string) =>
-    request<Page<Transaction>>("/transactions/" + buildQuery({ type, ...(pagination ?? {}) })),
-  getAllTransactionsAdmin: (pagination?: PaginationParams, type?: string) =>
-    request<Page<Transaction>>("/transactions/admin/all" + buildQuery({ type, ...(pagination ?? {}) })),
+  getTransactions: (pagination?: PaginationParams, filters?: { type?: string; userId?: string; dateFrom?: string; dateTo?: string }) =>
+    request<Page<Transaction>>("/transactions/" + buildQuery({ type: filters?.type, user_id: filters?.userId, date_from: filters?.dateFrom, date_to: filters?.dateTo, ...(pagination ?? {}) })),
+  getAllTransactionsAdmin: (pagination?: PaginationParams, filters?: { type?: string; userId?: string; dateFrom?: string; dateTo?: string }) =>
+    request<Page<Transaction>>("/transactions/admin/all" + buildQuery({ type: filters?.type, user_id: filters?.userId, date_from: filters?.dateFrom, date_to: filters?.dateTo, ...(pagination ?? {}) })),
   deposit: (amount: number, description?: string) =>
     request<Transaction>("/transactions/deposit", {
       method: "POST",
@@ -917,6 +926,8 @@ export interface Message {
   metadata?: MessageMetadata;
   read: boolean;
   pinned?: boolean;
+  edited?: boolean;
+  edited_at?: string;
   created_at: string;
   sender?: User;
   receiver?: User;
