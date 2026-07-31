@@ -1,9 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import { memo } from "react";
 import { MaterialIcon, ZerineDisplay } from "@/components/ui";
 import { getFallbackForProduct, type Theme } from "@/lib/fallbacks";
 import { useTheme } from "@/lib/useTheme";
+import type { Product } from "@/lib/api";
+
+type SlideType = { type: "product"; product: Product } | { type: "info" };
 
 interface HeroCarouselProps {
   displaySlides: SlideType[];
@@ -18,19 +22,23 @@ interface HeroCarouselProps {
   getCount: () => number;
   onToggleCart: () => void;
   onCatalogScroll: () => void;
+  onAddToCart: (product: Product) => void;
 }
 
-type SlideType = { type: "product"; product: import("@/lib/api").Product } | { type: "info" };
-
-function renderProductSlide(product: import("@/lib/api").Product, keyPrefix: string | number, displaySlidesLength: number, theme: Theme) {
+const ProductSlide = memo(function ProductSlide({
+  product,
+  displaySlidesLength,
+  theme,
+  onAddToCart,
+}: {
+  product: Product;
+  displaySlidesLength: number;
+  theme: Theme;
+  onAddToCart: (product: Product) => void;
+}) {
   const fallbackSrc = getFallbackForProduct('flourish', theme);
-
   return (
-    <div
-      key={`${keyPrefix}-${product.id}`}
-      className="shrink-0"
-      style={{ width: `${100 / displaySlidesLength}%` }}
-    >
+    <div className="shrink-0" style={{ width: `${100 / displaySlidesLength}%` }}>
       <div className="relative rounded-3xl overflow-hidden glass-card border border-lilac-200 h-full">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 right-0 w-96 h-96 bg-[#8e44ad]/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
@@ -56,7 +64,7 @@ function renderProductSlide(product: import("@/lib/api").Product, keyPrefix: str
           <div className="flex flex-wrap items-center gap-4 mt-auto">
             <ZerineDisplay amount={product.price} iconStyle="icon" variant="price" size="lg" />
             <button
-              onClick={() => console.log("add to cart", product.id)}
+              onClick={() => onAddToCart(product)}
               className="border border-primary text-primary rounded-full px-6 py-3 text-label-sm font-bold hover:bg-primary hover:text-on-primary transition-all active:scale-95"
             >
               Añadir al Caldero
@@ -66,15 +74,21 @@ function renderProductSlide(product: import("@/lib/api").Product, keyPrefix: str
       </div>
     </div>
   );
-}
+});
 
-function renderInfoSlide(keyPrefix: string | number, displaySlidesLength: number, getCount: () => number, onToggleCart: () => void, onCatalogScroll: () => void) {
+const InfoSlide = memo(function InfoSlide({
+  displaySlidesLength,
+  getCount,
+  onToggleCart,
+  onCatalogScroll,
+}: {
+  displaySlidesLength: number;
+  getCount: () => number;
+  onToggleCart: () => void;
+  onCatalogScroll: () => void;
+}) {
   return (
-    <div
-      key={`info-${keyPrefix}`}
-      className="shrink-0"
-      style={{ width: `${100 / displaySlidesLength}%` }}
-    >
+    <div className="shrink-0" style={{ width: `${100 / displaySlidesLength}%` }}>
       <div className="relative rounded-3xl overflow-hidden glass-card border border-lilac-200 h-full">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 right-0 w-md h-112 bg-[#8e44ad]/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
@@ -129,7 +143,7 @@ function renderInfoSlide(keyPrefix: string | number, displaySlidesLength: number
       </div>
     </div>
   );
-}
+});
 
 export function HeroCarousel({
   displaySlides,
@@ -144,15 +158,12 @@ export function HeroCarousel({
   getCount,
   onToggleCart,
   onCatalogScroll,
+  onAddToCart,
 }: HeroCarouselProps) {
   const theme = useTheme();
   return (
     <div className="max-w-7xl mx-auto mb-10">
-      <div
-        className="relative overflow-hidden"
-        onMouseEnter={() => {}}
-        onMouseLeave={() => {}}
-      >
+      <div className="relative overflow-hidden">
         <div
           ref={trackRef}
           className="flex transition-transform ease-out"
@@ -164,9 +175,23 @@ export function HeroCarousel({
           onTransitionEnd={onTrackTransitionEnd}
         >
           {displaySlides.map((slide, i) =>
-            slide.type === "product"
-              ? renderProductSlide(slide.product, i, displaySlides.length, theme)
-              : renderInfoSlide(i, displaySlides.length, getCount, onToggleCart, onCatalogScroll)
+            slide.type === "product" ? (
+              <ProductSlide
+                key={`slide-${i}`}
+                product={slide.product}
+                displaySlidesLength={displaySlides.length}
+                theme={theme}
+                onAddToCart={onAddToCart}
+              />
+            ) : (
+              <InfoSlide
+                key={`info-${i}`}
+                displaySlidesLength={displaySlides.length}
+                getCount={getCount}
+                onToggleCart={onToggleCart}
+                onCatalogScroll={onCatalogScroll}
+              />
+            )
           )}
         </div>
 

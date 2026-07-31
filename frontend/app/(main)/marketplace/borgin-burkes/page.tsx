@@ -5,9 +5,11 @@ import Image from "next/image";
 import { api, Product, EnumValue } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
-import { SearchBar, MaterialIcon, TabGroup, ListFooter } from "@/components/ui";
+import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary } from "@/components/ui";
 import { ArtifactCard, HeroCarousel, CartSidebar, SuccessTicket } from "@/components/domain/BorginBurkes";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
+import { useDebounce } from "@/hooks/useDebounce";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
 
@@ -15,6 +17,7 @@ export default function BorginBurkesPage() {
   const { user, setUser } = useAuthStore();
   const { items, addItem, removeItem, clearCart, toggleCart, isOpen, getTotal, getCount } = useCartStore();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [activeFilter, setActiveFilter] = useState("Todos");
   const [showSuccess, setShowSuccess] = useState(false);
   const [ticketId, setTicketId] = useState("");
@@ -64,9 +67,9 @@ export default function BorginBurkesPage() {
 
   const filteredProducts = allShopItems.filter(
     (p) =>
-      !search ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.description.toLowerCase().includes(search.toLowerCase()),
+      !debouncedSearch ||
+      p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      p.description.toLowerCase().includes(debouncedSearch.toLowerCase()),
   );
 
   const visibleProducts = filteredProducts;
@@ -141,6 +144,7 @@ export default function BorginBurkesPage() {
 
   const handleAddToCart = (product: Product) => {
     addItem(product);
+    toastSuccess("Añadido a la Cesta Oscura", `${product.name} está en tu cesta`);
   };
 
   const scrollToCatalog = () => {
@@ -150,9 +154,9 @@ export default function BorginBurkesPage() {
   const handlePurchase = async () => {
     setSubmitting(true);
     try {
-      for (const item of items) {
-        await api.purchaseProduct(item.product.id, item.quantity);
-      }
+      const result = await api.batchPurchase(
+        items.map((i) => ({ product_id: i.product.id, quantity: i.quantity }))
+      );
       clearCart();
       toggleCart();
       setTicketId(Date.now().toString(36).toUpperCase());
@@ -164,8 +168,12 @@ export default function BorginBurkesPage() {
       // Refresh user balance
       const updatedUser = await api.getMe();
       setUser(updatedUser);
+      toastSuccess(
+        "Compra completada",
+        `${result.purchased.length} artefacto(s) · ${result.total_spent.toLocaleString()} Zerines`
+      );
     } catch (err: unknown) {
-      console.error(err);
+      toastError("No se pudo completar la compra", err);
     } finally {
       setSubmitting(false);
     }
@@ -274,6 +282,7 @@ export default function BorginBurkesPage() {
 
           {/* Catalog Grid */}
           <div ref={catalogRef} className="max-w-7xl mx-auto">
+            <ErrorBoundary>
             {productsLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {[1, 2, 3].map((i) => (
@@ -317,6 +326,7 @@ export default function BorginBurkesPage() {
               />
               </>
             )}
+            </ErrorBoundary>
           </div>
         </>
       )}

@@ -8,6 +8,7 @@ import { useAuthStore } from "@/lib/authStore";
 import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary } from "@/components/ui";
 import { BookCard, HeroCarousel, CartSidebar, SuccessModal } from "@/components/domain/FlourishBlotts";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
+import { useDebounce } from "@/hooks/useDebounce";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
@@ -16,6 +17,7 @@ export default function FlourishBlottsPage() {
   const { user, setUser } = useAuthStore();
   const { items, addItem, removeItem, clearCart, toggleCart, isOpen, getTotal, getCount } = useCartStore();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [activeFilter, setActiveFilter] = useState("Todos");
   const [showSuccess, setShowSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -113,6 +115,7 @@ export default function FlourishBlottsPage() {
 
   const handleAddToCart = (product: Product) => {
     addItem(product);
+    toastSuccess("Añadido al Caldero", `${product.name} está en tu caldero`);
   };
 
   const scrollToCatalog = () => {
@@ -122,9 +125,9 @@ export default function FlourishBlottsPage() {
   const handlePurchase = async () => {
     setSubmitting(true);
     try {
-      for (const item of items) {
-        await api.purchaseProduct(item.product.id, item.quantity);
-      }
+      const result = await api.batchPurchase(
+        items.map((i) => ({ product_id: i.product.id, quantity: i.quantity }))
+      );
       clearCart();
       toggleCart();
       setShowSuccess(true);
@@ -135,9 +138,11 @@ export default function FlourishBlottsPage() {
       // Refresh user balance
       const updatedUser = await api.getMe();
       setUser(updatedUser);
-      toastSuccess("Compra realizada con éxito");
+      toastSuccess(
+        "Compra realizada con éxito",
+        `${result.purchased.length} libro(s) · ${result.total_spent.toLocaleString()} Zerines`
+      );
     } catch (err: unknown) {
-      console.error(err);
       toastError("No se pudo completar la compra", err);
     } finally {
       setSubmitting(false);
@@ -188,9 +193,9 @@ export default function FlourishBlottsPage() {
 
   const filtered = allShopItems.filter(
     (p) =>
-      !search ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.description.toLowerCase().includes(search.toLowerCase()),
+      !debouncedSearch ||
+      p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      p.description.toLowerCase().includes(debouncedSearch.toLowerCase()),
   );
 
   const visibleBooks = filtered;
@@ -213,6 +218,7 @@ export default function FlourishBlottsPage() {
           getCount={getCount}
           onToggleCart={toggleCart}
           onCatalogScroll={scrollToCatalog}
+          onAddToCart={handleAddToCart}
         />
       </div>
 
