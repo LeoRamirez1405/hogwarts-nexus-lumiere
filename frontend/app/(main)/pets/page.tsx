@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   api,
   Creature,
@@ -15,7 +15,7 @@ import {
 import { useAuthStore } from "@/lib/authStore";
 import { useFeatureFlag } from "@/lib/featureFlagStore";
 import { toastError, toastSuccess } from "@/lib/toastStore";
-import { TabGroup, LevelUpCelebration, Modal, Button } from "@/components/ui";
+import { TabGroup, LevelUpCelebration, Modal, Button, ErrorBoundary, ZerineDisplay } from "@/components/ui";
 import type { LevelUpEvent } from "@/components/ui/LevelUpCelebration";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { CreatureCard, PetCard, ShopSection, MarketCreatureCard } from "@/components/domain/Pets";
@@ -34,11 +34,18 @@ export default function PetsPage() {
   const showMarket = useFeatureFlag("pets.market");
   const [creatures, setCreatures] = useState<Creature[]>([]);
   const [myCreatures, setMyCreatures] = useState<UserCreature[]>([]);
+  const [myCreaturesSkip, setMyCreaturesSkip] = useState(0);
+  const [myCreaturesHasMore, setMyCreaturesHasMore] = useState(false);
+  const [loadingMoreMy, setLoadingMoreMy] = useState(false);
   const [petItems, setPetItems] = useState<PetItem[]>([]);
   const [inventory, setInventory] = useState<UserPetItem[]>([]);
   const [market, setMarket] = useState<MarketCreature[]>([]);
+  const [marketSkip, setMarketSkip] = useState(0);
+  const [marketHasMore, setMarketHasMore] = useState(false);
+  const [loadingMoreMarket, setLoadingMoreMarket] = useState(false);
   const [stats, setStats] = useState<SanctuaryStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [adopting, setAdopting] = useState<string | null>(null);
   const [buying, setBuying] = useState<string | null>(null);
   const [using, setUsing] = useState<string | null>(null);
@@ -53,6 +60,8 @@ export default function PetsPage() {
   // Modal de nombre al adoptar
   const [adoptModal, setAdoptModal] = useState<Creature | null>(null);
   const [adoptPetName, setAdoptPetName] = useState("");
+  // Modal de confirmación para comprar en el mercado
+  const [buyMarketModal, setBuyMarketModal] = useState<MarketCreature | null>(null);
 
   // Previous-value refs for level-up detection.
   const petLevels = useRef<Record<string, number>>({});
@@ -62,7 +71,7 @@ export default function PetsPage() {
 
   const pushCelebration = useCallback((ev: Omit<LevelUpEvent, "id">) => {
     celebId.current += 1;
-    setCelebrations((q) => [...q, { ...ev, id: celebId.current }]);
+    setCelebrations((q) => [...q, { ...ev, id: celebId.current }].slice(-3));
   }, []);
 
   // Compare fresh stats against refs and celebrate sanctuary / user level-ups.
@@ -104,32 +113,43 @@ export default function PetsPage() {
   );
 
   useEffect(() => {
-    Promise.all([
-      api.getCreatures(),
-      api.getMyCreatures(),
-      api.getPetItems(),
-      api.getPetInventory(),
-      api.getSanctuaryStats(),
-      showMarket ? api.getCreatureMarket() : Promise.resolve([]),
-    ])
-      .then(([c, mc, items, inv, s, mk]) => {
-        setCreatures(c.items);
-        setMyCreatures(mc);
-        mc.forEach((uc) => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const state = await api.getMyFullState(showMarket);
+        if (cancelled) return;
+        setCreatures(state.creatures);
+        setMyCreatures(state.my_creatures);
+        setMyCreaturesSkip(state.my_creatures_limit);
+        setMyCreaturesHasMore(state.my_creatures_has_more);
+        state.my_creatures.forEach((uc) => {
           petLevels.current[uc.id] = uc.level;
         });
-        setPetItems(items.items);
-        setInventory(inv);
-        applyStats(s, false);
-        setMarket(mk);
-      })
-      .catch((e) => toastError("No se pudo cargar la menajería", e))
-      .finally(() => setLoading(false));
-    api.getEnumCategoryByCode("pet_type")
-      .then((cat) => {
+        setPetItems(state.pet_items);
+        setInventory(state.inventory);
+        applyStats(state.stats, false);
+        setMarket(state.market ?? []);
+        setMarketSkip(state.market_limit ?? 0);
+        setMarketHasMore(state.market_has_more ?? false);
+        setLoadError(null);
+      } catch (e) {
+        if (cancelled) return;
+        setLoadError("No se pudo cargar la menajería. Reviva el santuario y vuelva a intentarlo.");
+        toastError("No se pudo cargar la menajería", e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+      try {
+        const cat = await api.getEnumCategoryByCode("pet_type");
+        if (cancelled) return;
         if (cat) setPetTypeValues(cat.values);
-      })
-      .catch((e) => toastError("No se pudieron cargar los tipos de mascota", e));
+      } catch (e) {
+        toastError("No se pudieron cargar los tipos de mascota", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [applyStats, showMarket]);
 
   const validActiveTab =
@@ -141,6 +161,37 @@ export default function PetsPage() {
       setUser(me);
     } catch (e) {
       toastError("No se pudo actualizar tu perfil", e);
+    }
+  };
+
+  const loadMoreMyCreatures = async () => {
+    setLoadingMoreMy(true);
+    try {
+      const page = await api.getMyCreaturesPage({ skip: myCreaturesSkip, limit: 50 });
+      setMyCreatures((prev) => [...prev, ...page.items]);
+      page.items.forEach((uc) => {
+        petLevels.current[uc.id] = uc.level;
+      });
+      setMyCreaturesSkip((s) => s + 50);
+      setMyCreaturesHasMore(page.has_more);
+    } catch (e) {
+      toastError("No se pudieron cargar más mascotas", e);
+    } finally {
+      setLoadingMoreMy(false);
+    }
+  };
+
+  const loadMoreMarket = async () => {
+    setLoadingMoreMarket(true);
+    try {
+      const page = await api.getCreatureMarketPage({ skip: marketSkip, limit: 50 });
+      setMarket((prev) => [...prev, ...page.items]);
+      setMarketSkip((s) => s + 50);
+      setMarketHasMore(page.has_more);
+    } catch (e) {
+      toastError("No se pudieron cargar más mascotas del mercado", e);
+    } finally {
+      setLoadingMoreMarket(false);
     }
   };
 
@@ -167,6 +218,8 @@ export default function PetsPage() {
 
   const handleAdopt = async (creature: Creature, petName?: string) => {
     setAdopting(creature.id);
+    const prevMyCreatures = myCreatures;
+    const prevUser = user;
     try {
       const adopted = await api.adoptCreature(creature.id, petName);
       petLevels.current[adopted.id] = adopted.level;
@@ -177,6 +230,8 @@ export default function PetsPage() {
       setAdoptPetName("");
       toastSuccess(`${petName ?? adopted.creature?.name ?? "Tu mascota"} te acompaña ahora`);
     } catch (e) {
+      setMyCreatures(prevMyCreatures);
+      if (prevUser) setUser(prevUser);
       toastError("No se pudo adoptar la criatura", e);
     } finally {
       setAdopting(null);
@@ -190,6 +245,8 @@ export default function PetsPage() {
 
   const handleBuy = async (item: PetItem) => {
     setBuying(item.id);
+    const prevInventory = inventory;
+    const prevUser = user;
     try {
       const row = await api.buyPetItem(item.id, 1);
       setInventory((prev) => {
@@ -203,6 +260,8 @@ export default function PetsPage() {
       await refreshStats();
       toastSuccess(`${item.name} añadido a tu inventario`);
     } catch (e) {
+      setInventory(prevInventory);
+      if (prevUser) setUser(prevUser);
       toastError("No se pudo comprar el item", e);
     } finally {
       setBuying(null);
@@ -267,8 +326,16 @@ export default function PetsPage() {
     }
   };
 
-  const handleBuyMarket = async (m: MarketCreature) => {
+  const handleBuyMarket = (m: MarketCreature) => {
+    setBuyMarketModal(m);
+  };
+
+  const confirmBuyMarket = async (m: MarketCreature) => {
     setBuyingPet(m.id);
+    setBuyMarketModal(null);
+    const prevMyCreatures = myCreatures;
+    const prevMarket = market;
+    const prevUser = user;
     try {
       const bought = await api.buyMarketCreature(m.id);
       petLevels.current[bought.id] = bought.level;
@@ -278,19 +345,32 @@ export default function PetsPage() {
       await refreshStats();
       toastSuccess(`${bought.creature?.name ?? "La mascota"} ahora es tuya`);
     } catch (e) {
+      setMyCreatures(prevMyCreatures);
+      setMarket(prevMarket);
+      if (prevUser) setUser(prevUser);
       toastError("No se pudo comprar la mascota", e);
     } finally {
       setBuyingPet(null);
     }
   };
 
-  const inventoryFor = (petType: PetType, kind: "food" | "toy") =>
-    inventory.filter(
-      (r) =>
-        r.quantity > 0 &&
-        r.pet_item?.kind === kind &&
-        r.pet_item?.pet_type === petType
-    );
+  const inventoryByTypeKind = useMemo(() => {
+    const map: Record<string, Record<string, UserPetItem[]>> = {};
+    for (const r of inventory) {
+      if (r.quantity <= 0 || !r.pet_item) continue;
+      const pt = r.pet_item.pet_type;
+      const k = r.pet_item.kind;
+      (map[pt] ??= {})[k] = (map[pt][k] ??= []);
+      map[pt][k].push(r);
+    }
+    return map;
+  }, [inventory]);
+
+  const inventoryFor = useCallback(
+    (petType: PetType, kind: "food" | "toy") =>
+      inventoryByTypeKind[petType]?.[kind] ?? [],
+    [inventoryByTypeKind]
+  );
 
   const adoptedIds = new Set(myCreatures.map((uc) => uc.creature_id));
   const shopItems =
@@ -387,7 +467,15 @@ export default function PetsPage() {
               Criaturas Disponibles para Adopción
             </h2>
 
-            {loading ? (
+            {loadError && !loading ? (
+              <div className="text-center py-16">
+                <MaterialIcon name="cloud_off" className="text-error text-5xl block mb-3" />
+                <p className="text-on-surface-variant text-body-md mb-4">{loadError}</p>
+                <Button variant="secondary" onClick={() => { setLoadError(null); setLoading(true); window.location.reload(); }}>
+                  Reintentar
+                </Button>
+              </div>
+            ) : loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="glass-card rounded-3xl p-6 animate-pulse">
@@ -399,24 +487,26 @@ export default function PetsPage() {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {creatures.map((creature) => {
-                  const isAdopted = adoptedIds.has(creature.id);
-                  const meets = meetsRequirements(creature);
-                  return (
-                    <CreatureCard
-                      key={creature.id}
-                      creature={creature}
-                      isAdopted={isAdopted}
-                      meetsRequirements={meets}
-                      stats={stats}
-                      onAdopt={() => openAdoptModal(creature)}
-                      adopting={adopting === creature.id}
-                      userZerines={user?.zerines ?? 0}
-                    />
-                  );
-                })}
-              </div>
+              <ErrorBoundary>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {creatures.map((creature) => {
+                    const isAdopted = adoptedIds.has(creature.id);
+                    const meets = meetsRequirements(creature);
+                    return (
+                      <CreatureCard
+                        key={creature.id}
+                        creature={creature}
+                        isAdopted={isAdopted}
+                        meetsRequirements={meets}
+                        stats={stats}
+                        onAdopt={() => openAdoptModal(creature)}
+                        adopting={adopting === creature.id}
+                        userZerines={user?.zerines ?? 0}
+                      />
+                    );
+                  })}
+                </div>
+              </ErrorBoundary>
             )}
           </>
         )}
@@ -456,48 +546,61 @@ export default function PetsPage() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {myCreatures.map((uc) => {
-                  const petType = uc.creature?.pet_type ?? "Criaturas pequeñas";
-                  const mood = MOOD_META[uc.mood] ?? MOOD_META.bien;
-                  const isFeedOpen = picker?.ucId === uc.id && picker.mode === "feed";
-                  const isPlayOpen = picker?.ucId === uc.id && picker.mode === "play";
-                  const foods = inventoryFor(petType, "food");
-                  const toys = inventoryFor(petType, "toy");
-                  return (
-                    <PetCard
-                      key={uc.id}
-                      uc={uc}
-                      petType={petType}
-                      mood={mood}
-                      isFeedOpen={isFeedOpen}
-                      isPlayOpen={isPlayOpen}
-                      foods={foods}
-                      toys={toys}
-                      onToggleFeed={() => setPicker(isFeedOpen ? null : { ucId: uc.id, mode: "feed" })}
-                      onTogglePlay={() => setPicker(isPlayOpen ? null : { ucId: uc.id, mode: "play" })}
-                      onUse={handleUse}
-                      onListForSale={handleListForSale}
-                      onUnlist={handleUnlist}
-                      onToggleSale={(id: string) => { setSellFor(sellFor === id ? null : id); setSellPrice(""); }}
-                      onGoToShop={() => setActiveTab("shop")}
-                      sellFor={sellFor}
-                      sellPrice={sellPrice}
-                      setSellPrice={setSellPrice}
-                      using={using}
-                      showMarket={showMarket}
-                    />
-                  );
-                })}
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {myCreatures.map((uc) => {
+                    const petType = uc.creature?.pet_type ?? "Criaturas pequeñas";
+                    const mood = MOOD_META[uc.mood] ?? MOOD_META.bien;
+                    const isFeedOpen = picker?.ucId === uc.id && picker.mode === "feed";
+                    const isPlayOpen = picker?.ucId === uc.id && picker.mode === "play";
+                    const foods = inventoryFor(petType, "food");
+                    const toys = inventoryFor(petType, "toy");
+                    return (
+                      <PetCard
+                        key={uc.id}
+                        uc={uc}
+                        petType={petType}
+                        mood={mood}
+                        isFeedOpen={isFeedOpen}
+                        isPlayOpen={isPlayOpen}
+                        foods={foods}
+                        toys={toys}
+                        onToggleFeed={() => setPicker(isFeedOpen ? null : { ucId: uc.id, mode: "feed" })}
+                        onTogglePlay={() => setPicker(isPlayOpen ? null : { ucId: uc.id, mode: "play" })}
+                        onUse={handleUse}
+                        onListForSale={handleListForSale}
+                        onUnlist={handleUnlist}
+                        onToggleSale={(id: string) => { setSellFor(sellFor === id ? null : id); setSellPrice(""); }}
+                        onGoToShop={() => setActiveTab("shop")}
+                        sellFor={sellFor}
+                        sellPrice={sellPrice}
+                        setSellPrice={setSellPrice}
+                        using={using}
+                        showMarket={showMarket}
+                      />
+                    );
+                  })}
 
-                <button
-                  onClick={() => setActiveTab("adopt")}
-                  className="border-2 border-dashed border-outline-variant/50 rounded-3xl flex flex-col items-center justify-center py-16 cursor-pointer hover:border-primary/30 transition-colors"
-                >
-                  <MaterialIcon name="add" className="text-on-surface-variant text-4xl mb-2" />
-                  <p className="text-on-surface-variant text-body-md">Adoptar otra criatura</p>
-                </button>
-              </div>
+                  <button
+                    onClick={() => setActiveTab("adopt")}
+                    className="border-2 border-dashed border-outline-variant/50 rounded-3xl flex flex-col items-center justify-center py-16 cursor-pointer hover:border-primary/30 transition-colors"
+                  >
+                    <MaterialIcon name="add" className="text-on-surface-variant text-4xl mb-2" />
+                    <p className="text-on-surface-variant text-body-md">Adoptar otra criatura</p>
+                  </button>
+                </div>
+                {myCreaturesHasMore && (
+                  <div className="flex justify-center mt-8">
+                    <Button
+                      variant="secondary"
+                      onClick={loadMoreMyCreatures}
+                      disabled={loadingMoreMy}
+                    >
+                      {loadingMoreMy ? "Cargando..." : "Cargar más"}
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -517,21 +620,34 @@ export default function PetsPage() {
                 <p className="text-on-surface-variant text-body-md">Nadie ha puesto mascotas en venta ahora mismo.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {market.map((m) => {
-                  const meets = m.creature ? meetsRequirements(m.creature) : true;
-                  return (
-                    <MarketCreatureCard
-                      key={m.id}
-                      market={m}
-                      meetsRequirements={meets}
-                      onBuy={() => handleBuyMarket(m)}
-                      buying={buyingPet === m.id}
-                      userZerines={user?.zerines ?? 0}
-                    />
-                  );
-                })}
-              </div>
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {market.map((m) => {
+                    const meets = m.creature ? meetsRequirements(m.creature) : true;
+                    return (
+                      <MarketCreatureCard
+                        key={m.id}
+                        market={m}
+                        meetsRequirements={meets}
+                        onBuy={() => handleBuyMarket(m)}
+                        buying={buyingPet === m.id}
+                        userZerines={user?.zerines ?? 0}
+                      />
+                    );
+                  })}
+                </div>
+                {marketHasMore && (
+                  <div className="flex justify-center mt-8">
+                    <Button
+                      variant="secondary"
+                      onClick={loadMoreMarket}
+                      disabled={loadingMoreMarket}
+                    >
+                      {loadingMoreMarket ? "Cargando..." : "Cargar más"}
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -618,6 +734,43 @@ export default function PetsPage() {
                 className="flex-1"
               >
                 {adopting === adoptModal.id ? "Adoptando..." : "Adoptar"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Buy market creature modal — confirmation */}
+      {buyMarketModal && (
+        <Modal open onClose={() => setBuyMarketModal(null)}>
+          <div className="p-6 space-y-5">
+            <div className="flex items-center gap-3 mb-1">
+              <MaterialIcon name="storefront" className="text-primary text-2xl" filled />
+              <h2 className="font-display text-headline-lg text-on-surface">
+                Comprar a {buyMarketModal.pet_name || buyMarketModal.creature?.name || "esta mascota"}
+              </h2>
+            </div>
+            <p className="text-on-surface-variant text-body-md">
+              Vas a comprar a {buyMarketModal.pet_name || buyMarketModal.creature?.name || "esta mascota"} (Nv {buyMarketModal.level} · {buyMarketModal.level_name}) de {buyMarketModal.seller_name}.
+            </p>
+            <div className="flex items-center justify-center py-4">
+              <ZerineDisplay amount={buyMarketModal.sale_price} variant="price" />
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => setBuyMarketModal(null)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                disabled={buyingPet === buyMarketModal.id || (user?.zerines ?? 0) < buyMarketModal.sale_price}
+                onClick={() => confirmBuyMarket(buyMarketModal)}
+                className="flex-1"
+              >
+                {buyingPet === buyMarketModal.id ? "Comprando..." : "Confirmar compra"}
               </Button>
             </div>
           </div>
