@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/authStore";
 import { api } from "@/lib/api";
+import { useFeatureFlagStore } from "@/lib/featureFlagStore";
 import AppShell from "@/components/layout/AppShell";
 
 export default function AuthProvider({
@@ -13,6 +14,7 @@ export default function AuthProvider({
 }) {
   const router = useRouter();
   const { user, token, setAuth, setLoading, isLoading } = useAuthStore();
+  const loadFlags = useFeatureFlagStore((s) => s.load);
 
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
@@ -30,6 +32,12 @@ export default function AuthProvider({
       setLoading(false);
     }
   }, [user, token, setAuth, setLoading, router]);
+
+  useEffect(() => {
+    if (user) {
+      loadFlags();
+    }
+  }, [user, loadFlags]);
 
   if (isLoading) {
     return (

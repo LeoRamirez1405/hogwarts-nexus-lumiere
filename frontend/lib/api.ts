@@ -500,6 +500,17 @@ export const api = {
     request<EnumValue>(`/enum-types/values/${valueId}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteEnumValue: (valueId: string) =>
     request<void>(`/enum-types/values/${valueId}`, { method: "DELETE" }),
+
+  // Feature Flags
+  getFeatureFlags: () =>
+    request<{ items: FeatureFlag[]; total: number }>("/feature-flags"),
+  getFeatureFlag: (key: string) => request<FeatureFlag>(`/feature-flags/${key}`),
+  createFeatureFlag: (data: FeatureFlagCreate) =>
+    request<FeatureFlag>("/feature-flags", { method: "POST", body: JSON.stringify(data) }),
+  updateFeatureFlag: (key: string, data: FeatureFlagUpdate) =>
+    request<FeatureFlag>(`/feature-flags/${key}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteFeatureFlag: (key: string) =>
+    request<void>(`/feature-flags/${key}`, { method: "DELETE" }),
 };
 
 // Types
@@ -994,4 +1005,29 @@ export interface EnumValueCreate {
 export interface EnumValueUpdate {
   label?: string;
   description?: string;
+}
+
+export interface FeatureFlag {
+  key: string;
+  name: string;
+  description?: string;
+  enabled: boolean;
+  category?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FeatureFlagCreate {
+  key: string;
+  name: string;
+  description?: string;
+  enabled?: boolean;
+  category?: string;
+}
+
+export interface FeatureFlagUpdate {
+  name?: string;
+  description?: string;
+  enabled?: boolean;
+  category?: string;
 }

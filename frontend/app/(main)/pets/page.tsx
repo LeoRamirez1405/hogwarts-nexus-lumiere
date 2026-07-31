@@ -13,6 +13,7 @@ import {
   EnumValue,
 } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
+import { useFeatureFlag } from "@/lib/featureFlagStore";
 import { TabGroup, LevelUpCelebration, Modal, Button } from "@/components/ui";
 import type { LevelUpEvent } from "@/components/ui/LevelUpCelebration";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
@@ -29,6 +30,7 @@ type Picker = { ucId: string; mode: "feed" | "play" } | null;
 
 export default function PetsPage() {
   const { user, setUser } = useAuthStore();
+  const showMarket = useFeatureFlag("pets.market");
   const [creatures, setCreatures] = useState<Creature[]>([]);
   const [myCreatures, setMyCreatures] = useState<UserCreature[]>([]);
   const [petItems, setPetItems] = useState<PetItem[]>([]);
@@ -105,7 +107,7 @@ export default function PetsPage() {
       api.getPetItems(),
       api.getPetInventory(),
       api.getSanctuaryStats(),
-      api.getCreatureMarket(),
+      showMarket ? api.getCreatureMarket() : Promise.resolve([]),
     ])
       .then(([c, mc, items, inv, s, mk]) => {
         setCreatures(c.items);
@@ -123,7 +125,10 @@ export default function PetsPage() {
     api.getEnumCategoryByCode("pet_type").then((cat) => {
       if (cat) setPetTypeValues(cat.values);
     }).catch(() => {});
-  }, [applyStats]);
+  }, [applyStats, showMarket]);
+
+  const validActiveTab =
+    activeTab === "market" && !showMarket ? "mine" : activeTab;
 
   const refreshUser = async () => {
     try {
@@ -337,17 +342,19 @@ export default function PetsPage() {
           tabs={[
             { id: "mine", label: "Mis Mascotas", icon: "favorite" },
             { id: "adopt", label: "Adoptar", icon: "pets" },
-            { id: "market", label: "Mercado", icon: "storefront" },
+            ...(showMarket
+              ? [{ id: "market", label: "Mercado", icon: "storefront" }]
+              : []),
             { id: "shop", label: "Tienda", icon: "nutrition" },
           ]}
-          activeTab={activeTab}
+          activeTab={validActiveTab}
           onChange={(t) => { setActiveTab(t); setPicker(null); }}
         />
       </div>
 
       {/* Tab Content */}
       <div className="max-w-7xl mx-auto">
-        {activeTab === "adopt" && (
+        {validActiveTab === "adopt" && (
           <>
             <h2 className="font-display text-headline-lg text-primary mb-6">
               Criaturas Disponibles para Adopción
@@ -387,7 +394,7 @@ export default function PetsPage() {
           </>
         )}
 
-        {activeTab === "mine" && (
+        {validActiveTab === "mine" && (
           <>
             <h2 className="font-display text-headline-lg text-primary mb-6">
               Mis Mascotas
@@ -451,6 +458,7 @@ export default function PetsPage() {
                       sellPrice={sellPrice}
                       setSellPrice={setSellPrice}
                       using={using}
+                      showMarket={showMarket}
                     />
                   );
                 })}
@@ -467,7 +475,7 @@ export default function PetsPage() {
           </>
         )}
 
-        {activeTab === "market" && (
+        {validActiveTab === "market" && (
           <>
             <h2 className="font-display text-headline-lg text-primary mb-6">
               Mercado de Mascotas
@@ -501,7 +509,7 @@ export default function PetsPage() {
           </>
         )}
 
-        {activeTab === "shop" && (
+        {validActiveTab === "shop" && (
           <>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <h2 className="font-display text-headline-lg text-primary">

@@ -13,6 +13,7 @@ from .models.announcement import Announcement
 from .models.classified import Classified
 from .models.pet_item import PetItem
 from .models.enum_type import EnumCategory, EnumValue
+from .models.feature_flag import FeatureFlag
 from .middleware.auth import hash_password
 
 
@@ -629,6 +630,42 @@ async def seed_pet_supplies():
 
         if changed:
             await db.commit()
+
+
+async def seed_feature_flags():
+    """Idempotent seed of the default feature flags (all OFF by default)."""
+    defaults = [
+        {
+            "key": "dashboard.winning_house",
+            "name": "Casa Ganadora (Dashboard Admin)",
+            "description": "Muestra la sección 'Casa Ganadora' con el ranking de puntos por casa en el dashboard de administrador.",
+            "enabled": False,
+            "category": "dashboard",
+        },
+        {
+            "key": "treasury.withdraw",
+            "name": "Retirar Zerines (Tesorería)",
+            "description": "Habilita la pestaña 'Retirar' en la Cámara de Tesorería para que los usuarios puedan retirar zerines.",
+            "enabled": False,
+            "category": "treasury",
+        },
+        {
+            "key": "pets.market",
+            "name": "Mercado de Mascotas (La Menajería)",
+            "description": "Habilita la pestaña 'Mercado' y la opción de poner mascotas en venta en La Menajería Susurrante.",
+            "enabled": False,
+            "category": "pets",
+        },
+    ]
+
+    async with async_session() as db:
+        for data in defaults:
+            key = data["key"]
+            existing = await db.execute(select(FeatureFlag).where(FeatureFlag.key == key))
+            if existing.scalar_one_or_none():
+                continue
+            db.add(FeatureFlag(**data))
+        await db.commit()
 
 
 async def seed_enum_types():

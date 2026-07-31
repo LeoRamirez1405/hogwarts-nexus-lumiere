@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { api, EnumCategory, EnumValue } from "@/lib/api";
+import { api, EnumCategory, EnumValue, FeatureFlag } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
+import { useFeatureFlagStore } from "@/lib/featureFlagStore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import GlassCard from "@/components/ui/GlassCard";
@@ -10,6 +11,7 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import Modal from "@/components/ui/Modal";
+import Switch from "@/components/ui/Switch";
 import ListFooter from "@/components/ui/ListFooter";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 
@@ -49,6 +51,7 @@ export default function AdminSettingsPage() {
   const { user } = useAuthStore();
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const setFlagInStore = useFeatureFlagStore((s) => s.setFlag);
 
   const {
     items: allItems,
@@ -68,6 +71,39 @@ export default function AdminSettingsPage() {
     enabled: true,
   });
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+
+  // Feature flags
+  const [flags, setFlags] = useState<FeatureFlag[]>([]);
+  const [flagsLoading, setFlagsLoading] = useState(true);
+  const [flagUpdating, setFlagUpdating] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .getFeatureFlags()
+      .then(({ items }) => setFlags(items))
+      .catch(() => {})
+      .finally(() => setFlagsLoading(false));
+  }, []);
+
+  const handleToggleFlag = async (flag: FeatureFlag) => {
+    setFlagUpdating(flag.key);
+    try {
+      const updated = await api.updateFeatureFlag(flag.key, {
+        enabled: !flag.enabled,
+      });
+      setFlags((prev) =>
+        prev.map((f) => (f.key === flag.key ? updated : f))
+      );
+      setFlagInStore(updated);
+    } catch {}
+    setFlagUpdating(null);
+  };
+
+  const CATEGORY_LABELS: Record<string, { label: string; icon: string }> = {
+    dashboard: { label: "Dashboard", icon: "dashboard" },
+    treasury: { label: "Tesorería", icon: "diamond" },
+    pets: { label: "Mascotas", icon: "pets" },
+  };
 
   // Create/Edit Category
   const [editCategory, setEditCategory] = useState<EnumCategory | null>(null);
@@ -197,6 +233,77 @@ export default function AdminSettingsPage() {
           </p>
         </div>
       </div>
+
+      {/* Feature Flags section */}
+      <GlassCard>
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-full bg-tertiary flex items-center justify-center">
+              <MaterialIcon name="toggle_on" className="text-xl text-on-tertiary" />
+            </div>
+            <div>
+              <h2 className="font-display text-title-md text-on-surface">Visibilidad de Secciones</h2>
+              <p className="text-label-sm text-on-surface-variant">
+                Activa o desactiva secciones específicas de la plataforma. Los cambios se reflejan inmediatamente para todos los usuarios.
+              </p>
+            </div>
+          </div>
+
+          {flagsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-16 bg-outline-variant/20 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : flags.length === 0 ? (
+            <div className="text-center py-8">
+              <MaterialIcon name="toggle_off" className="text-4xl text-outline-variant mb-2 block mx-auto" />
+              <p className="text-on-surface-variant text-body-md">No hay feature flags configurados</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {flags.map((flag) => {
+                const meta = flag.category ? CATEGORY_LABELS[flag.category] : null;
+                return (
+                  <div
+                    key={flag.key}
+                    className="flex items-center justify-between gap-4 p-4 rounded-xl bg-surface-container-low border border-outline-variant/20"
+                  >
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
+                        <MaterialIcon
+                          name={meta?.icon || "toggle_on"}
+                          className="text-lg text-on-surface-variant"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium text-body-md text-on-surface">{flag.name}</p>
+                          {meta && (
+                            <Badge variant="tag" color="default">{meta.label}</Badge>
+                          )}
+                          {flag.enabled && (
+                            <Badge variant="tag" color="primary">Activo</Badge>
+                          )}
+                        </div>
+                        {flag.description && (
+                          <p className="text-label-sm text-on-surface-variant mt-1">{flag.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    <Switch
+                      checked={flag.enabled}
+                      onChange={() => handleToggleFlag(flag)}
+                      disabled={flagUpdating === flag.key}
+                      label={flag.name}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </GlassCard>
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

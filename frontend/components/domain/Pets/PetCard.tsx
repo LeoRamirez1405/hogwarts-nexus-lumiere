@@ -29,6 +29,7 @@ interface PetCardProps {
   sellPrice: string;
   setSellPrice: (price: string) => void;
   using: string | null;
+  showMarket?: boolean;
 }
 
 export function PetCard({
@@ -50,6 +51,7 @@ export function PetCard({
   sellPrice,
   setSellPrice,
   using,
+  showMarket = true,
 }: PetCardProps) {
 
   const displayName = uc.pet_name || uc.creature?.name || "Sin nombre";
@@ -167,44 +169,46 @@ export function PetCard({
       )}
 
       {/* Resale controls */}
-      <div className="mt-4 border-t border-outline-variant/30 pt-3">
-        {uc.for_sale ? (
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-label-sm text-secondary font-medium flex items-center gap-1">
-              <MaterialIcon name="sell" className="text-[1.1em]" filled />
-              En venta por {uc.sale_price?.toLocaleString()} zerines
-            </span>
-            <button onClick={() => onUnlist(uc.id)} className="text-label-sm text-error font-bold hover:underline">
-              Retirar
+      {showMarket && (
+        <div className="mt-4 border-t border-outline-variant/30 pt-3">
+          {uc.for_sale ? (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-label-sm text-secondary font-medium flex items-center gap-1">
+                <MaterialIcon name="sell" className="text-[1.1em]" filled />
+                En venta por {uc.sale_price?.toLocaleString()} zerines
+              </span>
+              <button onClick={() => onUnlist(uc.id)} className="text-label-sm text-error font-bold hover:underline">
+                Retirar
+              </button>
+            </div>
+          ) : sellFor === uc.id ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                autoFocus
+                value={sellPrice}
+                onChange={(e) => setSellPrice(e.target.value)}
+                placeholder="Precio en zerines"
+                className="flex-1 px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant/20 text-body-sm outline-none focus:border-primary"
+              />
+              <button onClick={() => onListForSale(uc.id, parseInt(sellPrice) || 0)} disabled={!(parseInt(sellPrice) > 0)} className="px-3 py-1.5 rounded-lg bg-primary text-on-primary text-label-sm font-bold disabled:opacity-40">
+                Publicar
+              </button>
+              <button onClick={() => { onToggleSale(uc.id); setSellPrice(""); }} className="text-label-sm text-on-surface-variant hover:text-error transition-colors">
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => onToggleSale(uc.id)}
+              className="w-full flex items-center justify-center gap-2 text-label-sm text-on-surface-variant hover:text-secondary transition-colors py-1"
+            >
+              <MaterialIcon name="sell" className="text-[1.1em]" />
+              Poner en venta
             </button>
-          </div>
-        ) : sellFor === uc.id ? (
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              autoFocus
-              value={sellPrice}
-              onChange={(e) => setSellPrice(e.target.value)}
-              placeholder="Precio en zerines"
-              className="flex-1 px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant/20 text-body-sm outline-none focus:border-primary"
-            />
-            <button onClick={() => onListForSale(uc.id, parseInt(sellPrice) || 0)} disabled={!(parseInt(sellPrice) > 0)} className="px-3 py-1.5 rounded-lg bg-primary text-on-primary text-label-sm font-bold disabled:opacity-40">
-              Publicar
-            </button>
-            <button onClick={() => { onToggleSale(uc.id); setSellPrice(""); }} className="text-label-sm text-on-surface-variant hover:text-error transition-colors">
-              Cancelar
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => onToggleSale(uc.id)}
-            className="w-full flex items-center justify-center gap-2 text-label-sm text-on-surface-variant hover:text-secondary transition-colors py-1"
-          >
-            <MaterialIcon name="sell" className="text-[1.1em]" />
-            Poner en venta
-          </button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
