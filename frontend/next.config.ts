@@ -1,5 +1,26 @@
 import type { NextConfig } from "next";
 
+// Content Security Policy (patron sin nonce recomendado por la documentacion de
+// Next.js). 'unsafe-inline' en script-src es necesario porque Next.js inyecta
+// scripts inline; sigue bloqueando scripts externos no confiables, inyeccion de
+// objetos, exfiltracion via connect-src y clickjacking.
+const isDev = process.env.NODE_ENV === "development";
+
+const cspHeader = `
+  default-src 'self';
+  script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""};
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  img-src 'self' blob: data: https://res.cloudinary.com https://img.freepik.com https://images.unsplash.com https://picsum.photos https://via.placeholder.com http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000;
+  font-src 'self' https://fonts.gstatic.com;
+  media-src 'self' blob: data: https://res.cloudinary.com http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000;
+  connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000;
+  object-src 'none';
+  base-uri 'self';
+  form-action 'self';
+  frame-ancestors 'none';
+  ${isDev ? "" : "upgrade-insecure-requests;"}
+`;
+
 const nextConfig: NextConfig = {
   images: {
     // Loader propio: normaliza URLs de subidas a same-origin en un solo lugar
@@ -38,6 +59,35 @@ const nextConfig: NextConfig = {
     ];
   },
   allowedDevOrigins: ["10.0.0.47"],
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: cspHeader.replace(/\s{2,}/g, " ").trim(),
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "X-Frame-Options",
+            value: "DENY",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
