@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel
 
 
@@ -51,3 +51,28 @@ class UserProductResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class BatchPurchaseItem(BaseModel):
+    product_id: str
+    quantity: int = 1
+
+
+class BatchPurchaseRequest(BaseModel):
+    items: List[BatchPurchaseItem]
+
+
+class BatchPurchaseResultItem(BaseModel):
+    product_id: str
+    name: str
+    quantity: int
+    price: int
+    status: str
+    error: Optional[str] = None
+
+
+class BatchPurchaseResponse(BaseModel):
+    success: bool
+    purchased: List[BatchPurchaseResultItem]
+    total_spent: int
+    new_balance: int

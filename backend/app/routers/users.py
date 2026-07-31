@@ -159,6 +159,44 @@ async def _delete_user_relations(db: AsyncSession, user_id: str) -> None:
     await db.execute(delete(ChatRoom).where(ChatRoom.created_by == user_id))
 
 
+@router.get("/search", response_model=Page[UserResponse])
+async def search_users(
+    q: str = Query(..., min_length=1),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Busqueda de usuarios por nombre o email (server-side).
+
+    Retorna paginacion estandar (Page[UserResponse]). Excluye al usuario
+    actual. Usado por TransferTab y otras vistas que necesitan buscar
+    destinatarios sin cargar toda la tabla de usuarios.
+    """
+    pattern = f"%{q}%"
+    base_filter = and_(
+        User.id != current_user.id,
+        or_(
+            User.name.ilike(pattern),
+            User.email.ilike(pattern),
+        ),
+    )
+    query = select(User).where(base_filter).offset(skip).limit(limit + 1)
+    result = await db.execute(query)
+    items = result.scalars().all()
+    has_more = len(items) > limit
+    items = items[:limit]
+    total_result = await db.execute(select(func.count(User.id)).where(base_filter))
+    total = total_result.scalar_one()
+    return Page(
+        items=await _enrich_users(db, items),
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
+
+
 @router.get("/", response_model=Page[UserResponse])
 async def list_users(
     skip: int = Query(0, ge=0),

@@ -28,6 +28,15 @@ async def get_dashboard(
         zerines_result = await db.execute(select(func.coalesce(func.sum(User.zerines), 0)))
         total_zerines = zerines_result.scalar()
 
+        house_points_rows = (
+            await db.execute(
+                select(User.house, func.coalesce(func.sum(User.house_points), 0))
+                .where(User.house.isnot(None))
+                .group_by(User.house)
+            )
+        ).all()
+        house_points = {row[0]: row[1] for row in house_points_rows}
+
         recent_result = await db.execute(
             select(Transaction).order_by(Transaction.created_at.desc()).limit(10)
         )
@@ -40,6 +49,7 @@ async def get_dashboard(
             "total_articles": total_articles,
             "total_creatures": total_creatures,
             "total_zerines_in_circulation": total_zerines,
+            "house_points": house_points,
             "recent_transactions": [
                 {
                     "id": t.id,

@@ -8,7 +8,15 @@ from ..models.product import Product
 from ..models.user import User
 from ..models.user_product import UserProduct
 from ..models.transaction import Transaction
-from ..schemas.product import ProductCreate, ProductUpdate, ProductResponse, UserProductResponse
+from ..schemas.product import (
+    ProductCreate,
+    ProductUpdate,
+    ProductResponse,
+    UserProductResponse,
+    BatchPurchaseRequest,
+    BatchPurchaseResponse,
+    BatchPurchaseResultItem,
+)
 from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
@@ -122,6 +130,108 @@ async def purchase_product(
     await db.commit()
     await db.refresh(product)
     return product
+
+
+@router.post("/batch-purchase", response_model=BatchPurchaseResponse)
+async def batch_purchase(
+    data: BatchPurchaseRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Compra atomica de multiples productos en una sola transaccion.
+
+    Si cualquier item falla (stock insuficiente, producto no encontrado,
+    zerines insuficientes), TODA la transaccion se aborta y ningun cobro
+    se aplica. Esto reemplaza el bucle secuencial del frontend que
+    cobraba items ya procesados antes de encontrar un fallo.
+    """
+    if not data.items:
+        raise HTTPException(status_code=400, detail="No items in cart")
+
+    # Load all products in one query.
+    product_ids = [item.product_id for item in data.items]
+    products_result = await db.execute(
+        select(Product).where(Product.id.in_(product_ids))
+    )
+    products = {p.id: p for p in products_result.scalars().all()}
+
+    # Validate everything before charging.
+    total = 0
+    results: list[BatchPurchaseResultItem] = []
+    for req_item in data.items:
+        product = products.get(req_item.product_id)
+        qty = req_item.quantity or 1
+        if qty < 1:
+            raise HTTPException(status_code=400, detail="Quantity must be positive")
+        if not product:
+            raise HTTPException(status_code=404, detail=f"Product {req_item.product_id} not found")
+        if product.stock < qty:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient stock for {product.name}",
+            )
+        total += product.price * qty
+        results.append(
+            BatchPurchaseResultItem(
+                product_id=product.id,
+                name=product.name,
+                quantity=qty,
+                price=product.price,
+                status="pending",
+            )
+        )
+
+    if current_user.zerines < total:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient zerines. Need {total}, have {current_user.zerines}",
+        )
+
+    # All validated — now charge + decrement stock atomically.
+    purchased: list[BatchPurchaseResultItem] = []
+    for req_item in data.items:
+        product = products[req_item.product_id]
+        qty = req_item.quantity or 1
+        up_res = await db.execute(
+            update(Product)
+            .where(Product.id == product.id, Product.stock >= qty)
+            .values(
+                stock=Product.stock - qty,
+                weekly_sales=Product.weekly_sales + qty,
+            )
+        )
+        if up_res.rowcount == 0:
+            # Should not happen since we validated above, but guard anyway.
+            raise HTTPException(status_code=400, detail=f"Insufficient stock for {product.name}")
+
+        db.add(UserProduct(user_id=current_user.id, product_id=product.id, quantity=qty))
+        purchased.append(
+            BatchPurchaseResultItem(
+                product_id=product.id,
+                name=product.name,
+                quantity=qty,
+                price=product.price,
+                status="confirmed",
+            )
+        )
+
+    current_user.zerines -= total
+    db.add(
+        Transaction(
+            sender_id=current_user.id,
+            amount=total,
+            type="purchase",
+            description=f"Compra batch: {len(purchased)} items",
+            status="confirmed",
+        )
+    )
+    await db.commit()
+    return BatchPurchaseResponse(
+        success=True,
+        purchased=purchased,
+        total_spent=total,
+        new_balance=current_user.zerines,
+    )
 
 
 @router.get("/my-purchases", response_model=Page[UserProductResponse])
