@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
@@ -34,12 +34,12 @@ async def get_unread_count(
     current_user: User = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(Notification).where(
-            Notification.user_id == current_user.id, Notification.read == "false"
+        select(func.count(Notification.id)).where(
+            Notification.user_id == current_user.id, Notification.read == False
         )
     )
-    notifications = result.scalars().all()
-    return {"count": len(notifications)}
+    count = result.scalar() or 0
+    return {"count": count}
 
 
 @router.put("/{notification_id}/read", response_model=NotificationResponse)
@@ -57,7 +57,7 @@ async def mark_notification_read(
     if not notification:
         raise HTTPException(status_code=404, detail="Notification not found")
 
-    notification.read = "true"
+    notification.read = True
     await db.commit()
     await db.refresh(notification)
     return notification
@@ -70,8 +70,8 @@ async def mark_all_notifications_read(
 ):
     await db.execute(
         update(Notification)
-        .where(Notification.user_id == current_user.id, Notification.read == "false")
-        .values(read="true")
+        .where(Notification.user_id == current_user.id, Notification.read == False)
+        .values(read=True)
     )
     await db.commit()
 
@@ -99,9 +99,9 @@ async def mark_notifications_read_batch(
         .where(
             Notification.user_id == current_user.id,
             Notification.id.in_(payload.ids),
-            Notification.read == "false",
+            Notification.read == False,
         )
-        .values(read="true")
+        .values(read=True)
     )
     await db.commit()
     return {"updated": result.rowcount or 0}

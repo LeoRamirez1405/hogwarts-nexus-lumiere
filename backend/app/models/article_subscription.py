@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, UniqueConstraint, Text
+from sqlalchemy import Column, String, DateTime, ForeignKey, UniqueConstraint, Text, Boolean
 from sqlalchemy.orm import relationship
 
 from ..database import Base
@@ -32,7 +32,7 @@ class Notification(Base):
     related_id = Column(String, nullable=True)
     # Who triggered the notification (for avatars and "X y N mas" aggregation).
     actor_id = Column(String, ForeignKey("users.id"), nullable=True)
-    read = Column(String, default="false", nullable=False)  # "true" / "false"
+    read = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     user = relationship("User", foreign_keys=[user_id], back_populates="notifications", lazy="selectin")

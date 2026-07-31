@@ -82,7 +82,7 @@ async def notify(
         body=body,
         related_id=related_id,
         actor_id=actor_id,
-        read="false",
+        read=False,
     )
     db.add(n)
     return n
@@ -116,7 +116,7 @@ async def notify_like(db: AsyncSession, post, actor: User) -> Optional[Notificat
                 Notification.user_id == post.author_id,
                 Notification.type == N.POST_LIKE,
                 Notification.related_id == post.id,
-                Notification.read == "false",
+                Notification.read == False,
             )
         )
     ).scalar_one_or_none()
@@ -268,7 +268,7 @@ async def notify_friends_of_post(
                 body=body,
                 related_id=post.id,
                 actor_id=actor.id,
-                read="false",
+                read=False,
             )
         )
         count += 1

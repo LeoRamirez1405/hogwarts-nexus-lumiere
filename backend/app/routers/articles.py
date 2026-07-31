@@ -473,14 +473,14 @@ async def mark_all_notifications_read(
         select(Notification).where(
             and_(
                 Notification.user_id == current_user.id,
-                Notification.read == "false",
+                Notification.read == False,
             )
         )
     )
     notifications = result.scalars().all()
 
     for n in notifications:
-        n.read = "true"
+        n.read = True
 
     await db.commit()
     return {"marked": len(notifications)}
