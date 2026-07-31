@@ -433,9 +433,10 @@ Ninguna lista usa virtualization. Con paginación de 12-20 items no es crítico,
 
 ### Estado Actual
 
-- **API Calls en carga:** 1-2 (my-full-state + enum_types/pet_type) — antes 7
-- **Líneas totales:** ~720 (page + 4 componentes)
-- **Complejidad:** Media (1 llamada consolidada, rollback explicito, confirm dialog)
+- **API Calls en carga:** 1-2 (my-full-state primera página + enum_types/pet_type) — antes 7
+- **API Calls al paginar:** 1 extra por "Cargar más" (vía `/creatures/my` o `/creatures/market`)
+- **Líneas totales:** ~780 (page + 4 componentes)
+- **Complejidad:** Media (1 llamada consolidada, rollback explicito, confirm dialog, paginación)
 
 ### Issues
 
@@ -443,7 +444,7 @@ Ninguna lista usa virtualization. Con paginación de 12-20 items no es crítico,
 |---|-------|-----------|--------|
 | 1 | **7 API calls secuenciales en mount** — la página más pesada de la app | 🔴 | ✅ Resuelto (`GET /creatures/my-full-state` consolida todo en 1 llamada) |
 | 2 | **Optimistic updates sin rollback** — si API falla, el cambio falso persiste en UI | 🔴 | ✅ Resuelto (snapshot + revert de `inventory`/`myCreatures`/`market`/`user` en `handleBuy`/`handleBuyMarket`/`handleAdopt`) |
-| 3 | **Sin paginación** — myCreatures, market, inventory devuelven todo sin límite | 🔴 | ⚠️ Pendiente (mantenemos `limit=100` en backend) |
+| 3 | **Sin paginación** — myCreatures, market, inventory devuelven todo sin límite | 🔴 | ✅ Resuelto (`/creatures/my` y `/creatures/market` con `skip`/`limit`/`has_more` + buttons "Cargar más"; `my-full-state` primera página con `limit=50`) |
 | 4 | Catch vacío en feed/play/adopt/buy — errores silenciosos | 🔴 | ✅ Resuelto (`ErrorBoundary` en catálogo adopt) |
 | 5 | `inventoryFor` recalcula en CADA render (O(n*m) por render) | ⚠️ | ✅ Resuelto (`useMemo` con `inventoryByTypeKind` map O(n)) |
 | 6 | Adoptar criatura sin confirmación de Zerines | ⚠️ | ✅ Resuelto (modal de nombre preservado; precio mostrado en creature card) |
@@ -455,7 +456,7 @@ Ninguna lista usa virtualization. Con paginación de 12-20 items no es crítico,
 
 1. ✅ Consolidar endpoints: `GET /creatures/my-full-state` que devuelva creatures + inventory + stats en una llamada
 2. ✅ Agregar rollback explícito en optimistic updates (guardar snapshot previo)
-3. ⚠️ Implementar paginación server-side (limit 20-50) — pendiente, usamos limit 100 por ahora
+3. ✅ Implementar paginación server-side (limit 20-50) — `/creatures/my` y `/creatures/market` con `Page<...>` (default `limit=50`), botones "Cargar más" en frontend
 4. ✅ Agregar error boundary y toast para feedback de errores
 5. ✅ Memoizar `inventoryFor` con `useMemo`
 6. ✅ Agregar confirm dialog para adopciones y compras en market
@@ -476,12 +477,12 @@ Ninguna lista usa virtualization. Con paginación de 12-20 items no es crítico,
 | # | Issue | Severidad | Estado |
 |---|-------|-----------|--------|
 | 1 | **Article detail fetches ALL articles** — `api.getArticles()` sin filtro, busca client-side | 🔴🔴 | ✅ Resuelto (`api.getArticle(id)` ya usado en `[id]/page.tsx`) |
-| 2 | **5 instancias de usePaginatedList** en una sola página (articles, featured, announcements, classifieds, saved) | 🔴 | ⚠️ Pendiente (arquitectura requiere refactor mayor) |
-| 3 | Sin virtualización | ⚠️ | ⚠️ Pendiente |
+| 2 | **5 instancias de usePaginatedList** en una sola página (articles, featured, announcements, classifieds, saved) | 🔴 | ✅ Resuelto (endpoint combinado `/articles/full-state` + hook `useNewsPage`) |
+| 3 | Sin virtualización | ⚠️ | ✅ Resuelto (`react-window` en grids desktop + mobile bento) |
 | 4 | Client-side sort en cada render (`[...activeItems].sort(byDateDesc)`) | ⚠️ | ✅ Resuelto (`useMemo` + `useCallback`) |
 | 5 | Subscribe/unsubscribe refresca 3 listas (articles, featured, saved) | 🔴 | ✅ Resuelto (solo refresca listas activas) |
 | 6 | Sin error state en fallo de carga | 🔴 | ✅ Resuelto (`toastError` en fetch, catch con logging) |
-| 7 | ArticlesListModal duplica lógica de all articles page | ⚠️ | ⚠️ Pendiente |
+| 7 | ArticlesListModal duplica lógica de all articles page | ⚠️ | ✅ Resuelto (hook compartido `useArticlesList`) |
 | 8 | Mobile: featured image sin `sizes` prop → imagen oversized | ⚠️ | ✅ Resuelto (`sizes="100vw"`) |
 | 9 | Búsqueda sin debounce en all articles | ⚠️ | ✅ Resuelto (`useDebounce(300ms)`) |
 | 10 | `MaterialIcon` importado como `<span>` directo + desde `@/components/ui` — inconsistente | ℹ️ | ✅ Resuelto (importado de `@/components/ui`) |
@@ -503,16 +504,17 @@ const article = all.find(a => a.id === params.id);  // Find one client-side
 | # | Acción | Estado |
 |---|--------|--------|
 | 1 | **Corregir article detail bug** — usar `api.getArticle(id)` (prioridad máxima) | ✅ Hecho (ya estaba usando `api.getArticle(id)` en `[id]/page.tsx`) |
-| 2 | Reducir a 1-2 instancias de `usePaginatedList` — cargar announcements/classifieds bajo demanda | ⬜ Pendiente (requiere refactor arquitectura) |
+| 2 | Reducir a 1-2 instancias de `usePaginatedList` — cargar announcements/classifieds bajo demanda | ✅ Hecho (endpoint combinado `/articles/full-state` + hook `useNewsPage`) |
 | 3 | Agregar error handling en todas las operaciones | ✅ Hecho (`toastError` + logging en subscribe, vote, delete, comments) |
 | 4 | Agregar debounce en búsqueda | ✅ Hecho (`useDebounce(300ms)` en `/news/all`) |
-| 5 | Extraer lógica de `ArticlesListModal` para compartir con all articles page | ⬜ Pendiente |
+| 5 | Extraer lógica de `ArticlesListModal` para compartir con all articles page | ✅ Hecho (hook compartido `useArticlesList`) |
 | 6 | Reemplazar `confirm()` nativo con Modal del design system | ✅ Hecho (ForumThreads usa Modal confirm) |
 | 7 | Agregar `sizes` prop a imagen featured mobile | ✅ Hecho (`sizes="100vw"`) |
 | 8 | Memoizar sort client-side (`byDateDesc`) | ✅ Hecho (`useMemo` + `useCallback`) |
 | 9 | Suscribir solo refresca lista activa, no 3 listas | ✅ Hecho (condicional por tab/filter) |
+| 10 | Agregar virtualización a grids de artículos | ✅ Hecho (`react-window` `VirtualizedArticleGrid` + `VirtualizedBentoGrid`) |
 
-> ✅ **COMPLETADO** el 2026-07-31. Implementado: fix sort memoization, subscribe refresh optimizado, error handling con toastError, debounce en búsqueda all articles, Modal confirm reemplaza confirm() nativo, sizes prop en featured image mobile. Lint + Typecheck limpios.
+> ✅ **COMPLETADO** el 2026-07-31. Implementado: fix sort memoization, subscribe refresh optimizado, error handling con toastError, debounce en búsqueda all articles, Modal confirm reemplaza confirm() nativo, sizes prop en featured image mobile, endpoint combinado `/articles/full-state`, hook `useNewsPage` reduce 5 instancias a 1, hook `useArticlesList` comparte lógica ArticlesListModal/all page, virtualización con react-window. Lint + Typecheck limpios.
 
 ---
 

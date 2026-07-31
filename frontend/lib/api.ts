@@ -218,6 +218,26 @@ export const api = {
   unsubscribeArticle: (id: string) =>
     request<void>(`/articles/${id}/subscribe`, { method: "DELETE" }),
   getMySubscriptions: () => request<Article[]>("/articles/my/subscriptions"),
+  getNewsFullState: (params?: {
+    articles_skip?: number;
+    articles_limit?: number;
+    featured_skip?: number;
+    featured_limit?: number;
+    saved_skip?: number;
+    saved_limit?: number;
+    announcements_limit?: number;
+    classifieds_limit?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.set(key, String(value));
+        }
+      });
+    }
+    return request<NewsFullState>(`/articles/full-state?${searchParams.toString()}`);
+  },
 
   // Announcements
   getAnnouncements: (pagination?: PaginationParams) =>
@@ -324,9 +344,19 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ item_id: itemId }),
     }),
-  getMyCreatures: () => request<UserCreature[]>("/creatures/my"),
+  getMyCreatures: () => request<Page<UserCreature>>("/creatures/my"),
+  getMyCreaturesPage: (pagination?: PaginationParams) =>
+    request<Page<UserCreature>>("/creatures/my" + buildQuery(pagination ?? {})),
   getSanctuaryStats: () => request<SanctuaryStats>("/creatures/stats"),
-  getCreatureMarket: () => request<MarketCreature[]>("/creatures/market"),
+  getCreatureMarket: () => request<Page<MarketCreature>>("/creatures/market"),
+  getCreatureMarketPage: (pagination?: PaginationParams) =>
+    request<Page<MarketCreature>>("/creatures/market" + buildQuery(pagination ?? {})),
+  getMyFullState: (includeMarket = true, mySkip = 0, myLimit = 50, marketSkip = 0, marketLimit = 50) =>
+    request<MyFullState>(
+      `/creatures/my-full-state?include_market=${includeMarket ? "true" : "false"}` +
+      `&my_skip=${mySkip}&my_limit=${myLimit}` +
+      `&market_skip=${marketSkip}&market_limit=${marketLimit}`
+    ),
   listCreatureForSale: (userCreatureId: string, price: number) =>
     request<UserCreature>(`/creatures/${userCreatureId}/sell`, {
       method: "POST",
@@ -436,9 +466,9 @@ export const api = {
     request<Page<Post>>("/posts/" + buildQuery(pagination ?? {})),
   getProfileFeed: (userId: string, pagination?: PaginationParams) =>
     request<Page<Post>>(`/posts/user/${userId}` + buildQuery(pagination ?? {})),
-  createPost: (data: { body: string; image_url?: string }) =>
+  createPost: (data: { body?: string; image_url?: string }) =>
     request<Post>("/posts/", { method: "POST", body: JSON.stringify(data) }),
-  updatePost: (id: string, data: { body: string; image_url?: string }) =>
+  updatePost: (id: string, data: { body?: string; image_url?: string }) =>
     request<Post>(`/posts/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deletePost: (id: string) =>
     request<void>(`/posts/${id}`, { method: "DELETE" }),
@@ -481,6 +511,15 @@ export const api = {
   // Friend Requests
   getFriendRequests: () => request<FriendRequest[]>("/friend-requests/"),
   getFriends: (userId: string) => request<User[]>(`/friend-requests/friends/${userId}`),
+  getFriendsPage: (
+    userId: string,
+    pagination?: PaginationParams,
+  ) =>
+    request<Page<User>>(
+      `/friend-requests/friends/${userId}/paginated` + buildQuery(pagination ?? {}),
+    ),
+  unfriend: (userId: string) =>
+    request<void>(`/friend-requests/unfriend/${userId}`, { method: "DELETE" }),
   sendFriendRequest: (receiver_id: string) =>
     request<FriendRequest>("/friend-requests/", { method: "POST", body: JSON.stringify({ receiver_id }) }),
   acceptFriendRequest: (id: string) =>
@@ -663,6 +702,26 @@ export interface Classified {
   created_at: string;
 }
 
+export interface NewsFullState {
+  articles: Article[];
+  articles_total: number;
+  articles_skip: number;
+  articles_limit: number;
+  articles_has_more: boolean;
+  featured_articles: Article[];
+  featured_articles_total: number;
+  featured_articles_skip: number;
+  featured_articles_limit: number;
+  featured_articles_has_more: boolean;
+  announcements: Announcement[];
+  classifieds: Classified[];
+  saved_articles: Article[];
+  saved_articles_total: number;
+  saved_articles_skip: number;
+  saved_articles_limit: number;
+  saved_articles_has_more: boolean;
+}
+
 export interface Notification {
   id: string;
   user_id: string;
@@ -773,6 +832,23 @@ export interface SanctuaryStats {
   user_progress: number; // 0..1 toward next user level
   pets_count: number;
   sanctuary_penalty?: number;
+}
+
+export interface MyFullState {
+  creatures: Creature[];
+  my_creatures: UserCreature[];
+  my_creatures_total: number;
+  my_creatures_skip: number;
+  my_creatures_limit: number;
+  my_creatures_has_more: boolean;
+  pet_items: PetItem[];
+  inventory: UserPetItem[];
+  stats: SanctuaryStats;
+  market: MarketCreature[] | null;
+  market_total: number | null;
+  market_skip: number | null;
+  market_limit: number | null;
+  market_has_more: boolean | null;
 }
 
 export interface PetItem {

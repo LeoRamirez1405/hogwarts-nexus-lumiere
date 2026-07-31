@@ -6,3 +6,4 @@ export { ForumThreads } from "./ForumThreads";
 export type { ForumThreadsHandle } from "./ForumThreads";
 export { NewThreadModal } from "./NewThreadModal";
 export { ArticlesListModal } from "./ArticlesListModal";
+export { VirtualizedArticleGrid, VirtualizedBentoGrid } from "./VirtualizedArticleGrid";

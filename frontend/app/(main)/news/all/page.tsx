@@ -1,85 +1,39 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { MaterialIcon } from "@/components/ui";
-import { GlassCard, Badge, Button, SearchBar } from "@/components/ui";
-import { api, Article } from "@/lib/api";
-import { useDebounce } from "@/hooks/useDebounce";
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("es-ES", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
+import { GlassCard, Button, SearchBar } from "@/components/ui";
+import { useArticlesList } from "@/hooks/useArticlesList";
+import { VirtualizedArticleGrid } from "@/components/domain/News";
 
 export default function NewsAllPage() {
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<string>("");
-  const [featuredOnly, setFeaturedOnly] = useState(false);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 12;
+  const {
+    articles,
+    loading,
+    loadingMore,
+    hasMore,
+    search,
+    setSearch,
+    category,
+    setCategory,
+    featuredOnly,
+    setFeaturedOnly,
+    categories,
+    loadMore,
+  } = useArticlesList({
+    initialSearch: "",
+    initialCategory: "",
+    initialFeaturedOnly: false,
+    pageSize: 12,
+    enabled: true,
+  });
 
-  const debouncedSearch = useDebounce(search, 300);
-
-  const fetchCategories = useCallback(async () => {
-    try {
-      const data = await api.getArticleCategories();
-      setCategories(data);
-    } catch {
-      setCategories([]);
-    }
-  }, []);
-
-  const fetchArticles = useCallback(
-    async (pageNum = 1, append = false) => {
-      setLoading(true);
-      try {
-        const params: Record<string, string> = {
-          limit: String(PAGE_SIZE),
-          offset: String((pageNum - 1) * PAGE_SIZE),
-        };
-        if (debouncedSearch) params.search = debouncedSearch;
-        if (category !== "all" && category) params.category = category;
-        if (featuredOnly) params.featured_only = "true";
-        const data = await api.getArticles(params);
-        if (append) {
-          setArticles((prev) => [...prev, ...data.items]);
-        } else {
-          setArticles(data.items);
-        }
-        setHasMore(data.has_more);
-        setPage(pageNum);
-      } catch {
-        if (!append) setArticles([]);
-        setHasMore(false);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [debouncedSearch, category, featuredOnly, PAGE_SIZE]
-  );
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchCategories();
-  }, [fetchCategories]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchArticles(1, false);
-  }, [fetchArticles]);
-
-  const handleLoadMore = () => {
-    fetchArticles(page + 1, true);
-  };
+  // Calculate grid height based on number of articles
+  const columns = 3;
+  const itemHeight = 320;
+  const gap = 24;
+  const rowCount = Math.ceil(articles.length / columns);
+  const gridHeight = rowCount * itemHeight + (rowCount - 1) * gap + 100; // extra space for load more button
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
@@ -114,7 +68,7 @@ export default function NewsAllPage() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setCategory("all")}
+              onClick={() => setCategory("")}
               className={`px-4 py-2 rounded-full text-label-sm font-medium transition-all ${
                 category === "" || category === "all"
                   ? "bg-primary text-on-primary"
@@ -146,7 +100,7 @@ export default function NewsAllPage() {
             </span>
             <button
               type="button"
-              onClick={() => setFeaturedOnly((v) => !v)}
+              onClick={() => setFeaturedOnly(!featuredOnly)}
               aria-pressed={featuredOnly}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-label-sm font-medium transition-all ${
                 featuredOnly
@@ -189,62 +143,19 @@ export default function NewsAllPage() {
         </GlassCard>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {articles.map((article) => (
-              <Link key={article.id} href={`/news/${article.id}`} className="block">
-                <GlassCard
-                  className={`p-5 h-full parchment-texture ${
-                    article.featured
-                      ? "border border-secondary/50 shadow-[0_0_20px_rgba(119,90,25,0.25)]"
-                      : ""
-                  }`}
-                  hover
-                  glow
-                >
-                  {article.image_url && (
-                    <div className="relative h-40 rounded-xl overflow-hidden mb-4">
-                      <Image
-                        src={article.image_url}
-                        alt={article.title}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                        loading="lazy"
-                      />
-                    </div>
-                  )}
-                  <div className="mb-3 flex items-center gap-2">
-                    <Badge variant="tag" color="secondary">
-                      {article.category}
-                    </Badge>
-                    {article.featured && (
-                      <Badge variant="rarity" color="secondary">
-                        <MaterialIcon name="star" className="text-[0.9em] mr-0.5" filled />
-                        Destacado
-                      </Badge>
-                    )}
-                  </div>
-                  <h2 className="font-display text-body-md text-on-surface leading-snug mb-2 line-clamp-2">
-                    {article.title}
-                  </h2>
-                  <p className="text-label-sm text-on-surface-variant line-clamp-2 mb-3">
-                    {article.body.slice(0, 120)}...
-                  </p>
-                  <div className="flex items-center justify-between text-label-sm text-on-surface-variant">
-                    <span>{formatDate(article.created_at)}</span>
-                    <Button variant="ghost" size="sm" icon="arrow_forward" iconPosition="right">
-                      Leer
-                    </Button>
-                  </div>
-                </GlassCard>
-              </Link>
-            ))}
+          <div style={{ height: Math.max(gridHeight, 400) }}>
+            <VirtualizedArticleGrid
+              articles={articles}
+              columns={3}
+              itemHeight={itemHeight}
+              gap={gap}
+            />
           </div>
 
           {hasMore && (
             <div className="text-center pt-4">
-              <Button variant="outline" size="lg" onClick={handleLoadMore} disabled={loading}>
-                {loading ? (
+              <Button variant="outline" size="lg" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? (
                   <>
                     <MaterialIcon name="progress_activity" className="text-[1.1em] animate-spin mr-2" />
                     Cargando...

@@ -80,3 +80,37 @@ class NotificationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+from .announcement import AnnouncementResponse, ClassifiedResponse  # noqa: E402
+from ..schemas.pagination import Page  # noqa: E402
+
+
+class NewsFullStateResponse(BaseModel):
+    """All state needed by the news page, in one call.
+
+    Consolidates: articles (paginated), featured articles (paginated),
+    announcements, classifieds, and saved articles (subscriptions).
+
+    `articles` and `featured_articles` are paginated server-side (limit 9 by
+    default). Use the matching `*_total`/`*_has_more` fields to drive a
+    "Cargar más" button in the UI, and call `/articles/` with `offset`/`limit`
+    and `featured_only=true` to fetch the next pages.
+    """
+    articles: list[ArticleResponse]
+    articles_total: int
+    articles_skip: int
+    articles_limit: int
+    articles_has_more: bool
+    featured_articles: list[ArticleResponse]
+    featured_articles_total: int
+    featured_articles_skip: int
+    featured_articles_limit: int
+    featured_articles_has_more: bool
+    announcements: list[AnnouncementResponse]
+    classifieds: list[ClassifiedResponse]
+    saved_articles: list[ArticleResponse]
+    saved_articles_total: int
+    saved_articles_skip: int
+    saved_articles_limit: int
+    saved_articles_has_more: bool

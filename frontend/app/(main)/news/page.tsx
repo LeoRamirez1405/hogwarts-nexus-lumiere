@@ -10,14 +10,14 @@ import { toastError } from "@/lib/toastStore";
 import { GlassCard, Badge, Button, MaterialIcon, TabGroup, ListFooter } from "@/components/ui";
 import {
   FeaturedArticle,
-  ArticleCard,
   AnnouncementsSidebar,
   ClassifiedsSidebar,
   ForumThreads,
   NewThreadModal,
   type ForumThreadsHandle,
+  VirtualizedArticleGrid,
 } from "@/components/domain/News";
-import { usePaginatedList } from "@/hooks/usePaginatedList";
+import { useNewsPage } from "@/hooks/useNewsPage";
 
 function isLocalUpload(src?: string): boolean {
   return src?.startsWith("http://localhost:8000/uploads/") ?? false;
@@ -41,79 +41,39 @@ export default function NewsPage() {
   const [showNewThread, setShowNewThread] = useState(false);
   const [activeTab, setActiveTab] = useState("news");
 
-  // Articles paginated list (Recientes)
   const {
-    items: allArticles,
-    hasMore: articlesHasMore,
-    loading: articlesLoading,
-    loadingMore: articlesLoadingMore,
-    totalLoaded: articlesTotal,
-    totalCount: articlesTotalCount,
-    loadMore: loadMoreArticles,
-    refresh: refreshArticles,
-  } = usePaginatedList({
-    fetcher: (p) => api.getArticles({ offset: String(p.skip), limit: String(p.limit) }),
-    pageSize: 9,
-    enabled: true,
-    queryKey: ["news-articles"],
-  });
-
-  // Featured articles paginated list (Destacadas) — own lazy loading
-  const {
-    items: featuredArticles,
-    hasMore: featuredHasMore,
-    loading: featuredLoading,
-    loadingMore: featuredLoadingMore,
-    totalLoaded: featuredTotal,
-    totalCount: featuredTotalCount,
-    loadMore: loadMoreFeatured,
-    refresh: refreshFeatured,
-  } = usePaginatedList({
-    fetcher: (p) =>
-      api.getArticles({ offset: String(p.skip), limit: String(p.limit), featured_only: "true" }),
-    pageSize: 9,
-    enabled: filter === "featured",
-    queryKey: ["news-featured"],
-  });
-
-  // Announcements
-  const {
-    items: allAnnouncements,
-    loading: announcementsLoading,
-  } = usePaginatedList({
-    fetcher: (p) => api.getAnnouncements(p),
-    pageSize: 20,
-    enabled: true,
-    queryKey: ["news-announcements"],
-  });
-
-  // Classifieds
-  const {
-    items: allClassifieds,
-    loading: classifiedsLoading,
-  } = usePaginatedList({
-    fetcher: (p) => api.getClassifieds(p),
-    pageSize: 20,
-    enabled: true,
-    queryKey: ["news-classifieds"],
-  });
-
-  // Saved articles (subscribed)
-  const {
-    items: allSaved,
-    hasMore: savedHasMore,
-    loading: savedLoading,
-    loadingMore: savedLoadingMore,
-    totalLoaded: savedTotal,
-    totalCount: savedTotalCount,
-    loadMore: loadMoreSaved,
-    refresh: refreshSaved,
-  } = usePaginatedList({
-    fetcher: (p) => api.getArticles({ skip: String(p.skip), limit: String(p.limit), subscribed: "true" }),
-    pageSize: 9,
-    enabled: activeTab === "saved",
-    queryKey: ["news-saved"],
-  });
+    articles: allArticles,
+    featuredArticles,
+    articlesHasMore,
+    articlesLoading,
+    articlesLoadingMore,
+    articlesTotal,
+    articlesTotalCount,
+    loadMoreArticles,
+    refreshArticles,
+    featuredHasMore,
+    featuredLoading,
+    featuredLoadingMore,
+    featuredTotal,
+    featuredTotalCount,
+    loadMoreFeatured,
+    refreshFeatured,
+    announcements: allAnnouncements,
+    announcementsLoading,
+    classifieds: allClassifieds,
+    classifiedsLoading,
+    savedArticles: allSaved,
+    savedHasMore,
+    savedLoading,
+    savedLoadingMore,
+    savedTotal,
+    savedTotalCount,
+    loadMoreSaved,
+    refreshSaved,
+    loading,
+    loadError,
+    retry,
+  } = useNewsPage();
 
   const handleVote = useCallback(
     (threadId: string) => {
@@ -193,7 +153,6 @@ export default function NewsPage() {
   const sortedArticles = useMemo(() => [...activeItems].sort(byDateDesc), [activeItems, byDateDesc]);
 
   const visibleArticles = sortedArticles;
-  const visibleSaved = allSaved;
 
   return (
     <div className="space-y-10 pb-16">
@@ -414,41 +373,46 @@ export default function NewsPage() {
                 </Button>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {visibleArticles.map((a) => (
-                <ArticleCard key={a.id} article={a} onSubscribe={handleSubscribe} />
-              ))}
-              {activeListLoading && sortedArticles.length === 0 && (
-                <div className="col-span-full flex flex-col items-center justify-center py-16">
-                  <MaterialIcon
-                    name="progress_activity"
-                    className="text-5xl text-outline-variant animate-spin mb-3"
+            {visibleArticles.length === 0 && activeListLoading ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <MaterialIcon
+                  name="progress_activity"
+                  className="text-5xl text-outline-variant animate-spin mb-3"
+                />
+                <p className="text-on-surface-variant text-body-md">Cargando...</p>
+              </div>
+            ) : visibleArticles.length === 0 && !activeListLoading ? (
+              <GlassCard className="p-12 text-center">
+                <MaterialIcon
+                  name={isFeatured ? "star" : "article"}
+                  className="text-5xl text-outline-variant mb-3"
+                />
+                <p className="text-on-surface-variant text-body-md">
+                  {isFeatured
+                    ? "Aún no hay artículos destacados"
+                    : "Aún no hay ediciones disponibles"}
+                </p>
+              </GlassCard>
+            ) : (
+              <>
+                <div style={{ height: Math.max(activeTotal * 107 + 100, 400) }}>
+                  <VirtualizedArticleGrid
+                    articles={visibleArticles}
+                    columns={3}
+                    itemHeight={320}
+                    gap={24}
                   />
-                  <p className="text-on-surface-variant text-body-md">Cargando...</p>
                 </div>
-              )}
-              {!activeListLoading && sortedArticles.length === 0 && (
-                <GlassCard className="col-span-full p-12 text-center">
-                  <MaterialIcon
-                    name={isFeatured ? "star" : "article"}
-                    className="text-5xl text-outline-variant mb-3"
-                  />
-                  <p className="text-on-surface-variant text-body-md">
-                    {isFeatured
-                      ? "Aún no hay artículos destacados"
-                      : "Aún no hay ediciones disponibles"}
-                  </p>
-                </GlassCard>
-              )}
-            </div>
-            <ListFooter
-              hasMore={activeHasMore}
-              loading={activeLoadingMore}
-              pageSize={9}
-              loaded={activeTotal}
-              total={activeTotalCount}
-              onLoadMore={loadMoreActive}
-            />
+                <ListFooter
+                  hasMore={activeHasMore}
+                  loading={activeLoadingMore}
+                  pageSize={9}
+                  loaded={activeTotal}
+                  total={activeTotalCount}
+                  onLoadMore={loadMoreActive}
+                />
+              </>
+            )}
           </div>
 
           {/* ===== FORUM SECTION ===== */}
@@ -512,67 +476,90 @@ export default function NewsPage() {
             </GlassCard>
           ) : (
             <>
-            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6`}>
-              {visibleSaved.map((a) => (
-                <GlassCard key={a.id} className="overflow-hidden" hover glow>
-                  {a.image_url && (
-                    <div className="relative h-40 overflow-hidden">
-                      <Image
-                        src={a.image_url}
-                        alt={a.title}
-                        fill
-                        className="object-cover"
-                        unoptimized={a.image_url.startsWith("http://localhost:8000/uploads/")}
-                      />
+              <div style={{ height: Math.max(savedTotal * 107 + 100, 400) }}>
+                <VirtualizedArticleGrid
+                  articles={allSaved}
+                  columns={3}
+                  itemHeight={280}
+                  gap={24}
+                  renderItem={(article, index, style) => (
+                    <div key={article.id} style={style} className="w-full">
+                      <GlassCard className="overflow-hidden h-full" hover glow>
+                        {article.image_url && (
+                          <div className="relative h-40 overflow-hidden">
+                            <Image
+                              src={article.image_url}
+                              alt={article.title}
+                              fill
+                              className="object-cover"
+                              unoptimized={article.image_url.startsWith("http://localhost:8000/uploads/")}
+                            />
+                          </div>
+                        )}
+                        <div className="p-5">
+                          <div className="flex items-center justify-between mb-2">
+                            <Badge variant="tag" color="secondary">{article.category}</Badge>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleSubscribe(article.id);
+                              }}
+                              className="w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-error/10 text-error transition-colors"
+                              title="Quitar de guardados"
+                            >
+                              <MaterialIcon name="bookmark_remove" className="text-[1.1em]" />
+                            </button>
+                          </div>
+                          <h3 className="font-display text-title-md text-on-surface leading-snug line-clamp-2 mb-2">
+                            {article.title}
+                          </h3>
+                          <p className="text-body-sm text-on-surface-variant line-clamp-2 mb-3">
+                            {article.body.slice(0, 120)}...
+                          </p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-label-sm text-on-surface-variant">
+                              {new Date(article.created_at).toLocaleDateString("es-ES", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </p>
+                            <Link
+                              href={`/news/${article.id}`}
+                              className="text-primary text-label-sm font-bold hover:underline flex items-center gap-1"
+                            >
+                              Leer
+                              <MaterialIcon name="arrow_forward" className="text-[1em]" />
+                            </Link>
+                          </div>
+                        </div>
+                      </GlassCard>
                     </div>
                   )}
-                  <div className="p-5">
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant="tag" color="secondary">{a.category}</Badge>
-                      <button
-                        onClick={() => handleSubscribe(a.id)}
-                        className="w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-error/10 text-error transition-colors"
-                        title="Quitar de guardados"
-                      >
-                        <MaterialIcon name="bookmark_remove" className="text-[1.1em]" />
-                      </button>
-                    </div>
-                    <h3 className="font-display text-title-md text-on-surface leading-snug line-clamp-2 mb-2">
-                      {a.title}
-                    </h3>
-                    <p className="text-body-sm text-on-surface-variant line-clamp-2 mb-3">
-                      {a.body.slice(0, 120)}...
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-label-sm text-on-surface-variant">
-                        {new Date(a.created_at).toLocaleDateString("es-ES", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </p>
-                      <Link
-                        href={`/news/${a.id}`}
-                        className="text-primary text-label-sm font-bold hover:underline flex items-center gap-1"
-                      >
-                        Leer
-                        <MaterialIcon name="arrow_forward" className="text-[1em]" />
-                      </Link>
-                    </div>
-                  </div>
-                </GlassCard>
-              ))}
-            </div>
-            <ListFooter
-              hasMore={savedHasMore}
-              loading={savedLoadingMore}
-              pageSize={9}
-              loaded={savedTotal}
-              total={savedTotalCount}
-              onLoadMore={loadMoreSaved}
-            />
+                />
+              </div>
+              <ListFooter
+                hasMore={savedHasMore}
+                loading={savedLoadingMore}
+                pageSize={9}
+                loaded={savedTotal}
+                total={savedTotalCount}
+                onLoadMore={loadMoreSaved}
+              />
             </>
           )}
+        </div>
+      )}
+
+      {/* Error state */}
+      {loadError && !loading && (
+        <div className="text-center py-16">
+          <MaterialIcon name="cloud_off" className="text-error text-5xl block mb-3" />
+          <p className="text-on-surface-variant text-body-md mb-4">{loadError}</p>
+          <Button variant="secondary" onClick={retry}>
+            Reintentar
+          </Button>
         </div>
       )}
 

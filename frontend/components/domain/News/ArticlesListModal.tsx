@@ -1,92 +1,43 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
 import { MaterialIcon } from "@/components/ui";
-import { GlassCard, Badge, Button, SearchBar, Modal } from "@/components/ui";
-import { api, Article } from "@/lib/api";
+import { GlassCard, Button, SearchBar, Modal } from "@/components/ui";
+import { useArticlesList } from "@/hooks/useArticlesList";
+import { VirtualizedArticleGrid } from "@/components/domain/News";
 
 interface ArticlesListModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialArticles?: Article[];
 }
 
-export function ArticlesListModal({ isOpen, onClose, initialArticles }: ArticlesListModalProps) {
-  const [articles, setArticles] = useState<Article[]>(initialArticles || []);
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<string>("");
-  const [categories, setCategories] = useState<string[]>([]);
-  const [hasMore, setHasMore] = useState(true);
-  const pageRef = useRef(0);
-  const PAGE_SIZE = 20;
+export function ArticlesListModal({ isOpen, onClose }: ArticlesListModalProps) {
+  const {
+    articles,
+    loading,
+    loadingMore,
+    hasMore,
+    search,
+    setSearch,
+    category,
+    setCategory,
+    featuredOnly,
+    setFeaturedOnly,
+    categories,
+    loadMore,
+  } = useArticlesList({
+    initialSearch: "",
+    initialCategory: "",
+    initialFeaturedOnly: false,
+    pageSize: 20,
+    enabled: isOpen,
+  });
 
-  const loadArticles = useCallback(
-    async (reset: boolean) => {
-      setLoading(true);
-      try {
-        const nextPage = reset ? 0 : pageRef.current;
-        const params: Record<string, string> = {
-          limit: PAGE_SIZE.toString(),
-          offset: (nextPage * PAGE_SIZE).toString(),
-        };
-        if (search) params.search = search;
-        if (category) params.category = category;
-
-        const page = await api.getArticles(params);
-        const newArticles = page.items;
-
-        if (reset) {
-          setArticles(newArticles);
-        } else {
-          setArticles((prev) => [...prev, ...newArticles]);
-        }
-
-        setHasMore(page.has_more);
-        pageRef.current = nextPage + 1;
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
-    },
-    [search, category]
-  );
-
-  // Load categories once on mount
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const cats = await api.getArticleCategories();
-        if (mounted) setCategories(cats);
-      } catch {
-        // ignore
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // Reload articles when modal opens or search/category changes
-  useEffect(() => {
-    if (!isOpen) return;
-    pageRef.current = 0;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setArticles(initialArticles || []);
-    loadArticles(true);
-  }, [isOpen, initialArticles, loadArticles]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    pageRef.current = 0;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadArticles(true);
-  }, [search, category, isOpen, loadArticles]);
-
-  const handleLoadMore = () => loadArticles(false);
+  // Calculate grid height
+  const columns = 3;
+  const itemHeight = 280;
+  const gap = 16;
+  const rowCount = Math.ceil(articles.length / columns);
+  const gridHeight = rowCount * itemHeight + (rowCount - 1) * gap + 80; // extra space for load more
 
   return (
     <Modal open={isOpen} onClose={onClose} size="lg" title="Todas las ediciones">
@@ -113,6 +64,19 @@ export function ArticlesListModal({ isOpen, onClose, initialArticles }: Articles
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => setFeaturedOnly(!featuredOnly)}
+            aria-pressed={featuredOnly}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-label-sm font-medium transition-all ${
+              featuredOnly
+                ? "bg-secondary text-on-secondary shadow-[0_0_16px_rgba(119,90,25,0.35)]"
+                : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+            }`}
+          >
+            <MaterialIcon name="star" className="text-[1.1em]" filled={featuredOnly} />
+            Destacados
+          </button>
         </div>
 
         {/* Articles Grid */}
@@ -142,46 +106,26 @@ export function ArticlesListModal({ isOpen, onClose, initialArticles }: Articles
             </GlassCard>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                {articles.map((a) => (
-                  <Link key={a.id} href={`/news/${a.id}`} className="block" onClick={onClose}>
-                    <GlassCard className="p-4 h-full" hover>
-                      <div className="mb-2 flex flex-wrap gap-1">
-                        <Badge variant="tag" color="secondary">
-                          {a.category}
-                        </Badge>
-                        {a.featured && (
-                          <Badge variant="rarity" color="primary">
-                            Destacado
-                          </Badge>
-                        )}
-                      </div>
-                      <h3 className="font-display text-body-md text-on-surface leading-snug line-clamp-3 mb-2">
-                        {a.title}
-                      </h3>
-                      <p className="text-label-sm text-on-surface-variant">
-                        {new Date(a.created_at).toLocaleDateString("es-ES", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </p>
-                    </GlassCard>
-                  </Link>
-                ))}
+              <div style={{ height: Math.max(gridHeight, 300) }}>
+                <VirtualizedArticleGrid
+                  articles={articles}
+                  columns={3}
+                  itemHeight={itemHeight}
+                  gap={gap}
+                />
               </div>
 
               {hasMore && (
-                <div className="flex justify-center">
+                <div className="flex justify-center pt-4">
                   <Button
                     variant="outline"
                     size="md"
                     icon="expand_more"
                     iconPosition="right"
-                    onClick={handleLoadMore}
-                    disabled={loading}
+                    onClick={loadMore}
+                    disabled={loadingMore}
                   >
-                    {loading ? "Cargando..." : "Cargar más"}
+                    {loadingMore ? "Cargando..." : "Cargar más"}
                   </Button>
                 </div>
               )}

@@ -6,11 +6,18 @@ from sqlalchemy.orm import selectinload
 
 from ..database import get_db
 from ..models.article import Article, ArticleComment
+from ..models.announcement import Announcement
+from ..models.classified import Classified
 from ..models.user import User
 from ..models.article_subscription import ArticleSubscription, Notification
 from ..schemas.article import (
     ArticleCreate, ArticleUpdate, ArticleResponse, ArticleSubscriptionResponse,
     NotificationResponse, ArticleCommentCreate, ArticleCommentResponse,
+    NewsFullStateResponse,
+)
+from ..schemas.announcement import (
+    AnnouncementResponse,
+    ClassifiedResponse,
 )
 from ..schemas.user import UserResponse
 from ..schemas.pagination import Page
@@ -477,3 +484,129 @@ async def mark_all_notifications_read(
 
     await db.commit()
     return {"marked": len(notifications)}
+
+
+@router.get("/full-state", response_model=NewsFullStateResponse)
+async def get_news_full_state(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    articles_skip: int = Query(0, ge=0),
+    articles_limit: int = Query(9, ge=1, le=100),
+    featured_skip: int = Query(0, ge=0),
+    featured_limit: int = Query(9, ge=1, le=100),
+    saved_skip: int = Query(0, ge=0),
+    saved_limit: int = Query(9, ge=1, le=100),
+    announcements_limit: int = Query(20, ge=1, le=200),
+    classifieds_limit: int = Query(20, ge=1, le=200),
+):
+    """Get all news page state in a single request.
+
+    Returns paginated articles, featured articles, announcements, classifieds,
+    and saved articles (subscriptions) with pagination metadata for each.
+    """
+    # Articles (all, paginated)
+    articles_query = (
+        select(Article)
+        .options(selectinload(Article.author))
+        .order_by(Article.pinned.desc(), Article.created_at.desc())
+        .limit(articles_limit + 1)
+        .offset(articles_skip)
+    )
+    articles_result = await db.execute(articles_query)
+    articles = articles_result.scalars().all()
+    articles_has_more = len(articles) > articles_limit
+    articles = articles[:articles_limit]
+
+    articles_total_result = await db.execute(select(func.count(Article.id)))
+    articles_total = articles_total_result.scalar_one()
+
+    # Featured articles (paginated)
+    featured_query = (
+        select(Article)
+        .options(selectinload(Article.author))
+        .where(Article.featured == True)
+        .order_by(Article.created_at.desc())
+        .limit(featured_limit + 1)
+        .offset(featured_skip)
+    )
+    featured_result = await db.execute(featured_query)
+    featured_articles = featured_result.scalars().all()
+    featured_has_more = len(featured_articles) > featured_limit
+    featured_articles = featured_articles[:featured_limit]
+
+    featured_total_result = await db.execute(
+        select(func.count(Article.id)).where(Article.featured == True)
+    )
+    featured_total = featured_total_result.scalar_one()
+
+    # Saved articles (subscriptions, paginated)
+    saved_query = (
+        select(Article)
+        .join(ArticleSubscription, Article.id == ArticleSubscription.article_id)
+        .where(ArticleSubscription.user_id == current_user.id)
+        .options(selectinload(Article.author))
+        .order_by(Article.created_at.desc())
+        .limit(saved_limit + 1)
+        .offset(saved_skip)
+    )
+    saved_result = await db.execute(saved_query)
+    saved_articles = saved_result.scalars().all()
+    saved_has_more = len(saved_articles) > saved_limit
+    saved_articles = saved_articles[:saved_limit]
+
+    saved_total_result = await db.execute(
+        select(func.count(Article.id))
+        .join(ArticleSubscription, Article.id == ArticleSubscription.article_id)
+        .where(ArticleSubscription.user_id == current_user.id)
+    )
+    saved_total = saved_total_result.scalar_one()
+
+    # Announcements (limited, not paginated for sidebar)
+    announcements_result = await db.execute(
+        select(Announcement)
+        .order_by(Announcement.created_at.desc())
+        .limit(announcements_limit)
+    )
+    announcements = announcements_result.scalars().all()
+
+    # Classifieds (limited, not paginated for sidebar)
+    classifieds_result = await db.execute(
+        select(Classified)
+        .order_by(Classified.created_at.desc())
+        .limit(classifieds_limit)
+    )
+    classifieds = classifieds_result.scalars().all()
+
+    # Get user's subscriptions for all article lists
+    sub_result = await db.execute(
+        select(ArticleSubscription.article_id).where(ArticleSubscription.user_id == current_user.id)
+    )
+    subscribed_ids = {row[0] for row in sub_result.all()}
+
+    # Add subscribed flag to all article lists
+    for article in articles:
+        article.subscribed = article.id in subscribed_ids
+    for article in featured_articles:
+        article.subscribed = article.id in subscribed_ids
+    for article in saved_articles:
+        article.subscribed = True  # saved articles are by definition subscribed
+
+    return NewsFullStateResponse(
+        articles=articles,
+        articles_total=articles_total,
+        articles_skip=articles_skip,
+        articles_limit=articles_limit,
+        articles_has_more=articles_has_more,
+        featured_articles=featured_articles,
+        featured_articles_total=featured_total,
+        featured_articles_skip=featured_skip,
+        featured_articles_limit=featured_limit,
+        featured_articles_has_more=featured_has_more,
+        announcements=announcements,
+        classifieds=classifieds,
+        saved_articles=saved_articles,
+        saved_articles_total=saved_total,
+        saved_articles_skip=saved_skip,
+        saved_articles_limit=saved_limit,
+        saved_articles_has_more=saved_has_more,
+    )
