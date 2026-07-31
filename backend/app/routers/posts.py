@@ -225,8 +225,8 @@ async def create_post(
 ):
     post = Post(
         author_id=current_user.id,
-        body=post_data.body,
-        image_url=post_data.image_url,
+        body=(post_data.body or "").strip(),
+        image_url=(post_data.image_url or "").strip() or None,
     )
     db.add(post)
     await db.commit()
@@ -429,12 +429,13 @@ async def update_post(
     if post.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="Cannot edit another user's post")
 
-    body = post_data.body.strip()
-    if not body:
-        raise HTTPException(status_code=400, detail="Post body cannot be empty")
+    body = (post_data.body or "").strip()
+    image_url = (post_data.image_url or "").strip()
+    if not body and not image_url:
+        raise HTTPException(status_code=400, detail="Post must have either body text or an image")
 
     post.body = body
-    post.image_url = post_data.image_url
+    post.image_url = image_url or None
     post.edited_at = datetime.utcnow()
     post.edited_by = current_user.id
 
