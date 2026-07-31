@@ -21,10 +21,41 @@ from .pet_care import pet_care_loop
 async def lifespan(app: FastAPI):
     await init_db()
     from .seed import seed_data, seed_pet_supplies, seed_enum_types, seed_feature_flags
-    await seed_data()
-    await seed_pet_supplies()
-    await seed_enum_types()
-    await seed_feature_flags()
+    from .models.feature_flag import FeatureFlag
+    from .database import async_session
+    from sqlalchemy import select
+
+    # Seeds used to run on every startup. The heavy ones (demo users, articles,
+    # products, creatures…) are now gated behind a one-time marker so they only
+    # run on a fresh database. The idempotent, cheap backfills (pet supplies,
+    # feature flags) still run each boot so legacy databases catch up.
+    async with async_session() as db:
+        seeded = (
+            await db.execute(
+                select(FeatureFlag).where(FeatureFlag.key == "system.initial_seed_done")
+            )
+        ).scalar_one_or_none()
+
+    if seeded is None:
+        await seed_data()
+        await seed_pet_supplies()
+        await seed_enum_types()
+        await seed_feature_flags()
+        async with async_session() as db:
+            db.add(
+                FeatureFlag(
+                    key="system.initial_seed_done",
+                    name="Seed inicial completado",
+                    description="Marca interna que evita re-ejecutar los seeds de datos en cada arranque.",
+                    enabled=True,
+                    category="system",
+                )
+            )
+            await db.commit()
+    else:
+        await seed_pet_supplies()
+        await seed_feature_flags()
+
     retention_task = asyncio.create_task(retention_loop())
     pet_care_task = asyncio.create_task(pet_care_loop())
     try:
