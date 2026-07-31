@@ -7,11 +7,12 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from brotli_asgi import BrotliMiddleware
 
 from .config import settings
 from .rate_limit import limiter
 from .database import init_db
-from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, audit_logs
+from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, audit_logs, ws_messages, push
 from .models import friend_request  # noqa: F401
 from .retention import retention_loop
 from .pet_care import pet_care_loop
@@ -71,7 +72,8 @@ app = FastAPI(title="Hogwarts Nexus Lumiere API", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Compress responses to cut bandwidth/latency on JSON payloads.
+# Compression: Brotli first (better ratio), then GZip fallback.
+app.add_middleware(BrotliMiddleware, minimum_size=512)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # CORS: restrict to configured frontend origins instead of a wildcard.
@@ -102,6 +104,7 @@ app.include_router(articles.router, prefix="/articles", tags=["articles"])
 app.include_router(creatures.router, prefix="/creatures", tags=["creatures"])
 app.include_router(pet_items.router, prefix="/pet-items", tags=["pet-items"])
 app.include_router(messages.router, prefix="/messages", tags=["messages"])
+app.include_router(ws_messages.router, prefix="/messages", tags=["messages"])
 app.include_router(posts.router, prefix="/posts", tags=["posts"])
 app.include_router(transactions.router, prefix="/transactions", tags=["transactions"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
@@ -115,6 +118,7 @@ app.include_router(forum.router, prefix="/forum", tags=["forum"])
 app.include_router(enum_types.router, prefix="/enum-types", tags=["enum-types"])
 app.include_router(feature_flags.router, prefix="/feature-flags", tags=["feature-flags"])
 app.include_router(audit_logs.router, prefix="/audit-logs", tags=["audit-logs"])
+app.include_router(push.router, prefix="/push", tags=["push"])
 
 # Serve locally-stored uploads (avatars, post images, etc.) as static files so
 # the frontend can load them by absolute URL. In production Cloudinary is used

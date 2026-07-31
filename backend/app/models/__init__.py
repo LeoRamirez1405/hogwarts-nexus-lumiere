@@ -17,3 +17,4 @@ from .forum import ForumThread, ForumThreadVote, ForumComment, ForumSubscription
 from .enum_type import EnumCategory, EnumValue
 from .feature_flag import FeatureFlag
 from .audit_log import AuditLog, AuditAction
+from .push_subscription import PushSubscription
