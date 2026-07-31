@@ -17,7 +17,7 @@ Helpers only *add* to the session; the calling router is responsible for
 import re
 from typing import List, Optional
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, insert, literal, or_, String, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models.article_subscription import Notification
@@ -150,31 +150,52 @@ async def notify_all_users(
     related_id: Optional[str] = None,
     exclude_id: Optional[str] = None,
 ) -> int:
-    """Broadcast a notification to every user except ``exclude_id`` (the author)."""
-    user_ids = (await db.execute(select(User.id))).scalars().all()
-    count = 0
-    for uid in user_ids:
-        if uid == exclude_id:
-            continue
-        db.add(
-            Notification(
-                user_id=uid,
-                type=type,
-                title=title,
-                body=body,
-                related_id=related_id,
-                actor_id=exclude_id,
-                read="false",
-            )
+    """Broadcast a notification to every user except ``exclude_id`` (the author).
+
+    Uses a single ``INSERT INTO notifications ... SELECT`` statement instead of
+    the old per-user loop, so it scales to thousands of recipients without
+    thousands of round-trips or ORM objects in memory.
+    """
+    from datetime import datetime
+
+    dialect = getattr(getattr(db, "bind", None), "dialect", None)
+    if dialect is not None and dialect.name == "postgresql":
+        id_expr = func.gen_random_uuid().cast(String)
+    else:
+        id_expr = func.lower(func.hex(func.randomblob(16)))
+
+    # Bound value instead of CURRENT_TIMESTAMP() (a syntax error on SQLite).
+    now = datetime.utcnow()
+
+    # ``exclude_id`` is a plain value (str/int or None), not a SQL expression, so
+    # build the WHERE clause conditionally instead of calling .is_() on it.
+    where_cond = (User.id != exclude_id) if exclude_id is not None else true()
+    stmt = (
+        insert(Notification)
+        .from_select(
+            ["id", "user_id", "type", "title", "body", "related_id", "actor_id", "read", "created_at"],
+            select(
+                id_expr.label("id"),
+                User.id.label("user_id"),
+                literal(type).label("type"),
+                literal(title).label("title"),
+                literal(body).label("body"),
+                literal(related_id).label("related_id"),
+                literal(exclude_id).label("actor_id"),
+                literal("false").label("read"),
+                literal(now).label("created_at"),
+            ).where(where_cond),
         )
-        count += 1
-    return count
+    )
+    result = await db.execute(stmt)
+    return result.rowcount or 0
 
 
 # Names can be multi-word and the text after an "@" usually keeps going
 # ("@Hermione Granger mira esto"), so we can't match the phrase whole. For every
 # "@<phrase>" we pick the longest real user name that is a prefix of the phrase.
-# Loading all users is cheap at this scale (<= ~100).
+# We only fetch users whose name starts with the mention's first word instead of
+# loading the whole users table into memory.
 _MENTION_RE = re.compile(r"@([A-Za-zÀ-ſ]+(?: [A-Za-zÀ-ſ]+)*)")
 
 
@@ -182,7 +203,19 @@ async def resolve_mentions(db: AsyncSession, body: Optional[str]) -> List[User]:
     """Return the distinct ``User`` rows mentioned via "@Name" in ``body``."""
     if not body or "@" not in body:
         return []
-    all_users = (await db.execute(select(User))).scalars().all()
+
+    first_words = set()
+    for match in _MENTION_RE.finditer(body):
+        word = match.group(1).split(" ", 1)[0].lower()
+        if word:
+            first_words.add(word)
+    if not first_words:
+        return []
+
+    clauses = [User.name.ilike(f"{word}%") for word in sorted(first_words)]
+    all_users = (
+        await db.execute(select(User).where(or_(*clauses)))
+    ).scalars().all()
     users_by_lower = {}
     for u in all_users:
         users_by_lower.setdefault(u.name.lower(), u)

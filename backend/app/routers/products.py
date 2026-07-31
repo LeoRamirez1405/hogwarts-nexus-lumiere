@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 
 from ..database import get_db
 from ..models.product import Product
@@ -72,12 +72,14 @@ async def purchase_product(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    quantity = quantity or 1
+    if quantity < 1:
+        raise HTTPException(status_code=400, detail="Quantity must be positive")
+
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    if product.stock < quantity:
-        raise HTTPException(status_code=400, detail="Insufficient stock")
 
     total = product.price * quantity
     if current_user.zerines < total:
@@ -86,9 +88,21 @@ async def purchase_product(
             detail=f"Insufficient zerines. Need {total}, have {current_user.zerines}",
         )
 
+    # Atomic stock decrement: the WHERE clause re-checks the stock inside the
+    # UPDATE, so two concurrent requests can't both pass the old
+    # `if product.stock < quantity` check and oversell.
+    update_result = await db.execute(
+        update(Product)
+        .where(Product.id == product_id, Product.stock >= quantity)
+        .values(
+            stock=Product.stock - quantity,
+            weekly_sales=Product.weekly_sales + quantity,
+        )
+    )
+    if update_result.rowcount == 0:
+        raise HTTPException(status_code=400, detail="Insufficient stock")
+
     current_user.zerines -= total
-    product.stock -= quantity
-    product.weekly_sales += quantity
 
     user_product = UserProduct(
         user_id=current_user.id,
@@ -113,7 +127,7 @@ async def purchase_product(
 @router.get("/my-purchases", response_model=Page[UserProductResponse])
 async def my_purchases(
     skip: int = Query(0, ge=0),
-    limit: int = Query(1000, ge=1, le=1000),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
