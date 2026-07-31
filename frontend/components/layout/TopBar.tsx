@@ -10,6 +10,8 @@ import { useNotificationStore } from "@/lib/notificationStore";
 import { notificationMeta, autoClearedByPath } from "@/lib/notificationMeta";
 import Avatar from "@/components/ui/Avatar";
 import { MaterialIcon } from "@/components/ui";
+import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
+import PushSubscriptionButton from "@/components/pwa/PushSubscriptionButton";
 
 interface TopBarProps {
   onMenuToggle?: () => void;
@@ -182,6 +184,11 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             </button>
           </div>
 
+          {/* Push Subscription (mobile only - hidden on desktop where we have space in user menu) */}
+          <div className="hidden lg:flex items-center">
+            <PushSubscriptionButton variant="button" />
+          </div>
+
           {/* Avatar + user menu */}
           <div className="relative shrink-0" ref={userMenuRef}>
             <button
@@ -320,6 +327,12 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             <MaterialIcon name="person" className="text-lg" />
             Mi Perfil
           </Link>
+          <div className="border-t border-outline-variant/20 px-3 py-2">
+            <PushSubscriptionButton variant="inline" />
+          </div>
+          <div className="border-t border-outline-variant/20 px-3 py-2">
+            <PWAInstallPrompt variant="button" />
+          </div>
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-3 text-body-md text-error hover:bg-error/10 transition-colors"

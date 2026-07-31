@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { api, Transaction } from "@/lib/api";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { api, Transaction, User } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
 import GlassCard from "@/components/ui/GlassCard";
@@ -94,6 +94,44 @@ export default function AdminTransactionsPage() {
   const debouncedSearch = useDebounce(search, 300);
   const [filter, setFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"user" | "admin">("admin");
+  
+  // New filter states
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [userFilterQuery, setUserFilterQuery] = useState("");
+  const [userFilterResults, setUserFilterResults] = useState<User[]>([]);
+  const [selectedUserFilter, setSelectedUserFilter] = useState<User | null>(null);
+  const [userFilterSearching, setUserFilterSearching] = useState(false);
+  const userFilterQueryRef = useRef("");
+
+  useEffect(() => {
+    userFilterQueryRef.current = userFilterQuery;
+  }, [userFilterQuery]);
+
+  // User filter search effect (similar to TransferTab)
+  useEffect(() => {
+    if (!userFilterQuery || userFilterQuery.length < 2) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setUserFilterSearching(true);
+      api
+        .searchUsersServer(userFilterQuery, { limit: 20 })
+        .then((page) => {
+          if (userFilterQueryRef.current !== userFilterQuery) return;
+          setUserFilterResults(page.items);
+        })
+        .catch(() => {
+          if (userFilterQueryRef.current === userFilterQuery) {
+            setUserFilterResults([]);
+          }
+        })
+        .finally(() => {
+          if (userFilterQueryRef.current === userFilterQuery) setUserFilterSearching(false);
+        });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [userFilterQuery]);
 
   useEffect(() => {
     if (user && user.role !== "admin") {
@@ -101,20 +139,28 @@ export default function AdminTransactionsPage() {
     }
   }, [user, router]);
 
+  // Build filter object for API calls
+  const buildFilters = useCallback(() => ({
+    type: filter === "all" ? undefined : filter,
+    userId: selectedUserFilter?.id,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+  }), [filter, selectedUserFilter, dateFrom, dateTo]);
+
   const userTransactions = usePaginatedList({
-    fetcher: (p) => api.getTransactions(p, filter === "all" ? undefined : filter),
+    fetcher: (p) => api.getTransactions(p, buildFilters()),
     pageSize: 15,
     enabled: true,
     queryKey: ["admin-transactions-user"],
-    resetKey: [filter, activeTab],
+    resetKey: [filter, activeTab, selectedUserFilter?.id, dateFrom, dateTo],
   });
 
   const adminTransactions = usePaginatedList({
-    fetcher: (p) => api.getAllTransactionsAdmin(p, filter === "all" ? undefined : filter),
+    fetcher: (p) => api.getAllTransactionsAdmin(p, buildFilters()),
     pageSize: 15,
     enabled: user?.role === "admin" && activeTab === "admin",
     queryKey: ["admin-transactions-all"],
-    resetKey: [filter, activeTab],
+    resetKey: [filter, activeTab, selectedUserFilter?.id, dateFrom, dateTo],
   });
 
   // Only the active tab should load data
@@ -256,29 +302,126 @@ export default function AdminTransactionsPage() {
         </GlassCard>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 overflow-x-auto no-scrollbar">
-        {["all", "deposit", "withdrawal", "transfer", "purchase"].map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded-full text-label-sm font-medium whitespace-nowrap transition-all ${
-              filter === f
-                ? "bg-primary text-on-primary"
-                : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
-            }`}
-          >
-            {f === "all"
-              ? "Todas"
-              : f === "deposit"
+{/* Filters */}
+      <div className="flex flex-col md:flex-row gap-4">
+        {/* Type filter */}
+        <div className="flex flex-wrap gap-2">
+          {["all", "deposit", "withdrawal", "transfer", "purchase"].map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 py-2 rounded-full text-label-sm font-medium whitespace-nowrap transition-all ${
+                filter === f
+                  ? "bg-primary text-on-primary"
+                  : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+              }`}
+            >
+              {f === "all"
+                ? "Todas"
+                : f === "deposit"
                 ? "Depósitos"
                 : f === "withdrawal"
-                  ? "Retiros"
-                  : f === "transfer"
-                    ? "Transferencias"
-                    : "Compras"}
-          </button>
-        ))}
+                ? "Retiros"
+                : f === "transfer"
+                ? "Transferencias"
+                : "Compras"}
+            </button>
+          ))}
+        </div>
+
+        {/* Date range filter */}
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-label-sm text-on-surface-variant whitespace-nowrap">Desde:</label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="w-40 px-3 py-2 rounded-lg bg-surface-container-high text-on-surface border border-outline-variant/20 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary text-body-sm"
+          />
+          <label className="text-label-sm text-on-surface-variant whitespace-nowrap">Hasta:</label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="w-40 px-3 py-2 rounded-lg bg-surface-container-high text-on-surface border border-outline-variant/20 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary text-body-sm"
+          />
+          {(dateFrom || dateTo) && (
+            <button
+              type="button"
+              onClick={() => { setDateFrom(""); setDateTo(""); }}
+              className="px-3 py-2 rounded-full text-label-sm font-medium bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-all"
+            >
+              <MaterialIcon name="close" className="text-sm" />
+            </button>
+          )}
+        </div>
+
+        {/* User filter */}
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <label className="sr-only">Filtrar por usuario</label>
+          <div className="relative">
+            <input
+              type="text"
+              value={userFilterQuery}
+              onChange={(e) => {
+                setUserFilterQuery(e.target.value);
+                if (!e.target.value) setSelectedUserFilter(null);
+              }}
+              placeholder="Buscar usuario..."
+              className="w-full px-4 py-2 rounded-lg bg-surface-container-high text-on-surface border border-outline-variant/20 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary text-body-sm pr-10"
+            />
+            {(userFilterQuery.length >= 2 && (userFilterSearching || userFilterResults.length > 0)) && (
+              <div className="absolute top-full left-0 right-0 mt-1 z-20 glass-card rounded-xl shadow-lg border border-outline-variant/20 max-h-60 overflow-auto">
+                {userFilterSearching && (
+                  <div className="px-4 py-3 text-center text-on-surface-variant text-body-sm">
+                    <MaterialIcon name="search" className="animate-spin inline-block mr-2" />
+                    Buscando...
+                  </div>
+                )}
+                {userFilterResults.map((u) => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedUserFilter(u);
+                      setUserFilterQuery(u.name);
+                      setUserFilterResults([]);
+                    }}
+                    className="w-full px-4 py-2.5 hover:bg-surface-container-highest flex items-center gap-3 text-left"
+                  >
+                    <Avatar
+                      initials={u.name.charAt(0).toUpperCase()}
+                      src={u.avatar_url}
+                      size="sm"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-body-md text-on-surface truncate">{u.name}</p>
+                      <p className="text-label-sm text-on-surface-variant truncate">{u.email}</p>
+                    </div>
+                  </button>
+                ))}
+                {userFilterResults.length === 0 && userFilterQuery.length >= 2 && !userFilterSearching && (
+                  <div className="px-4 py-3 text-center text-on-surface-variant text-body-sm">
+                    No se encontraron usuarios
+                  </div>
+                )}
+              </div>
+            )}
+            {selectedUserFilter && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedUserFilter(null);
+                  setUserFilterQuery("");
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-surface-container-highest transition-colors"
+                aria-label="Limpiar filtro de usuario"
+              >
+                <MaterialIcon name="close" className="text-on-surface-variant text-lg" />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Transactions Table */}

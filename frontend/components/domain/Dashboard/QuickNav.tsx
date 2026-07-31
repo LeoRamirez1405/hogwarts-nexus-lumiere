@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
 import GlassCard from "@/components/ui/GlassCard";
 import { MaterialIcon } from "@/components/ui";
+import { useSwipeable, useReducedMotion } from "@/hooks/useGestures";
 
 const quickNavItems = [
   { label: "Mensajes", icon: "mail", href: "/messages" },
@@ -14,10 +16,30 @@ const quickNavItems = [
 ];
 
 export function QuickNav() {
+  const prefersReducedMotion = useReducedMotion();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const { onTouchStart, onTouchMove, onTouchEnd, onMouseDown, onMouseMove, onMouseUp, onMouseLeave } = useSwipeable({
+    onSwipeLeft: () => scrollRef.current?.scrollBy({ left: 200, behavior: prefersReducedMotion ? "auto" : "smooth" }),
+    onSwipeRight: () => scrollRef.current?.scrollBy({ left: -200, behavior: prefersReducedMotion ? "auto" : "smooth" }),
+    threshold: 30,
+    disabled: prefersReducedMotion,
+  });
+
   return (
     <>
       {/* Mobile: horizontal scroll chips */}
-      <div className="flex lg:hidden gap-3 overflow-x-auto pb-2 -mx-4 px-4 mb-8 snap-x">
+      <div
+        ref={scrollRef}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseLeave}
+        className="flex lg:hidden gap-3 overflow-x-auto pb-2 -mx-4 px-4 mb-8 snap-x"
+      >
         {quickNavItems.map((item) => (
           <Link
             key={item.label}

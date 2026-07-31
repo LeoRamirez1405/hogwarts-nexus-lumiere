@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { memo } from "react";
+import { memo, useRef } from "react";
 import { MaterialIcon, ZerineDisplay } from "@/components/ui";
 import { getFallbackForProduct, type Theme } from "@/lib/fallbacks";
 import { useTheme } from "@/lib/useTheme";
 import type { Product } from "@/lib/api";
+import { useSwipeable, useReducedMotion } from "@/hooks/useGestures";
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
 
@@ -161,11 +162,28 @@ export function HeroCarousel({
   onAddToCart,
 }: HeroCarouselProps) {
   const theme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
+  const swipeRef = useRef<HTMLDivElement>(null);
+
+  const { onTouchStart, onTouchMove, onTouchEnd, onMouseDown, onMouseMove, onMouseUp, onMouseLeave } = useSwipeable({
+    onSwipeLeft: onNextSlide,
+    onSwipeRight: onPrevSlide,
+    threshold: 50,
+    disabled: prefersReducedMotion,
+  });
+
   return (
     <div className="max-w-7xl mx-auto mb-10">
       <div className="relative overflow-hidden">
         <div
-          ref={trackRef}
+          ref={swipeRef}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          onMouseDown={onMouseDown}
+          onMouseMove={onMouseMove}
+          onMouseUp={onMouseUp}
+          onMouseLeave={onMouseLeave}
           className="flex transition-transform ease-out"
           style={{
             transform: `translateX(-${currentSlide * (100 / Math.max(displaySlides.length, 1))}%)`,

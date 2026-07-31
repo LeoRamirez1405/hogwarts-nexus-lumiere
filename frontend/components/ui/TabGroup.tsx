@@ -1,6 +1,7 @@
 "use client";
 import { KeyboardEvent, useCallback, useRef } from "react";
 import { MaterialIcon } from "./MaterialIcon";
+import { useSwipeable, useReducedMotion } from "@/hooks/useGestures";
 
 type Variant = "light" | "dark";
 
@@ -24,6 +25,8 @@ export default function TabGroup({
   variant = "light",
 }: TabGroupProps) {
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
+  const prefersReducedMotion = useReducedMotion();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent, idx: number) => {
@@ -47,8 +50,39 @@ export default function TabGroup({
     [tabs, onChange]
   );
 
+  const handleSwipeLeft = useCallback(() => {
+    const currentIndex = tabs.findIndex((t) => t.id === activeTab);
+    const nextIndex = (currentIndex + 1) % tabs.length;
+    onChange(tabs[nextIndex].id);
+  }, [tabs, activeTab, onChange]);
+
+  const handleSwipeRight = useCallback(() => {
+    const currentIndex = tabs.findIndex((t) => t.id === activeTab);
+    const nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    onChange(tabs[nextIndex].id);
+  }, [tabs, activeTab, onChange]);
+
+  const { onTouchStart, onTouchMove, onTouchEnd, onMouseDown, onMouseMove, onMouseUp, onMouseLeave } = useSwipeable({
+    onSwipeLeft: handleSwipeLeft,
+    onSwipeRight: handleSwipeRight,
+    threshold: 40,
+    disabled: prefersReducedMotion,
+  });
+
   return (
-    <div role="tablist" aria-orientation="horizontal" className="flex flex-row gap-2 flex-wrap">
+    <div
+      ref={containerRef}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseLeave}
+      role="tablist"
+      aria-orientation="horizontal"
+      className="flex flex-row gap-2 flex-wrap"
+    >
       {tabs.map((tab, idx) => {
         const isActive = tab.id === activeTab;
         const activeStyles =
