@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel
 
 
@@ -94,3 +94,33 @@ class SanctuaryStats(BaseModel):
     user_progress: float  # 0..1 toward next user level
     pets_count: int
     sanctuary_penalty: int = 0
+
+
+from .pet_item import PetItemResponse, UserPetItemResponse  # noqa: E402
+
+
+class MyFullStateResponse(BaseModel):
+    """All state needed by the pets page, in one call.
+
+    Consolidates: creatures catalog, my creatures, pet items catalog,
+    my inventory, sanctuary stats, and (optionally) the creature market.
+
+    `my_creatures` and `market` are paginated server-side (limit 50 by
+    default). Use the matching `*_total`/`*_has_more` fields to drive a
+    "Cargar mas" button in the UI, and call `/creatures/my` or
+    `/creatures/market` with `skip`/`limit` to fetch the next pages.
+    """
+    creatures: List[CreatureResponse]
+    my_creatures: List[UserCreatureResponse]
+    my_creatures_total: int
+    my_creatures_skip: int
+    my_creatures_limit: int
+    my_creatures_has_more: bool
+    pet_items: List[PetItemResponse]
+    inventory: List[UserPetItemResponse]
+    stats: SanctuaryStats
+    market: Optional[List[MarketCreatureResponse]] = None
+    market_total: Optional[int] = None
+    market_skip: Optional[int] = None
+    market_limit: Optional[int] = None
+    market_has_more: Optional[bool] = None

@@ -16,8 +16,10 @@ from ..models.article_subscription import Notification
 from ..schemas.creature import (
     CreatureCreate, CreatureResponse, UserCreatureResponse, UseItemRequest,
     MarketCreatureResponse, ListForSaleRequest, SanctuaryStats, AdoptRequest,
+    MyFullStateResponse,
 )
 from ..schemas.pagination import Page
+from ..schemas.pet_item import PetItemResponse, UserPetItemResponse
 from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
 from ..utils.magic_level import get_magic_level
@@ -164,8 +166,10 @@ async def list_creatures(
     )
 
 
-@router.get("/my", response_model=List[UserCreatureResponse])
+@router.get("/my", response_model=Page[UserCreatureResponse])
 async def my_creatures(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -196,7 +200,16 @@ async def my_creatures(
             continue
         alive.append(uc)
     await db.commit()
-    return alive
+    total = len(alive)
+    paged = alive[skip : skip + limit]
+    has_more = (skip + limit) < total
+    return Page(
+        items=paged,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
 
 
 @router.get("/stats", response_model=SanctuaryStats)
@@ -240,12 +253,14 @@ async def sanctuary_stats(
     )
 
 
-@router.get("/market", response_model=List[MarketCreatureResponse])
+@router.get("/market", response_model=Page[MarketCreatureResponse])
 async def creature_market(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Pets other users have listed for sale."""
+    """Pets other users have listed for sale. Paginated server-side."""
     result = await db.execute(
         select(UserCreature, User)
         .join(User, User.id == UserCreature.user_id)
@@ -268,7 +283,162 @@ async def creature_market(
             seller_id=seller.id,
             seller_name=seller.name,
         ))
-    return listings
+    total = len(listings)
+    paged = listings[skip : skip + limit]
+    has_more = (skip + limit) < total
+    return Page(
+        items=paged,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
+
+
+@router.get("/my-full-state", response_model=MyFullStateResponse)
+async def my_full_state(
+    include_market: bool = Query(True),
+    my_skip: int = Query(0, ge=0),
+    my_limit: int = Query(50, ge=1, le=100),
+    market_skip: int = Query(0, ge=0),
+    market_limit: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Single-call consolidation of all state the pets page needs.
+
+    Returns: creatures catalog, my creatures (with aging/decay applied),
+    pet items catalog, my inventory, sanctuary stats, and (optionally)
+    the creature market. `my_creatures` and `market` are server-side
+    paginated (default limit 50) — load additional pages via /creatures/my
+    and /creatures/market with the same `skip`/`limit` params.
+    """
+    # Creatures catalog (all, unpaginated — admin-controlled catalog, bounded)
+    creatures_result = await db.execute(
+        select(Creature).order_by(Creature.price).limit(100)
+    )
+    creatures = creatures_result.scalars().all()
+
+    # My creatures — apply aging + decay exactly like /my endpoint,
+    # then paginate the surviving list.
+    my_result = await db.execute(
+        select(UserCreature).where(UserCreature.user_id == current_user.id)
+    )
+    raw_my = my_result.scalars().all()
+    alive = []
+    for uc in raw_my:
+        retired = await _process_aging(db, uc)
+        if retired:
+            continue
+        escaped = _settle_decay(uc)
+        if escaped:
+            name = uc.pet_name or (uc.creature.name if uc.creature else "Tu mascota")
+            if uc.creature:
+                penalty = pet_progress.escape_penalty(uc.level, uc.creature.rarity)
+                current_user.sanctuary_penalty = (current_user.sanctuary_penalty or 0) + penalty
+            db.add(Notification(
+                user_id=uc.user_id,
+                type=N.PET_ESCAPED,
+                title="Tu mascota se ha escapado",
+                body=f"{name} ha aprovechado un descuido y ha salido corriendo. Se ha ido para siempre.",
+                related_id=uc.creature_id,
+            ))
+            await db.delete(uc)
+            continue
+        alive.append(uc)
+    await db.commit()
+
+    my_total = len(alive)
+    my_paged = alive[my_skip : my_skip + my_limit]
+    my_has_more = (my_skip + my_limit) < my_total
+
+    # Pet items catalog (admin-controlled and bounded, no pagination)
+    items_result = await db.execute(
+        select(PetItem).order_by(PetItem.pet_type, PetItem.kind, PetItem.price).limit(100)
+    )
+    pet_items = items_result.scalars().all()
+
+    # My inventory (quantity > 0 — bounded by distinct pet items, no pagination)
+    inv_result = await db.execute(
+        select(UserPetItem).where(
+            UserPetItem.user_id == current_user.id,
+            UserPetItem.quantity > 0,
+        )
+    )
+    inventory = inv_result.scalars().all()
+
+    # Sanctuary stats (recompute after potential aging/decay commits above)
+    pets_count = my_total
+    levels_sum = sum(p.level for p in alive)
+    care = current_user.care_actions or 0
+    bought = current_user.items_purchased or 0
+    penalty = current_user.sanctuary_penalty or 0
+    s_score = pet_progress.sanctuary_score(pets_count, levels_sum, bought, care, penalty)
+    s_level = pet_progress.sanctuary_level(s_score)
+    magic = await get_magic_level(db, current_user)
+    stats = SanctuaryStats(
+        sanctuary_level=s_level,
+        sanctuary_score=s_score,
+        sanctuary_max=pet_progress.MAX_SANCTUARY_LEVEL,
+        sanctuary_progress=pet_progress.level_progress(
+            s_score, s_level, pet_progress.MAX_SANCTUARY_LEVEL, base=4.0
+        ),
+        user_level=magic.get("level", 1),
+        user_level_name=magic.get("name", ""),
+        user_level_max=11,
+        user_progress=float(magic.get("progress", 0.0)),
+        pets_count=pets_count,
+        sanctuary_penalty=penalty,
+    )
+
+    # Market (optional + paginated)
+    market = None
+    market_total = None
+    market_has_more = None
+    if include_market:
+        market_result = await db.execute(
+            select(UserCreature, User)
+            .join(User, User.id == UserCreature.user_id)
+            .where(
+                UserCreature.for_sale.is_(True),
+                UserCreature.user_id != current_user.id,
+            )
+            .order_by(UserCreature.sale_price)
+        )
+        all_market = [
+            MarketCreatureResponse(
+                id=uc.id,
+                creature=uc.creature,
+                pet_name=uc.pet_name,
+                level=uc.level,
+                level_name=uc.level_name,
+                stage=uc.stage,
+                sale_price=uc.sale_price or 0,
+                seller_id=seller.id,
+                seller_name=seller.name,
+            )
+            for uc, seller in market_result.all()
+        ]
+        market_total = len(all_market)
+        market = all_market[market_skip : market_skip + market_limit]
+        market_has_more = (market_skip + market_limit) < market_total
+
+    return MyFullStateResponse(
+        creatures=creatures,
+        my_creatures=my_paged,
+        my_creatures_total=my_total,
+        my_creatures_skip=my_skip,
+        my_creatures_limit=my_limit,
+        my_creatures_has_more=my_has_more,
+        pet_items=pet_items,
+        inventory=inventory,
+        stats=stats,
+        market=market,
+        market_total=market_total,
+        market_skip=market_skip if include_market else None,
+        market_limit=market_limit if include_market else None,
+        market_has_more=market_has_more,
+    )
 
 
 @router.get("/{creature_id}", response_model=CreatureResponse)
