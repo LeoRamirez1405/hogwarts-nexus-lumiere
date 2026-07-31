@@ -68,6 +68,11 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 bg-surface-container-low border border-outline-variant/30 rounded-xl text-body-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                 placeholder="tu@nexus.com"
+                inputMode="email"
+                autoComplete="email"
+                enterKeyHint="next"
+                autoCapitalize="none"
+                spellCheck={false}
                 required
               />
             </div>
@@ -83,6 +88,8 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-3 pr-12 bg-surface-container-low border border-outline-variant/30 rounded-xl text-body-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                   placeholder="••••••••"
+                  autoComplete="current-password"
+                  enterKeyHint="go"
                   required
                 />
                 <button

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface UseUnsavedChangesGuardOptions {
   /** Whether there are unsaved changes */
@@ -43,10 +44,27 @@ export function useUnsavedChangesGuard({
       if (url === pathname) {
         return router.push(url, options);
       }
-      const confirmed = window.confirm(message);
-      if (!confirmed) return Promise.resolve(false);
-      if (onLeave) onLeave();
-      return router.push(url, options);
+
+      // Use confirmDialog instead of window.confirm
+      return new Promise<boolean>((resolve) => {
+        confirmDialog({
+          title: "Cambios sin guardar",
+          message,
+          variant: "secondary",
+          icon: "warning",
+          confirmLabel: "Salir",
+          cancelLabel: "Quedarse",
+          onConfirm: async () => {
+            if (onLeave) onLeave();
+            await router.push(url, options);
+            resolve(true);
+          },
+        });
+        // The dialog resolves to false if cancelled (returns null from show)
+        // We need to handle the cancel case - it doesn't resolve the promise
+        // So we set a small timeout to resolve false if not resolved
+        setTimeout(() => resolve(false), 100);
+      });
     },
     [hasUnsavedChanges, message, onLeave, pathname, router]
   );
@@ -59,10 +77,23 @@ export function useUnsavedChangesGuard({
       if (url === pathname) {
         return router.replace(url, options);
       }
-      const confirmed = window.confirm(message);
-      if (!confirmed) return Promise.resolve(false);
-      if (onLeave) onLeave();
-      return router.replace(url, options);
+
+      return new Promise<boolean>((resolve) => {
+        confirmDialog({
+          title: "Cambios sin guardar",
+          message,
+          variant: "secondary",
+          icon: "warning",
+          confirmLabel: "Salir",
+          cancelLabel: "Quedarse",
+          onConfirm: async () => {
+            if (onLeave) onLeave();
+            await router.replace(url, options);
+            resolve(true);
+          },
+        });
+        setTimeout(() => resolve(false), 100);
+      });
     },
     [hasUnsavedChanges, message, onLeave, pathname, router]
   );

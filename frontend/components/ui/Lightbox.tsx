@@ -86,7 +86,6 @@ export default function Lightbox({ src, alt, onClose }: LightboxProps) {
           <MaterialIcon name="keyboard_arrow_down" className="text-white text-2xl animate-bounce" />
         </div>
       )}
-      </div>
 
       <div
         ref={containerRef}

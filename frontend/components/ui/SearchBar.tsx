@@ -52,6 +52,8 @@ export default function SearchBar({
   const [internal, setInternal] = useState(value ?? "");
 
   const isControlled = value !== undefined;
+  const currentValue = isControlled ? value : internal;
+  const hasValue = Boolean(currentValue);
 
   const handleChange = useCallback(
     (raw: string) => {
@@ -67,6 +69,11 @@ export default function SearchBar({
     },
     [isControlled, onChange, debounceMs]
   );
+
+  const handleClear = useCallback(() => {
+    if (!isControlled) setInternal("");
+    if (onChange) onChange("");
+  }, [isControlled, onChange]);
 
   useEffect(() => {
     return () => {
@@ -85,11 +92,24 @@ export default function SearchBar({
       <input
         type="text"
         placeholder={placeholder}
-        value={isControlled ? value : internal}
+        value={currentValue}
         onChange={(e) => handleChange(e.target.value)}
         aria-label={ariaLabel}
-        className={`w-full bg-transparent outline-none text-body-md ${styles.text} ${styles.placeholder}`}
+        inputMode="search"
+        enterKeyHint="search"
+        autoComplete="off"
+        className={`w-full bg-transparent outline-none text-body-md ${styles.text} ${styles.placeholder} ${hasValue ? "pr-8" : ""}`}
       />
+      {hasValue && (
+        <button
+          type="button"
+          onClick={handleClear}
+          aria-label="Limpiar búsqueda"
+          className={`absolute right-3 w-6 h-6 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors ${styles.icon}`}
+        >
+          <MaterialIcon name="close" className="text-[1.1em]" />
+        </button>
+      )}
     </div>
   );
 }
