@@ -1,4 +1,5 @@
 import os
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -18,9 +19,16 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "")
 
     # JWT settings
-    JWT_SECRET: str = "hogwarts-nexus-lumiere-secret-key-2024"
+    # JWT_SECRET must come from the environment (backend/.env or deployed env).
+    # Generate one with: python -c "import secrets; print(secrets.token_hex(32))"
+    JWT_SECRET: str = os.getenv("JWT_SECRET", "")
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    # Short-lived access token: refreshed automatically via /auth/refresh.
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # Long-lived refresh token stored in an httpOnly cookie.
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 14
+    # Set to true in production so auth cookies are only sent over HTTPS.
+    COOKIE_SECURE: bool = os.getenv("COOKIE_SECURE", "").lower() in ("1", "true", "yes", "on")
 
     # Message retention: delete messages (and their uploaded attachments) older
     # than this many days, except pinned ones. Set to 0 to disable entirely.
@@ -63,6 +71,15 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         extra = "ignore"
+
+    @model_validator(mode="after")
+    def _validate_secrets(self):
+        if not self.JWT_SECRET:
+            raise ValueError(
+                "JWT_SECRET must be set in the environment (backend/.env). "
+                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        return self
 
 
 settings = Settings()
