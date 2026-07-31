@@ -2,26 +2,27 @@ import type { Metadata, Viewport } from "next";
 import { EB_Garamond, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { ToastViewport } from "@/components/ui/ToastViewport";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import "./globals.css";
 
 const ebGaramond = EB_Garamond({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["400", "500", "700"],
   display: "swap",
 });
 
 const hankenGrotesk = Hanken_Grotesk({
   variable: "--font-body",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-mono",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "700"],
   display: "swap",
 });
 
@@ -51,6 +52,8 @@ export default function RootLayout({
       className={`${ebGaramond.variable} ${hankenGrotesk.variable} ${jetbrainsMono.variable} h-full`}
     >
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
           rel="stylesheet"
@@ -60,6 +63,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col antialiased">
         <QueryProvider>{children}</QueryProvider>
         <ToastViewport />
+        <ConfirmDialog />
       </body>
     </html>
   );

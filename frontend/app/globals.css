@@ -102,286 +102,355 @@
 }
 
 /* ===== BASE STYLES ===== */
-html {
-  scroll-behavior: smooth;
-}
-
-/* ===== RESPONSIVE LAYOUT VARIABLES =====
-   Single source of truth for the fixed chrome heights so every full-height
-   page can compute its viewport correctly across breakpoints. The bottom nav
-   only exists below md; the top bar grows from 64px to 80px at lg (where the
-   fixed sidebar appears). safe-area is baked into the bottom nav height. */
-:root {
-  --topbar-h: 4rem; /* 64px, mobile */
-  --bottomnav-h: calc(4rem + env(safe-area-inset-bottom, 0px)); /* mobile */
-}
-@media (min-width: 768px) {
-  :root {
-    --bottomnav-h: 0px; /* bottom nav hidden at md+ */
+@layer base {
+  html {
+    scroll-behavior: smooth;
   }
-}
-@media (min-width: 1024px) {
+
+  /* ===== RESPONSIVE LAYOUT VARIABLES =====
+     Single source of truth for the fixed chrome heights so every full-height
+     page can compute its viewport correctly across breakpoints. The bottom nav
+     only exists below md; the top bar grows from 64px to 80px at lg (where the
+     fixed sidebar appears). safe-area is baked into the bottom nav height. */
   :root {
-    --topbar-h: 5rem; /* 80px at lg+ (fixed sidebar breakpoint) */
+    --topbar-h: 4rem; /* 64px, mobile */
+    --bottomnav-h: calc(4rem + env(safe-area-inset-bottom, 0px)); /* mobile */
   }
-}
+  @media (min-width: 768px) {
+    :root {
+      --bottomnav-h: 0px; /* bottom nav hidden at md+ */
+    }
+  }
+  @media (min-width: 1024px) {
+    :root {
+      --topbar-h: 5rem; /* 80px at lg+ (fixed sidebar breakpoint) */
+    }
+  }
 
-/* Full-height helpers that account for the top bar + bottom nav using dvh so
-   the mobile browser URL bar doesn't cause layout jumps. */
-.h-content {
-  height: calc(100dvh - var(--topbar-h) - var(--bottomnav-h));
-}
-.min-h-content {
-  min-height: calc(100dvh - var(--topbar-h) - var(--bottomnav-h));
-}
+  /* Full-height helpers that account for the top bar + bottom nav using dvh so
+     the mobile browser URL bar doesn't cause layout jumps. */
+  .h-content {
+    height: calc(100dvh - var(--topbar-h) - var(--bottomnav-h));
+  }
+  .min-h-content {
+    min-height: calc(100dvh - var(--topbar-h) - var(--bottomnav-h));
+  }
 
-body {
-  background: var(--color-background);
-  color: var(--color-on-surface);
-  font-family: var(--font-body);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  body {
+    background: var(--color-background);
+    color: var(--color-on-surface);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-::selection {
-  background-color: var(--color-secondary-container);
-  color: var(--color-on-secondary-container);
+  ::selection {
+    background-color: var(--color-secondary-container);
+    color: var(--color-on-secondary-container);
+  }
 }
 
 /* ===== GLASSMORPHISM ===== */
-.glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
-}
-
-.glass-card--tinted {
-  border-color: rgba(119, 90, 25, 0.1);
-}
-
-.glass-card--dark {
-  background: rgba(0, 0, 0, 0.95);
-  border-color: rgba(119, 90, 25, 0.3);
-  color: var(--color-surface);
-}
-
-.glass-panel {
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* ===== PARCHMENT TEXTURES ===== */
-.parchment-bg {
-  background: var(--color-surface);
-  background-image: radial-gradient(
-    circle at 2px 2px,
-    rgba(0, 0, 0, 0.02) 1px,
-    transparent 0
-  );
-  background-size: 24px 24px;
-}
-
-.parchment-texture {
-  background: var(--color-surface);
-  background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='40' height='40' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-}
-
-.parchment-edge {
-  clip-path: polygon(0% 0%, 100% 2%, 100% 98%, 0% 100%, 2% 50%);
-}
-
-.parchment-top-bottom {
-  border-top: 2px solid rgba(119, 90, 25, 0.2);
-  border-bottom: 2px solid rgba(119, 90, 25, 0.2);
-  background: linear-gradient(to bottom, #ffffff, var(--color-surface));
-}
-
-.parchment-message {
-  background: linear-gradient(to bottom, rgba(252, 249, 248, 0.5), rgba(240, 237, 237, 0.5));
-  border-bottom: 1px dashed rgba(119, 90, 25, 0.1);
-}
-
-/* ===== CRYSTAL / GEM EFFECTS ===== */
-.crystal-gradient {
-  background: linear-gradient(135deg, #0e3b60 0%, #775a19 100%);
-}
-
-.crystal-glow {
-  box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.5), 0 0 20px rgba(14, 59, 96, 0.1);
-}
-
-.inner-glow-gold {
-  box-shadow: inset 0 0 15px rgba(254, 212, 136, 0.4);
-}
-
-.inner-sparkle {
-  position: relative;
-  overflow: hidden;
-}
-
-.inner-sparkle::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.3) 0%,
-    transparent 70%
-  );
-  opacity: 0;
-  transition: opacity 0.3s;
-  pointer-events: none;
-}
-
-.inner-sparkle:hover::after {
-  opacity: 1;
-}
-
-.nexus-glow {
-  box-shadow: 0 0 15px rgba(119, 90, 25, 0.1);
-  transition: box-shadow 0.3s;
-}
-
-.nexus-glow:hover {
-  box-shadow: 0 0 25px rgba(119, 90, 25, 0.2);
-}
-
-/* ===== QUIBBLER NEWSPAPER ===== */
-.quibbler-border {
-  border-top: 4px double #1c1b1b;
-  border-bottom: 4px double #1c1b1b;
-}
-
-.newspaper-column {
-  column-count: 1;
-}
-
-@media (min-width: 768px) {
-  .newspaper-column {
-    column-count: 2;
-    column-gap: 2rem;
+@layer components {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
   }
-}
 
-/* ===== BORGIN DARK MODE ===== */
-.borgin-card {
-  background: rgba(0, 0, 0, 0.95);
-  border: 1px solid #775a19;
-  color: var(--color-surface);
-}
-
-.borgin-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 30px rgba(119, 90, 25, 0.2);
-}
-
-.borgin-header {
-  background: rgba(14, 59, 96, 0.1);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-color: rgba(119, 90, 25, 0.3);
-}
-
-/* ===== SIDEBAR ACTIVE ===== */
-.sidebar-active {
-  background-color: var(--color-secondary-container);
-  color: var(--color-on-secondary-container);
-  font-weight: 700;
-  border-radius: 0.5rem;
-}
-
-/* ===== PET STATUS BARS ===== */
-.status-bar-bg {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-/* ===== SCROLLBAR ===== */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-/* ===== LILAC ACCENT (Flourish & Blotts) ===== */
-.lilac-glow {
-  box-shadow: 0 0 20px rgba(142, 68, 173, 0.15);
-}
-
-/* ===== MAGICAL FLOAT ===== */
-@keyframes float {
-  0% {
-    transform: translateY(0px);
+  .glass-card--tinted {
+    border-color: rgba(119, 90, 25, 0.1);
   }
-  50% {
-    transform: translateY(-10px);
-  }
-  100% {
-    transform: translateY(0px);
-  }
-}
 
-.magical-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-/* ===== SPARKLE MICRO-INTERACTION ===== */
-@keyframes sparkle-fade {
-  0% {
-    opacity: 1;
-    transform: translate(var(--tx), var(--ty)) scale(1);
+  .glass-card--dark {
+    background: rgba(0, 0, 0, 0.95);
+    border-color: rgba(119, 90, 25, 0.3);
+    color: var(--color-surface);
   }
-  100% {
+
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* ===== PARCHMENT TEXTURES =====
+     Replaced SVG <feTurbulence> filter with layered radial + linear gradient
+     "noise" — far cheaper to paint (no fractal recalculation) while still
+     retaining a parchment-like mottled look. */
+  .parchment-bg {
+    background: var(--color-surface);
+    background-image:
+      radial-gradient(circle at 25% 25%, rgba(119, 90, 25, 0.04) 0%, transparent 40%),
+      radial-gradient(circle at 75% 75%, rgba(119, 90, 25, 0.03) 0%, transparent 40%),
+      radial-gradient(circle at 2px 2px, rgba(0, 0, 0, 0.02) 1px, transparent 0);
+    background-size: 24px 24px;
+  }
+
+  .parchment-texture {
+    background: var(--color-surface);
+    background-image:
+      radial-gradient(ellipse at 20% 30%, rgba(119, 90, 25, 0.03) 0%, transparent 35%),
+      radial-gradient(ellipse at 80% 70%, rgba(119, 90, 25, 0.025) 0%, transparent 35%),
+      radial-gradient(circle at 2px 2px, rgba(0, 0, 0, 0.015) 1px, transparent 0),
+      linear-gradient(115deg, transparent 0%, transparent 49.7%, rgba(119, 90, 25, 0.04) 50%, transparent 50.3%, transparent 100%);
+    background-size: 24px 24px, 24px 24px, 24px 24px, 100% 100%;
+  }
+
+  .parchment-edge {
+    clip-path: polygon(0% 0%, 100% 2%, 100% 98%, 0% 100%, 2% 50%);
+  }
+
+  .parchment-top-bottom {
+    border-top: 2px solid rgba(119, 90, 25, 0.2);
+    border-bottom: 2px solid rgba(119, 90, 25, 0.2);
+    background: linear-gradient(to bottom, #ffffff, var(--color-surface));
+  }
+
+  .parchment-message {
+    background: linear-gradient(to bottom, rgba(252, 249, 248, 0.5), rgba(240, 237, 237, 0.5));
+    border-bottom: 1px dashed rgba(119, 90, 25, 0.1);
+  }
+
+  /* ===== CRYSTAL / GEM EFFECTS ===== */
+  .crystal-gradient {
+    background: linear-gradient(135deg, #0e3b60 0%, #775a19 100%);
+  }
+
+  .crystal-glow {
+    box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.5), 0 0 20px rgba(14, 59, 96, 0.1);
+  }
+
+  .inner-glow-gold {
+    box-shadow: inset 0 0 15px rgba(254, 212, 136, 0.4);
+  }
+
+  .inner-sparkle {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .inner-sparkle::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.3) 0%,
+      transparent 70%
+    );
     opacity: 0;
-    transform: translate(calc(var(--tx) * 2), calc(var(--ty) * 2)) scale(0);
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  .inner-sparkle:hover::after {
+    opacity: 1;
+  }
+
+  .nexus-glow {
+    box-shadow: 0 0 15px rgba(119, 90, 25, 0.1);
+    transition: box-shadow 0.3s;
+  }
+
+  .nexus-glow:hover {
+    box-shadow: 0 0 25px rgba(119, 90, 25, 0.2);
+  }
+
+  /* ===== QUIBBLER NEWSPAPER ===== */
+  .quibbler-border {
+    border-top: 4px double #1c1b1b;
+    border-bottom: 4px double #1c1b1b;
+  }
+
+  .newspaper-column {
+    column-count: 1;
+  }
+
+  @media (min-width: 768px) {
+    .newspaper-column {
+      column-count: 2;
+      column-gap: 2rem;
+    }
+  }
+
+  /* ===== BORGIN DARK MODE ===== */
+  .borgin-card {
+    background: rgba(0, 0, 0, 0.95);
+    border: 1px solid #775a19;
+    color: var(--color-surface);
+  }
+
+  .borgin-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(119, 90, 25, 0.2);
+  }
+
+  .borgin-header {
+    background: rgba(14, 59, 96, 0.1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-color: rgba(119, 90, 25, 0.3);
+  }
+
+  /* ===== SIDEBAR ACTIVE ===== */
+  .sidebar-active {
+    background-color: var(--color-secondary-container);
+    color: var(--color-on-secondary-container);
+    font-weight: 700;
+    border-radius: 0.5rem;
+  }
+
+  /* ===== PET STATUS BARS ===== */
+  .status-bar-bg {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  /* ===== LILAC ACCENT (Flourish & Blotts) ===== */
+  .lilac-glow {
+    box-shadow: 0 0 20px rgba(142, 68, 173, 0.15);
   }
 }
 
-/* ===== TAP HIGHLIGHT ===== */
-.tap-highlight-transparent {
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* ===== SAFE AREA ===== */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-/* ===== MATERIAL SYMBOLS ===== */
-.material-symbols-outlined {
-  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24;
-}
-
-/* ===== MESSAGE HIGHLIGHT ===== */
-@keyframes highlight-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(14, 59, 96, 0.4); }
-  50% { box-shadow: 0 0 0 8px rgba(14, 59, 96, 0.15); }
-  100% { box-shadow: 0 0 0 0 rgba(14, 59, 96, 0); }
-}
-.highlight-message {
-  animation: highlight-pulse 1s ease-out 1;
-  border-radius: 1rem;
-}
-
-/* ===== PET CRITICAL PULSE ===== */
-@keyframes pulse-critical {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(186, 26, 26, 0.5);
+/* ===== UTILITIES (anonymous-state animations, scrollbars, helpers) ===== */
+@layer utilities {
+  /* ===== SCROLLBAR ===== */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
-  50% {
-    box-shadow: 0 0 0 10px rgba(186, 26, 26, 0);
-  }
-}
 
-.animate-pulse-critical {
-  animation: pulse-critical 2s ease-in-out infinite;
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* ===== TAP HIGHLIGHT ===== */
+  .tap-highlight-transparent {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ===== SAFE AREA ===== */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* ===== MATERIAL SYMBOLS =====
+     The MaterialIcon component sets font-variation-settings inline (turning
+     FILL on/off per use). The class therefore MUST NOT set font-variation-settings
+     here, otherwise inline styles would silently override but cause confusion
+     during inspection. We only declare the font-family here for safety. */
+  .material-symbols-outlined {
+    font-family: "Material Symbols Outlined", "Material Symbols", sans-serif;
+  }
+
+  /* ===== MAGICAL FLOAT ===== */
+  @keyframes float {
+    0% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+    100% {
+      transform: translateY(0px);
+    }
+  }
+
+  .magical-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  /* ===== SPARKLE MICRO-INTERACTION ===== */
+  @keyframes sparkle-fade {
+    0% {
+      opacity: 1;
+      transform: translate(var(--tx), var(--ty)) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(calc(var(--tx) * 2), calc(var(--ty) * 2)) scale(0);
+    }
+  }
+
+  /* ===== MESSAGE HIGHLIGHT ===== */
+  @keyframes highlight-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(14, 59, 96, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(14, 59, 96, 0.15); }
+    100% { box-shadow: 0 0 0 0 rgba(14, 59, 96, 0); }
+  }
+  .highlight-message {
+    animation: highlight-pulse 1s ease-out 1;
+    border-radius: 1rem;
+  }
+
+  /* ===== PET CRITICAL PULSE ===== */
+  @keyframes pulse-critical {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(186, 26, 26, 0.5);
+    }
+    50% {
+      box-shadow: 0 0 0 10px rgba(186, 26, 26, 0);
+    }
+  }
+
+  .animate-pulse-critical {
+    animation: pulse-critical 2s ease-in-out infinite;
+  }
+
+  /* ===== TOAST ANIMATION ===== */
+  @keyframes toast-in {
+    from {
+      transform: translateY(0.5rem);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* ===== LEVEL-UP CELEBRATION ===== */
+  @keyframes lvlup-backdrop { from { opacity: 0 } to { opacity: 1 } }
+
+  @keyframes lvlup-pop {
+    0% { transform: scale(0.4) translateY(20px); opacity: 0 }
+    55% { transform: scale(1.12) translateY(0); opacity: 1 }
+    70% { transform: scale(0.96) }
+    100% { transform: scale(1) }
+  }
+
+  @keyframes lvlup-radiate {
+    0% { transform: scale(0.6) rotate(-6deg); opacity: 0 }
+    60% { transform: scale(1.08) rotate(2deg); opacity: 1 }
+    100% { transform: scale(1) rotate(0) }
+  }
+
+  @keyframes lvlup-shine {
+    0% { transform: translateY(24px) scale(0.7); opacity: 0 }
+    60% { transform: translateY(0) scale(1.06); opacity: 1 }
+    100% { transform: translateY(0) scale(1) }
+  }
+
+  @keyframes lvlup-ring {
+    0% { transform: scale(0.7); opacity: 0.9 }
+    100% { transform: scale(2.2); opacity: 0 }
+  }
+
+  @keyframes lvlup-particle {
+    0% { transform: translate(0,0) scale(0.5); opacity: 0 }
+    30% { opacity: 1 }
+    100% { transform: translate(var(--dx), var(--dy)) scale(1.1); opacity: 0 }
+  }
+
+  @keyframes lvlup-iconspin {
+    0% { transform: rotate(0) scale(1) }
+    50% { transform: rotate(10deg) scale(1.15) }
+    100% { transform: rotate(0) scale(1) }
+  }
 }

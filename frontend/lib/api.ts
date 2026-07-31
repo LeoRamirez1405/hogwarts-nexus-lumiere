@@ -415,6 +415,11 @@ export const api = {
     request<void>(`/messages/rooms/${roomId}`, { method: "DELETE" }),
   addRoomMember: (roomId: string, userId: string, role?: string) =>
     request<ChatRoomMemberResponse>(`/messages/rooms/${roomId}/members?user_id=${userId}${role ? `&role=${role}` : ""}`, { method: "POST" }),
+  addRoomMembersBatch: (roomId: string, userIds: string[], role?: string) =>
+    request<ChatRoomMemberResponse[]>(`/messages/rooms/${roomId}/members/batch${role ? `?role=${role}` : ""}`, {
+      method: "POST",
+      body: JSON.stringify(userIds),
+    }),
   removeRoomMember: (roomId: string, userId: string) =>
     request<void>(`/messages/rooms/${roomId}/members/${userId}`, { method: "DELETE" }),
   votePoll: (messageId: string, optionIds: string[]) =>
@@ -594,6 +599,25 @@ export const api = {
     request<FeatureFlag>(`/feature-flags/${key}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteFeatureFlag: (key: string) =>
     request<void>(`/feature-flags/${key}`, { method: "DELETE" }),
+
+  // Audit Logs
+  getAuditLogs: (params?: {
+    actor_id?: string;
+    action?: string;
+    entity_type?: string;
+    entity_id?: string;
+    pagination?: PaginationParams;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.actor_id) searchParams.set("actor_id", params.actor_id);
+    if (params?.action) searchParams.set("action", params.action);
+    if (params?.entity_type) searchParams.set("entity_type", params.entity_type);
+    if (params?.entity_id) searchParams.set("entity_id", params.entity_id);
+    if (params?.pagination?.skip) searchParams.set("skip", String(params.pagination.skip));
+    if (params?.pagination?.limit) searchParams.set("limit", String(params.pagination.limit));
+    return request<AuditLogPage>(`/audit-logs?${searchParams.toString()}`);
+  },
+  getAuditLog: (id: string) => request<AuditLogResponse>(`/audit-logs/${id}`),
 };
 
 // Types
@@ -1167,4 +1191,31 @@ export interface FeatureFlagUpdate {
   description?: string;
   enabled?: boolean;
   category?: string;
+}
+
+// Audit Logs
+export interface AuditLogResponse {
+  id: string;
+  actor_id: string;
+  action: string;
+  entity_type: string;
+  entity_id?: string;
+  details?: string;
+  ip_address?: string;
+  user_agent?: string;
+  created_at: string;
+  actor_name?: string;
+}
+
+export interface AuditLogPage {
+  items: AuditLogResponse[];
+  total: number;
+  skip: number;
+  limit: number;
+  has_more: boolean;
+}
+
+export interface PaginationParams {
+  skip?: number;
+  limit?: number;
 }

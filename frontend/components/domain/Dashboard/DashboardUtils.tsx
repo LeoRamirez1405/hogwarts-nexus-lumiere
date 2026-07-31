@@ -1,7 +1,7 @@
 "use client";
 
 import { Transaction } from "@/lib/api";
-import { MaterialIcon } from "@/components/ui";
+import { MaterialIcon, Skeleton } from "@/components/ui";
 
 export function formatAmount(amount: number) {
   return amount.toLocaleString();
@@ -86,28 +86,14 @@ export function TransactionList({ transactions, limit = 5, currentUserId }: Tran
 }
 
 export function SkeletonCard({ className = "" }: { className?: string }) {
-  return (
-    <div className={`animate-pulse rounded-xl bg-surface-container-high ${className}`}>
-      <div className="p-6 space-y-3">
-        <div className="h-4 bg-outline-variant/30 rounded w-1/2" />
-        <div className="h-8 bg-outline-variant/30 rounded w-1/3" />
-      </div>
-    </div>
-  );
+  return <Skeleton variant="card" className={className} />;
 }
 
 export function SkeletonLines({ count = 3 }: { count?: number }) {
   return (
     <div className="space-y-4">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="flex items-center gap-4 animate-pulse">
-          <div className="w-10 h-10 rounded-full bg-outline-variant/30" />
-          <div className="flex-1 space-y-2">
-            <div className="h-3 bg-outline-variant/30 rounded w-1/3" />
-            <div className="h-3 bg-outline-variant/30 rounded w-1/2" />
-          </div>
-          <div className="h-4 bg-outline-variant/30 rounded w-16" />
-        </div>
+        <Skeleton key={i} variant="table-row" />
       ))}
     </div>
   );
