@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import Image from "next/image";
 import { MaterialIcon } from "@/components/ui";
 import { usePinchZoom } from "@/hooks/useGestures";
 import { useReducedMotion } from "@/hooks/useGestures";
@@ -13,10 +14,9 @@ interface PinchZoomImageProps {
   initialScale?: number;
 }
 
-export function PinchZoomImage({ src, alt, onClose, initialScale = 1 }: PinchZoomImageProps) {
+export function PinchZoomImage({ src, alt, onClose }: PinchZoomImageProps) {
   const prefersReducedMotion = useReducedMotion();
   const [isOpen, setIsOpen] = useState(true);
-  const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { state, onTouchStart, onTouchMove, onTouchEnd, reset } = usePinchZoom(1, 4);
@@ -98,11 +98,13 @@ export function PinchZoomImage({ src, alt, onClose, initialScale = 1 }: PinchZoo
           willChange: "transform",
         }}
       >
-        <img
-          ref={imgRef}
+        <Image
           src={src}
           alt={alt ?? "Imagen ampliada"}
+          width={1200}
+          height={800}
           loading="lazy"
+          unoptimized
           className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
           onClick={(e) => e.stopPropagation()}
           draggable={false}

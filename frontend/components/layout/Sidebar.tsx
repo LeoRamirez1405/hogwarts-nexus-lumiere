@@ -6,6 +6,8 @@ import { useAuthStore } from "@/lib/authStore";
 import { User } from "@/lib/api";
 import Avatar from "@/components/ui/Avatar";
 import { MaterialIcon } from "@/components/ui";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
+import { usePrefetchOnTouch } from "@/hooks/usePrefetchOnTouch";
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -62,10 +64,13 @@ function NavLink({
   isActive: boolean;
   onNavigate?: () => void;
 }) {
+  const prefetchRef = usePrefetchOnTouch(item.href);
   return (
     <Link
       href={item.href}
       onClick={onNavigate}
+      ref={prefetchRef}
+      aria-current={isActive ? "page" : undefined}
       className={`flex items-center gap-4 py-3 px-8 rounded-xl mx-4 transition-all duration-200 hover:translate-x-1 ${
         isActive
           ? "sidebar-active"
@@ -78,7 +83,7 @@ function NavLink({
         filled={isActive}
       />
       <span className="text-body-md whitespace-nowrap">{item.label}</span>
-    </Link>
+   </Link>
   );
 }
 
@@ -89,24 +94,25 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile / tablet drawer sidebar (below lg) */}
-      <aside
-        className={`fixed left-0 top-0 z-40 h-screen w-72 max-w-[85vw] bg-surface border-r border-outline-variant/30 pt-[var(--topbar-h)] pb-[var(--bottomnav-h)] transform transition-transform duration-300 lg:hidden ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div className="flex flex-col h-full">
-          <SidebarContent pathname={pathname} isAdmin={isAdmin} user={user} onNavigate={onClose} />
-        </div>
-      </aside>
+    {/* Mobile / tablet drawer sidebar (below lg) */}
+    <aside
+      className={`fixed left-0 top-0 z-40 h-screen w-72 max-w-[85vw] bg-surface border-r border-outline-variant/30 pt-[var(--topbar-h)] pb-[var(--bottomnav-h)] transform transition-transform duration-300 lg:hidden ${
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      }`}
+      aria-hidden={!isOpen}
+    >
+      <div className="flex flex-col h-full">
+        <SidebarContent pathname={pathname} isAdmin={isAdmin} user={user} onNavigate={onClose} />
+      </div>
+    </aside>
 
-      {/* Desktop fixed sidebar (lg+) */}
-      <aside className="hidden lg:flex fixed left-0 top-0 z-40 h-screen w-72 bg-surface border-r border-outline-variant/30 pt-[var(--topbar-h)] flex-col">
-        <div className="flex flex-col h-full">
-          <SidebarContent pathname={pathname} isAdmin={isAdmin} user={user} />
-        </div>
-      </aside>
-    </>
+    {/* Desktop fixed sidebar (lg+) */}
+    <aside className="hidden lg:flex fixed left-0 top-0 z-40 h-screen w-72 bg-surface border-r border-outline-variant/30 pt-[var(--topbar-h)] flex-col">
+      <div className="flex flex-col h-full">
+        <SidebarContent pathname={pathname} isAdmin={isAdmin} user={user} />
+      </div>
+    </aside>
+  </>
   );
 }
 
@@ -125,10 +131,18 @@ function SidebarContent({
   const logout = useAuthStore((s) => s.logout);
 
   const handleLogout = () => {
-    if (confirm("¿Seguro que quieres cerrar sesión?")) {
-      logout();
-      router.push("/login");
-    }
+    confirmDialog({
+      title: "Cerrar sesión",
+      message: "¿Seguro que quieres cerrar sesión?",
+      icon: "logout",
+      variant: "secondary",
+      confirmLabel: "Cerrar sesión",
+      cancelLabel: "Cancelar",
+      onConfirm: () => {
+        logout();
+        router.push("/login");
+      },
+    });
   };
 
   return (

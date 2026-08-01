@@ -60,11 +60,11 @@ const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
         {...props}
       >
         <div className="absolute inset-0 rounded-full overflow-hidden flex items-center justify-center">
-          {src && !imgError ? (
-            <Image
-              src={mediaSrc(src)}
-              alt={alt ?? ""}
-              fill
+  {src && !imgError ? (
+    <Image
+      src={mediaSrc(src)}
+      alt={alt ?? "Avatar de usuario"}
+      fill
               sizes={
                 size === "xl" ? "160px" : size === "lg" ? "64px" : "48px"
               }

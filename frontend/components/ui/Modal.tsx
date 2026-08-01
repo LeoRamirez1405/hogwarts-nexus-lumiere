@@ -104,7 +104,7 @@ export default function Modal({
         aria-labelledby={title ? titleId : undefined}
         aria-label={!title ? ariaLabel : undefined}
         tabIndex={-1}
-        className={`w-full ${sizeClasses[size]} bg-surface-container-lowest rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto outline-none`}
+        className={`w-full ${sizeClasses[size]} bg-surface-container-lowest rounded-2xl shadow-2xl max-h-[calc(100dvh-4rem)] overflow-y-auto outline-none`}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
