@@ -73,5 +73,38 @@ export const MentionText = ({ text, isOwn, members }: MentionTextProps) => {
     return result;
   };
 
-  return <span>{processUrlInParts(mentionParts)}</span>;
+  return <span>{formatMarkdown(processUrlInParts(mentionParts))}</span>;
 };
+
+const MD_REGEX = /(\*\*([^*]+)\*\*|\*([^*]+)\*|~~([^~]+)~~|`([^`]+)`)/g;
+
+function formatMarkdown(nodes: React.ReactNode[]): React.ReactNode[] {
+  const result: React.ReactNode[] = [];
+  for (const node of nodes) {
+    if (typeof node === "string") {
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = MD_REGEX.exec(node)) !== null) {
+        if (match.index > lastIndex) {
+          result.push(node.slice(lastIndex, match.index));
+        }
+        if (match[2]) {
+          result.push(<strong key={match.index}>{match[2]}</strong>);
+        } else if (match[3]) {
+          result.push(<em key={match.index}>{match[3]}</em>);
+        } else if (match[4]) {
+          result.push(<del key={match.index}>{match[4]}</del>);
+        } else if (match[5]) {
+          result.push(<code key={match.index} className="font-mono text-[0.9em] bg-black/10 px-1 rounded">{match[5]}</code>);
+        }
+        lastIndex = match.index + match[0].length;
+      }
+      if (lastIndex < node.length) {
+        result.push(node.slice(lastIndex));
+      }
+    } else {
+      result.push(node);
+    }
+  }
+  return result;
+}
