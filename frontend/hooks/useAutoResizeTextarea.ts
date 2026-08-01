@@ -48,7 +48,6 @@ export function useAutoResizeTextarea(
 
   useLayoutEffect(() => {
     resize();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resize]);
 
   useEffect(() => {

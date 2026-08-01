@@ -249,7 +249,7 @@ export function useLongPress(options: LongPressOptions): LongPressReturn {
     clearTimer();
   }, [clearTimer]);
 
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
+  const onTouchStart = useCallback(() => {
     handleStart();
   }, [handleStart]);
 
@@ -408,7 +408,7 @@ export function useReducedMotion(): boolean {
 
     mediaQuery.addEventListener("change", handler);
     return () => mediaQuery.removeEventListener("change", handler);
-  }, []);
+  }, [prefersReducedMotion]);
 
   return prefersReducedMotion;
 }

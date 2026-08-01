@@ -332,7 +332,7 @@ export function useOutbox() {
           try {
             await sendFn(msg.data, msg.conversationId, msg.conversationType);
             await removeFromOutbox(msg.id);
-          } catch (error) {
+          } catch {
             await incrementOutboxRetries(msg.id);
           }
         }
