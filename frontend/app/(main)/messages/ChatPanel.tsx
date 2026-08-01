@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuthStore } from "@/lib/authStore";
-import { api, Message } from "@/lib/api";
+import { api, Message, ChatRoomMemberResponse } from "@/lib/api";
 import { useChatComposer } from "./hooks/useChatComposer";
 import { useChatScroll } from "./hooks/useChatScroll";
 import ChatHeader from "./components/ChatHeader";
@@ -90,6 +90,10 @@ export default function ChatPanel(props: ChatPanelProps) {
   });
 
   const isRoom = selectedConv?.type === "room";
+  const currentUserId = user?.id;
+  const isAdmin = isRoom && roomMembers?.some(
+    (m: ChatRoomMemberResponse) => m.user_id === currentUserId && m.role === "admin" && !m.pending
+  );
 
   const handleEdit = useCallback(
     (message: Message) => {
@@ -246,8 +250,15 @@ export default function ChatPanel(props: ChatPanelProps) {
         />
       )}
 
-      {showMembers && roomMembers && (
-        <MembersPanel members={roomMembers} onClose={() => setShowMembers(false)} />
+      {showMembers && roomMembers && selectedConv && (
+        <MembersPanel
+          members={roomMembers}
+          roomId={selectedConv.id}
+          currentUserId={currentUserId ?? ""}
+          isAdmin={isAdmin ?? false}
+          onClose={() => setShowMembers(false)}
+          onRefresh={() => onRefresh?.()}
+        />
       )}
 
       <div className="relative flex-1 min-h-0">

@@ -1,5 +1,7 @@
-"""Room membership management endpoints (admin-only): add, batch-add, remove."""
+"""Room membership management endpoints (admin-only): add, batch-add, remove,
+change role, approve/reject pending join requests."""
 
+from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -12,10 +14,26 @@ from ....middleware.roles import require_role
 from ....models.chat_room import ChatRoom, ChatRoomMember
 from ....models.user import User
 from ....notifications_service import N, notify
-from ....schemas.message import ChatRoomMemberResponse
+from ....schemas.message import ChatRoomMemberResponse, PendingMemberAction
 from ...audit_logs import log_audit
 
 router = APIRouter()
+
+
+def _room_admin_or_global_admin(
+    current_user: User, room: ChatRoom
+) -> bool:
+    """True if the current user can administer the room.
+
+    Global ``admin`` role always wins; otherwise the user must be a confirmed
+    room admin member.
+    """
+    if current_user.role == "admin":
+        return True
+    return any(
+        m.user_id == current_user.id and m.role == "admin" and not m.pending
+        for m in room.members
+    )
 
 
 @router.post(
@@ -203,3 +221,208 @@ async def remove_room_member(
         details={"room_id": room_id, "removed_user_id": member_id, "removed_user_name": user.name if user else "unknown"},
         request=request,
     )
+
+
+@router.put(
+    "/rooms/{room_id}/members/{member_id}/role",
+    response_model=ChatRoomMemberResponse,
+)
+async def change_member_role(
+    room_id: str,
+    member_id: str,
+    data: PendingMemberAction,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+    request: Request = None,
+):
+    """Change a member's role (admin <-> member). Admin-only within the room."""
+    room_result = await db.execute(
+        select(ChatRoom)
+        .where(ChatRoom.id == room_id)
+        .options(selectinload(ChatRoom.members))
+    )
+    room = room_result.scalar_one_or_none()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    if not _room_admin_or_global_admin(current_user, room):
+        raise HTTPException(status_code=403, detail="Only room admins can change roles")
+    if data.action not in ("admin", "member"):
+        raise HTTPException(status_code=400, detail="role must be 'admin' or 'member'")
+
+    member_result = await db.execute(
+        select(ChatRoomMember)
+        .where(
+            and_(
+                ChatRoomMember.room_id == room_id,
+                ChatRoomMember.user_id == member_id,
+            )
+        )
+        .options(selectinload(ChatRoomMember.user))
+    )
+    member = member_result.scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    if member.pending:
+        raise HTTPException(status_code=400, detail="Cannot change role of pending member")
+
+    old_role = member.role
+    member.role = data.action
+    await db.commit()
+    await db.refresh(member)
+
+    await log_audit(
+        db,
+        actor=current_user,
+        action="change_role",
+        entity_type="ChatRoomMember",
+        entity_id=member.id,
+        details={"room_id": room_id, "room_name": room.name, "user_id": member_id, "old_role": old_role, "new_role": data.action},
+        request=request,
+    )
+
+    return ChatRoomMemberResponse.model_validate(member)
+
+
+@router.post(
+    "/rooms/{room_id}/members/approve",
+    response_model=ChatRoomMemberResponse,
+)
+async def approve_or_reject_pending_member(
+    room_id: str,
+    data: PendingMemberAction,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+    request: Request = None,
+):
+    """Approve or reject a pending join request. Admin-only within the room."""
+    room_result = await db.execute(
+        select(ChatRoom)
+        .where(ChatRoom.id == room_id)
+        .options(selectinload(ChatRoom.members))
+    )
+    room = room_result.scalar_one_or_none()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    if not _room_admin_or_global_admin(current_user, room):
+        raise HTTPException(status_code=403, detail="Only room admins can approve members")
+
+    if data.action not in ("approve", "reject"):
+        raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
+
+    member_result = await db.execute(
+        select(ChatRoomMember)
+        .where(
+            and_(
+                ChatRoomMember.room_id == room_id,
+                ChatRoomMember.user_id == data.user_id,
+                ChatRoomMember.pending == True,
+            )
+        )
+        .options(selectinload(ChatRoomMember.user))
+    )
+    member = member_result.scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=404, detail="Pending member not found")
+
+    user = member.user
+    if data.action == "approve":
+        member.pending = False
+        member.joined_at = datetime.utcnow()
+        await db.commit()
+        await db.refresh(member)
+
+        await notify(
+            db,
+            user_id=member.user_id,
+            type=N.GROUP_ADDED,
+            title="Solicitud aprobada",
+            body=f"Tu solicitud para unirte a {room.name} fue aprobada.",
+            related_id=room_id,
+            actor_id=current_user.id,
+        )
+
+        # Notify all room admins
+        admin_ids = [
+            m.user_id for m in room.members
+            if m.role == "admin" and not m.pending and m.user_id != current_user.id
+        ]
+        for admin_id in admin_ids:
+            await notify(
+                db,
+                user_id=admin_id,
+                type=N.GROUP_ADDED,
+                title="Nuevo miembro",
+                body=f"{user.name if user else 'Un usuario'} se unio a {room.name}.",
+                related_id=room_id,
+                actor_id=current_user.id,
+            )
+
+        await log_audit(
+            db,
+            actor=current_user,
+            action="approve_member",
+            entity_type="ChatRoomMember",
+            entity_id=member.id,
+            details={"room_id": room_id, "room_name": room.name, "user_id": member.user_id},
+            request=request,
+        )
+
+        return ChatRoomMemberResponse.model_validate(member)
+    else:
+        # Reject: delete the pending membership
+        await db.delete(member)
+        await db.commit()
+
+        await notify(
+            db,
+            user_id=member.user_id,
+            type=N.GROUP_ADDED,  # reuse type; client can check body
+            title="Solicitud rechazada",
+            body=f"Tu solicitud para unirte a {room.name} fue rechazada.",
+            related_id=room_id,
+            actor_id=current_user.id,
+        )
+
+        await log_audit(
+            db,
+            actor=current_user,
+            action="reject_member",
+            entity_type="ChatRoomMember",
+            entity_id=member.id,
+            details={"room_id": room_id, "room_name": room.name, "user_id": member.user_id},
+            request=request,
+        )
+
+        return {"ok": True, "rejected": True}
+
+
+@router.get("/rooms/{room_id}/members/pending", response_model=List[ChatRoomMemberResponse])
+async def list_pending_members(
+    room_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    """List all pending join requests for a room. Admin-only within the room."""
+    room_result = await db.execute(
+        select(ChatRoom)
+        .where(ChatRoom.id == room_id)
+        .options(selectinload(ChatRoom.members).selectinload(ChatRoomMember.user))
+    )
+    room = room_result.scalar_one_or_none()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    if not _room_admin_or_global_admin(current_user, room):
+        raise HTTPException(status_code=403, detail="Only room admins can view pending members")
+
+    result = await db.execute(
+        select(ChatRoomMember)
+        .where(
+            and_(
+                ChatRoomMember.room_id == room_id,
+                ChatRoomMember.pending == True,
+            )
+        )
+        .options(selectinload(ChatRoomMember.user))
+    )
+    pending = result.scalars().all()
+    return [ChatRoomMemberResponse.model_validate(m) for m in pending]

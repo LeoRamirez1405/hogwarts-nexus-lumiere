@@ -97,6 +97,7 @@ async def update_chat_room(
         "description": room.description,
         "avatar_url": room.avatar_url,
         "closed": room.closed,
+        "join_approval": bool(getattr(room, "join_approval", False)),
     }
 
     for key, value in room_data.model_dump(exclude_unset=True).items():
@@ -110,6 +111,7 @@ async def update_chat_room(
         "description": room.description,
         "avatar_url": room.avatar_url,
         "closed": room.closed,
+        "join_approval": bool(getattr(room, "join_approval", False)),
     }
 
     await log_audit(

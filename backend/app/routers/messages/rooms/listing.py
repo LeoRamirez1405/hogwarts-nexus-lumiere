@@ -54,6 +54,7 @@ async def list_my_rooms(
                 avatar_url=r.avatar_url,
                 type=r.type,
                 closed=r.closed,
+                join_approval=bool(getattr(r, "join_approval", False)),
                 created_by=r.created_by,
                 created_at=r.created_at,
                 member_count=len(r.members),

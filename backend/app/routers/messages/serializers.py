@@ -131,6 +131,7 @@ def serialize_room(room: ChatRoom, user_id: str) -> ChatRoomResponse:
                 role=m.role,
                 muted_until=m.muted_until,
                 joined_at=m.joined_at,
+                pending=bool(getattr(m, "pending", False)),
                 user=m.user,
             )
         )
@@ -141,6 +142,7 @@ def serialize_room(room: ChatRoom, user_id: str) -> ChatRoomResponse:
         avatar_url=room.avatar_url,
         type=room.type,
         closed=room.closed,
+        join_approval=bool(getattr(room, "join_approval", False)),
         created_by=room.created_by,
         created_at=room.created_at,
         members=members_out,
