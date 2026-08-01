@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, UniqueConstraint, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint, Boolean
 from sqlalchemy.orm import relationship
 
 
@@ -50,6 +50,7 @@ class ChatRoomMember(Base):
     role = Column(String, default="member", nullable=False)  # member / admin
     muted_until = Column(DateTime, nullable=True)  # None = not muted, datetime = muted until
     last_read_at = Column(DateTime, nullable=True)  # last time this member read the room
+    archived = Column(Boolean, default=False, nullable=False)
     joined_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     room = relationship("ChatRoom", back_populates="members", lazy="selectin")
@@ -75,6 +76,7 @@ class UserConversationPreference(Base):
     last_message_at = Column(DateTime, nullable=True)
     last_message_sender_id = Column(String, nullable=True)
     unread_count = Column(Integer, default=0, nullable=False)
+    pinned_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     user = relationship("User", lazy="selectin")

@@ -15,6 +15,11 @@ class Message(Base):
     receiver_id = Column(String, ForeignKey("users.id"), nullable=True)
     room_id = Column(String, ForeignKey("chat_rooms.id"), nullable=True)
     reply_to_id = Column(String, ForeignKey("messages.id"), nullable=True)
+    forwarded_from_id = Column(String, ForeignKey("messages.id"), nullable=True)
+    forwarded = Column(Boolean, default=False, nullable=False)
+    starred = Column(Boolean, default=False, nullable=False)
+    disappear_at = Column(DateTime, nullable=True)
+    scheduled_at = Column(DateTime, nullable=True)
 
     kind = Column(String, default="text", nullable=False)
     # text / image / video / audio / document / sticker / poll / voice

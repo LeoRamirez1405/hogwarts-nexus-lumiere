@@ -128,12 +128,30 @@ class MessageReactionResponse(BaseModel):
         from_attributes = True
 
 
+class ForwardMessageRequest(BaseModel):
+    to_receiver_id: Optional[str] = None
+    to_room_id: Optional[str] = None
+
+
+class ScheduledMessageRequest(BaseModel):
+    body: Optional[str] = None
+    kind: str = "text"
+    receiver_id: Optional[str] = None
+    room_id: Optional[str] = None
+    scheduled_at: datetime
+
+
 class MessageResponse(BaseModel):
     id: str
     sender_id: str
     receiver_id: Optional[str] = None
     room_id: Optional[str] = None
     reply_to_id: Optional[str] = None
+    forwarded_from_id: Optional[str] = None
+    forwarded: bool = False
+    starred: bool = False
+    disappear_at: Optional[datetime] = None
+    scheduled_at: Optional[datetime] = None
     kind: str
     body: Optional[str] = None
     attachment_url: Optional[str] = None
@@ -180,6 +198,7 @@ class ConversationResponse(BaseModel):
     unread_count: int = 0
     hidden: bool = False
     is_muted: bool = False
+    is_pinned: bool = False
     last_active_at: Optional[datetime] = None
     online_count: int = 0
 
