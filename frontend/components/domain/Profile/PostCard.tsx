@@ -9,6 +9,7 @@ import { GlassCard, Avatar, MaterialIcon, Lightbox } from "@/components/ui";
 import { CommentSection } from "./CommentSection";
 import { EditPostModal } from "./EditPostModal";
 import { DeletePostModal } from "./DeletePostModal";
+import { hapticLight, hapticSelection } from "@/lib/haptics";
 
 interface PostCardProps {
   post: Post;
@@ -139,9 +140,9 @@ function PostCardComponent({
             />
           </div>
         )}
-        <div className="flex items-center gap-6 pt-3 border-t border-outline-variant/20">
+        <div className="flex items-center gap-x-6 gap-y-2 flex-wrap pt-3 border-t border-outline-variant/20">
           <button
-            onClick={() => onLike(post.id)}
+            onClick={() => { hapticLight(); onLike(post.id); }}
             className={`flex items-center gap-2 text-label-sm transition-colors ${
               post.liked_by_me
                 ? "text-error"
@@ -156,7 +157,7 @@ function PostCardComponent({
             {post.likes_count ?? 0}
           </button>
           <button
-            onClick={() => setShowComments((v) => !v)}
+            onClick={() => { hapticLight(); setShowComments((v) => !v); }}
             className="flex items-center gap-2 text-label-sm text-on-surface-variant hover:text-primary transition-colors"
           >
             <MaterialIcon
@@ -167,7 +168,7 @@ function PostCardComponent({
             {commentCount > 0 ? commentCount : "Comentar"}
           </button>
           <button
-            onClick={() => onRepost(post.id)}
+            onClick={() => { hapticLight(); onRepost(post.id); }}
             className={`flex items-center gap-2 text-label-sm transition-colors ${
               post.reposted_by_me
                 ? "text-success"
@@ -179,7 +180,7 @@ function PostCardComponent({
             {post.reposts_count ?? 0}
           </button>
           <button
-            onClick={() => onShare(post)}
+            onClick={() => { hapticSelection(); onShare(post); }}
             className="flex items-center gap-2 text-label-sm text-on-surface-variant hover:text-secondary transition-colors"
             title="Compartir a un chat o grupo"
           >

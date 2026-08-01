@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { api, User } from "@/lib/api";
-import { Button, SearchBar, MaterialIcon } from "@/components/ui";
+import { Button, SearchBar, MaterialIcon, NumberStepper } from "@/components/ui";
 import { toastError, toastSuccess } from "@/lib/toastStore";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface TransferTabProps {
   balance: number;
@@ -22,40 +23,39 @@ export function TransferTab({ balance, onDone, applyOptimisticBalance, onErrorRo
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
-  const queryRef = useRef("");
+  const debouncedQuery = useDebounce(query, 400);
 
   const parsed = parseInt(amount, 10) || 0;
   const invalidAmount = !amount || parsed <= 0 || !Number.isInteger(parsed);
   const insufficient = parsed > balance;
 
   useEffect(() => {
-    queryRef.current = query;
-  }, [query]);
-
-  useEffect(() => {
-    if (!query || query.length < 2) {
-      return;
+    if (!debouncedQuery || debouncedQuery.length < 2) {
+      const t = window.setTimeout(() => setResults([]), 0);
+      return () => window.clearTimeout(t);
     }
-    const timer = setTimeout(() => {
-      setSearching(true);
-      api
-        .searchUsersServer(query, { limit: 20 })
-        .then((page) => {
-          if (queryRef.current !== query) return;
-          setResults(page.items);
-        })
-        .catch((e) => {
-          if (queryRef.current === query) {
-            setResults([]);
-            toastError("No se pudo buscar usuarios", e);
-          }
-        })
-        .finally(() => {
-          if (queryRef.current === query) setSearching(false);
-        });
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [query]);
+    let cancelled = false;
+    const searchT = window.setTimeout(() => setSearching(true), 0);
+    api
+      .searchUsersServer(debouncedQuery, { limit: 20 })
+      .then((page) => {
+        if (!cancelled) setResults(page.items);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setResults([]);
+          toastError("No se pudo buscar usuarios", e);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSearching(false);
+        window.clearTimeout(searchT);
+      });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(searchT);
+    };
+  }, [debouncedQuery]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,27 +180,25 @@ export function TransferTab({ balance, onDone, applyOptimisticBalance, onErrorRo
       )}
 
       <div className="text-center">
-        <div className="font-display text-5xl text-on-surface flex items-center justify-center gap-3">
-          <MaterialIcon name="diamond" className="text-4xl" filled />
-          <input
-            type="number"
-            min="1"
-            step="1"
-            placeholder="0"
-            value={amount}
-            onChange={(e) => {
-              setAmount(e.target.value);
-              setError(null);
-              setConfirming(false);
-            }}
-            inputMode="numeric"
-            enterKeyHint="next"
-            className="w-48 bg-transparent outline-none text-center font-display text-5xl text-on-surface placeholder:text-outline-variant/40 border-b-2 border-outline-variant/30 focus:border-primary transition-colors"
-          />
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center justify-center gap-3">
+            <MaterialIcon name="diamond" className="text-4xl text-secondary" filled />
+            <NumberStepper
+              value={parsed}
+              onChange={(v) => {
+                setAmount(String(v));
+                setError(null);
+                setConfirming(false);
+              }}
+              min={1}
+              max={balance}
+              size="lg"
+            />
+          </div>
+          <p className="text-label-sm text-on-surface-variant mt-1 uppercase tracking-wider">
+            Zerines a transferir
+          </p>
         </div>
-        <p className="text-label-sm text-on-surface-variant mt-3 uppercase tracking-wider">
-          Zerines a transferir
-        </p>
       </div>
 
       {insufficient && parsed > 0 && (

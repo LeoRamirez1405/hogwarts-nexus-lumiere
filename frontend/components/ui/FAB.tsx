@@ -9,8 +9,8 @@ interface FABProps {
 }
 
 const positionClasses: Record<NonNullable<FABProps["position"]>, string> = {
-  "bottom-right": "right-6 bottom-20",
-  "bottom-center": "bottom-20 left-1/2 -translate-x-1/2",
+  "bottom-right": "right-6 bottom-20 pb-safe",
+  "bottom-center": "bottom-20 left-1/2 -translate-x-1/2 pb-safe",
 };
 
 export default function FAB({

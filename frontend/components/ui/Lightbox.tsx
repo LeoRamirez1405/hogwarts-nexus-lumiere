@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { MaterialIcon } from "./MaterialIcon";
 import { usePinchZoom, useSwipeable } from "@/hooks/useGestures";
 import { useReducedMotion } from "@/hooks/useGestures";
@@ -29,6 +29,14 @@ export default function Lightbox({ src, alt, onClose }: LightboxProps) {
     disabled: prefersReducedMotion || state.scale > 1,
   });
 
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [close]);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     onSwipeStart(e);
     onPinchStart(e);
@@ -40,7 +48,7 @@ export default function Lightbox({ src, alt, onClose }: LightboxProps) {
   }, [onSwipeMove, onPinchMove]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    onSwipeEnd();
+    onSwipeEnd(e);
     onPinchEnd(e);
   }, [onSwipeEnd, onPinchEnd]);
 

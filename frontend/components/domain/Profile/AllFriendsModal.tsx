@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Avatar, Button, MaterialIcon, Modal } from "@/components/ui";
+import { Avatar, Button, MaterialIcon, Modal, BottomSheet } from "@/components/ui";
 import { api, User } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { toastError } from "@/lib/toastStore";
@@ -25,10 +25,7 @@ function initialsOf(name?: string): string {
 const PAGE_SIZE = 30;
 const SEARCH_PAGE = 200;
 
-/** Inner modal content — remounts when `isOpen` toggles (via key on parent)
- * so it always starts with fresh state derived from the latest
- * `initialFriends` passed from the parent page. */
-function AllFriendsModalContent({
+function AllFriendsForm({
   userId,
   initialFriends,
   onClose,
@@ -50,7 +47,6 @@ function AllFriendsModalContent({
   const sentinelRef = useRef<HTMLDivElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounced search: pull the full friends list and filter client-side.
   useEffect(() => {
     if (!search) return;
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -89,7 +85,6 @@ function AllFriendsModalContent({
     }
   }, [loading, hasMore, skip, search, userId]);
 
-  // Infinite scroll observer.
   useEffect(() => {
     const node = sentinelRef.current;
     if (!node || !hasMore || search) return;
@@ -126,43 +121,27 @@ function AllFriendsModalContent({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="bg-surface rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20 sticky top-0 bg-surface z-10">
-          <div>
-            <h2 className="font-display text-title-md text-on-surface">Amigos</h2>
-            <p className="text-label-sm text-on-surface-variant">
-              {filteredTotal} {filteredTotal === 1 ? "amigo" : "amigos"}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
-            aria-label="Cerrar"
-          >
-            <MaterialIcon name="close" className="text-xl" />
-          </button>
-        </div>
-        <div className="px-6 py-3 border-b border-outline-variant/10">
+    <>
+      <div className="flex flex-col min-h-0">
+        <div className="px-3 py-3 border-b border-outline-variant/10 shrink-0">
           <div className="relative">
             <MaterialIcon
               name="search"
               className="absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant text-lg"
             />
             <input
-              type="text"
+              type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar amigos..."
+              autoComplete="off"
+              enterKeyHint="search"
               className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:border-primary/40 transition-colors"
             />
           </div>
+          <p className="text-label-sm text-on-surface-variant mt-2">
+            {filteredTotal} {filteredTotal === 1 ? "amigo" : "amigos"}
+          </p>
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-3 no-scrollbar">
           {filteredFriends.length === 0 ? (
@@ -171,7 +150,7 @@ function AllFriendsModalContent({
                 ? "No se encontraron amigos"
                 : searching
                   ? "Buscando..."
-                  : "Sin amigos todavia"}
+                  : "Sin amigos todavía"}
             </p>
           ) : (
             <div className="space-y-1">
@@ -233,6 +212,7 @@ function AllFriendsModalContent({
         </div>
       </div>
 
+      {/* Unfriend confirmation — stays as center Modal */}
       {unfriendTarget && (
         <Modal
           open
@@ -273,7 +253,7 @@ function AllFriendsModalContent({
           </div>
         </Modal>
       )}
-    </div>
+    </>
   );
 }
 
@@ -285,15 +265,45 @@ export function AllFriendsModal({
   onUnfriend,
 }: AllFriendsModalProps) {
   if (!isOpen) return null;
-  // Key on `userId` + `isOpen` so the content fully remounts when either
-  // changes, giving it a clean slate with the latest `initialFriends`.
+  const containerKey = `${userId}:${isOpen}`;
+
   return (
-    <AllFriendsModalContent
-      key={`${userId}:${isOpen}`}
-      userId={userId}
-      initialFriends={initialFriends}
-      onClose={onClose}
-      onUnfriend={onUnfriend}
-    />
+    <>
+      {/* Desktop: center modal */}
+      <div className="hidden md:block">
+        <Modal
+          open={isOpen}
+          onClose={onClose}
+          size="md"
+          ariaLabel="Lista de amigos"
+        >
+          <AllFriendsForm
+            key={containerKey}
+            userId={userId}
+            initialFriends={initialFriends}
+            onClose={onClose}
+            onUnfriend={onUnfriend}
+          />
+        </Modal>
+      </div>
+
+      {/* Mobile: bottom sheet */}
+      <div className="md:hidden">
+        <BottomSheet
+          open={isOpen}
+          onClose={onClose}
+          title="Amigos"
+          ariaLabel="Lista de amigos"
+        >
+          <AllFriendsForm
+            key={containerKey}
+            userId={userId}
+            initialFriends={initialFriends}
+            onClose={onClose}
+            onUnfriend={onUnfriend}
+          />
+        </BottomSheet>
+      </div>
+    </>
   );
 }

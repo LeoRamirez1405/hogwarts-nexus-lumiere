@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { VirtuosoGrid } from "react-virtuoso";
 import { Article } from "@/lib/api";
 import { GlassCard, Badge, MaterialIcon } from "@/components/ui";
 import Link from "next/link";
@@ -15,6 +15,8 @@ interface VirtualizedArticleGridProps {
   className?: string;
   emptyMessage?: string;
   emptyIcon?: string;
+  /** Use the window as scroll parent (page flow). Defaults to true. */
+  useWindowScroll?: boolean;
 }
 
 const DEFAULT_ITEM_HEIGHT = 320;
@@ -97,22 +99,9 @@ export function VirtualizedArticleGrid({
   className = "",
   emptyMessage = "No se encontraron artículos",
   emptyIcon = "search_off",
+  useWindowScroll = true,
 }: VirtualizedArticleGridProps) {
-  const itemWidth = useMemo(() => {
-    const totalGap = gap * (columns - 1);
-    return `calc((100% - ${totalGap}px) / ${columns})`;
-  }, [columns, gap]);
-
-  const rowCount = useMemo(() => Math.ceil(articles.length / columns), [articles.length, columns]);
-  const totalHeight = useMemo(() => rowCount * itemHeight + (rowCount - 1) * gap, [rowCount, itemHeight, gap]);
-
-  // Apply gap via CSS margin on the outer container since FixedSizeGrid doesn't support gap prop
-  const outerStyle = useMemo(() => ({
-    display: 'grid',
-    gridTemplateColumns: `repeat(${columns}, ${itemWidth})`,
-    gap: gap,
-    height: totalHeight,
-  }), [columns, itemWidth, gap, totalHeight]);
+  const itemWidth = `calc((100% - ${gap * (columns - 1)}px) / ${columns})`;
 
   if (articles.length === 0) {
     return (
@@ -124,16 +113,30 @@ export function VirtualizedArticleGrid({
   }
 
   return (
-    <div className={`relative ${className}`} style={{ height: totalHeight }}>
-      <div style={outerStyle}>
-        {articles.map((article, index) => (
-          <div key={article.id} style={{ width: itemWidth, height: itemHeight }}>
-            {renderItem ? renderItem(article, index, { width: itemWidth, height: itemHeight }) : (
-              <DefaultArticleItem article={article} style={{ width: itemWidth, height: itemHeight }} />
-            )}
+    <div className={`relative ${className}`}>
+      <VirtuosoGrid
+        data={articles}
+        computeItemKey={(index, article) => article.id}
+        useWindowScroll={useWindowScroll}
+        increaseViewportBy={800}
+        overscan={600}
+        listClassName="flex flex-wrap"
+        itemContent={(index, article) => (
+          <div
+            key={article.id}
+            style={{
+              width: itemWidth,
+              height: itemHeight + gap,
+              paddingBottom: gap,
+              boxSizing: "border-box",
+            }}
+          >
+            {renderItem
+              ? renderItem(article, index, { width: itemWidth, height: itemHeight })
+              : <DefaultArticleItem article={article} style={{ width: itemWidth, height: itemHeight }} />}
           </div>
-        ))}
-      </div>
+        )}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MaterialIcon } from "@/components/ui";
+import { usePrefetchOnTouch } from "@/hooks/usePrefetchOnTouch";
 
 interface TabItem {
   icon: string;
@@ -18,6 +19,34 @@ const tabs: TabItem[] = [
   { icon: "person", label: "Perfil", href: "/profile" },
 ];
 
+function BottomNavTab({ tab, isActive }: { tab: TabItem; isActive: boolean }) {
+  const prefetchRef = usePrefetchOnTouch(tab.href);
+  return (
+    <Link
+      href={tab.href}
+      ref={prefetchRef}
+      className={`flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${
+        isActive
+          ? "text-primary bg-secondary-container/40 rounded-full px-4 py-1"
+          : "text-outline hover:text-primary"
+      }`}
+    >
+      <MaterialIcon
+        name={tab.icon}
+        className={`text-2xl ${isActive ? "text-primary" : ""}`}
+        filled={isActive}
+      />
+      <span
+        className={`text-[10px] leading-none ${
+          isActive ? "font-bold text-primary" : ""
+        }`}
+      >
+        {tab.label}
+      </span>
+    </Link>
+  );
+}
+
 export default function BottomNav() {
   const pathname = usePathname();
 
@@ -27,30 +56,7 @@ export default function BottomNav() {
         {tabs.map((tab) => {
           const isActive =
             pathname === tab.href || pathname.startsWith(tab.href + "/");
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={`flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${
-                isActive
-                  ? "text-primary bg-secondary-container/40 rounded-full px-4 py-1"
-                  : "text-outline hover:text-primary"
-              }`}
-            >
-              <MaterialIcon
-                name={tab.icon}
-                className={`text-2xl ${isActive ? "text-primary" : ""}`}
-                filled={isActive}
-              />
-              <span
-                className={`text-[10px] leading-none ${
-                  isActive ? "font-bold text-primary" : ""
-                }`}
-              >
-                {tab.label}
-              </span>
-            </Link>
-          );
+          return <BottomNavTab key={tab.href} tab={tab} isActive={isActive} />;
         })}
       </div>
     </nav>

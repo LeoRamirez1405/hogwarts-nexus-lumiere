@@ -43,6 +43,8 @@ export function FeaturedArticle({ article, onSubscribe }: FeaturedArticleProps) 
             src={article.image_url}
             alt={article.title}
             fill
+            priority
+            sizes="(max-width: 768px) 100vw, 50vw"
             className="object-cover"
             unoptimized={isLocalUpload(article.image_url)}
           />

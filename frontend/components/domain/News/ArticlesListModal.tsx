@@ -32,13 +32,6 @@ export function ArticlesListModal({ isOpen, onClose }: ArticlesListModalProps) {
     enabled: isOpen,
   });
 
-  // Calculate grid height
-  const columns = 3;
-  const itemHeight = 280;
-  const gap = 16;
-  const rowCount = Math.ceil(articles.length / columns);
-  const gridHeight = rowCount * itemHeight + (rowCount - 1) * gap + 80; // extra space for load more
-
   return (
     <Modal open={isOpen} onClose={onClose} size="lg" title="Todas las ediciones">
       <div className="flex flex-col h-full">
@@ -106,12 +99,13 @@ export function ArticlesListModal({ isOpen, onClose }: ArticlesListModalProps) {
             </GlassCard>
           ) : (
             <>
-              <div style={{ height: Math.max(gridHeight, 300) }}>
+              <div className="h-[calc(100dvh-18rem)] min-h-72">
                 <VirtualizedArticleGrid
                   articles={articles}
                   columns={3}
-                  itemHeight={itemHeight}
-                  gap={gap}
+                  itemHeight={280}
+                  gap={16}
+                  useWindowScroll={false}
                 />
               </div>
 

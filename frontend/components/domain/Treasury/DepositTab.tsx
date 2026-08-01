@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/lib/api";
-import { Button, MaterialIcon } from "@/components/ui";
+import { Button, MaterialIcon, NumberStepper } from "@/components/ui";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 
 interface DepositTabProps {
@@ -58,26 +58,25 @@ export function DepositTab({ onDone, applyOptimisticBalance, onErrorRollback }: 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="text-center">
-        <div className="font-display text-5xl text-on-surface flex items-center justify-center gap-3">
-          <MaterialIcon name="diamond" className="text-4xl" filled />
-          <input
-            type="number"
-            min="1"
-            step="1"
-            placeholder="0"
-            value={amount}
-            onChange={(e) => {
-              setAmount(e.target.value);
-              setError(null);
-            }}
-            inputMode="numeric"
-            enterKeyHint="next"
-            className="w-48 bg-transparent outline-none text-center font-display text-5xl text-on-surface placeholder:text-outline-variant/40 border-b-2 border-outline-variant/30 focus:border-primary transition-colors"
-          />
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center justify-center gap-3">
+            <MaterialIcon name="diamond" className="text-4xl text-secondary" filled />
+            <NumberStepper
+              value={parsed}
+              onChange={(v) => {
+                setAmount(String(v));
+                setError(null);
+              }}
+              min={1}
+              size="lg"
+              prefix=""
+              suffix=""
+            />
+          </div>
+          <p className="text-label-sm text-on-surface-variant mt-1 uppercase tracking-wider">
+            Zerines a depositar
+          </p>
         </div>
-        <p className="text-label-sm text-on-surface-variant mt-3 uppercase tracking-wider">
-          Zerines a depositar
-        </p>
       </div>
 
       <div>

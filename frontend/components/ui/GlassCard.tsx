@@ -30,7 +30,7 @@ const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
     return (
       <div
         ref={ref}
-        className={`rounded-xl transition-all duration-300 ${variantClasses[variant]} ${hover ? "hover:-translate-y-2" : ""} ${glow ? "nexus-glow" : ""} ${className}`}
+        className={`rounded-xl transition-all duration-300 ${variantClasses[variant]} ${hover ? "hover:-translate-y-2 active:scale-[0.98]" : ""} ${glow ? "nexus-glow" : ""} ${className}`}
         {...props}
       >
         {children}

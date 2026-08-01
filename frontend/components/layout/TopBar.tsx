@@ -12,6 +12,7 @@ import Avatar from "@/components/ui/Avatar";
 import { MaterialIcon } from "@/components/ui";
 import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
 import PushSubscriptionButton from "@/components/pwa/PushSubscriptionButton";
+import { usePrefetchOnTouch } from "@/hooks/usePrefetchOnTouch";
 
 interface TopBarProps {
   onMenuToggle?: () => void;
@@ -31,6 +32,23 @@ const desktopNavItems: DesktopNavItem[] = [
   { label: "Mercado", href: "/marketplace/flourish-blotts" },
   { label: "Mascotas", href: "/pets" },
 ];
+
+function DesktopNavLink({ item, isActive }: { item: DesktopNavItem; isActive: boolean }) {
+  const prefetchRef = usePrefetchOnTouch(item.href);
+  return (
+    <Link
+      href={item.href}
+      ref={prefetchRef}
+      className={`py-2 text-body-md transition-colors ${
+        isActive
+          ? "text-primary font-bold border-b-2 border-primary"
+          : "text-on-surface-variant/70 hover:text-primary"
+      }`}
+    >
+      {item.label}
+    </Link>
+  );
+}
 
 export default function TopBar({ onMenuToggle }: TopBarProps) {
   const pathname = usePathname();
@@ -132,17 +150,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + "/");
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`py-2 text-body-md transition-colors ${
-                  isActive
-                    ? "text-primary font-bold border-b-2 border-primary"
-                    : "text-on-surface-variant/70 hover:text-primary"
-                }`}
-              >
-                {item.label}
-              </Link>
+              <DesktopNavLink key={item.href} item={item} isActive={isActive} />
             );
           })}
         </nav>

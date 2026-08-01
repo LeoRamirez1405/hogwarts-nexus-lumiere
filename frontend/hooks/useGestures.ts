@@ -15,10 +15,10 @@ export interface SwipeableOptions {
 export interface SwipeableReturn {
   onTouchStart: (e: React.TouchEvent) => void;
   onTouchMove: (e: React.TouchEvent) => void;
-  onTouchEnd: () => void;
+  onTouchEnd: (e: React.TouchEvent) => void;
   onMouseDown: (e: React.MouseEvent) => void;
   onMouseMove: (e: React.MouseEvent) => void;
-  onMouseUp: () => void;
+  onMouseUp: (e: React.MouseEvent) => void;
   onMouseLeave: () => void;
 }
 
@@ -75,28 +75,28 @@ export function useSwipeable(options: SwipeableOptions = {}): SwipeableReturn {
     }
   }, [disabled]);
 
-  const handleEnd = useCallback(() => {
+  const handleEnd = useCallback((clientX: number, clientY: number) => {
     if (!isSwiping.current || disabled) {
       reset();
       return;
     }
 
-    const deltaX = (startX.current ?? 0) - (startX.current ?? 0);
-    const deltaY = (startY.current ?? 0) - (startY.current ?? 0);
+    const deltaX = clientX - (startX.current ?? 0);
+    const deltaY = clientY - (startY.current ?? 0);
     const absX = Math.abs(deltaX);
     const absY = Math.abs(deltaY);
 
     if (absX > absY && absX > threshold) {
       if (deltaX > 0) {
-        onSwipeLeft?.();
-      } else {
         onSwipeRight?.();
+      } else {
+        onSwipeLeft?.();
       }
     } else if (absY > absX && absY > threshold) {
       if (deltaY > 0) {
-        onSwipeUp?.();
-      } else {
         onSwipeDown?.();
+      } else {
+        onSwipeUp?.();
       }
     }
 
@@ -111,8 +111,9 @@ export function useSwipeable(options: SwipeableOptions = {}): SwipeableReturn {
     handleMove(e.touches[0].clientX, e.touches[0].clientY, e);
   }, [handleMove]);
 
-  const onTouchEnd = useCallback(() => {
-    handleEnd();
+  const onTouchEnd = useCallback((e: React.TouchEvent) => {
+    const touch = e.changedTouches[0];
+    handleEnd(touch.clientX, touch.clientY);
   }, [handleEnd]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
@@ -123,8 +124,8 @@ export function useSwipeable(options: SwipeableOptions = {}): SwipeableReturn {
     handleMove(e.clientX, e.clientY, e);
   }, [handleMove]);
 
-  const onMouseUp = useCallback(() => {
-    handleEnd();
+  const onMouseUp = useCallback((e: React.MouseEvent) => {
+    handleEnd(e.clientX, e.clientY);
   }, [handleEnd]);
 
   const onMouseLeave = useCallback(() => {

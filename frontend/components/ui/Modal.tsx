@@ -2,6 +2,7 @@
 import { useEffect, useCallback, useRef, useId } from "react";
 import { createPortal } from "react-dom";
 import { MaterialIcon } from "./MaterialIcon";
+import { useSwipeable } from "@/hooks/useGestures";
 
 interface ModalProps {
   open: boolean;
@@ -10,6 +11,7 @@ interface ModalProps {
   children: React.ReactNode;
   size?: "sm" | "md" | "lg";
   ariaLabel?: string;
+  swipeToDismiss?: boolean;
 }
 
 const sizeClasses: Record<NonNullable<ModalProps["size"]>, string> = {
@@ -28,6 +30,7 @@ export default function Modal({
   children,
   size = "md",
   ariaLabel,
+  swipeToDismiss = false,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -68,6 +71,12 @@ export default function Modal({
     [onClose]
   );
 
+  const swipeHandlers = useSwipeable({
+    onSwipeDown: onClose,
+    threshold: 80,
+    disabled: !swipeToDismiss,
+  });
+
   useEffect(() => {
     if (!open) return;
     previouslyFocused.current = document.activeElement as HTMLElement | null;
@@ -106,6 +115,13 @@ export default function Modal({
         tabIndex={-1}
         className={`w-full ${sizeClasses[size]} bg-surface-container-lowest rounded-2xl shadow-2xl max-h-[calc(100dvh-4rem)] overflow-y-auto outline-none`}
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={swipeHandlers.onTouchStart}
+        onTouchMove={swipeHandlers.onTouchMove}
+        onTouchEnd={swipeHandlers.onTouchEnd}
+        onMouseDown={swipeHandlers.onMouseDown}
+        onMouseMove={swipeHandlers.onMouseMove}
+        onMouseUp={swipeHandlers.onMouseUp}
+        onMouseLeave={swipeHandlers.onMouseLeave}
       >
         {title && (
           <div className="flex items-center justify-between px-6 pt-6 pb-4">
