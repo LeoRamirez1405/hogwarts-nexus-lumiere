@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, lazy } from "react";
-import { dynamic } from "next/dynamic";
+import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { Post } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
@@ -16,18 +16,18 @@ import { useProfileData } from "./hooks/useProfileData";
 import { PostComposer } from "./components/PostComposer";
 import { PostsFeed } from "./components/PostsFeed";
 
-const SharePostModal = dynamic(
-  () => import("@/components/domain/Profile/SharePostModal"),
+const SharePostModal = dynamic(() =>
+  import("@/components/domain/Profile/SharePostModal").then((m) => m.SharePostModal),
   { ssr: false }
 );
 
-const EditProfileModal = dynamic(
-  () => import("@/components/domain/Profile/EditProfileModal"),
+const EditProfileModal = dynamic(() =>
+  import("@/components/domain/Profile/EditProfileModal").then((m) => m.EditProfileModal),
   { ssr: false }
 );
 
-const AllFriendsModal = dynamic(
-  () => import("@/components/domain/Profile/AllFriendsModal"),
+const AllFriendsModal = dynamic(() =>
+  import("@/components/domain/Profile/AllFriendsModal").then((m) => m.AllFriendsModal),
   { ssr: false }
 );
 

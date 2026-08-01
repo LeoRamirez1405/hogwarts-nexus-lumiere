@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { api, Product, EnumValue } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
 import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary } from "@/components/ui";
-import { BookCard, HeroCarousel, CartSidebar, SuccessModal } from "@/components/domain/FlourishBlotts";
+import { BookCard, HeroCarousel, CartSidebar } from "@/components/domain/FlourishBlotts";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { useDebounce } from "@/hooks/useDebounce";
 import { toastError, toastSuccess } from "@/lib/toastStore";
+
+const SuccessModal = dynamic(() => import("@/components/domain/FlourishBlotts").then((m) => m.SuccessModal), { ssr: false });
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
 

@@ -6,6 +6,7 @@ import Image from "next/image";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { GlassCard, Button, MaterialIcon } from "@/components/ui";
+import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
 
 type ReportType = "bug" | "suggestion";
 
@@ -19,6 +20,10 @@ export default function SupportPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const {
+    textareaRef: descriptionRef,
+    height: descriptionHeight,
+  } = useAutoResizeTextarea({ minHeight: 128, maxHeight: 320 });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -177,6 +182,8 @@ export default function SupportPage() {
             Descripción
           </label>
           <textarea
+            ref={descriptionRef}
+            style={{ height: descriptionHeight }}
             value={description}
             onChange={(e) => {
               setDescription(e.target.value);

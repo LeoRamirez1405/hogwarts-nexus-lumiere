@@ -16,7 +16,7 @@ from .database import async_session
 from .config import settings
 from .models.user_creature import UserCreature
 from .notifications_service import notify, N
-from .routers.creatures import _settle_decay
+from .services.pet_service import settle_decay
 
 
 async def sweep_pet_care() -> dict:
@@ -30,7 +30,7 @@ async def sweep_pet_care() -> dict:
         ).scalars().all()
 
         for uc in pets:
-            _settle_decay(uc)
+            settle_decay(uc)
             neglected = (
                 uc.hunger <= settings.PET_ATTENTION_HUNGER
                 or uc.happiness <= settings.PET_ATTENTION_HAPPINESS

@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { api, Product, EnumValue } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
 import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary } from "@/components/ui";
-import { ArtifactCard, HeroCarousel, CartSidebar, SuccessTicket } from "@/components/domain/BorginBurkes";
+import { ArtifactCard, HeroCarousel, CartSidebar } from "@/components/domain/BorginBurkes";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { useDebounce } from "@/hooks/useDebounce";
 import { toastError, toastSuccess } from "@/lib/toastStore";
+
+const SuccessTicket = dynamic(() => import("@/components/domain/BorginBurkes").then((m) => m.SuccessTicket), { ssr: false });
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
 
