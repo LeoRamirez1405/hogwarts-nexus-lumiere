@@ -1,6 +1,4 @@
-import { request } from "../../core";
-import type { Page } from "../../core";
-import type { User } from "../users";
+import { request } from "../core";
 import type { Transaction } from "../transactions";
 
 export interface DashboardData {

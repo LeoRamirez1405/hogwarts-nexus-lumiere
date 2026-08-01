@@ -1,4 +1,3 @@
-import { buildQuery, PaginationParams, Page } from "./types";
 import { ApiError } from "./errors";
 
 const API_BASE =
@@ -27,15 +26,30 @@ export const API_BASE_VALUE = API_BASE;
 
 const AUTH_ENDPOINTS = new Set(["/auth/login", "/auth/register", "/auth/refresh"]);
 
-async function doFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...((options.headers as Record<string, string>) || {}),
-    },
-  });
+export async function request<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const doFetch = (): Promise<Response> =>
+    fetch(`${API_BASE}${path}`, {
+      ...options,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...((options.headers as Record<string, string>) || {}),
+      },
+    });
+
+  let res = await doFetch();
+
+  if (res.status === 401 && typeof window !== "undefined" && !AUTH_ENDPOINTS.has(path)) {
+    refreshPromise = refreshPromise ?? attemptRefresh().finally(() => {
+      refreshPromise = null;
+    });
+    if (await refreshPromise) {
+      res = await doFetch();
+    }
+  }
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }));
@@ -47,38 +61,6 @@ async function doFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (res.status === 204) return null as T;
   return res.json();
-}
-
-export async function request<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
-  let res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...((options.headers as Record<string, string>) || {}),
-    },
-  });
-
-  if (res.status === 401 && typeof window !== "undefined" && !AUTH_ENDPOINTS.has(path)) {
-    refreshPromise = refreshPromise ?? attemptRefresh().finally(() => {
-      refreshPromise = null;
-    });
-    if (await refreshPromise) {
-      res = await fetch(`${API_BASE}${path}`, {
-        ...options,
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...((options.headers as Record<string, string>) || {}),
-        },
-      });
-    }
-  }
-
-  return doFetch(path, options);
 }
 
 export async function uploadFile<T>(

@@ -1,5 +1,5 @@
-import { request, buildQuery } from "../../core";
-import type { PaginationParams, Page } from "../../core";
+import { request } from "../core";
+import type { PaginationParams } from "../core";
 
 export interface AuditLogResponse {
   id: string;
