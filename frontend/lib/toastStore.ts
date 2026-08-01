@@ -42,6 +42,10 @@ export function toastError(title: string, err?: unknown) {
     title,
     message: detail,
   });
+  // Haptic feedback: error pattern on devices that support vibration
+  if (typeof navigator !== "undefined" && navigator.vibrate) {
+    navigator.vibrate([100, 50, 100]);
+  }
   if (err !== undefined) console.error(title, err);
 }
 

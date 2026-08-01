@@ -470,6 +470,66 @@ export const api = {
   searchUsers: (q: string, friendsOnly?: boolean) =>
     request<UserSearchResult[]>(`/messages/users/search?q=${encodeURIComponent(q)}${friendsOnly ? "&friends_only=true" : ""}`),
 
+  // Forward message
+  forwardMessage: (messageId: string, to_receiver_id?: string, to_room_id?: string) =>
+    request<Message>(`/messages/${messageId}/forward`, {
+      method: "POST",
+      body: JSON.stringify({ to_receiver_id, to_room_id }),
+    }),
+
+  // Star/unstar message
+  toggleStar: (messageId: string) =>
+    request<{ ok: boolean; starred: boolean }>(`/messages/${messageId}/star`, { method: "PUT" }),
+
+  // Global message search
+  searchMessages: (q: string, limit?: number) =>
+    request<Message[]>(`/messages/search${buildQuery({ q, limit })}`),
+
+  // In-room message search
+  searchRoomMessages: (roomId: string, q: string, limit?: number) =>
+    request<Message[]>(`/messages/rooms/${roomId}/messages/search${buildQuery({ q, limit })}`),
+
+  // Archive/unarchive room
+  archiveRoom: (roomId: string) =>
+    request<{ ok: boolean }>(`/messages/rooms/${roomId}/archive`, { method: "PUT" }),
+  unarchiveRoom: (roomId: string) =>
+    request<{ ok: boolean }>(`/messages/rooms/${roomId}/archive`, { method: "DELETE" }),
+
+  // Scheduled messages
+  scheduleMessage: (data: { body?: string; kind?: string; receiver_id?: string; room_id?: string; scheduled_at: string; metadata?: Record<string, unknown> }) =>
+    request<Message>("/messages/scheduled", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getScheduledMessages: () =>
+    request<Message[]>("/messages/scheduled"),
+  cancelScheduledMessage: (messageId: string) =>
+    request<{ ok: boolean }>(`/messages/${messageId}/scheduled`, { method: "DELETE" }),
+
+  // Media gallery
+  getRoomMedia: (roomId: string, limit?: number) =>
+    request<Message[]>(`/messages/rooms/${roomId}/media${buildQuery({ limit })}`),
+  getDmMedia: (userId: string, limit?: number) =>
+    request<Message[]>(`/messages/dm/${userId}/media${buildQuery({ limit })}`),
+
+  // Export chat
+  exportRoomChat: (roomId: string, format: "txt" | "json" = "txt"): Promise<Blob> =>
+    fetch(`${API_BASE}/messages/rooms/${roomId}/export?format=${format}`, {
+      method: "GET",
+      credentials: "include",
+    }).then((r) => r.blob()),
+  exportDmChat: (userId: string, format: "txt" | "json" = "txt"): Promise<Blob> =>
+    fetch(`${API_BASE}/messages/dm/${userId}/export?format=${format}`, {
+      method: "GET",
+      credentials: "include",
+    }).then((r) => r.blob()),
+
+  // Pin/Unpin conversation
+  pinConversation: (convType: "dm" | "room", convId: string) =>
+    request<{ ok: boolean; pinned_at: string | null }>(`/messages/conversations/${convType}/${convId}/pin`, { method: "PUT" }),
+  unpinConversation: (convType: "dm" | "room", convId: string) =>
+    request<{ ok: boolean }>(`/messages/conversations/${convType}/${convId}/pin`, { method: "DELETE" }),
+
   transcribeAudio: (blob: Blob): Promise<{ text: string }> => {
     const file = new File([blob], "voice.wav", { type: "audio/wav" });
     return uploadFile("/messages/transcribe", file);
@@ -918,6 +978,11 @@ export interface Message {
   receiver_id?: string;
   room_id?: string;
   reply_to_id?: string;
+  forwarded_from_id?: string;
+  forwarded?: boolean;
+  starred?: boolean;
+  disappear_at?: string;
+  scheduled_at?: string;
   kind: "text" | "image" | "video" | "audio" | "document" | "sticker" | "poll" | "voice" | "post";
   body?: string;
   attachment_url?: string;
@@ -956,6 +1021,8 @@ export interface Conversation {
   last_message?: Message;
   unread_count: number;
   is_muted?: boolean;
+  is_pinned?: boolean;
+  is_archived?: boolean;
   last_active_at?: string;
   online_count?: number;
 }
