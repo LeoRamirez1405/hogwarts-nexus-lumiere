@@ -1,7 +1,7 @@
 """Core message operations: send, read, edit, delete, forward, pin and star."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -93,13 +93,14 @@ async def send_message(
         if room and room.closed and current_user.role != "admin":
             raise HTTPException(
                 status_code=403, detail="This room is closed by an administrator"
-            )
+)
 
     metadata_json = None
     if message_data.metadata:
         metadata_json = json.dumps(message_data.metadata)
 
     reply_to_id = message_data.reply_to_id
+    disappear_at = message_data.disappear_at
 
     message = Message(
         sender_id=current_user.id,
@@ -112,7 +113,9 @@ async def send_message(
         attachment_type=message_data.attachment_type,
         attachment_name=message_data.attachment_name,
         metadata_json=metadata_json,
+        disappear_at=disappear_at,
     )
+
     db.add(message)
     await db.flush()
 

@@ -14,7 +14,7 @@ from .rate_limit import limiter
 from .database import init_db
 from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, audit_logs, ws_messages, push
 from .models import friend_request  # noqa: F401
-from .retention import retention_loop
+from .retention import retention_loop, disappearing_loop
 from .pet_care import pet_care_loop
 
 
@@ -58,11 +58,13 @@ async def lifespan(app: FastAPI):
         await seed_feature_flags()
 
     retention_task = asyncio.create_task(retention_loop())
+    disappearing_task = asyncio.create_task(disappearing_loop())
     pet_care_task = asyncio.create_task(pet_care_loop())
     try:
         yield
     finally:
         retention_task.cancel()
+        disappearing_task.cancel()
         pet_care_task.cancel()
 
 

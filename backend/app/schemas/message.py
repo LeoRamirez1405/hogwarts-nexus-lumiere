@@ -115,6 +115,7 @@ class MessageCreate(BaseModel):
     attachment_name: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
     poll: Optional[PollCreate] = None
+    disappear_at: Optional[datetime] = None
 
 
 class MessageReactionResponse(BaseModel):
