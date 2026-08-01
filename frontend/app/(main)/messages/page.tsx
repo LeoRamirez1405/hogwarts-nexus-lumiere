@@ -108,6 +108,9 @@ export default function MessagesPage() {
   const debouncedSearch = useDebounce(search, 300);
   const [showNewChat, setShowNewChat] = useState(false);
   const [targetMessageId, setTargetMessageId] = useState<string | null>(null);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState("");
+  const [globalSearchResults, setGlobalSearchResults] = useState<Message[]>([]);
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
 
   // Typing indicator state: conversationId -> Set of {userId, username}
   const [typingUsers, setTypingUsers] = useState<Map<string, Map<string, string>>>(new Map());
@@ -135,6 +138,24 @@ export default function MessagesPage() {
     hasMoreRef.current = hasMore;
     loadingOlderRef.current = loadingOlder;
   });
+
+  // Global message search
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      if (!globalSearchQuery.trim()) {
+        if (!cancelled) setGlobalSearchResults([]);
+        return;
+      }
+      try {
+        const results = await api.searchMessages(globalSearchQuery, 50);
+        if (!cancelled) setGlobalSearchResults(results);
+      } catch (err) {
+        console.error("Global search failed", err);
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [globalSearchQuery]);
 
   const fetchPage = useCallback(
     (id: string, type: "direct" | "room", before?: string): Promise<MessagePage> =>
@@ -536,6 +557,69 @@ export default function MessagesPage() {
     }
   };
 
+  const handleToggleStar = useCallback(async (message: Message) => {
+    try {
+      await api.toggleStar(message.id);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === message.id ? { ...m, starred: !m.starred } : m
+        )
+      );
+    } catch (err) {
+      console.error("Star toggle failed", err);
+    }
+  }, []);
+
+  const handlePinConversation = useCallback(async (convType: "dm" | "room", convId: string) => {
+    try {
+      await api.pinConversation(convType, convId);
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === convId ? { ...c, is_pinned: true } : c
+        )
+      );
+      // Re-sort to put pinned first
+      setConversations((prev) => [...prev].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)));
+    } catch (err) {
+      console.error("Pin failed", err);
+    }
+  }, []);
+
+  const handleUnpinConversation = useCallback(async (convType: "dm" | "room", convId: string) => {
+    try {
+      await api.unpinConversation(convType, convId);
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === convId ? { ...c, is_pinned: false } : c
+        )
+      );
+      // Re-sort
+      setConversations((prev) => [...prev].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)));
+    } catch (err) {
+      console.error("Unpin failed", err);
+    }
+  }, []);
+
+  const handleExportChat = useCallback(async (convType: "dm" | "room", convId: string, convName: string) => {
+    const format = confirm("Exportar como JSON? (Cancelar = TXT)") ? "json" : "txt";
+    try {
+      const blob = convType === "room"
+        ? await api.exportRoomChat(convId, format)
+        : await api.exportDmChat(convId, format);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `chat-${convName}-${new Date().toISOString().slice(0,10)}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export failed", err);
+      alert("Error al exportar el chat");
+    }
+  }, []);
+
   const selectConversation = (id: string, type: "direct" | "room") => {
     setTargetMessageId(null);
     setSelectedId(id);
@@ -629,25 +713,80 @@ export default function MessagesPage() {
             selectedId ? "hidden xl:flex" : "flex"
           } flex-col w-full xl:w-96 border-r border-outline-variant/20`}
         >
-          <div className="p-4 border-b border-outline-variant/20">
+<div className="p-4 border-b border-outline-variant/20">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-title-md font-display text-on-surface">
                 Mensajes
-            </h2>
-              <button
-                onClick={() => setShowNewChat(true)}
-                className="w-9 h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
-              >
-                <MaterialIcon name="edit" className="text-xl" />
-            </button>
-          </div>
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowGlobalSearch(!showGlobalSearch)}
+                  className={`w-9 h-9 inline-flex items-center justify-center rounded-full transition-colors ${
+                    showGlobalSearch
+                      ? "bg-primary text-on-primary"
+                      : "hover:bg-surface-container-high text-on-surface-variant"
+                  }`}
+                  title="Buscar mensajes globalmente"
+                >
+                  <MaterialIcon name="search" className="text-xl" />
+                </button>
+                <button
+                  onClick={() => setShowNewChat(true)}
+                  className="w-9 h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
+                >
+                  <MaterialIcon name="edit" className="text-xl" />
+                </button>
+              </div>
+            </div>
+            {showGlobalSearch && (
+              <div className="mt-3 space-y-2">
+                <SearchBar
+                  placeholder="Buscar en todos los mensajes..."
+                  value={globalSearchQuery}
+                  onChange={setGlobalSearchQuery}
+                  size="sm"
+                />
+                {globalSearchResults.length > 0 && (
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {globalSearchResults.map((msg) => (
+                      <button
+                        key={msg.id}
+                        onClick={() => {
+                          setShowGlobalSearch(false);
+                          const convId = msg.room_id || msg.receiver_id || msg.sender_id;
+                          const convType = msg.room_id ? "room" : "direct";
+                          selectConversation(convId, convType);
+                          setTargetMessageId(msg.id);
+                        }}
+                        className="w-full text-left p-2 rounded-lg hover:bg-surface-container-high transition-colors flex items-center gap-2"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-label-sm font-medium text-on-surface truncate">
+                            {msg.sender?.name || "Alguien"}
+                          </p>
+                          <p className="text-label-sm text-on-surface-variant truncate">
+                            {msg.body?.slice(0, 60) || "Adjunto"}
+                          </p>
+                        </div>
+                        <MaterialIcon name="chevron_right" className="text-on-surface-variant" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {globalSearchQuery && globalSearchResults.length === 0 && (
+                  <p className="text-center text-on-surface-variant text-label-sm py-4">
+                    {`Sin resultados para "${globalSearchQuery}"`}
+                  </p>
+                )}
+              </div>
+            )}
             <SearchBar
               placeholder="Buscar conversaciones..."
               value={search}
               onChange={setSearch}
               size="sm"
             />
-        </div>
+          </div>
           <div className="flex-1 overflow-y-auto no-scrollbar">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-12">
@@ -718,6 +857,30 @@ export default function MessagesPage() {
                 targetMessageId={targetMessageId}
                 typingUsers={typingUsers.get(selectedConv.id) || new Map()}
                 onlineUsers={onlineUsers}
+                onToggleStar={handleToggleStar}
+                onPinConversation={handlePinConversation}
+                onUnpinConversation={handleUnpinConversation}
+                onArchiveRoom={async (roomId) => {
+                  try {
+                    await api.archiveRoom(roomId);
+                    setConversations((prev) =>
+                      prev.map((c) => (c.id === roomId ? { ...c, is_archived: true } : c))
+                    );
+                  } catch (err) {
+                    console.error("Archive failed", err);
+                  }
+                }}
+                onUnarchiveRoom={async (roomId) => {
+                  try {
+                    await api.unarchiveRoom(roomId);
+                    setConversations((prev) =>
+                      prev.map((c) => (c.id === roomId ? { ...c, is_archived: false } : c))
+                    );
+                  } catch (err) {
+                    console.error("Unarchive failed", err);
+                  }
+                }}
+                onExportChat={handleExportChat}
               />
             </Suspense>
           ) : (

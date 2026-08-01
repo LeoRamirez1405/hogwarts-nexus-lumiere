@@ -93,3 +93,39 @@ export const STICKER_PACKS: Record<string, string[]> = {
     "🐧", "🐦", "🐤", "🐣", "🐥", "🦆", "🦅", "🦉", "🦇", "🐺",
   ],
 };
+
+const URL_REGEX = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
+
+export function linkifyText(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = URL_REGEX.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    const url = match[1];
+    parts.push(
+      <a
+        key={match.index}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-primary underline hover:opacity-80"
+      >
+        {url}
+      </a>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts.length > 0 ? parts : [text];
+}
+
+export function hasUrl(text?: string): boolean {
+  if (!text) return false;
+  return URL_REGEX.test(text);
+}

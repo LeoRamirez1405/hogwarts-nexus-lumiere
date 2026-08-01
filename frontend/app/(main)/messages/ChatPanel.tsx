@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useAuthStore } from "@/lib/authStore";
 import { api, Message, MessageSendData, ChatRoomMemberResponse, UserSearchResult } from "@/lib/api";
-import { Avatar } from "@/components/ui";
+import { Avatar, SearchBar } from "@/components/ui";
 import { MaterialIcon, getInitials, STICKER_PACKS, computeOnlineStatus, isOnline } from "./helpers";
 import { MessageBubble } from "./MessageRenderers";
 import PollCreator from "./PollCreator";
@@ -274,6 +274,12 @@ export default function ChatPanel({
   targetMessageId,
   typingUsers,
   onlineUsers,
+  onPinConversation,
+  onUnpinConversation,
+  onArchiveRoom,
+  onUnarchiveRoom,
+  onExportChat,
+  onToggleStar,
 }: {
   messages: Message[];
   selectedConv: SelectedConv | null;
@@ -296,6 +302,12 @@ export default function ChatPanel({
   targetMessageId?: string | null;
   typingUsers?: Map<string, string>;
   onlineUsers?: Map<string, boolean>;
+  onPinConversation?: (convType: "dm" | "room", convId: string) => void;
+  onUnpinConversation?: (convType: "dm" | "room", convId: string) => void;
+  onArchiveRoom?: (roomId: string) => void;
+  onUnarchiveRoom?: (roomId: string) => void;
+  onExportChat?: (convType: "dm" | "room", convId: string, convName: string) => void;
+  onToggleStar?: (msg: Message) => void;
 }) {
   const [input, setInput] = useState("");
   const [showMenu, setShowMenu] = useState(false);
@@ -326,6 +338,32 @@ export default function ChatPanel({
     },
     [onDeleteMessage, selectedConv?.id]
   );
+
+  // TODO: implement and wire
+  // const handleToggleStar = useCallback(
+  //   async (message: Message) => {
+  //     try {
+  //       await api.toggleStar(message.id);
+  //       setMessages((prev) =>
+  //         prev.map((m) =>
+  //           m.id === message.id ? { ...m, starred: !m.starred } : m
+  //         )
+  //       );
+  //     } catch (err) {
+  //       console.error("Star toggle failed", err);
+  //     }
+  //   },
+  //   []
+  // );
+
+  // TODO: implement and wire
+  // const handleForward = useCallback(
+  //   async () => {
+  //     // For now, just show an alert - full forward UI needs a modal
+  //     alert("Reenviar mensaje - UI pendiente");
+  //   },
+  //   []
+  // );
   const [mentionSearch, setMentionSearch] = useState("");
   const [mentionResults, setMentionResults] = useState<UserSearchResult[]>([]);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
@@ -342,6 +380,9 @@ export default function ChatPanel({
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [newCount, setNewCount] = useState(0);
   const [showPinned, setShowPinned] = useState(false);
+  const [inChatSearch, setInChatSearch] = useState("");
+  const [inChatSearchResults, setInChatSearchResults] = useState<Message[]>([]);
+  const [showInChatSearch, setShowInChatSearch] = useState(false);
   const voice = useVoiceRecorder();
 
   // --- Scroll positioning bookkeeping (WhatsApp-style) ---------------------
@@ -445,6 +486,25 @@ export default function ChatPanel({
       setTimeout(() => el.classList.remove("highlight-message"), 2000);
     });
   }, [targetMessageId, messages]);
+
+  // In-chat search
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      if (!inChatSearch.trim()) {
+        if (!cancelled) setInChatSearchResults([]);
+        return;
+      }
+      if (!selectedConv?.id) return;
+      try {
+        const results = await api.searchRoomMessages(selectedConv.id, inChatSearch, 50);
+        if (!cancelled) setInChatSearchResults(results);
+      } catch (err) {
+        console.error("In-chat search failed", err);
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [inChatSearch, selectedConv?.id]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -772,6 +832,17 @@ export default function ChatPanel({
         </div>
         <div>
           <button
+            onClick={() => setShowInChatSearch(!showInChatSearch)}
+            className={`w-9 h-9 inline-flex items-center justify-center rounded-full transition-colors ${
+              showInChatSearch
+                ? "bg-primary text-on-primary"
+                : "hover:bg-surface-container-high text-on-surface-variant"
+            }`}
+            title="Buscar en esta conversacion"
+          >
+            <MaterialIcon name="search" className="text-xl" />
+          </button>
+          <button
             ref={moreButtonRef}
             onClick={() => {
               if (!showMenu && moreButtonRef.current) {
@@ -787,6 +858,57 @@ export default function ChatPanel({
           </button>
         </div>
       </div>
+
+      {/* In-chat search panel */}
+      {showInChatSearch && (
+        <div className="border-b border-outline-variant/20 bg-surface-container-low p-3">
+          <div className="flex items-center gap-2">
+            <SearchBar
+              placeholder="Buscar en esta conversacion..."
+              value={inChatSearch}
+              onChange={setInChatSearch}
+              size="sm"
+              className="flex-1"
+            />
+            <button
+              onClick={() => setShowInChatSearch(false)}
+              className="w-9 h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
+              title="Cerrar busqueda"
+            >
+              <MaterialIcon name="close" className="text-xl" />
+            </button>
+          </div>
+          {inChatSearchResults.length > 0 && (
+            <div className="mt-2 max-h-48 overflow-y-auto space-y-1">
+              {inChatSearchResults.map((msg) => (
+                <button
+                  key={msg.id}
+                  onClick={() => {
+                    setShowInChatSearch(false);
+                    scrollToMessage(msg.id);
+                  }}
+                  className="w-full text-left p-2 rounded-lg hover:bg-surface-container-high transition-colors flex items-center gap-2"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-label-sm font-medium text-on-surface truncate">
+                      {msg.sender?.name || "Alguien"}
+                    </p>
+                    <p className="text-label-sm text-on-surface-variant truncate">
+                      {msg.body?.slice(0, 60) || "Adjunto"}
+                    </p>
+                  </div>
+                  <MaterialIcon name="chevron_right" className="text-on-surface-variant" />
+                </button>
+              ))}
+            </div>
+          )}
+          {inChatSearch && inChatSearchResults.length === 0 && (
+            <p className="text-center text-on-surface-variant text-label-sm py-4">
+              {`Sin resultados para "${inChatSearch}"`}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Members Panel */}
       {showMembers && roomMembers && (
@@ -935,17 +1057,18 @@ export default function ChatPanel({
                         <div className="flex-1 h-px bg-primary/30" />
                       </div>
                     )}
-                    <MessageBubble
-                      message={msg}
-                      isOwn={msg.sender_id === user?.id}
-                      onReply={(m) => setReplyingTo(m)}
-                      onReactionChange={onRefresh}
-                      onScrollToMessage={scrollToMessage}
-                      onTogglePin={onTogglePin}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      members={isRoom ? roomMembers : undefined}
-                    />
+        <MessageBubble
+          message={msg}
+          isOwn={msg.sender_id === user?.id}
+          onReply={(m) => setReplyingTo(m)}
+          onReactionChange={onRefresh}
+          onScrollToMessage={scrollToMessage}
+          onTogglePin={onTogglePin}
+          onToggleStar={onToggleStar}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          members={isRoom ? roomMembers : undefined}
+        />
                   </div>
                 )}
                 style={{ height: "100%" }}
@@ -1293,6 +1416,41 @@ export default function ChatPanel({
                   )}
                 </div>
                 <button
+                  onClick={() => onPinConversation?.("room", selectedConv!.id)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                >
+                  <MaterialIcon name="push_pin" className="text-xl" />
+                  Fijar al top
+                </button>
+                <button
+                  onClick={() => onUnpinConversation?.("room", selectedConv!.id)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                >
+                  <MaterialIcon name="push_pin" className="text-xl" />
+                  Desfijar
+                </button>
+                <button
+                  onClick={() => onArchiveRoom?.(selectedConv!.id)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                >
+                  <MaterialIcon name="archive" className="text-xl" />
+                  Archivar
+                </button>
+                <button
+                  onClick={() => onUnarchiveRoom?.(selectedConv!.id)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                >
+                  <MaterialIcon name="unarchive" className="text-xl" />
+                  Desarchivar
+                </button>
+                <button
+                  onClick={() => onExportChat?.("room", selectedConv!.id, selectedConv!.name)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                >
+                  <MaterialIcon name="download" className="text-xl" />
+                  Exportar chat
+                </button>
+                <button
                   onClick={handleLeaveRoom}
                   className="flex items-center gap-3 px-4 py-2.5 text-body-md text-error hover:bg-error-container/30 transition-colors w-full text-left"
                 >
@@ -1361,6 +1519,27 @@ export default function ChatPanel({
                     </div>
                   )}
                 </div>
+                <button
+                  onClick={() => onPinConversation?.("dm", selectedConv!.id)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                >
+                  <MaterialIcon name="push_pin" className="text-xl" />
+                  Fijar al top
+                </button>
+                <button
+                  onClick={() => onUnpinConversation?.("dm", selectedConv!.id)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                >
+                  <MaterialIcon name="push_pin" className="text-xl" />
+                  Desfijar
+                </button>
+                <button
+                  onClick={() => onExportChat?.("dm", selectedConv!.id, selectedConv!.name)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+                >
+                  <MaterialIcon name="download" className="text-xl" />
+                  Exportar chat
+                </button>
                 <button
                   onClick={handleHideConversation}
                   className="flex items-center gap-3 px-4 py-2.5 text-body-md text-error hover:bg-error-container/30 transition-colors w-full text-left"

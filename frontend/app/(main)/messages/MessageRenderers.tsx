@@ -525,14 +525,17 @@ import { api } from "@/lib/api";
 
 const MentionText = React.memo(function MentionText({ text, isOwn, members }: { text: string; isOwn: boolean; members?: ChatRoomMemberResponse[] }) {
   const mentionRegex = /@([A-Za-z\u00C0-\u017F]+(?: [A-Za-z\u00C0-\u017F]+)*)/g;
-  const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match;
-  while ((match = mentionRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
+  const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
+
+  // First pass: handle mentions
+  const mentionParts: React.ReactNode[] = [];
+  let mentionLastIndex = 0;
+  let mentionMatch;
+  while ((mentionMatch = mentionRegex.exec(text)) !== null) {
+    if (mentionMatch.index > mentionLastIndex) {
+      mentionParts.push(text.slice(mentionLastIndex, mentionMatch.index));
     }
-    const mentionedName = match[1];
+    const mentionedName = mentionMatch[1];
     const member = members?.find(
       (m) => m.user?.name?.toLowerCase() === mentionedName.toLowerCase()
     );
@@ -547,9 +550,9 @@ const MentionText = React.memo(function MentionText({ text, isOwn, members }: { 
       </span>
     );
     if (userId) {
-      parts.push(
+      mentionParts.push(
         <Link
-          key={match.index}
+          key={mentionMatch.index}
           href={`/profile/${userId}`}
           onClick={(e) => e.stopPropagation()}
         >
@@ -557,16 +560,54 @@ const MentionText = React.memo(function MentionText({ text, isOwn, members }: { 
         </Link>
       );
     } else {
-      parts.push(
-        <span key={match.index}>{mentionContent}</span>
+      mentionParts.push(
+        <span key={mentionMatch.index}>{mentionContent}</span>
       );
     }
-    lastIndex = match.index + match[0].length;
+    mentionLastIndex = mentionMatch.index + mentionMatch[0].length;
   }
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
+  if (mentionLastIndex < text.length) {
+    mentionParts.push(text.slice(mentionLastIndex));
   }
-  return <>{parts}</>;
+
+  // Now flatten and handle URLs in text segments
+  const processUrlInParts = (nodes: React.ReactNode[]): React.ReactNode[] => {
+    const result: React.ReactNode[] = [];
+    for (const node of nodes) {
+      if (typeof node === "string") {
+        // Linkify URLs in text nodes
+        let urlLastIndex = 0;
+        let urlMatch;
+        while ((urlMatch = urlRegex.exec(node)) !== null) {
+          if (urlMatch.index > urlLastIndex) {
+            result.push(node.slice(urlLastIndex, urlMatch.index));
+          }
+          const url = urlMatch[1];
+          result.push(
+            <a
+              key={urlMatch.index}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:opacity-80"
+            >
+              {url}
+            </a>
+          );
+          urlLastIndex = urlMatch.index + urlMatch[0].length;
+        }
+        if (urlLastIndex < node.length) {
+          result.push(node.slice(urlLastIndex));
+        }
+      } else {
+        // React element - leave as is
+        result.push(node);
+      }
+    }
+    return result;
+  };
+
+  return <span>{processUrlInParts(mentionParts)}</span>;
 });
 
 export const MessageBubble = React.memo(function MessageBubble({
@@ -576,6 +617,8 @@ export const MessageBubble = React.memo(function MessageBubble({
   onReactionChange,
   onScrollToMessage,
   onTogglePin,
+  onToggleStar,
+  onForward,
   onEdit,
   onDelete,
   members,
@@ -586,11 +629,25 @@ export const MessageBubble = React.memo(function MessageBubble({
   onReactionChange?: () => void;
   onScrollToMessage?: (id: string) => void;
   onTogglePin?: (msg: Message) => void;
+  onToggleStar?: (msg: Message) => void;
+  onForward?: (msg: Message) => void;
   onEdit?: (msg: Message) => void;
   onDelete?: (msg: Message) => void;
   members?: ChatRoomMemberResponse[];
 }) {
+  const [dataSaver, setDataSaver] = useState(false);
+  const [loadMedia, setLoadMedia] = useState<string | null>(null);
   const kind = message.kind || "text";
+
+  useEffect(() => {
+    const saved = localStorage.getItem("nexus-data-saver");
+    if (saved === "true") setDataSaver(true);
+  }, []);
+
+  const shouldLoadMedia = (url: string) => {
+    if (!dataSaver) return true;
+    return loadMedia === url;
+  };
 
   return (
     <div
@@ -642,7 +699,28 @@ export const MessageBubble = React.memo(function MessageBubble({
           {message.attachment_url &&
             ["image", "video", "audio"].some((t) => kind.startsWith(t)) && (
               <div className="mt-2">
-                {kind.startsWith("image") ? (
+                {dataSaver && !shouldLoadMedia(message.attachment_url!) ? (
+                  <button
+                    onClick={() => setLoadMedia(message.attachment_url!)}
+                    className="w-full aspect-video rounded-xl bg-surface-container-high flex flex-col items-center justify-center gap-2 p-4 text-center border border-outline-variant/30 hover:border-primary/50 transition-colors"
+                    title="Tocar para cargar (modo ahorro de datos activado)"
+                  >
+                    <MaterialIcon
+                      name={
+                        kind.startsWith("image") ? "image" :
+                        kind.startsWith("video") ? "videocam" : "music_note"
+                      }
+                      className="text-4xl text-on-surface-variant"
+                    />
+                    <span className="text-label-sm text-on-surface-variant">
+                      {kind.startsWith("image") ? "Imagen" :
+                       kind.startsWith("video") ? "Video" : "Audio"}
+                    </span>
+                    <span className="text-xs text-primary font-medium">
+                      Tocar para cargar
+                    </span>
+                  </button>
+                ) : kind.startsWith("image") ? (
                   <Image
                     src={mediaSrc(message.attachment_url)}
                     alt="Adjunto"
@@ -707,6 +785,28 @@ export const MessageBubble = React.memo(function MessageBubble({
             title={message.pinned ? "Dejar de fijar" : "Fijar mensaje"}
           >
             <MaterialIcon name="push_pin" className="text-base" filled={message.pinned} />
+          </button>
+        )}
+        {onToggleStar && (
+          <button
+            onClick={() => onToggleStar(message)}
+            className={`w-7 h-7 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors ${
+              message.starred
+                ? "text-warning"
+                : "text-on-surface-variant/60 hover:text-warning"
+            }`}
+            title={message.starred ? "Quitar de destacados" : "Destacar mensaje"}
+          >
+            <MaterialIcon name="star" className="text-base" filled={message.starred} />
+          </button>
+        )}
+        {onForward && (
+          <button
+            onClick={() => onForward(message)}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant/60 hover:text-on-surface-variant transition-colors"
+            title="Reenviar"
+          >
+            <MaterialIcon name="forward" className="text-base" />
           </button>
         )}
         <ReactionPicker

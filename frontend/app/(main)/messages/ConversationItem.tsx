@@ -39,6 +39,9 @@ export default function ConversationItem({
                 : "text-on-surface"
             }`}
           >
+            {conversation.is_pinned && (
+              <MaterialIcon name="push_pin" className="text-xs ml-1 text-primary" filled />
+            )}
             {conversation.name}
             {isRoom && (
               <MaterialIcon
@@ -60,7 +63,7 @@ export default function ConversationItem({
               ? formatTimestamp(conversation.last_message.created_at)
               : ""}
          </span>
-       </div>
+        </div>
         <div className="flex items-center justify-between mt-0.5">
           <p
             className={`text-label-sm truncate ${
@@ -77,7 +80,7 @@ export default function ConversationItem({
             </Badge>
           )}
        </div>
-     </div>
-   </button>
+      </div>
+    </button>
   );
 }
