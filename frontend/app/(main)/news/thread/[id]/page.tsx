@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { api, ForumThread, ForumComment } from "@/lib/api";
 import { GlassCard, Badge, Button, Avatar, MaterialIcon } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
+import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
 
 function timeAgo(dateStr: string): string {
   const d = new Date(dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr + "Z");
@@ -33,6 +34,11 @@ export default function ThreadDetailPage() {
   const [newComment, setNewComment] = useState("");
   const [posting, setPosting] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const {
+    textareaRef: commentRef,
+    height: commentHeight,
+  } = useAutoResizeTextarea({ minHeight: 80, maxHeight: 200 });
 
   useEffect(() => {
     if (!params.id) return;
@@ -220,10 +226,12 @@ export default function ThreadDetailPage() {
               />
               <div className="flex-1">
                 <textarea
+                  ref={commentRef}
+                  style={{ height: commentHeight }}
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   placeholder="Escribe tu respuesta... (gana 5 zerines)"
-                  className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors min-h-20 resize-none"
+                  className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors resize-none"
                 />
                 <div className="flex justify-end mt-2">
                   <Button

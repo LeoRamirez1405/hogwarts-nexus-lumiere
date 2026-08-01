@@ -8,6 +8,8 @@ import { api, Article, ArticleComment } from "@/lib/api";
 import { GlassCard, Badge, Button, Avatar, MaterialIcon } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
 import { toastError, toastSuccess } from "@/lib/toastStore";
+import { hapticLight, hapticSelection } from "@/lib/haptics";
+import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("es-ES", {
@@ -46,6 +48,10 @@ export default function ArticleDetailPage() {
   const [posting, setPosting] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
+  const {
+    textareaRef: commentRef,
+    height: commentHeight,
+  } = useAutoResizeTextarea({ minHeight: 80, maxHeight: 200 });
 
   useEffect(() => {
     if (!params.id) return;
@@ -110,6 +116,7 @@ export default function ArticleDetailPage() {
 
   const handleSubmitComment = async () => {
     if (!newComment.trim() || !authUser || !article || posting) return;
+    hapticLight();
     setPosting(true);
     try {
       const created = await api.createArticleComment(article.id, newComment.trim());
@@ -201,6 +208,8 @@ export default function ArticleDetailPage() {
               src={article.image_url}
               alt={article.title}
               fill
+              priority
+              sizes="(max-width: 768px) 100vw, 768px"
               className="object-cover"
               unoptimized={isLocalUpload(article.image_url)}
             />
@@ -223,6 +232,7 @@ export default function ArticleDetailPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
+                hapticSelection();
                 if (typeof navigator !== "undefined" && navigator.share) {
                   navigator.share({
                     title: article?.title ?? "Hogwarts Nexus",
@@ -288,10 +298,12 @@ export default function ArticleDetailPage() {
               />
               <div className="flex-1">
                 <textarea
+                  ref={commentRef}
+                  style={{ height: commentHeight }}
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   placeholder="Escribe tu carta..."
-                  className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors min-h-20 resize-none"
+                  className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors resize-none"
                 />
                 <div className="flex justify-end mt-2">
                   <Button

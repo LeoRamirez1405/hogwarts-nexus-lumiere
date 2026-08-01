@@ -28,13 +28,6 @@ export default function NewsAllPage() {
     enabled: true,
   });
 
-  // Calculate grid height based on number of articles
-  const columns = 3;
-  const itemHeight = 320;
-  const gap = 24;
-  const rowCount = Math.ceil(articles.length / columns);
-  const gridHeight = rowCount * itemHeight + (rowCount - 1) * gap + 100; // extra space for load more button
-
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
       {/* Header */}
@@ -143,14 +136,12 @@ export default function NewsAllPage() {
         </GlassCard>
       ) : (
         <>
-          <div style={{ height: Math.max(gridHeight, 400) }}>
-            <VirtualizedArticleGrid
-              articles={articles}
-              columns={3}
-              itemHeight={itemHeight}
-              gap={gap}
-            />
-          </div>
+          <VirtualizedArticleGrid
+            articles={articles}
+            columns={3}
+            itemHeight={320}
+            gap={24}
+          />
 
           {hasMore && (
             <div className="text-center pt-4">
