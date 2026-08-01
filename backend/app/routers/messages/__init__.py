@@ -20,6 +20,7 @@ from .search import router as search_router
 from .admin import router as admin_router
 from .scheduled import router as scheduled_router
 from .export import router as export_router
+from .link_preview import router as link_preview_router
 
 router = APIRouter()
 router.include_router(conversations_router)
@@ -31,6 +32,7 @@ router.include_router(search_router)
 router.include_router(admin_router)
 router.include_router(scheduled_router)
 router.include_router(export_router)
+router.include_router(link_preview_router)
 
 # Re-export symbols the rest of the app imports from routers.messages.
 from .deps import _close_redis, _delete_attachment_file, get_redis  # noqa: E402

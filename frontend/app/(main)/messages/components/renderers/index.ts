@@ -12,6 +12,7 @@ export { ReactionPicker } from "./ReactionPicker";
 export { MentionText } from "./MentionText";
 export { MessageActions } from "./MessageActions";
 export { MessageBubble } from "./MessageBubble";
+export { LinkPreviewView } from "./LinkPreviewView";
 export type {
   PollViewProps,
   StickerViewProps,

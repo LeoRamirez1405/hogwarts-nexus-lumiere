@@ -15,6 +15,7 @@ import { AudioView } from "./AudioView";
 import { MentionText } from "./MentionText";
 import { ReactionBar } from "./ReactionBar";
 import { MessageActions } from "./MessageActions";
+import { LinkPreviewView } from "./LinkPreviewView";
 import type { MessageBubbleProps } from "./types";
 
 const formatDisappearTime = (disappearAt: string) => {
@@ -93,6 +94,13 @@ export const MessageBubble = ({
             <p className="text-body-md wrap-break-word">
               <MentionText text={message.body} isOwn={isOwn} members={members} />
             </p>
+          )}
+
+          {message.metadata?.link_preview && (
+            <LinkPreviewView
+              preview={message.metadata.link_preview}
+              isOwn={isOwn}
+            />
           )}
 
           {message.attachment_url && ["image", "video", "audio"].some((t) => kind.startsWith(t)) && (

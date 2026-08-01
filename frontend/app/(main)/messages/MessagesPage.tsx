@@ -275,6 +275,17 @@ export default function MessagesPage() {
 
   const handleSend = async (data: MessageSendData) => {
     if (!selectedId || !selectedType) return;
+    const body = data.body || "";
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urls = body.match(urlRegex);
+    if (urls && urls.length > 0) {
+      try {
+        const preview = await api.getLinkPreview(urls[0]);
+        data.metadata = { ...(data.metadata || {}), link_preview: preview };
+      } catch {
+        // Silently ignore preview errors
+      }
+    }
     try {
       const msg = selectedType === "room" ? await api.sendRoomMessage(selectedId, data) : await api.sendMessage(data);
       setMessages((prev) => [...prev, msg]);

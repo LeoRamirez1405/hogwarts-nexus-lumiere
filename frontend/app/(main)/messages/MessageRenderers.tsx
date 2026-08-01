@@ -15,6 +15,7 @@ export {
   MentionText,
   MessageActions,
   MessageBubble,
+  LinkPreviewView,
 } from "./components/renderers";
 
 export type {
