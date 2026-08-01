@@ -8,6 +8,7 @@ import asyncio
 from datetime import datetime, timedelta
 
 from sqlalchemy import select, and_
+from sqlalchemy.orm import selectinload
 
 from .database import async_session
 from .config import settings
