@@ -398,14 +398,14 @@ Y en store: `navigator.vibrate?.([100, 50, 100])` para error.
 - [x] SearchBar clear button (mobile)
 - [x] Reemplazar `window.confirm()` en `useUnsavedChangesGuard` por `ConfirmDialog`
 
-### Sprint 4 — Accesibilidad & Polish (1 semana)
-- [ ] `@media (prefers-reduced-motion)` en `globals.css`
-- [ ] `aria-pressed` en filter chips
-- [ ] Skip-to-content link
-- [ ] Avatar alt text fix
-- [ ] Focus-visible audit en todos los componentes interactivos
-- [ ] Modal iOS toolbar fix (`max-h-[calc(100dvh-4rem)]`)
-- [ ] Sidebar backdrop blur
+### Sprint 4 — Accesibilidad & Polish (1 semana) ✅ COMPLETADO
+- [x] `@media (prefers-reduced-motion)` en `globals.css`
+- [x] `aria-pressed` en filter chips
+- [x] Skip-to-content link
+- [x] Avatar alt text fix
+- [x] Focus-visible audit en todos los componentes interactivos
+- [x] Modal iOS toolbar fix (`max-h-[calc(100dvh-4rem)]`)
+- [x] Sidebar backdrop blur
 
 ### Sprint 5 — Performance & Platform (1.5 semanas)
 - [ ] Bundle analyzer + size budget CI
