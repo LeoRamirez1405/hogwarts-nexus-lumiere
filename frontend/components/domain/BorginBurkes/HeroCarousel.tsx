@@ -27,10 +27,11 @@ interface HeroCarouselProps {
   onAddToCart: (product: Product) => void;
 }
 
-function ProductSlide({ product, displaySlidesLength, onAddToCart }: {
+function ProductSlide({ product, displaySlidesLength, onAddToCart, index }: {
   product: Product;
   displaySlidesLength: number;
   onAddToCart: (product: Product) => void;
+  index: number;
 }) {
   const fallbackSrc = getFallbackForProduct('borgin', detectTheme());
   const [imgSrc, setImgSrc] = React.useState(product.image_url || fallbackSrc);
@@ -56,6 +57,8 @@ function ProductSlide({ product, displaySlidesLength, onAddToCart }: {
                   className="object-cover"
                   unoptimized={product.image_url?.startsWith("http://localhost:8000/uploads/") || imgSrc.startsWith("/fallbacks/")}
                   onError={() => { if (imgSrc !== fallbackSrc) setImgSrc(fallbackSrc); }}
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  priority={index === 0}
                 />
                 <span className="absolute top-4 right-4 bg-black/60 backdrop-blur-md text-secondary-fixed text-label-sm uppercase px-3 py-1 rounded-full">
                   {product.category}
@@ -154,7 +157,6 @@ export function HeroCarousel({
   totalSlides,
   currentSlide,
   isJumping,
-  trackRef,
   onNextSlide,
   onPrevSlide,
   onGoToSlide,
@@ -202,6 +204,7 @@ export function HeroCarousel({
                 product={slide.product}
                 displaySlidesLength={displaySlides.length}
                 onAddToCart={onAddToCart}
+                index={i}
               />
             ) : (
               <InfoSlide

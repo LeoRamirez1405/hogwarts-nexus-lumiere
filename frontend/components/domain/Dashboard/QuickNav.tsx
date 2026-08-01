@@ -5,6 +5,7 @@ import { useRef } from "react";
 import GlassCard from "@/components/ui/GlassCard";
 import { MaterialIcon } from "@/components/ui";
 import { useSwipeable, useReducedMotion } from "@/hooks/useGestures";
+import { usePrefetchOnTouch } from "@/hooks/usePrefetchOnTouch";
 
 const quickNavItems = [
   { label: "Mensajes", icon: "mail", href: "/messages" },
@@ -41,36 +42,51 @@ export function QuickNav() {
         className="flex lg:hidden gap-3 overflow-x-auto pb-2 -mx-4 px-4 mb-8 snap-x"
       >
         {quickNavItems.map((item) => (
-          <Link
-            key={item.label}
-            href={item.href}
-            className="snap-start shrink-0"
-          >
-            <GlassCard className="flex items-center gap-3 px-4 py-3 hover:-translate-y-0.5 transition-transform cursor-pointer">
-              <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <MaterialIcon name={item.icon} className="text-xl" />
-              </div>
-              <span className="font-display text-body-sm text-on-surface whitespace-nowrap">
-                {item.label}
-              </span>
-            </GlassCard>
-          </Link>
+          <QuickNavChip key={item.label} item={item} />
         ))}
-      </div>
+     </div>
 
       {/* Desktop: grid layout */}
       <div className="hidden lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
         {quickNavItems.map((item) => (
-          <Link key={item.label} href={item.href}>
-            <GlassCard className="p-6 text-center hover:-translate-y-1 transition-transform cursor-pointer">
-              <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3">
-                <MaterialIcon name={item.icon} className="text-2xl" />
-              </div>
-              <p className="font-display text-body-md text-on-surface">{item.label}</p>
-            </GlassCard>
-          </Link>
+          <QuickNavCard key={item.label} item={item} />
         ))}
-      </div>
+     </div>
     </>
+  );
+}
+
+function QuickNavChip({ item }: { item: (typeof quickNavItems)[number] }) {
+  const prefetchRef = usePrefetchOnTouch(item.href);
+  return (
+    <Link
+      key={item.label}
+      href={item.href}
+      ref={prefetchRef}
+      className="snap-start shrink-0"
+    >
+      <GlassCard className="flex items-center gap-3 px-4 py-3 hover:-translate-y-0.5 transition-transform cursor-pointer" aria-pressed="false">
+        <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <MaterialIcon name={item.icon} className="text-xl" />
+       </div>
+        <span className="font-display text-body-sm text-on-surface whitespace-nowrap">
+          {item.label}
+       </span>
+     </GlassCard>
+   </Link>
+  );
+}
+
+function QuickNavCard({ item }: { item: (typeof quickNavItems)[number] }) {
+  const prefetchRef = usePrefetchOnTouch(item.href);
+  return (
+    <Link key={item.label} href={item.href} ref={prefetchRef}>
+      <GlassCard className="p-6 text-center hover:-translate-y-1 transition-transform cursor-pointer" aria-pressed="false">
+        <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3">
+          <MaterialIcon name={item.icon} className="text-2xl" />
+       </div>
+        <p className="font-display text-body-md text-on-surface">{item.label}</p>
+     </GlassCard>
+   </Link>
   );
 }

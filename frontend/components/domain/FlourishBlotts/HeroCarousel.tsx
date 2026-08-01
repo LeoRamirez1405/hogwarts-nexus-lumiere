@@ -31,11 +31,13 @@ const ProductSlide = memo(function ProductSlide({
   displaySlidesLength,
   theme,
   onAddToCart,
+  index,
 }: {
   product: Product;
   displaySlidesLength: number;
   theme: Theme;
   onAddToCart: (product: Product) => void;
+  index: number;
 }) {
   const fallbackSrc = getFallbackForProduct('flourish', theme);
   return (
@@ -53,6 +55,8 @@ const ProductSlide = memo(function ProductSlide({
               fill
               className="object-cover"
               unoptimized={!!product.image_url && (product.image_url.startsWith("http://localhost:8000/uploads/") || product.image_url.startsWith("/fallbacks/"))}
+              sizes="(max-width: 768px) 100vw, 50vw"
+              priority={index === 0}
             />
             <span className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm text-primary text-label-sm uppercase px-3 py-1 rounded-full">
               {product.category}
@@ -151,7 +155,6 @@ export function HeroCarousel({
   totalSlides,
   currentSlide,
   isJumping,
-  trackRef,
   onNextSlide,
   onPrevSlide,
   onGoToSlide,
@@ -200,6 +203,7 @@ export function HeroCarousel({
                 displaySlidesLength={displaySlides.length}
                 theme={theme}
                 onAddToCart={onAddToCart}
+                index={i}
               />
             ) : (
               <InfoSlide
