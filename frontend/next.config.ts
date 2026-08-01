@@ -1,10 +1,22 @@
 import type { NextConfig } from "next";
+import bundleAnalyzer from "@next/bundle-analyzer";
 
-// Content Security Policy (patron sin nonce recomendado por la documentacion de
-// Next.js). 'unsafe-inline' en script-src es necesario porque Next.js inyecta
-// scripts inline; sigue bloqueando scripts externos no confiables, inyeccion de
-// objetos, exfiltracion via connect-src y clickjacking.
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+});
+
+// Content Security Policy for nex.config.ts. 'unsafe-inline' en script-src es
+// necesario porque Next.js inyecta scripts inline; sigue bloqueando scripts
+// externos no confiables, inyeccion de objetos, exfiltracion via connect-src
+// y clickjacking.
 const isDev = process.env.NODE_ENV === "development";
+
+// Size budget thresholds (KiB, gzipped). If a chunk exceeds its limit the
+// build will emit a warning (non-fatal) so we catch regressions early.
+const SIZE_BUDGET_KIB = {
+  "first-load-js": 200,
+  "first-load-css": 50,
+};
 
 const cspHeader = `
   default-src 'self';
@@ -22,6 +34,23 @@ const cspHeader = `
 `;
 
 const nextConfig: NextConfig = {
+  // Bundle analyzer reports (run with ANALYZE=true env var)
+  // @see https://www.npmjs.com/package/@next/bundle-analyzer
+  ...(process.env.ANALYZE === "true"
+    ? {
+        webpack: (config) => {
+          config.performance = {
+            ...config.performance,
+            maxAssetSize: SIZE_BUDGET_KIB["first-load-js"] * 1024,
+            maxEntrypointSize: SIZE_BUDGET_KIB["first-load-js"] * 1024,
+            // Only warn — don't fail the build — so we can monitor over time
+            hints: "warning",
+          };
+          return config;
+        },
+      }
+    : {}),
+
   images: {
     // Loader propio: normaliza URLs de subidas a same-origin en un solo lugar
     // (ver lib/imageLoader.ts). Con loader propio next/image sirve directo, sin
@@ -91,4 +120,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

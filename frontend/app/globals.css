@@ -347,6 +347,38 @@
     }
   }
 
+  /* ===== FOCUS-VISIBLE (Keyboard Accessibility) =====
+     Applies a visible ring to interactive elements when they receive
+     keyboard focus. Mouse clicks do not trigger focus-visible, so
+     touch users won't see the ring (better UX on mobile). */
+  :focus-visible {
+    outline: 2px solid rgb(14 59 96 / 0.8); /* primary */
+    outline-offset: 2px;
+  }
+
+  /* For elements where outline looks bad (rounded icon buttons),
+     use a ring-style via box-shadow instead. */
+  a:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 2px solid rgb(14 59 96 / 0.8);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Skip link — visible only when focused */
+  .sr-only-focusable:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0.5rem 1rem;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: nowrap;
+  }
+
   /* ===== SAFE AREA ===== */
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 0px);

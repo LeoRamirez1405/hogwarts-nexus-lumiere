@@ -225,7 +225,7 @@ async function handleShareTarget(request) {
     const title = formData.get('title') || '';
     const text = formData.get('text') || '';
     const url = formData.get('url') || '';
-    const _files = formData.getAll('files');
+    formData.getAll('files');
 
     // Redirect to a page that handles the shared content
     const shareUrl = `/share-target?title=${encodeURIComponent(title)}&text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
