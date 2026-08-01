@@ -24,7 +24,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     return NextResponse.json(data);
-  } catch (_error) {
+  } catch {
     return NextResponse.json(
       { detail: "Failed to unsubscribe" },
       { status: 500 }

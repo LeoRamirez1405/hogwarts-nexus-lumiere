@@ -223,11 +223,21 @@ export default function ArticleDetailPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                navigator.clipboard?.writeText(window.location.href);
+                if (typeof navigator !== "undefined" && navigator.share) {
+                  navigator.share({
+                    title: article?.title ?? "Hogwarts Nexus",
+                    text: `Lee "${article?.title}" en Hogwarts Nexus`,
+                    url: window.location.href,
+                  }).catch(() => {
+                    /* user cancelled — do nothing */
+                  });
+                } else {
+                  navigator.clipboard?.writeText(window.location.href);
+                }
               }}
               className="w-10 h-10 inline-flex items-center justify-center rounded-full bg-surface-container-high hover:bg-primary-container text-on-surface-variant hover:text-on-primary-container transition-colors"
               aria-label="Compartir"
-              title="Copiar enlace"
+              title="Compartir"
             >
               <MaterialIcon name="share" className="text-xl" />
             </button>

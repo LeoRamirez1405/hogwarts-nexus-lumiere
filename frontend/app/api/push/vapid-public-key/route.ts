@@ -19,7 +19,7 @@ export async function GET() {
 
     const data = await res.json();
     return NextResponse.json(data);
-  } catch (_error) {
+  } catch {
     return NextResponse.json(
       { detail: "Failed to fetch VAPID key" },
       { status: 500 }
