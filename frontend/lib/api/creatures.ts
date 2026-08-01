@@ -1,7 +1,8 @@
-import { request, buildQuery } from "../core";
-import type { PaginationParams, Page } from "../core";
+import { request, buildQuery } from "./core";
+import type { PaginationParams, Page } from "./core";
 
 export type PetType = "Aves" | "Bestias" | "Criaturas pequeñas";
+export type PetItemKind = "food" | "toy";
 
 export interface Creature {
   id: string;
@@ -88,7 +89,7 @@ export interface PetItem {
   id: string;
   name: string;
   description?: string;
-  kind: "food" | "toy";
+  kind: PetItemKind;
   pet_type: PetType;
   price: number;
   restore_amount: number;

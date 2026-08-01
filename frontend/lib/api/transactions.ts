@@ -1,12 +1,13 @@
-import { request, buildQuery } from "../core";
-import type { PaginationParams, Page } from "../core";
+import { request, buildQuery } from "./core";
+import type { PaginationParams, Page } from "./core";
+import type { User } from "./users";
 
 export interface Transaction {
   id: string;
   sender_id?: string;
   receiver_id?: string;
-  sender?: import("./users").User;
-  receiver?: import("./users").User;
+  sender?: User;
+  receiver?: User;
   amount: number;
   type: "deposit" | "withdrawal" | "transfer" | "purchase";
   description: string;

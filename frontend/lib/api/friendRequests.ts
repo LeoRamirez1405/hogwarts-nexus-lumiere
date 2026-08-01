@@ -1,4 +1,5 @@
-import { request } from "../core";
+import { request, buildQuery } from "./core";
+import type { Page } from "./core";
 import type { User } from "./users";
 
 export interface FriendRequest {
@@ -20,17 +21,10 @@ export const friendRequestsApi = {
   getFriendsPage: (
     userId: string,
     pagination?: { skip?: number; limit?: number }
-  ) => {
-    const parts: string[] = [];
-    if (pagination?.skip !== undefined)
-      parts.push(`skip=${pagination.skip}`);
-    if (pagination?.limit !== undefined)
-      parts.push(`limit=${pagination.limit}`);
-    const qs = parts.length ? `?${parts.join("&")}` : "";
-    return request<import("./core").Page<User>>(
-      `/friend-requests/friends/${userId}/paginated${qs}`
-    );
-  },
+  ) =>
+    request<Page<User>>(
+      `/friend-requests/friends/${userId}/paginated${buildQuery(pagination ?? {})}`
+    ),
 
   unfriend: (userId: string) =>
     request<void>(`/friend-requests/unfriend/${userId}`, {

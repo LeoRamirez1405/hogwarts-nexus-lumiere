@@ -1,5 +1,5 @@
-import { request, buildQuery } from "../core";
-import type { PaginationParams, Page } from "../core";
+import { request, buildQuery } from "./core";
+import type { PaginationParams, Page } from "./core";
 import type { User } from "./users";
 
 export interface Notification {

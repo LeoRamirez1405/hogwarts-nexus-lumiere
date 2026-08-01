@@ -1,4 +1,4 @@
-import { uploadFile } from "../core";
+import { uploadFile } from "./core";
 
 export const uploadApi = {
   uploadFile: (file: File) =>

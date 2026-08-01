@@ -1,4 +1,4 @@
-import { attemptRefresh, API_BASE_VALUE } from "../core/client";
+import { attemptRefresh, API_BASE_VALUE } from "./core/client";
 
 interface SupportResponse {
   ok: boolean;

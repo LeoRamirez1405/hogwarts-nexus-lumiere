@@ -1,6 +1,8 @@
-import { request, buildQuery } from "../core";
-import type { PaginationParams, Page } from "../core";
+import { request, buildQuery, uploadFile, API_BASE_VALUE } from "./core";
+import type { PaginationParams, Page } from "./core";
 import type { User, UserSearchResult } from "./users";
+
+const API_BASE = API_BASE_VALUE;
 
 export interface MessageMetadata {
   transcription?: string;
@@ -419,13 +421,13 @@ export const messagesApi = {
 
   exportRoomChat: (roomId: string, format: "txt" | "json" = "txt"): Promise<Blob> =>
     fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || (typeof window !== "undefined" ? `${window.location.origin}/api` : "http://localhost:8000")}/messages/rooms/${roomId}/export?format=${format}`,
+      `${API_BASE}/messages/rooms/${roomId}/export?format=${format}`,
       { method: "GET", credentials: "include" }
     ).then((r) => r.blob()),
 
   exportDmChat: (userId: string, format: "txt" | "json" = "txt"): Promise<Blob> =>
     fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || (typeof window !== "undefined" ? `${window.location.origin}/api` : "http://localhost:8000")}/messages/dm/${userId}/export?format=${format}`,
+      `${API_BASE}/messages/dm/${userId}/export?format=${format}`,
       { method: "GET", credentials: "include" }
     ).then((r) => r.blob()),
 
@@ -443,8 +445,6 @@ export const messagesApi = {
 
   transcribeAudio: (blob: Blob): Promise<{ text: string }> => {
     const file = new File([blob], "voice.wav", { type: "audio/wav" });
-    return import("../core").then(({ uploadFile }) =>
-      uploadFile("/messages/transcribe", file)
-    );
+    return uploadFile("/messages/transcribe", file);
   },
 };

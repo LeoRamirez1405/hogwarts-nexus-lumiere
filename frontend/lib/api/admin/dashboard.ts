@@ -1,5 +1,5 @@
-import { request } from "../core";
-import type { Page } from "../core";
+import { request } from "../../core";
+import type { Page } from "../../core";
 import type { User } from "../users";
 import type { Transaction } from "../transactions";
 
