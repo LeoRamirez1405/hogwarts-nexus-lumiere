@@ -1,11 +1,11 @@
-import os
-from typing import List, Optional
+import json
+from io import BytesIO
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select
 
-import webpush
-from webpush import WebPushException
+from webpush import WebPush, WebPushException
 
 from ..config import settings
 from ..database import get_db
@@ -17,13 +17,14 @@ from ..middleware.auth import get_current_user
 router = APIRouter(prefix="/push", tags=["push"])
 
 
-# Configure webpush with VAPID
-if settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY:
-    webpush.set_vapid_details(
-        settings.VAPID_SUBJECT,
-        settings.VAPID_PUBLIC_KEY,
-        settings.VAPID_PRIVATE_KEY,
-    )
+def get_webpush() -> WebPush | None:
+    if settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY:
+        return WebPush(
+            private_key=BytesIO(settings.VAPID_PRIVATE_KEY.encode()),
+            public_key=BytesIO(settings.VAPID_PUBLIC_KEY.encode()),
+            subscriber=settings.VAPID_SUBJECT,
+        )
+    return None
 
 
 @router.get("/vapid-public-key")
@@ -113,19 +114,29 @@ async def send_test_notification(
             detail="No push subscriptions found for user",
         )
 
+    wp = get_webpush()
+    if not wp:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Push notifications not configured on server",
+        )
+
     sent_count = 0
     for sub in subscriptions:
         try:
             sub_data = eval(sub.subscription_json) if isinstance(sub.subscription_json, str) else sub.subscription_json
-            webpush.webpush(
-                subscription_info=sub_data,
-                data='{"title":"Notificación de prueba","body":"Las notificaciones push funcionan correctamente! 💎","icon":"/icons/icon-192.svg"}',
+            wp.send(
+                subscription=sub_data,
+                data=json.dumps({
+                    "title": "Notificación de prueba",
+                    "body": "Las notificaciones push funcionan correctamente! 💎",
+                    "icon": "/icons/icon-192.svg",
+                }),
             )
             sent_count += 1
         except WebPushException as e:
-            # If subscription expired (410), delete it
-            if e.response and e.response.status_code == 410:
-                await db.delete(sub)
+            # If subscription expired, delete it
+            await db.delete(sub)
             print(f"Push send failed: {e}")
 
     await db.commit()

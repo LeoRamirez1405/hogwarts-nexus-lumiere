@@ -1,20 +1,14 @@
 import json
 from datetime import datetime
-from typing import Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
 from ..database import get_db
-from ..models.user import User
-from ..models.message import Message, MessageReaction
+from ..models.message import Message
 from ..models.chat_room import ChatRoomMember, UserConversationPreference
 from ..middleware.auth import get_current_user_ws
 from ..ws_manager import manager
-from ..schemas.message import (
-    MessageResponse,
-    MessageReactionResponse,
-)
 from .messages import serialize_message
 
 router = APIRouter()
@@ -256,17 +250,6 @@ async def handle_typing_start(user_id: str, data: dict):
             room = room_result.scalar_one_or_none()
             if room:
                 await manager.broadcast_to_room(conversation_id, payload, exclude_user=user_id)
-            else:
-                # DM - send directly to the other user
-                # We need to find the other participant
-                from ..models.message import Message
-                msg_result = await db.execute(
-                    select(Message.receiver_id).where(
-                        (Message.sender_id == user_id) & (Message.receiver_id != None)
-                    ).distinct()
-                )
-                # For simplicity, we'll just send to the conversation partner if we can find them
-                pass
 
 
 async def handle_typing_stop(user_id: str, data: dict):
