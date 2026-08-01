@@ -17,6 +17,8 @@ class ChatRoom(Base):
     avatar_url = Column(String, nullable=True)
     type = Column(String, default="group", nullable=False)  # group / direct
     closed = Column(Boolean, default=False, nullable=False)
+    # If True, anyone joining via invite link must be approved by an admin first
+    join_approval = Column(Boolean, default=False, nullable=False)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -32,6 +34,12 @@ class ChatRoom(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    invites = relationship(
+        "RoomInvite",
+        back_populates="room",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
     creator = relationship(
         "User",
         lazy="selectin",
@@ -39,6 +47,27 @@ class ChatRoom(Base):
         overlaps="chat_rooms_created",
         viewonly=True,
     )
+
+
+class RoomInvite(Base):
+    __tablename__ = "room_invites"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    room_id = Column(String, ForeignKey("chat_rooms.id"), nullable=False)
+    # Random URL-safe token used in the share link
+    token = Column(String, nullable=False, unique=True, index=True)
+    created_by = Column(String, ForeignKey("users.id"), nullable=False)
+    # When set, the invite expires after this time
+    expires_at = Column(DateTime, nullable=True)
+    # When set, the invite can only be used `max_uses` times (None = unlimited)
+    max_uses = Column(Integer, nullable=True)
+    uses = Column(Integer, default=0, nullable=False)
+    # When True the invite is no longer visible/usable (manual revoke)
+    revoked = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    room = relationship("ChatRoom", back_populates="invites", lazy="selectin")
+    creator = relationship("User", lazy="selectin", foreign_keys=[created_by])
 
 
 class ChatRoomMember(Base):
@@ -51,6 +80,9 @@ class ChatRoomMember(Base):
     muted_until = Column(DateTime, nullable=True)  # None = not muted, datetime = muted until
     last_read_at = Column(DateTime, nullable=True)  # last time this member read the room
     archived = Column(Boolean, default=False, nullable=False)
+    # When True the user requested to join via invite link and is waiting
+    # for admin approval (effective only when room.join_approval = True)
+    pending = Column(Boolean, default=False, nullable=False)
     joined_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     room = relationship("ChatRoom", back_populates="members", lazy="selectin")

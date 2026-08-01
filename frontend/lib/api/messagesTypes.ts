@@ -5,6 +5,7 @@ export interface MessageMetadata {
   size?: number;
   duration?: number;
   post?: SharedPostMeta;
+  link_preview?: LinkPreviewResponse;
   [key: string]: unknown;
 }
 
@@ -80,6 +81,7 @@ export interface ChatRoomMemberResponse {
   user_id: string;
   role: string;
   joined_at: string;
+  pending: boolean;
   user?: User;
 }
 
@@ -90,6 +92,7 @@ export interface ChatRoomBrief {
   avatar_url?: string;
   type: string;
   closed: boolean;
+  join_approval: boolean;
   created_by: string;
   created_at: string;
   member_count: number;
@@ -102,6 +105,7 @@ export interface ChatRoomResponse {
   avatar_url?: string;
   type: string;
   closed: boolean;
+  join_approval: boolean;
   created_by: string;
   created_at: string;
   members: ChatRoomMemberResponse[];
@@ -172,6 +176,55 @@ export interface SharedPostMeta {
   body: string;
   image_url?: string;
   created_at?: string;
+}
+
+export interface RoomInviteCreate {
+  expires_at?: string;
+  max_uses?: number;
+}
+
+export interface RoomInviteResponse {
+  id: string;
+  room_id: string;
+  token: string;
+  created_by: string;
+  expires_at?: string;
+  max_uses?: number;
+  uses: number;
+  revoked: boolean;
+  created_at: string;
+}
+
+export interface RoomInviteInfoResponse {
+  room_id: string;
+  room_name: string;
+  room_avatar_url?: string;
+  member_count: number;
+  requires_approval: boolean;
+  expired: boolean;
+  revoked: boolean;
+  uses_exhausted: boolean;
+}
+
+export interface RoleUpdateRequest {
+  role: "admin" | "member";
+}
+
+export interface PendingMemberAction {
+  user_id: string;
+  action: "approve" | "reject";
+}
+
+export interface LinkPreviewRequest {
+  url: string;
+}
+
+export interface LinkPreviewResponse {
+  url: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  site_name?: string;
 }
 
 export type { UserSearchResult };

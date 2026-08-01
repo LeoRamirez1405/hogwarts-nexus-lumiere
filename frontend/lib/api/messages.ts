@@ -12,6 +12,10 @@ import type {
   MessageReaction,
   MessageSendData,
   UpdateRoomData,
+  RoomInviteCreate,
+  RoomInviteResponse,
+  RoomInviteInfoResponse,
+  LinkPreviewResponse,
 } from "./messagesTypes";
 
 const API_BASE = API_BASE_VALUE;
@@ -281,4 +285,50 @@ export const messagesApi = {
     const file = new File([blob], "voice.wav", { type: "audio/wav" });
     return uploadFile("/messages/transcribe", file);
   },
+
+  // Room invites
+  createRoomInvite: (roomId: string, data: RoomInviteCreate) =>
+    request<RoomInviteResponse>(`/messages/rooms/${roomId}/invites`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getRoomInvites: (roomId: string) =>
+    request<RoomInviteResponse[]>(`/messages/rooms/${roomId}/invites`),
+
+  revokeRoomInvite: (roomId: string, inviteId: string) =>
+    request<void>(`/messages/rooms/${roomId}/invites/${inviteId}`, {
+      method: "DELETE",
+    }),
+
+  getInviteInfo: (token: string) =>
+    request<RoomInviteInfoResponse>(`/messages/invites/${token}`),
+
+  joinRoomByInvite: (token: string) =>
+    request<RoomInviteInfoResponse>(`/messages/invites/${token}/join`, {
+      method: "POST",
+    }),
+
+  // Member role & approval
+  changeMemberRole: (roomId: string, memberId: string, role: "admin" | "member") =>
+    request<ChatRoomMemberResponse>(
+      `/messages/rooms/${roomId}/members/${memberId}/role`,
+      { method: "PUT", body: JSON.stringify({ action: role }) }
+    ),
+
+  approvePendingMember: (roomId: string, userId: string, action: "approve" | "reject") =>
+    request<ChatRoomMemberResponse | { ok: boolean; rejected: boolean }>(
+      `/messages/rooms/${roomId}/members/approve`,
+      { method: "POST", body: JSON.stringify({ user_id: userId, action }) }
+    ),
+
+  getPendingMembers: (roomId: string) =>
+    request<ChatRoomMemberResponse[]>(`/messages/rooms/${roomId}/members/pending`),
+
+  // Link preview
+  getLinkPreview: (url: string) =>
+    request<LinkPreviewResponse>("/messages/link-preview", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    }),
 };

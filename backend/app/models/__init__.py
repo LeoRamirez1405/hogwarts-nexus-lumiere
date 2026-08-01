@@ -12,7 +12,7 @@ from .transaction import Transaction
 from .article_subscription import ArticleSubscription, Notification
 from .announcement import Announcement
 from .classified import Classified
-from .chat_room import ChatRoom, ChatRoomMember, UserConversationPreference
+from .chat_room import ChatRoom, ChatRoomMember, UserConversationPreference, RoomInvite
 from .forum import ForumThread, ForumThreadVote, ForumComment, ForumSubscription
 from .enum_type import EnumCategory, EnumValue
 from .feature_flag import FeatureFlag

@@ -18,6 +18,7 @@ class ChatRoomUpdate(BaseModel):
     description: Optional[str] = None
     avatar_url: Optional[str] = None
     closed: Optional[bool] = None
+    join_approval: Optional[bool] = None
 
 
 class ChatRoomMemberResponse(BaseModel):
@@ -27,10 +28,66 @@ class ChatRoomMemberResponse(BaseModel):
     role: str
     muted_until: Optional[datetime] = None
     joined_at: datetime
+    pending: bool = False
     user: Optional[UserResponse] = None
 
     class Config:
         from_attributes = True
+
+
+class RoomInviteCreate(BaseModel):
+    expires_at: Optional[datetime] = None
+    max_uses: Optional[int] = None
+
+
+class RoomInviteResponse(BaseModel):
+    id: str
+    room_id: str
+    token: str
+    created_by: str
+    expires_at: Optional[datetime] = None
+    max_uses: Optional[int] = None
+    uses: int
+    revoked: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RoomInviteInfoResponse(BaseModel):
+    """Public info about an invite (used by the join modal before joining)."""
+    room_id: str
+    room_name: str
+    room_avatar_url: Optional[str] = None
+    member_count: int
+    requires_approval: bool
+    expired: bool
+    revoked: bool
+    uses_exhausted: bool
+
+
+class RoleUpdateRequest(BaseModel):
+    role: str  # "admin" | "member"
+
+
+class PendingMemberAction(BaseModel):
+    """Body for approve / reject pending members."""
+    user_id: str
+    action: str  # "approve" | "reject"
+
+
+class LinkPreviewRequest(BaseModel):
+    url: str
+
+
+class LinkPreviewResponse(BaseModel):
+    url: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    image: Optional[str] = None
+    site_name: Optional[str] = None
+
 
 
 class ChatRoomResponse(BaseModel):
@@ -40,6 +97,7 @@ class ChatRoomResponse(BaseModel):
     avatar_url: Optional[str] = None
     type: str
     closed: bool = False
+    join_approval: bool = False
     created_by: str
     created_at: datetime
     members: List[ChatRoomMemberResponse] = Field(default_factory=list)
@@ -55,6 +113,7 @@ class ChatRoomBrief(BaseModel):
     avatar_url: Optional[str] = None
     type: str
     closed: bool = False
+    join_approval: bool = False
     created_by: str
     created_at: datetime
     member_count: int = 0
