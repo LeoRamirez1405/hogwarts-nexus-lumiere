@@ -47,7 +47,7 @@ export default function LanguageSelector() {
   return (
     <div className="relative group">
       <button
-        className="flex items-center gap-2 px-3 py-2 rounded-full text-body-md text-on-surface-variant hover:bg-surface-container-high transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        className="flex items-center gap-2 px-3 py-2 rounded-full text-body-md text-on-surface-variant hover:bg-surface-container-high transition-colors focus:outline-none"
         aria-label={`Idioma actual: ${selected.label}`}
       >
         <span className="text-label-sm font-medium">{selected.code}</span>

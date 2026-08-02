@@ -23,7 +23,8 @@ function DiamondIcon({ className }: { className?: string }) {
     <MaterialIcon
       name="diamond"
       filled
-      className={className ?? "text-[0.85em] mr-1 align-middle"}
+      inline
+      className={className ?? "text-[0.85em] mr-1"}
     />
   );
 }

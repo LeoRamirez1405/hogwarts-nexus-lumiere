@@ -44,7 +44,7 @@ export default function Pagination({
   const pages = getVisiblePages(page, totalPages);
 
   const btnBase =
-    "w-9 h-9 inline-flex items-center justify-center rounded-full text-label-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+    "w-9 h-9 inline-flex items-center justify-center rounded-full text-label-sm font-medium transition-colors focus:outline-none";
 
   return (
     <nav
