@@ -12,7 +12,6 @@ import {
 import { GlassCard, MaterialIcon } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
 import { useNotificationStore } from "@/lib/notificationStore";
-import { Virtuoso } from "react-virtuoso";
 
 function timeAgo(dateStr: string): string {
   const d = new Date(dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr + "Z");
@@ -34,7 +33,10 @@ export default function NotificationsPage() {
     notifications,
     loading,
     loaded,
+    hasMore,
+    loadingMore,
     load,
+    loadMore,
     markRead,
     markAllRead,
   } = useNotificationStore();
@@ -144,9 +146,11 @@ export default function NotificationsPage() {
           </p>
         </GlassCard>
       ) : (
-        <Virtuoso
-          data={visible}
-          itemContent={(index, n: Notification) => {
+        // Plain list, not virtualized: notifications are capped at 100 and a
+        // simple list renders reliably everywhere (react-virtuoso frequently
+        // measured a height of 0 in this layout and rendered no items).
+        <div className="flex flex-col gap-2">
+          {visible.map((n: Notification) => {
             const meta = notificationMeta(n.type);
             return (
               <div
@@ -188,8 +192,29 @@ export default function NotificationsPage() {
                 )}
               </div>
             );
-          }}
-        />
+          })}
+          {hasMore && (
+            <div className="pt-1 flex justify-center">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/10 text-primary text-label-md font-medium hover:bg-primary/20 transition-colors disabled:opacity-60"
+              >
+                {loadingMore ? (
+                  <>
+                    <MaterialIcon name="progress_activity" className="text-lg animate-spin" />
+                    Cargando...
+                  </>
+                ) : (
+                  <>
+                    <MaterialIcon name="expand_more" className="text-lg" />
+                    Cargar más
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

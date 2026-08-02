@@ -14,8 +14,19 @@ export interface Notification {
   created_at: string;
 }
 
+export interface NotificationPage {
+  items: Notification[];
+  has_more: boolean;
+}
+
 export const notificationsApi = {
-  getNotifications: () => request<Notification[]>("/notifications/"),
+  getNotifications: (opts?: { limit?: number; cursor?: string }) => {
+    const params = new URLSearchParams();
+    if (opts?.limit) params.set("limit", String(opts.limit));
+    if (opts?.cursor) params.set("cursor", opts.cursor);
+    const qs = params.toString();
+    return request<NotificationPage>(`/notifications/${qs ? `?${qs}` : ""}`);
+  },
 
   getUnreadNotificationCount: () =>
     request<{ count: number }>("/notifications/unread-count"),
