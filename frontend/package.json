@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack --experimental-https --experimental-https-cert ./certificates/localhost.pem --experimental-https-key ./certificates/localhost-key.pem",
+    "dev": "next dev --webpack --experimental-https --experimental-https-cert ./certs/localhost+2.pem --experimental-https-key ./certs/localhost+2-key.pem",
     "dev:http": "next dev",
     "build": "next build",
     "start": "next start",

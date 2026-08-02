@@ -30,15 +30,13 @@ export function useServiceWorker() {
 
     if (!supported) return;
 
-    // Do NOT register the service worker in development. A custom SW that
-    // caches /_next/* assets and proxies fetches interferes with Next.js dev
-    // HMR/Fast Refresh: the version-mismatch between freshly built HTML and
-    // SW-served chunks makes Next force a full reload, which the SW then
-    // "fixes" the same way again -> an endless page-reload loop (the loop seen
-    // on /login and /dashboard during `next dev`). Ship the SW only in prod.
-    if (process.env.NODE_ENV !== "production") {
-      // Also proactively unregister any SW left over from a previous prod
-      // build / earlier dev session, so it stops controlling this origin.
+    // In production the SW is always registered. In development it is only
+    // registered when NEXT_PUBLIC_ENABLE_SW=true (for PWA install/push testing
+    // from a phone); otherwise we proactively unregister any SW left over from
+    // a previous prod build / earlier dev session, so it stops controlling
+    // this origin (a custom SW that caches /_next/* assets interferes with
+    // Next.js dev HMR/Fast Refresh and caused an endless reload loop).
+    if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_ENABLE_SW !== "true") {
       navigator.serviceWorker.getRegistrations().then((regs) => {
         regs.forEach((reg) => reg.unregister());
       });

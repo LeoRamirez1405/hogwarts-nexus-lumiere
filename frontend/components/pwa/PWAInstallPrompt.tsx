@@ -18,7 +18,13 @@ export default function PWAInstallPrompt({ variant = "banner", className = "" }:
   // Local state for banner dismissal (session only)
   const [dismissed, setDismissed] = useState(false);
 
-  // Only show banner if installable and not already installed
+  // Only show if installable and not already installed. A button that does
+  // nothing (beforeinstallprompt never fired: HTTP, untrusted cert, no SW)
+  // is worse UX than no button at all.
+  if (variant === "button" && (!isInstallable || isInstalled)) {
+    return null;
+  }
+
   if (variant === "banner" && (!isInstallable || isInstalled || dismissed)) {
     return null;
   }

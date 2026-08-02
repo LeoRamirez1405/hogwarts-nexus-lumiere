@@ -3,11 +3,11 @@
  * Handles: Push notifications, offline caching, background sync
  */
 
-// Bumped to v2 so activate() purges the old v1 cache, which contained stale
-// HTML for '/' and '/dashboard'. Caching those app-shell pages made the SW
-// serve them from cache — bypassing the auth proxy — which produced an endless
-// / -> /dashboard -> /login navigation loop. We no longer precache HTML pages.
-const CACHE_NAME = 'nexus-lumiere-v2';
+// Bumped to v3: fixes the "Response body is already used" clone race (clone
+// was happening after `await caches.open()`, by which time the page had
+// already consumed the response body) and stops intercepting Next.js RSC
+// fetches. v2 purged the v1 HTML cache; we still never cache HTML pages.
+const CACHE_NAME = 'nexus-lumiere-v3';
 const STATIC_ASSETS = [
   '/manifest.json',
 ];
@@ -15,9 +15,9 @@ const STATIC_ASSETS = [
 // Cache strategies
 const CACHE_STRATEGIES = {
   // Network first, fallback to cache (for API calls)
-  networkFirst: ['/api/'],
+  networkFirst: ['/api/', '/_next/static/'],
   // Cache first, fallback to network (for static assets)
-  cacheFirst: ['/icons/', '/fallbacks/', '/_next/static/'],
+  cacheFirst: ['/icons/', '/fallbacks/'],
   // Stale while revalidate (for pages)
   staleWhileRevalidate: ['/'],
 };
@@ -65,6 +65,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Never intercept Next.js RSC payload fetches (client-side navigation data).
+  // They are consumed once by the router; caching them adds no value and the
+  // cloned body race breaks navigations (and Fast Refresh in dev).
+  if (url.searchParams.has('_rsc')) {
+    return;
+  }
+
   // Determine cache strategy
   let strategy = 'networkFirst';
   for (const [key, paths] of Object.entries(CACHE_STRATEGIES)) {
@@ -88,12 +95,33 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
+/**
+ * Cache a GET response (best-effort).
+ *
+ * IMPORTANT: the response body is a one-shot stream. `response.clone()` must
+ * happen *synchronously* here, before any await — as soon as we await (e.g.
+ * `caches.open`) the body may already be streamed to the page, and the
+ * subsequent clone() throws "Response body is already used", which rejects the
+ * fetch promise and breaks the page/API call. Cache writes never fail a
+ * request: anything that goes wrong here is swallowed.
+ */
+function cachePutSafe(request, response) {
+  let clone;
+  try {
+    clone = response.clone();
+  } catch {
+    return Promise.resolve();
+  }
+  return caches.open(CACHE_NAME)
+    .then((cache) => cache.put(request, clone))
+    .catch(() => {});
+}
+
 async function networkFirst(request) {
   try {
     const networkResponse = await fetch(request);
     if (networkResponse.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, networkResponse.clone());
+      cachePutSafe(request, networkResponse);
     }
     return networkResponse;
   } catch (error) {
@@ -115,22 +143,17 @@ async function cacheFirst(request) {
     // Update cache in background
     fetch(request).then((networkResponse) => {
       if (networkResponse.ok) {
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse));
+        cachePutSafe(request, networkResponse);
       }
     }).catch(() => {});
     return cachedResponse;
   }
 
-  try {
-    const networkResponse = await fetch(request);
-    if (networkResponse.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, networkResponse.clone());
-    }
-    return networkResponse;
-  } catch (error) {
-    throw error;
+  const networkResponse = await fetch(request);
+  if (networkResponse.ok) {
+    cachePutSafe(request, networkResponse);
   }
+  return networkResponse;
 }
 
 async function staleWhileRevalidate(request) {
@@ -138,7 +161,7 @@ async function staleWhileRevalidate(request) {
 
   const fetchPromise = fetch(request).then((networkResponse) => {
     if (networkResponse.ok) {
-      caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse.clone()));
+      cachePutSafe(request, networkResponse);
     }
     return networkResponse;
   }).catch(() => cachedResponse);
