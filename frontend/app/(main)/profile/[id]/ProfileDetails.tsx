@@ -135,7 +135,7 @@ export default function ProfileDetails({
 
   return (
     <GlassCard className="p-6">
-      <h3 className="text-title-md font-display text-on-surface mb-4">
+      <h3 className="text-title-md font-display text-on-surface text-center mb-4">
         Detalles
       </h3>
       <ul className="space-y-3">
@@ -181,11 +181,18 @@ export default function ProfileDetails({
                 maxLength={60}
               />
             ) : (
-              <span className={`text-body-md ${profile.official_title ? "text-on-surface-variant font-medium" : "text-on-surface-variant/50 italic"}`}>
+              <span
+                className={`text-body-md ${
+                  profile.official_title
+                    ? "text-on-surface-variant font-medium"
+                    : "text-on-surface-variant/50 italic"
+                } ${isAdmin ? "cursor-pointer hover:text-primary transition-colors" : ""}`}
+                onClick={isAdmin ? () => setEditingTitle(true) : undefined}
+              >
                 {profile.official_title || "Sin titulo oficial"}
               </span>
             )}
-            {isAdmin && (
+            {isAdmin && profile.official_title && (
               <button
                 onClick={() => setEditingTitle(!editingTitle)}
                 className="ml-auto opacity-0 group-hover:opacity-100 p-1 rounded-full hover:bg-surface-container-high transition-opacity"
