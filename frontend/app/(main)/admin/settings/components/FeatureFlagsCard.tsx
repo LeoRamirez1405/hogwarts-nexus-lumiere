@@ -44,7 +44,7 @@ export function FeatureFlagsCard({ flags, loading, updatingKey, onToggle }: Feat
             return (
               <div
                 key={flag.key}
-                className="flex items-center justify-between gap-4 p-4 rounded-xl bg-surface-container-low border border-outline-variant/20"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-surface-container-low border border-outline-variant/20"
               >
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
@@ -68,12 +68,14 @@ export function FeatureFlagsCard({ flags, loading, updatingKey, onToggle }: Feat
                     )}
                   </div>
                 </div>
-                <Switch
-                  checked={flag.enabled}
-                  onChange={() => onToggle(flag)}
-                  disabled={updatingKey === flag.key}
-                  label={flag.name}
-                />
+                <div className="sm:shrink-0">
+                  <Switch
+                    checked={flag.enabled}
+                    onChange={() => onToggle(flag)}
+                    disabled={updatingKey === flag.key}
+                    label={flag.name}
+                  />
+                </div>
               </div>
             );
           })}

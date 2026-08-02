@@ -254,7 +254,7 @@ export default function AdminPetItemsPage() {
                   </p>
                   <div className="flex items-center justify-between mb-1">
                     <p className="font-display text-title-md text-secondary">
-                      <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled /> {it.price.toLocaleString()}
+                      <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled inline /> {it.price.toLocaleString()}
                     </p>
                     <p className="text-label-sm text-success font-medium">
                       +{it.restore_amount} {it.kind === "food" ? "hambre" : "felicidad"}

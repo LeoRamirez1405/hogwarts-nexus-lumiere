@@ -233,7 +233,7 @@ export default function AdminCreaturesPage() {
                   )}
                   <div className="flex items-center justify-between">
                     <p className="font-display text-title-md text-secondary">
-                      <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled /> {c.price.toLocaleString()}
+                      <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled inline /> {c.price.toLocaleString()}
                     </p>
                     <p className="text-label-sm text-on-surface-variant capitalize">
                       {RARITY_LABELS[c.rarity] || c.rarity}

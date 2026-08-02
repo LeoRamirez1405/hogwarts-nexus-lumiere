@@ -234,7 +234,7 @@ export default function AdminUsersPage() {
                   <div className="flex flex-col gap-1">
                     <span className="text-label-sm text-on-surface-variant">Zerines</span>
                     <span className="text-body-md text-on-surface font-medium">
-                      <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled /> {u.zerines.toLocaleString()}
+                      <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled inline /> {u.zerines.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -318,7 +318,7 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="px-6 py-4 hidden sm:table-cell">
                         <p className="text-body-md text-on-surface font-medium">
-                          <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled /> {u.zerines.toLocaleString()}
+                          <MaterialIcon name="diamond" className="text-secondary" filled inline /> {u.zerines.toLocaleString()}
                         </p>
                       </td>
                       <td className="px-6 py-4">

@@ -260,7 +260,7 @@ export default function AdminProductsPage() {
                 </p>
                 <div className="flex items-center justify-between">
                   <p className="font-display text-title-md text-secondary">
-                    <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled /> {p.price.toLocaleString()}
+                    <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled inline /> {p.price.toLocaleString()}
                   </p>
                   <p className="text-label-sm text-on-surface-variant">
                     Stock: {p.stock}

@@ -76,28 +76,28 @@ export function useAdminGroups() {
       if (page === 0) {
         setAllUsers(result.items);
         setUsersPage(result);
-      } else if (usersPage) {
-        const updated = {
-          ...usersPage,
-          items: [...usersPage.items, ...result.items],
+      } else {
+        setUsersPage(prev => prev ? {
+          ...prev,
+          items: [...prev.items, ...result.items],
           has_more: result.has_more,
           skip: result.skip,
-        };
-        setUsersPage(updated);
-        setAllUsers(updated.items);
+        } : result);
+        setAllUsers(prev => [...prev, ...result.items]);
       }
       const userMap: Record<string, User> = {};
       result.items.forEach((u) => { userMap[u.id] = u; });
-      if (usersPage && page > 0) {
-        usersPage.items.forEach((u) => { userMap[u.id] = u; });
-      }
-      setAllUsersMap(userMap);
+      setAllUsersMap(prev => {
+        const next = { ...prev };
+        result.items.forEach((u) => { next[u.id] = u; });
+        return next;
+      });
     } catch (e) {
       toastError("No se pudieron cargar los usuarios", e);
     } finally {
       setUsersLoadingMore(false);
     }
-  }, [usersPage]);
+  }, []);
 
   useEffect(() => {
     if (user?.role !== "admin") {
@@ -106,7 +106,8 @@ export function useAdminGroups() {
     }
     const timer = setTimeout(() => { loadUsers(); }, 0);
     return () => clearTimeout(timer);
-  }, [user, router, loadUsers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, router]);
 
   return {
     crud,
