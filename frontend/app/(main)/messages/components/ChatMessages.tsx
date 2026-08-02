@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo, useEffect } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { MaterialIcon } from "../helpers";
 import { MessageBubble } from "../MessageRenderers";
@@ -18,6 +19,7 @@ interface ChatMessagesProps {
   isRoom: boolean;
   roomMembers?: ChatRoomMemberResponse[];
   typingUsers?: Map<string, string>;
+  replyingToId?: string | null;
   showScrollBtn: boolean;
   newCount: number;
   onScrollToBottom: () => void;
@@ -43,6 +45,7 @@ export default function ChatMessages({
   isRoom,
   roomMembers,
   typingUsers,
+  replyingToId,
   showScrollBtn,
   newCount,
   onScrollToBottom,
@@ -54,6 +57,23 @@ export default function ChatMessages({
   onEdit,
   onDelete,
 }: ChatMessagesProps) {
+  // Force re-evaluation every 5s so messages with disappear_at that just
+  // passed get filtered out without waiting for a backend sweep.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  const visibleMessages = useMemo(
+    () =>
+      messages.filter((m) => {
+        if (!m.disappear_at) return true;
+        return new Date(m.disappear_at).getTime() > now;
+      }),
+    [messages, now]
+  );
+
   return (
     <>
       <div
@@ -61,7 +81,7 @@ export default function ChatMessages({
         onScroll={onScroll}
         className="h-full overflow-y-auto px-4 py-4 no-scrollbar"
       >
-        {messages.length === 0 ? (
+        {visibleMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <MaterialIcon name="forum" className="text-5xl text-outline-variant mb-3" />
             <p className="text-on-surface-variant text-body-md">
@@ -87,7 +107,7 @@ export default function ChatMessages({
               </p>
             )}
             <Virtuoso
-              data={messages}
+              data={visibleMessages}
               itemContent={(index, msg: Message) => (
                 <div key={msg.id}>
                   {firstUnreadId && msg.id === firstUnreadId && (
@@ -104,6 +124,7 @@ export default function ChatMessages({
                   <MessageBubble
                     message={msg}
                     isOwn={msg.sender_id === user?.id}
+                    isReplyTarget={replyingToId === msg.id}
                     onReply={onReply}
                     onReactionChange={onRefresh}
                     onScrollToMessage={onScrollToMessage}

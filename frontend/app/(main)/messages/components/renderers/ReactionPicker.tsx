@@ -37,7 +37,7 @@ export const ReactionPicker = ({ messageId, onReacted }: ReactionPickerProps) =>
     <div className="relative" ref={ref}>
       <button
         onClick={() => setShowPicker(!showPicker)}
-        className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant/60 hover:text-on-surface-variant transition-colors opacity-0 group-hover:opacity-100"
+        className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant/60 hover:text-on-surface-variant transition-colors"
         title="Reaccionar"
       >
         <MaterialIcon name="add_reaction" className="text-lg" />

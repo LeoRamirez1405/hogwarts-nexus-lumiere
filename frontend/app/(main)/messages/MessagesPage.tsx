@@ -74,6 +74,8 @@ export default function MessagesPage() {
   const messagesRef = useRef(messages);
   const hasMoreRef = useRef(hasMore);
   const loadingOlderRef = useRef(loadingOlder);
+  const cachedMessagesRef = useRef<Message[]>([]);
+  const saveMessagesToDBRef = useRef<(messages: Message[]) => Promise<void>>(() => Promise.resolve());
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -84,6 +86,11 @@ export default function MessagesPage() {
   }, [selectedId, selectedType, messages, hasMore, loadingOlder]);
 
   const { cachedMessages, saveMessages: saveMessagesToDB } = useIndexedDBMessages(selectedId, selectedType);
+
+  useEffect(() => {
+    cachedMessagesRef.current = cachedMessages;
+    saveMessagesToDBRef.current = saveMessagesToDB as (messages: Message[]) => Promise<void>;
+  }, [cachedMessages, saveMessagesToDB]);
   const { outboxMessages, processOutbox, addMessage: addToOutbox } = useOutbox();
 
   // Initial load
@@ -200,7 +207,7 @@ export default function MessagesPage() {
     if (!selectedId || !selectedType) return;
     let cancelled = false;
     (async () => {
-      if (cachedMessages.length > 0) setMessages(cachedMessages);
+      if (cachedMessagesRef.current.length > 0) setMessages(cachedMessagesRef.current);
       setHasMore(false);
       setFirstUnreadId(null);
       setUnreadCount(0);
@@ -211,12 +218,12 @@ export default function MessagesPage() {
           : await api.getMessages(selectedId, PAGE_SIZE);
         if (cancelled) return;
         setMessages(page.messages);
-        saveMessagesToDB(page.messages);
+        saveMessagesToDBRef.current(page.messages);
         setHasMore(page.has_more);
         setFirstUnreadId(page.first_unread_id ?? null);
         setUnreadCount(page.unread_count);
         setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, unread_count: 0 } : c));
-      } catch { if (!cancelled && cachedMessages.length === 0) setMessages([]); }
+      } catch { if (!cancelled && cachedMessagesRef.current.length === 0) setMessages([]); }
       try {
         const pins = selectedType === "room" ? await api.getRoomPinned(selectedId) : await api.getDmPinned(selectedId);
         if (!cancelled) setPinnedMessages(pins);
@@ -227,7 +234,7 @@ export default function MessagesPage() {
       } else { if (!cancelled) setRoomMembers([]); }
     })();
     return () => { cancelled = true; };
-  }, [selectedId, selectedType, cachedMessages, saveMessagesToDB]);
+  }, [selectedId, selectedType]);
 
   // Notification sync
   useEffect(() => { markNotifsReadMatching(selectedId, selectedType, markNotifsRead); }, [selectedId, selectedType, markNotifsRead, storeNotifications]);
@@ -245,13 +252,13 @@ export default function MessagesPage() {
       setMessages((prev) => {
         const existing = new Set(prev.map((m) => m.id));
         const older = page.messages.filter((m: Message) => !existing.has(m.id));
-        saveMessagesToDB(older);
+        saveMessagesToDBRef.current(older);
         return [...older, ...prev];
       });
       setHasMore(page.has_more);
     } catch { /* ignore */ }
     finally { setLoadingOlder(false); }
-  }, [saveMessagesToDB]);
+  }, []);
 
   useEffect(() => {
     if (!targetMessageId || !selectedId) return;
@@ -273,24 +280,62 @@ export default function MessagesPage() {
     return () => window.removeEventListener("online", handleOnline);
   }, [outboxMessages, processOutbox]);
 
+  const tempIdCounterRef = useRef(0);
+
   const handleSend = async (data: MessageSendData) => {
     if (!selectedId || !selectedType) return;
     const body = data.body || "";
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const urls = body.match(urlRegex);
-    if (urls && urls.length > 0) {
-      try {
-        const preview = await api.getLinkPreview(urls[0]);
-        data.metadata = { ...(data.metadata || {}), link_preview: preview };
-      } catch {
-        // Silently ignore preview errors
-      }
-    }
+    const previewPromise = urls && urls.length > 0
+      ? api.getLinkPreview(urls[0]).catch(() => null)
+      : Promise.resolve(null);
+
+    tempIdCounterRef.current += 1;
+    const tempId = `temp-${tempIdCounterRef.current}-${Date.now()}`;
+    const replyTo = data.reply_to_id
+      ? messagesRef.current.find((m) => m.id === data.reply_to_id)
+      : undefined;
+    const optimistic: Message = {
+      id: tempId,
+      sender_id: authUser?.id || "",
+      receiver_id: data.receiver_id,
+      room_id: data.room_id,
+      reply_to_id: data.reply_to_id,
+      kind: data.kind || "text",
+      body: data.body,
+      attachment_url: data.attachment_url,
+      attachment_type: data.attachment_type,
+      attachment_name: data.attachment_name,
+      metadata: data.metadata,
+      disappear_at: data.disappear_at,
+      read: true,
+      created_at: new Date().toISOString(),
+      reply_to: replyTo,
+      optimistic: true,
+      sending: true,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, last_message: optimistic } : c));
+
     try {
       const msg = selectedType === "room" ? await api.sendRoomMessage(selectedId, data) : await api.sendMessage(data);
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) =>
+        prev
+          .filter((m) => m.id !== msg.id)
+          .map((m) => (m.id === tempId ? msg : m))
+      );
       setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, last_message: msg } : c));
-    } catch { addToOutbox(data, selectedId, selectedType); }
+      const preview = await previewPromise;
+      if (preview) {
+        const withPreview = { ...msg, metadata: { ...(msg.metadata || {}), link_preview: preview } };
+        setMessages((prev) => prev.map((m) => m.id === msg.id ? withPreview : m));
+        setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, last_message: withPreview } : c));
+      }
+    } catch {
+      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, sending: false, failed: true } : m));
+      addToOutbox(data, selectedId, selectedType);
+    }
   };
 
   const handleTogglePin = async (m: Message) => {

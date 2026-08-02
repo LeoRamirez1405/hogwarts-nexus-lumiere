@@ -1,14 +1,37 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import PollCreator from "../PollCreator";
 import StickerPicker from "./StickerPicker";
 import MentionDropdown from "./MentionDropdown";
 import ChatVoiceRecorder from "./ChatVoiceRecorder";
 import { MaterialIcon } from "../helpers";
+import BottomSheet from "@/components/ui/BottomSheet";
 import type { Message, UserSearchResult } from "@/lib/api";
 import type { AttachmentPreview } from "../types";
 import type { VoiceRecorderState } from "../hooks/useVoiceRecorder";
+
+interface ToolbarButtonProps {
+  onClick: () => void;
+  icon: string;
+  label: string;
+  disabled?: boolean;
+}
+
+function ToolbarButton({ onClick, icon, label, disabled }: ToolbarButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex flex-col items-center gap-1 p-2 rounded-2xl text-on-surface-variant hover:bg-surface-container-high transition-colors disabled:opacity-40 min-w-[56px]"
+      aria-label={label}
+    >
+      <MaterialIcon name={icon} className="text-2xl" />
+      <span className="text-label-xs leading-none">{label}</span>
+    </button>
+  );
+}
 
 interface ChatInputProps {
   input: string;
@@ -83,6 +106,8 @@ export default function ChatInput({
 }: ChatInputProps) {
   const canSend = Boolean(input.trim() || attachment) && !uploading;
 
+  const [showMobileToolbar, setShowMobileToolbar] = useState(false);
+
   const disappearOptions = [
     { label: "Desactivado", value: undefined },
     { label: "5 segundos", value: 5 },
@@ -112,16 +137,13 @@ export default function ChatInput({
         <div className="mb-2 flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
           <MaterialIcon name="reply" className="text-primary text-lg shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-label-sm font-medium text-primary">
-              Respondiendo a {replyingTo.sender?.name || "alguien"}
-            </p>
-            <p className="text-label-sm text-on-surface-variant truncate">
-              {replyingTo.body || (replyingTo.kind === "sticker" ? "Sticker" : replyingTo.kind === "poll" ? "Encuesta" : "...")}
-            </p>
+            <p className="text-label-sm font-medium text-primary">Respondiendo a {replyingTo.sender?.name || "alguien"}</p>
+            <p className="text-label-sm text-on-surface-variant truncate">{replyingTo.body || (replyingTo.kind === "sticker" ? "Sticker" : replyingTo.kind === "poll" ? "Encuesta" : "...")}</p>
           </div>
           <button
             onClick={onCancelReply}
             className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant"
+            aria-label="Cancelar respuesta"
           >
             <MaterialIcon name="close" className="text-lg" />
           </button>
@@ -142,12 +164,11 @@ export default function ChatInput({
             }
             className="text-lg text-primary"
           />
-          <span className="text-label-sm text-on-surface truncate flex-1">
-            {attachment.name}
-          </span>
+          <span className="text-label-sm text-on-surface truncate flex-1">{attachment.name}</span>
           <button
             onClick={onRemoveAttachment}
             className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant"
+            aria-label="Quitar adjunto"
           >
             <MaterialIcon name="close" className="text-lg" />
           </button>
@@ -172,118 +193,278 @@ export default function ChatInput({
           onCancelRecording={onCancelRecording}
         />
       ) : (
-        <div className="flex items-center gap-2 bg-surface-container-low rounded-full px-4 py-2 relative">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
-            className="absolute opacity-0 w-0 h-0 pointer-events-none"
-            onChange={onFileSelect}
-            disabled={uploading}
-          />
-
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors disabled:opacity-40"
-          >
-            <MaterialIcon name="add_circle" className="text-xl" />
-          </button>
-
-          <button
-            onClick={onToggleStickers}
-            className="p-1 rounded-full text-on-surface-variant hover:text-secondary transition-colors"
-            title="Stickers"
-          >
-            <MaterialIcon name="emoji_emotions" className="text-xl" />
-          </button>
-
-          <button
-            onClick={onTogglePoll}
-            className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors"
-            title="Crear encuesta"
-          >
-            <MaterialIcon name="ballot" className="text-xl" />
-          </button>
-
-          <button
-            onClick={onStartRecording}
-            className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors"
-            title="Grabar voz"
-          >
-            <MaterialIcon name="mic" className="text-xl" />
-          </button>
-
-          <div className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const menu = disappearMenuRef.current;
-                if (menu) menu.classList.toggle("hidden");
-              }}
-              className={`p-1 rounded-full transition-colors ${
-                disappearAt ? "text-primary" : "text-on-surface-variant"
-              } hover:bg-surface-container-high`}
-              title="Mensajes que desaparecen"
-            >
-              <MaterialIcon name="timer" className="text-xl" />
-            </button>
-            <div
-              ref={disappearMenuRef}
-              className="absolute bottom-full right-0 mb-2 w-40 bg-surface-container-high border border-outline-variant rounded-xl shadow-lg hidden z-20 py-1"
-            >
-              {disappearOptions.map((opt) => (
-                <button
-                  key={opt.value?.toString() || "off"}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDisappearChange?.(opt.value?.toString());
-                    disappearMenuRef.current?.classList.add("hidden");
-                  }}
-                  className={`w-full px-3 py-2 text-left text-label-md ${
-                    disappearAt === (opt.value?.toString() || undefined)
-                      ? "bg-primary/10 text-primary"
-                      : "text-on-surface hover:bg-surface-container"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="relative flex-1">
+        <>
+          {/* Desktop: toolbar inline */}
+          <div className="hidden md:flex items-center gap-2 bg-surface-container-low rounded-full px-4 py-2">
             <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => onInputChange(e.target.value)}
-              onBlur={onTypingStop}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  if (!showMentionDropdown) onSend();
-                } else if (e.key === "Escape") {
-                  onDismissMentions();
-                }
-              }}
-              placeholder={replyingTo ? "Escribe tu respuesta..." : "Escribe un mensaje..."}
-              className="w-full bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50"
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+              className="absolute opacity-0 w-0 h-0 pointer-events-none"
+              onChange={onFileSelect}
               disabled={uploading}
             />
-            {mentionResults.length > 0 && (
-              <MentionDropdown results={mentionResults} onSelect={onSelectMention} />
-            )}
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors disabled:opacity-40"
+              aria-label="Adjuntar archivo"
+            >
+              <MaterialIcon name="add_circle" className="text-xl" />
+            </button>
+
+            <button
+              type="button"
+              onClick={onToggleStickers}
+              className="p-1 rounded-full text-on-surface-variant hover:text-secondary transition-colors"
+              title="Stickers"
+              aria-label="Stickers"
+            >
+              <MaterialIcon name="mood" className="text-xl" />
+            </button>
+
+            <button
+              type="button"
+              onClick={onTogglePoll}
+              className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors"
+              title="Crear encuesta"
+              aria-label="Crear encuesta"
+            >
+              <MaterialIcon name="ballot" className="text-xl" />
+            </button>
+
+            <button
+              type="button"
+              onClick={onStartRecording}
+              className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors"
+              title="Grabar voz"
+              aria-label="Grabar voz"
+            >
+              <MaterialIcon name="mic" className="text-xl" />
+            </button>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const menu = disappearMenuRef.current;
+                  if (menu) menu.classList.toggle("hidden");
+                }}
+                className={`p-1 rounded-full transition-colors ${
+                  disappearAt ? "text-primary" : "text-on-surface-variant"
+                } hover:bg-surface-container-high`}
+                title="Mensajes que desaparecen"
+                aria-label="Mensajes que desaparecen"
+              >
+                <MaterialIcon name="timer" className="text-xl" />
+              </button>
+              <div
+                ref={disappearMenuRef}
+                className="absolute bottom-full right-0 mb-2 w-40 bg-surface-container-high border border-outline-variant rounded-xl shadow-lg hidden z-20 py-1"
+              >
+                {disappearOptions.map((opt) => (
+                  <button
+                    key={opt.value?.toString() || "off"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDisappearChange?.(opt.value?.toString());
+                      disappearMenuRef.current?.classList.add("hidden");
+                    }}
+                    className={`w-full px-3 py-2 text-left text-label-md ${
+                      disappearAt === (opt.value?.toString() || undefined)
+                        ? "bg-primary/10 text-primary"
+                        : "text-on-surface hover:bg-surface-container"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative flex-1">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => onInputChange(e.target.value)}
+                onBlur={onTypingStop}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!showMentionDropdown) onSend();
+                  } else if (e.key === "Escape") {
+                    onDismissMentions();
+                  }
+                }}
+                placeholder={replyingTo ? "Escribe tu respuesta..." : "Escribe un mensaje..."}
+                className="w-full bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50"
+                disabled={uploading}
+              />
+              {mentionResults.length > 0 && (
+                <MentionDropdown results={mentionResults} onSelect={onSelectMention} />
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={onSend}
+              disabled={!canSend}
+              className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full transition-all hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none"
+              aria-label="Enviar mensaje"
+            >
+              <MaterialIcon name="send" className="text-lg" />
+            </button>
           </div>
 
-          <button
-            onClick={onSend}
-            disabled={!canSend}
-            className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full transition-all hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none"
-          >
-            <MaterialIcon name="send" className="text-lg" />
-          </button>
-        </div>
+          {/* Mobile: input + botón de herramientas abre BottomSheet */}
+          <div className="md:hidden flex items-center gap-2 bg-surface-container-low rounded-full px-3 py-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+              className="absolute opacity-0 w-0 h-0 pointer-events-none"
+              onChange={onFileSelect}
+              disabled={uploading}
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowMobileToolbar(true)}
+              className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary transition-colors"
+              aria-label="Herramientas de mensaje"
+            >
+              <MaterialIcon name="add_circle" className="text-xl" />
+            </button>
+
+            <div className="relative flex-1">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => onInputChange(e.target.value)}
+                onBlur={onTypingStop}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!showMentionDropdown) onSend();
+                  } else if (e.key === "Escape") {
+                    onDismissMentions();
+                  }
+                }}
+                placeholder={replyingTo ? "Escribe tu respuesta..." : "Escribe un mensaje..."}
+                className="w-full bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50"
+                disabled={uploading}
+              />
+              {mentionResults.length > 0 && (
+                <MentionDropdown results={mentionResults} onSelect={onSelectMention} />
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={onSend}
+              disabled={!canSend}
+              className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full transition-all hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none"
+              aria-label="Enviar mensaje"
+            >
+              <MaterialIcon name="send" className="text-lg" />
+            </button>
+
+            <BottomSheet
+              open={showMobileToolbar}
+              onClose={() => setShowMobileToolbar(false)}
+              title="Herramientas"
+              ariaLabel="Opciones del mensaje"
+            >
+              <div className="grid grid-cols-4 gap-3">
+                <ToolbarButton
+                  onClick={() => {
+                    fileInputRef.current?.click();
+                    setShowMobileToolbar(false);
+                  }}
+                  icon="add_circle"
+                  label="Adjuntar"
+                />
+                <ToolbarButton
+                  onClick={() => {
+                    onToggleStickers();
+                    setShowMobileToolbar(false);
+                  }}
+                  icon="mood"
+                  label="Stickers"
+                />
+                <ToolbarButton
+                  onClick={() => {
+                    onTogglePoll();
+                    setShowMobileToolbar(false);
+                  }}
+                  icon="ballot"
+                  label="Encuesta"
+                />
+                <ToolbarButton
+                  onClick={() => {
+                    onStartRecording();
+                    setShowMobileToolbar(false);
+                  }}
+                  icon="mic"
+                  label="Voz"
+                />
+              </div>
+
+              <div className="mt-4">
+                <p className="text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider">Mensajes que desaparecen</p>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const menu = disappearMenuRef.current;
+                      if (menu) menu.classList.toggle("hidden");
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                      disappearAt ? "bg-primary/10 text-primary" : "bg-surface-container text-on-surface hover:bg-surface-container-high"
+                    }`}
+                    aria-label="Mensajes que desaparecen"
+                  >
+                    <MaterialIcon name="timer" className="text-xl" />
+                    <span className="text-body-md">
+                      {disappearAt
+                        ? disappearOptions.find((o) => String(o.value) === String(disappearAt))?.label
+                        : "Desactivado"}
+                    </span>
+                  </button>
+                  <div
+                    ref={disappearMenuRef}
+                    className="absolute bottom-full left-0 right-0 mb-2 bg-surface-container-high border border-outline-variant rounded-xl shadow-lg hidden z-20 py-1"
+                  >
+                    {disappearOptions.map((opt) => (
+                      <button
+                        key={opt.value?.toString() || "off"}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDisappearChange?.(opt.value?.toString());
+                          disappearMenuRef.current?.classList.add("hidden");
+                        }}
+                        className={`w-full px-4 py-2 text-left text-body-md ${
+                          disappearAt === (opt.value?.toString() || undefined)
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "text-on-surface hover:bg-surface-container"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </BottomSheet>
+          </div>
+        </>
       )}
     </div>
   );

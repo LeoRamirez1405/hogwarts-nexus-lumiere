@@ -285,6 +285,7 @@ export default function ChatPanel(props: ChatPanelProps) {
           isRoom={isRoom}
           roomMembers={roomMembers}
           typingUsers={typingUsers}
+          replyingToId={composer.replyingTo?.id ?? null}
           showScrollBtn={showScrollBtn}
           newCount={newCount}
           onScrollToBottom={() => scrollToBottom(true)}

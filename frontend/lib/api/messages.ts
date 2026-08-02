@@ -26,9 +26,9 @@ export const messagesApi = {
   getConversations: () =>
     request<Conversation[]>("/messages/conversations"),
 
-  getMessages: (userId: string, limit?: number, before?: string) =>
+  getMessages: (userId: string, limit?: number, before?: string, expand = "sender,reactions,reply_to") =>
     request<MessagePage>(
-      `/messages/${userId}${buildQuery({ limit, before })}`
+      `/messages/${userId}${buildQuery({ limit, before, expand })}`
     ),
 
   sendMessage: (data: MessageSendData) =>
@@ -48,9 +48,9 @@ export const messagesApi = {
   getRoom: (roomId: string) =>
     request<ChatRoomResponse>(`/messages/rooms/${roomId}`),
 
-  getRoomMessages: (roomId: string, limit?: number, before?: string) =>
+  getRoomMessages: (roomId: string, limit?: number, before?: string, expand = "sender,reactions,reply_to") =>
     request<MessagePage>(
-      `/messages/rooms/${roomId}/messages${buildQuery({ limit, before })}`
+      `/messages/rooms/${roomId}/messages${buildQuery({ limit, before, expand })}`
     ),
 
   pinMessage: (messageId: string) =>

@@ -48,6 +48,9 @@ export interface Message {
   poll?: PollResponse;
   reply_to?: Message;
   reactions?: MessageReaction[];
+  optimistic?: boolean;
+  sending?: boolean;
+  failed?: boolean;
 }
 
 export interface MessagePage {

@@ -77,6 +77,8 @@ export interface MentionTextProps {
 export interface MessageActionsProps {
   message: Message;
   isOwn: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   onReply?: (msg: Message) => void;
   onTogglePin?: (msg: Message) => void;
   onToggleStar?: (msg: Message) => void;
@@ -89,6 +91,7 @@ export interface MessageActionsProps {
 export interface MessageBubbleProps {
   message: Message;
   isOwn: boolean;
+  isReplyTarget?: boolean;
   onReply?: (msg: Message) => void;
   onReactionChange?: () => void;
   onScrollToMessage?: (id: string) => void;
