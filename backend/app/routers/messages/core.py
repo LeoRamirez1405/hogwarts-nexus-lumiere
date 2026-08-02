@@ -179,7 +179,24 @@ async def send_message(
     # Update denormalized conversation preferences for sender and recipients
     await _update_conversation_preferences(db, message, current_user)
 
-    return await serialize_message(db, message, current_user.id)
+    # Expunge so the re-query actually reloads relationships instead of
+    # returning the cached row. Explicit selectinload is required because the
+    # automatic selectin default is skipped for self-referential reply_to.
+    db.expunge(message)
+    result = await db.execute(
+        select(Message)
+        .options(selectinload(Message.reply_to).selectinload(Message.sender))
+        .where(Message.id == message.id)
+    )
+    message = result.scalar_one()
+
+    return await serialize_message(
+        db,
+        message,
+        current_user.id,
+        expand_sender=True,
+        expand_reply_to=True,
+    )
 
 
 class MessageEditRequest(BaseModel):

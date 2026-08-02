@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
+from sqlalchemy.orm import selectinload
 
 from ..database import get_db
 from ..models.message import Message
@@ -217,8 +218,21 @@ async def handle_send_message(user_id: str, data: dict, db: AsyncSession):
 
     await db.commit()
 
+    # Expunge so the re-query reloads relationships. Explicit selectinload is
+    # required because the automatic selectin default is skipped for the
+    # self-referential reply_to relationship.
+    db.expunge(message)
+    msg_result = await db.execute(
+        select(Message)
+        .options(selectinload(Message.reply_to).selectinload(Message.sender))
+        .where(Message.id == message.id)
+    )
+    message = msg_result.scalar_one()
+
     # Serialize message for broadcast
-    serialized = await serialize_message(db, message, user_id)
+    serialized = await serialize_message(
+        db, message, user_id, expand_sender=True, expand_reply_to=True
+    )
 
     # Broadcast to conversation participants
     payload = {
