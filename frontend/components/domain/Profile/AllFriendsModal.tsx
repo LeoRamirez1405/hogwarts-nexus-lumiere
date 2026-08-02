@@ -6,6 +6,7 @@ import { Avatar, Button, MaterialIcon, Modal, BottomSheet } from "@/components/u
 import { api, User } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { toastError } from "@/lib/toastStore";
+import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";
 
 interface AllFriendsModalProps {
   userId: string;
@@ -264,46 +265,48 @@ export function AllFriendsModal({
   onClose,
   onUnfriend,
 }: AllFriendsModalProps) {
-  if (!isOpen) return null;
+  // Both Modal and BottomSheet portal their content into document.body, so the
+  // className-based `hidden`/`md:hidden` wrapper pattern does NOT suppress the
+  // wrong one — both would render on top of each other when `isOpen`. Pick the
+  // right component explicitly via a media query and render only that one.
+  const isDesktop = useIsDesktopMdUp();
   const containerKey = `${userId}:${isOpen}`;
 
-  return (
-    <>
-      {/* Desktop: center modal */}
-      <div className="hidden md:block">
-        <Modal
-          open={isOpen}
-          onClose={onClose}
-          size="md"
-          ariaLabel="Lista de amigos"
-        >
-          <AllFriendsForm
-            key={containerKey}
-            userId={userId}
-            initialFriends={initialFriends}
-            onClose={onClose}
-            onUnfriend={onUnfriend}
-          />
-        </Modal>
-      </div>
+  if (!isOpen) return null;
 
-      {/* Mobile: bottom sheet */}
-      <div className="md:hidden">
-        <BottomSheet
-          open={isOpen}
+  if (isDesktop) {
+    return (
+      <Modal
+        open={isOpen}
+        onClose={onClose}
+        size="md"
+        ariaLabel="Lista de amigos"
+      >
+        <AllFriendsForm
+          key={containerKey}
+          userId={userId}
+          initialFriends={initialFriends}
           onClose={onClose}
-          title="Amigos"
-          ariaLabel="Lista de amigos"
-        >
-          <AllFriendsForm
-            key={containerKey}
-            userId={userId}
-            initialFriends={initialFriends}
-            onClose={onClose}
-            onUnfriend={onUnfriend}
-          />
-        </BottomSheet>
-      </div>
-    </>
+          onUnfriend={onUnfriend}
+        />
+      </Modal>
+    );
+  }
+
+  return (
+    <BottomSheet
+      open={isOpen}
+      onClose={onClose}
+      title="Amigos"
+      ariaLabel="Lista de amigos"
+    >
+      <AllFriendsForm
+        key={containerKey}
+        userId={userId}
+        initialFriends={initialFriends}
+        onClose={onClose}
+        onUnfriend={onUnfriend}
+      />
+    </BottomSheet>
   );
 }

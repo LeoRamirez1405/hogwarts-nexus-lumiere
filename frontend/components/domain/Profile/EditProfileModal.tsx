@@ -6,6 +6,7 @@ import { api, User } from "@/lib/api";
 import { Button, Modal, BottomSheet, MaterialIcon } from "@/components/ui";
 import { useImageUpload } from "@/hooks/useFileUpload";
 import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
+import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";
 
 interface EditProfileModalProps {
   profile: User;
@@ -228,21 +229,25 @@ function EditProfileForm({
 }
 
 export function EditProfileModal(props: EditProfileModalProps) {
-  return (
-    <>
-      {/* Desktop: center modal */}
-      <div className="hidden md:block">
-        <Modal open={props.isOpen} onClose={props.onClose} title="Editar Perfil" size="md">
-          <EditProfileForm {...props} />
-        </Modal>
-      </div>
+  // Both Modal and BottomSheet portal their content into document.body, so the
+  // className-based `hidden`/`md:hidden` wrapper pattern does NOT suppress the
+  // wrong one — both would render on top of each other when `isOpen`. Pick the
+  // right component explicitly via a media query and render only that one.
+  const isDesktop = useIsDesktopMdUp();
 
-      {/* Mobile: bottom sheet */}
-      <div className="md:hidden">
-        <BottomSheet open={props.isOpen} onClose={props.onClose} title="Editar Perfil">
-          <EditProfileForm {...props} />
-        </BottomSheet>
-      </div>
-    </>
+  if (!props.isOpen) return null;
+
+  if (isDesktop) {
+    return (
+      <Modal open={props.isOpen} onClose={props.onClose} title="Editar Perfil" size="md">
+        <EditProfileForm {...props} />
+      </Modal>
+    );
+  }
+
+  return (
+    <BottomSheet open={props.isOpen} onClose={props.onClose} title="Editar Perfil">
+      <EditProfileForm {...props} />
+    </BottomSheet>
   );
 }
