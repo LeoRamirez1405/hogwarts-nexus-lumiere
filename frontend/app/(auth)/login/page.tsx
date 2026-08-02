@@ -32,7 +32,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface parchment-bg px-4 py-8 md:py-12">
+    <div className="min-h-screen flex items-center justify-center bg-surface px-4 py-8 md:py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <span className="material-symbols-outlined text-primary text-6xl mb-4 block">
