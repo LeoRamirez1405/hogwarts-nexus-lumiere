@@ -145,34 +145,6 @@ async def get_article_categories(
     return sorted([c for c in categories if c])
 
 
-@router.get("/{article_id}", response_model=ArticleResponse)
-async def get_article(
-    article_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    result = await db.execute(
-        select(Article).options(selectinload(Article.author)).where(Article.id == article_id)
-    )
-    article = result.scalar_one_or_none()
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
-
-    # Check subscription
-    sub_result = await db.execute(
-        select(ArticleSubscription).where(
-            and_(
-                ArticleSubscription.user_id == current_user.id,
-                ArticleSubscription.article_id == article_id,
-            )
-        )
-    )
-    subscription = sub_result.scalar_one_or_none()
-    article.subscribed = subscription is not None
-
-    return article
-
-
 @router.post("/", response_model=ArticleResponse, status_code=status.HTTP_201_CREATED)
 async def create_article(
     article_data: ArticleCreate,
@@ -610,3 +582,36 @@ async def get_news_full_state(
         saved_articles_limit=saved_limit,
         saved_articles_has_more=saved_has_more,
     )
+
+
+# NOTE: this catch-all `/{article_id}` route MUST be registered last. FastAPI
+# matches routes in definition order, so if it were declared before the literal
+# GET routes (`/categories`, `/notifications`, `/full-state`) it would swallow
+# them — e.g. GET /articles/full-state would bind article_id="full-state" and
+# 404 with "Article not found". Keep it at the bottom.
+@router.get("/{article_id}", response_model=ArticleResponse)
+async def get_article(
+    article_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Article).options(selectinload(Article.author)).where(Article.id == article_id)
+    )
+    article = result.scalar_one_or_none()
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    # Check subscription
+    sub_result = await db.execute(
+        select(ArticleSubscription).where(
+            and_(
+                ArticleSubscription.user_id == current_user.id,
+                ArticleSubscription.article_id == article_id,
+            )
+        )
+    )
+    subscription = sub_result.scalar_one_or_none()
+    article.subscribed = subscription is not None
+
+    return article
