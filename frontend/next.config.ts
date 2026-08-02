@@ -25,7 +25,7 @@ const cspHeader = `
   img-src 'self' blob: data: https://res.cloudinary.com https://img.freepik.com https://images.unsplash.com https://picsum.photos https://via.placeholder.com http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com;
   font-src 'self' https://fonts.gstatic.com;
   media-src 'self' blob: data: https://res.cloudinary.com http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com;
-  connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com;
+  connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com ${isDev ? "ws: wss:" : "wss://nexus-backend-kkq8.onrender.com"};
   object-src 'none';
   base-uri 'self';
   form-action 'self';
@@ -76,7 +76,7 @@ const nextConfig: NextConfig = {
   // https (mixed content) -> "Failed to fetch".
   skipTrailingSlashRedirect: true,
   async rewrites() {
-    const target = process.env.API_PROXY_TARGET || "http://10.0.0.47:8000";
+    const target = process.env.API_PROXY_TARGET || "http://localhost:8000";
     return [
       {
         source: "/api/:path(.*)",
@@ -113,6 +113,25 @@ const nextConfig: NextConfig = {
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
+          },
+        ],
+      },
+      // Headers especificos del Service Worker (recomendacion oficial PWA):
+      // https://nextjs.org/docs/app/guides/progressive-web-apps
+      {
+        source: "/sw.js",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/javascript; charset=utf-8",
+          },
+          {
+            key: "Cache-Control",
+            value: "no-cache, no-store, must-revalidate",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'self'; script-src 'self'",
           },
         ],
       },

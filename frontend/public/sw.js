@@ -3,10 +3,12 @@
  * Handles: Push notifications, offline caching, background sync
  */
 
-const CACHE_NAME = 'nexus-lumiere-v1';
+// Bumped to v2 so activate() purges the old v1 cache, which contained stale
+// HTML for '/' and '/dashboard'. Caching those app-shell pages made the SW
+// serve them from cache — bypassing the auth proxy — which produced an endless
+// / -> /dashboard -> /login navigation loop. We no longer precache HTML pages.
+const CACHE_NAME = 'nexus-lumiere-v2';
 const STATIC_ASSETS = [
-  '/',
-  '/dashboard',
   '/manifest.json',
 ];
 
@@ -52,6 +54,14 @@ self.addEventListener('fetch', (event) => {
 
   // Skip cross-origin requests
   if (url.origin !== location.origin) {
+    return;
+  }
+
+  // NEVER intercept navigation/document requests. These are auth-gated by the
+  // proxy (middleware): serving a cached HTML page here bypasses that check and
+  // serves stale app-shell HTML, which caused the /login <-> / redirect loop.
+  // Always let navigations hit the network so auth redirects are authoritative.
+  if (event.request.mode === 'navigate') {
     return;
   }
 

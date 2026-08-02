@@ -120,7 +120,7 @@ app.include_router(forum.router, prefix="/forum", tags=["forum"])
 app.include_router(enum_types.router, prefix="/enum-types", tags=["enum-types"])
 app.include_router(feature_flags.router, prefix="/feature-flags", tags=["feature-flags"])
 app.include_router(audit_logs.router, prefix="/audit-logs", tags=["audit-logs"])
-app.include_router(push.router, prefix="/push", tags=["push"])
+app.include_router(push.router, tags=["push"])
 
 # Serve locally-stored uploads (avatars, post images, etc.) as static files so
 # the frontend can load them by absolute URL. In production Cloudinary is used

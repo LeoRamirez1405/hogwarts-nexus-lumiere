@@ -46,7 +46,7 @@ export default function PushSubscriptionButton({ variant = "button", className =
             </button>
           ) : (
             <button
-              onClick={subscribe}
+              onClick={() => subscribe()}
               className="flex-1 py-2.5 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors"
             >
               {loading ? "Activando..." : "Activar notificaciones"}
@@ -69,7 +69,7 @@ export default function PushSubscriptionButton({ variant = "button", className =
           {isSubscribed ? "Notificaciones activadas" : "Activar notificaciones push"}
         </span>
         <button
-          onClick={isSubscribed ? unsubscribe : subscribe}
+          onClick={() => (isSubscribed ? unsubscribe() : subscribe())}
           disabled={loading}
           className={`px-3 py-1.5 text-label-md rounded-lg font-medium transition-colors shrink-0 ${
             isSubscribed
@@ -86,7 +86,7 @@ export default function PushSubscriptionButton({ variant = "button", className =
   // Button variant (icon button)
   return (
     <button
-      onClick={isSubscribed ? unsubscribe : subscribe}
+      onClick={() => (isSubscribed ? unsubscribe() : subscribe())}
       disabled={loading}
       className={`w-10 h-10 inline-flex items-center justify-center rounded-full transition-colors ${
         isSubscribed

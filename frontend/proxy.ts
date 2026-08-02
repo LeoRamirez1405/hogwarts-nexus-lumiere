@@ -41,10 +41,14 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Correr en todas las rutas salvo API, assets estaticos, imagen y favicon.
-     */
+      * Correr en todas las rutas salvo API, assets estaticos, imagen,
+      * favicon, y archivos publicos del PWA (sw.js, manifest, iconos,
+      * fallbacks). Sin esta exclusion el proxy redirige /sw.js -> /login
+      * y el navegador rechaza el SW con SecurityError ("script resource
+     *  is behind a redirect").
+      */
     {
-      source: "/((?!api|_next/static|_next/image|favicon.ico).*)",
+      source: "/((?!api|_next/static|_next/image|favicon.ico|sw\.js|manifest\.json|manifest\.webmanifest|icons/.*|fallbacks/.*).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

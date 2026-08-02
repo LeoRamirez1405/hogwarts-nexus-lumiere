@@ -12,6 +12,10 @@ interface PushSubscriptionData {
   };
 }
 
+// Ensures the controllerchange handler reloads the page at most once, avoiding
+// the PWA infinite-reload loop.
+let reloadingForSW = false;
+
 export function useServiceWorker() {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
   const [isSupported, setIsSupported] = useState(false);
@@ -25,6 +29,21 @@ export function useServiceWorker() {
     setTimeout(() => setIsSupported(supported), 0);
 
     if (!supported) return;
+
+    // Do NOT register the service worker in development. A custom SW that
+    // caches /_next/* assets and proxies fetches interferes with Next.js dev
+    // HMR/Fast Refresh: the version-mismatch between freshly built HTML and
+    // SW-served chunks makes Next force a full reload, which the SW then
+    // "fixes" the same way again -> an endless page-reload loop (the loop seen
+    // on /login and /dashboard during `next dev`). Ship the SW only in prod.
+    if (process.env.NODE_ENV !== "production") {
+      // Also proactively unregister any SW left over from a previous prod
+      // build / earlier dev session, so it stops controlling this origin.
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((reg) => reg.unregister());
+      });
+      return;
+    }
 
     navigator.serviceWorker
       .register("/sw.js", { scope: "/" })
@@ -42,8 +61,29 @@ export function useServiceWorker() {
         console.error("[SW] Registration failed:", error);
       });
 
-    // Listen for controller change (new SW activated)
+    // Listen for controller change (new SW activated). Guard against the
+    // classic PWA reload loop: the SW uses skipWaiting()+clients.claim(), which
+    // makes controllerchange fire on the very first (uncontrolled) load — and
+    // in dev, where sw.js is served fresh, it can fire on every load. An
+    // unguarded window.location.reload() here then ping-pongs forever:
+    // load -> claim -> controllerchange -> reload -> load -> ...
+    //
+    // A module-level flag only prevents duplicate reloads within a single page
+    // load (it resets on reload), so it can't stop the cross-reload loop. We
+    // use sessionStorage so the "already reloaded once" fact survives reloads:
+    // we refresh at most once per tab session to pick up the new SW's assets,
+    // then never again for the life of the tab.
     navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloadingForSW) return;
+      reloadingForSW = true;
+      try {
+        if (sessionStorage.getItem("sw-reloaded") === "1") return;
+        sessionStorage.setItem("sw-reloaded", "1");
+      } catch {
+        // sessionStorage unavailable (private mode / disabled): fall back to
+        // the in-memory flag above rather than risk the reload loop.
+        return;
+      }
       console.log("[SW] Controller changed, reloading...");
       window.location.reload();
     });
@@ -82,10 +122,15 @@ export function usePushSubscription() {
     }
   }, []);
 
-  const subscribe = useCallback(async () => {
+  // `silent` suppresses user-facing error toasts. Used by the automatic
+  // subscribe-on-login flow, where a push-service failure (common on
+  // localhost/dev, where the browser push service is unreachable) should not
+  // spam the user with an error toast on every login.
+  const subscribe = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
     if (!registration || !user) return;
     if (!("PushManager" in window)) {
-      toastError("Notificaciones push no soportadas", new Error("PushManager not available"));
+      if (!silent) toastError("Notificaciones push no soportadas", new Error("PushManager not available"));
       return;
     }
 
@@ -94,7 +139,7 @@ export function usePushSubscription() {
     try {
       const vapidKey = await fetchVapidKey();
       if (!vapidKey) {
-        toastError("Push no configurado", new Error("VAPID key not available"));
+        if (!silent) toastError("Push no configurado", new Error("VAPID key not available"));
         return;
       }
 
@@ -123,8 +168,12 @@ export function usePushSubscription() {
       setIsSubscribed(true);
       toastInfo("Notificaciones activadas", "Recibirás notificaciones incluso con la app cerrada");
     } catch (error) {
-      console.error("Subscribe error:", error);
-      toastError("No se pudo activar push", error as Error);
+      if (silent) {
+        console.warn("Auto push subscribe failed (silenced):", error);
+      } else {
+        console.error("Subscribe error:", error);
+        toastError("No se pudo activar push", error as Error);
+      }
     } finally {
       setLoading(false);
     }

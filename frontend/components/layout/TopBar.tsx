@@ -11,7 +11,6 @@ import { notificationMeta, autoClearedByPath } from "@/lib/notificationMeta";
 import Avatar from "@/components/ui/Avatar";
 import { MaterialIcon } from "@/components/ui";
 import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
-import PushSubscriptionButton from "@/components/pwa/PushSubscriptionButton";
 import { usePrefetchOnTouch } from "@/hooks/usePrefetchOnTouch";
 
 interface TopBarProps {
@@ -163,6 +162,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
               name="diamond"
               className="text-base sm:text-lg text-secondary"
               filled
+              inline
             />
             <span className="text-label-md sm:text-body-md font-semibold text-on-surface">
               {user?.zerines?.toLocaleString() ?? "0"}
@@ -190,11 +190,6 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                 </span>
               )}
             </button>
-          </div>
-
-          {/* Push Subscription (mobile only - hidden on desktop where we have space in user menu) */}
-          <div className="hidden lg:flex items-center">
-            <PushSubscriptionButton variant="button" />
           </div>
 
           {/* Avatar + user menu */}
@@ -335,9 +330,6 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             <MaterialIcon name="person" className="text-lg" />
             Mi Perfil
           </Link>
-          <div className="border-t border-outline-variant/20 px-3 py-2">
-            <PushSubscriptionButton variant="inline" />
-          </div>
           <div className="border-t border-outline-variant/20 px-3 py-2">
             <PWAInstallPrompt variant="button" />
           </div>
