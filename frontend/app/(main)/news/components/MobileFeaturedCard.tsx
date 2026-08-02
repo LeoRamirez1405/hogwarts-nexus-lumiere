@@ -28,7 +28,7 @@ export function MobileFeaturedCard({ article }: MobileFeaturedCardProps) {
   }
 
   return (
-    <div className="parchment-texture rounded-2xl overflow-hidden border border-secondary/10">
+    <GlassCard className="rounded-2xl overflow-hidden border border-secondary/10 hover glow">
       {article.image_url && (
         <div className="relative h-48 overflow-hidden">
           <Image
@@ -64,6 +64,6 @@ export function MobileFeaturedCard({ article }: MobileFeaturedCardProps) {
           Leer Mas
         </Button>
       </div>
-    </div>
+    </GlassCard>
   );
 }

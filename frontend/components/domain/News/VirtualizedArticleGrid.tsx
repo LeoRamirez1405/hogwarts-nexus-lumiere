@@ -1,6 +1,5 @@
 "use client";
 
-import { VirtuosoGrid } from "react-virtuoso";
 import { Article } from "@/lib/api";
 import { GlassCard, Badge, MaterialIcon } from "@/components/ui";
 import Link from "next/link";
@@ -19,7 +18,6 @@ interface VirtualizedArticleGridProps {
   useWindowScroll?: boolean;
 }
 
-const DEFAULT_ITEM_HEIGHT = 320;
 const DEFAULT_GAP = 24; // 1.5rem = 24px
 
 function formatDate(dateStr: string): string {
@@ -36,10 +34,10 @@ function isLocalUpload(src?: string): boolean {
 
 function DefaultArticleItem({ article, style }: { article: Article; style: React.CSSProperties }) {
   return (
-    <div key={article.id} style={style} className="w-full">
-      <Link href={`/news/${article.id}`} className="block">
+    <div key={article.id} style={style} className="w-full h-full">
+      <Link href={`/news/${article.id}`} className="block h-full">
         <GlassCard
-          className={`p-5 h-full parchment-texture ${
+          className={`p-5 h-full ${
             article.featured
               ? "border border-secondary/50 shadow-[0_0_20px_rgba(119,90,25,0.25)]"
               : ""
@@ -90,19 +88,22 @@ function DefaultArticleItem({ article, style }: { article: Article; style: React
   );
 }
 
+// Responsive CSS grid. We deliberately do NOT virtualize: these lists are
+// paginated ("Cargar más", ~9 per page), so windowing buys nothing and the
+// previous react-virtuoso VirtuosoGrid + useWindowScroll setup was unreliable —
+// it frequently measured a height of 0 and rendered no items (or collapsed
+// them to near-zero width), which is the "cards salen muy estrechos / no salen
+// de 3 en 3" bug. A plain grid renders every item at the correct width in every
+// context (window scroll and inside a scrollable modal alike).
 export function VirtualizedArticleGrid({
   articles,
   columns = 3,
-  itemHeight = DEFAULT_ITEM_HEIGHT,
   gap = DEFAULT_GAP,
   renderItem,
   className = "",
   emptyMessage = "No se encontraron artículos",
   emptyIcon = "search_off",
-  useWindowScroll = true,
 }: VirtualizedArticleGridProps) {
-  const itemWidth = `calc((100% - ${gap * (columns - 1)}px) / ${columns})`;
-
   if (articles.length === 0) {
     return (
       <GlassCard className={`p-12 text-center ${className}`}>
@@ -112,31 +113,25 @@ export function VirtualizedArticleGrid({
     );
   }
 
+  // 1 column on phones, 2 on small tablets, then the requested count (2 or 3)
+  // on desktop. Rows stretch to equal height, so cards in a row line up.
+  const colClass =
+    columns === 2
+      ? "grid-cols-1 sm:grid-cols-2"
+      : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
+  const itemStyle: React.CSSProperties = {};
+
   return (
-    <div className={`relative ${className}`}>
-      <VirtuosoGrid
-        data={articles}
-        computeItemKey={(index, article) => article.id}
-        useWindowScroll={useWindowScroll}
-        increaseViewportBy={800}
-        overscan={600}
-        listClassName="flex flex-wrap"
-        itemContent={(index, article) => (
-          <div
-            key={article.id}
-            style={{
-              width: itemWidth,
-              height: itemHeight + gap,
-              paddingBottom: gap,
-              boxSizing: "border-box",
-            }}
-          >
-            {renderItem
-              ? renderItem(article, index, { width: itemWidth, height: itemHeight })
-              : <DefaultArticleItem article={article} style={{ width: itemWidth, height: itemHeight }} />}
-          </div>
+    <div className={className}>
+      <div className={`grid ${colClass}`} style={{ gap }}>
+        {articles.map((article, index) =>
+          renderItem ? (
+            renderItem(article, index, itemStyle)
+          ) : (
+            <DefaultArticleItem key={article.id} article={article} style={itemStyle} />
+          )
         )}
-      />
+      </div>
     </div>
   );
 }

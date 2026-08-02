@@ -132,7 +132,7 @@ export default function ThreadDetailPage() {
       </button>
 
       {/* Thread */}
-      <GlassCard className="p-6 parchment-texture">
+      <GlassCard className="p-6">
         <div className="flex gap-4">
           {/* Votes */}
           <div className="flex flex-col items-center gap-1 text-center min-w-[44px]">

@@ -89,7 +89,7 @@ export const ForumThreads = forwardRef<ForumThreadsHandle, ForumThreadsProps>(fu
         return (
           <GlassCard
             key={thread.id}
-            className="p-5 parchment-texture relative"
+            className="p-5 relative"
             hover
             onClick={() => router.push(`/news/thread/${thread.id}`)}
           >

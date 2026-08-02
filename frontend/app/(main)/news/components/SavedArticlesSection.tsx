@@ -57,9 +57,9 @@ export function SavedArticlesSection({
             columns={3}
             itemHeight={280}
             gap={24}
-            renderItem={(article, index, style) => (
-              <div key={article.id} style={style} className="w-full">
-                  <GlassCard className="overflow-hidden h-full" hover glow>
+renderItem={(article, index, style) => (
+                <div key={article.id} style={style} className="w-full h-full">
+                    <GlassCard className="overflow-hidden h-full" hover glow>
                     {article.image_url && (
                       <div className="relative h-40 overflow-hidden">
                         <Image
