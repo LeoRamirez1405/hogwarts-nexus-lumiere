@@ -415,7 +415,7 @@ export default function BorginBurkesPage() {
                         <span>
                           {up.quantity > 1 ? `x${up.quantity} ` : ""}
                           <span className="font-bold text-secondary">
-                            <MaterialIcon name="diamond" className="text-[1em]" filled /> {((up.product?.price ?? 0) * up.quantity).toLocaleString()}
+                            <MaterialIcon name="diamond" className="text-[1em]" filled inline /> {((up.product?.price ?? 0) * up.quantity).toLocaleString()}
                           </span>
                         </span>
                         <span>

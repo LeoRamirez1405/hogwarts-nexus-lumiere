@@ -205,7 +205,7 @@ export default function FlourishBlottsPage() {
   const visiblePurchases = allPurchases;
 
   return (
-    <div className="min-h-content bg-surface parchment-bg -mx-4 md:-mx-10 -mt-6 md:-mt-8 px-4 md:px-10 py-8">
+    <div className="min-h-content bg-surface -mx-4 md:-mx-10 -mt-6 md:-mt-8 px-4 md:px-10 py-8">
       {/* Hero Carousel */}
       <div className="max-w-7xl mx-auto mb-10">
         <HeroCarousel
@@ -414,7 +414,7 @@ export default function FlourishBlottsPage() {
                         <span>
                           {up.quantity > 1 ? `x${up.quantity} ` : ""}
                           <span className="font-bold text-secondary">
-                            <MaterialIcon name="diamond" className="text-[1em]" filled /> {((up.product?.price ?? 0) * up.quantity).toLocaleString()}
+                            <MaterialIcon name="diamond" className="text-[1em]" filled inline /> {((up.product?.price ?? 0) * up.quantity).toLocaleString()}
                           </span>
                         </span>
                         <span>
