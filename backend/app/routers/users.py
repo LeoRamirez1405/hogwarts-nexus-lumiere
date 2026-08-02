@@ -162,7 +162,7 @@ async def _delete_user_relations(db: AsyncSession, user_id: str) -> None:
 
 @router.get("/search", response_model=Page[UserResponse])
 async def search_users(
-    q: str = Query(..., min_length=1),
+    q: str = Query(""),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -173,21 +173,30 @@ async def search_users(
     Retorna paginacion estandar (Page[UserResponse]). Excluye al usuario
     actual. Usado por TransferTab y otras vistas que necesitan buscar
     destinatarios sin cargar toda la tabla de usuarios.
+
+    Con `q` vacio devuelve todos los usuarios (paginados): la vista de admin
+    de grupos lo usa para la carga inicial de la lista, y antes esto disparaba
+    un 422 (min_length=1) que rompia la pagina.
     """
-    pattern = f"%{q}%"
-    base_filter = and_(
-        User.id != current_user.id,
-        or_(
-            User.name.ilike(pattern),
-            User.email.ilike(pattern),
-        ),
-    )
-    query = select(User).where(base_filter).offset(skip).limit(limit + 1)
+    q = q.strip()
+    # Passing multiple conditions to .where() ANDs them, so we avoid and_()
+    # (which was used here but never imported — a latent NameError/500 for any
+    # non-empty query).
+    conditions = [User.id != current_user.id]
+    if q:
+        pattern = f"%{q}%"
+        conditions.append(
+            or_(
+                User.name.ilike(pattern),
+                User.email.ilike(pattern),
+            )
+        )
+    query = select(User).where(*conditions).offset(skip).limit(limit + 1)
     result = await db.execute(query)
     items = result.scalars().all()
     has_more = len(items) > limit
     items = items[:limit]
-    total_result = await db.execute(select(func.count(User.id)).where(base_filter))
+    total_result = await db.execute(select(func.count(User.id)).where(*conditions))
     total = total_result.scalar_one()
     return Page(
         items=await _enrich_users(db, items),
