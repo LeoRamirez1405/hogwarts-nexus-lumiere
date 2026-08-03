@@ -175,6 +175,13 @@ class MessageCreate(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     poll: Optional[PollCreate] = None
     disappear_at: Optional[datetime] = None
+    # E2E Encryption fields
+    e2e_encrypted: bool = False
+    e2e_ciphertext: Optional[str] = None  # base64
+    e2e_sender_ephemeral: Optional[str] = None  # base64
+    e2e_counter: Optional[int] = None
+    e2e_previous_counter: Optional[int] = None
+    e2e_message_version: Optional[int] = None
 
 
 class MessageReactionResponse(BaseModel):
@@ -229,6 +236,13 @@ class MessageResponse(BaseModel):
     poll: Optional[PollResponse] = None
     reply_to: Optional["MessageResponse"] = None
     reactions: List[MessageReactionResponse] = Field(default_factory=list)
+    # E2E Encryption fields
+    e2e_encrypted: bool = False
+    e2e_ciphertext: Optional[str] = None
+    e2e_sender_ephemeral: Optional[str] = None
+    e2e_counter: Optional[int] = None
+    e2e_previous_counter: Optional[int] = None
+    e2e_message_version: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -277,6 +291,8 @@ class WSSendMessage(WSMessageBase):
     c: str  # conversation_id (room_id or user_id)
     m: Dict[str, Any]  # message data
     ts: int
+    e2e: bool = False  # whether this is an E2E encrypted message
+    # E2E fields (in m when e2e=true)
 
 
 class WSTypingStart(WSMessageBase):
