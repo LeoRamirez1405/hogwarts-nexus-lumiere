@@ -1,6 +1,7 @@
 "use client";
 
 import { Avatar } from "@/components/ui";
+import { E2EIndicator } from "@/components/ui/E2EIndicator";
 import { MaterialIcon, getInitials, computeOnlineStatus } from "../helpers";
 import type { SelectedConv } from "../types";
 
@@ -13,6 +14,9 @@ interface ChatHeaderProps {
   onToggleSearch: () => void;
   moreButtonRef: React.RefObject<HTMLButtonElement | null>;
   onMoreClick: (rect: DOMRect) => void;
+  e2eEncrypted?: boolean;
+  e2eVerified?: boolean;
+  onE2EClick?: () => void;
 }
 
 export default function ChatHeader({
@@ -24,6 +28,9 @@ export default function ChatHeader({
   onToggleSearch,
   moreButtonRef,
   onMoreClick,
+  e2eEncrypted = false,
+  e2eVerified = false,
+  onE2EClick,
 }: ChatHeaderProps) {
 
   const isOnlineNow =
@@ -34,8 +41,11 @@ export default function ChatHeader({
     ? "online"
     : computeOnlineStatus(selectedConv?.last_active_at).status;
 
-  const subtitle =
-    selectedConv?.type === "room"
+  const subtitle = e2eEncrypted
+    ? e2eVerified
+      ? "Cifrado y verificado"
+      : "Cifrado de extremo a extremo"
+    : selectedConv?.type === "room"
       ? (selectedConv?.online_count ?? 0) > 0
         ? `${selectedConv?.online_count} en linea`
         : "Nadie en linea"
@@ -60,11 +70,20 @@ export default function ChatHeader({
         initials={getInitials(selectedConv?.name || "")}
         status={selectedConv?.type === "room" ? undefined : status}
       />
-      <div className="flex-1">
-        <p className="text-body-md font-semibold text-on-surface">
+      <div className="flex-1 min-w-0">
+        <p className="text-body-md font-semibold text-on-surface truncate">
           {selectedConv?.name}
         </p>
-        <p className="text-label-sm text-on-surface-variant">{subtitle}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-label-sm text-on-surface-variant truncate">{subtitle}</p>
+          {e2eEncrypted && (
+            <E2EIndicator
+              encrypted={e2eEncrypted}
+              verified={e2eVerified}
+              onClick={onE2EClick}
+            />
+          )}
+        </div>
       </div>
       <div>
         <button

@@ -6,6 +6,7 @@ import { useAuthStore } from "@/lib/authStore";
 import { useNotificationStore } from "@/lib/notificationStore";
 import { api, Message, ChatRoomMemberResponse, MessageSendData, Conversation, User } from "@/lib/api";
 import { useIndexedDBMessages, useOutbox } from "@/hooks/useIndexedDB";
+import { useE2EEncryption } from "@/hooks/useE2EEncryption";
 import { wsClient } from "@/lib/ws";
 import { MaterialIcon } from "./helpers";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -27,6 +28,7 @@ const StarredMessagesModal = dynamic(() => import("./StarredMessagesModal").then
 const MediaGalleryModal = dynamic(() => import("./components/MediaGalleryModal").then((mod) => mod.default), { ssr: false });
 const ArchivedConversationsModal = dynamic(() => import("./components/ArchivedConversationsModal").then((mod) => mod.default), { ssr: false });
 const ThirdPane = dynamic(() => import("./ThirdPane").then((mod) => mod.default), { ssr: false });
+const SafetyNumberDialog = dynamic(() => import("@/components/ui/SafetyNumberDialog").then((mod) => mod.default), { ssr: false });
 
 function ChatPanelSkeleton() {
   return (
@@ -77,6 +79,9 @@ export default function MessagesPage() {
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Map<string, Map<string, string>>>(new Map());
   const [onlineUsers, setOnlineUsers] = useState<Map<string, boolean>>(new Map());
+  const [showSafetyNumber, setShowSafetyNumber] = useState(false);
+
+  const e2e = useE2EEncryption();
 
   const selectedIdRef = useRef(selectedId);
   const selectedTypeRef = useRef(selectedType);
@@ -194,15 +199,19 @@ export default function MessagesPage() {
     const id = selectedIdRef.current;
     const type = selectedTypeRef.current;
     if (id && type) {
-      api.getRoomMessages(id, PAGE_SIZE).then((page) => {
-        setMessages((prev) => {
-          const fresh = new Map(page.messages.map((m: Message) => [m.id, m]));
-          const merged = prev.map((m) => fresh.get(m.id) ?? m);
-          const existing = new Set(prev.map((m) => m.id));
-          const incoming = page.messages.filter((m: Message) => !existing.has(m.id));
-          return incoming.length > 0 ? [...merged, ...incoming].sort(byCreatedAsc) : merged;
-        });
-      }).catch(() => {});
+      // Use the catch-up endpoint to fetch all messages newer than the oldest we have
+      const oldest = messagesRef.current[0];
+      if (oldest) {
+        api.getMessagesSince(oldest.id, PAGE_SIZE).then((newMessages) => {
+          setMessages((prev) => {
+            const fresh = new Map(newMessages.map((m: Message) => [m.id, m]));
+            const merged = prev.map((m) => fresh.get(m.id) ?? m);
+            const existing = new Set(prev.map((m) => m.id));
+            const incoming = newMessages.filter((m: Message) => !existing.has(m.id));
+            return incoming.length > 0 ? [...merged, ...incoming].sort(byCreatedAsc) : merged;
+          });
+        }).catch(() => {});
+      }
       api.getConversations().then((convs) => setConversations(convs)).catch(() => {});
     }
   }, []);
@@ -328,7 +337,7 @@ setLoadingOlder(false);
   const handleSend = async (data: MessageSendData) => {
     if (!selectedId || !selectedType) return;
     const body = data.body || "";
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urlRegex = /(https?::\/\/[^\s]+)/g;
     const urls = body.match(urlRegex);
     const previewPromise = urls && urls.length > 0
       ? api.getLinkPreview(urls[0]).catch(() => null)
@@ -353,6 +362,7 @@ setLoadingOlder(false);
       metadata: data.metadata,
       disappear_at: data.disappear_at,
       read: true,
+      e2e_encrypted: selectedType === "direct",
       created_at: new Date().toISOString(),
       reply_to: replyTo,
       optimistic: true,
@@ -362,10 +372,22 @@ setLoadingOlder(false);
     setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, last_message: optimistic } : c));
 
     // Prepare message data for WS
-    const messageData = {
+    let messageData: MessageSendData & { temp_id?: string } = {
       ...data,
       temp_id: tempId, // Include temp_id to match optimistic message
     };
+
+    // E2E encryption for DM conversations
+    if (selectedType === "direct" && data.body && data.kind === "text") {
+      const encrypted = await e2e.encryptMessage(selectedId, data.body);
+      if (encrypted) {
+        messageData = {
+          ...messageData,
+          body: encrypted.ciphertext,
+          metadata: { ...(data.metadata || {}), e2e_message: encrypted.message, e2e_encrypted: true },
+        };
+      }
+    }
 
     try {
       if (wsClient.isConnected()) {
@@ -643,6 +665,12 @@ setLoadingOlder(false);
                 onlineUsers={onlineUsers}
                 onToggleStar={handleToggleStar}
                 onShowMediaGallery={handleShowMediaGallery}
+                e2eEncrypted={selectedType === "direct"}
+                e2eVerified={e2e.safetyNumberStates[selectedId || ""]?.verified ?? false}
+                onE2EClick={selectedType === "direct" ? () => {
+                  if (selectedId) e2e.loadSafetyNumber(selectedId);
+                  setShowSafetyNumber(true);
+                } : undefined}
                 onPinConversation={handlePinConv}
                 onUnpinConversation={handleUnpinConv}
                 onArchiveRoom={async (roomId) => {
@@ -740,6 +768,20 @@ setLoadingOlder(false);
               setShowArchived(false);
               selectConv(conv.id, conv.type as "direct" | "room");
             }}
+          />
+        </Suspense>
+      )}
+      {showSafetyNumber && selectedId && selectedType === "direct" && (
+        <Suspense fallback={null}>
+          <SafetyNumberDialog
+            open={showSafetyNumber}
+            onClose={() => setShowSafetyNumber(false)}
+            remoteUserId={selectedId}
+            remoteUserName={conversations.find((c) => c.id === selectedId)?.name || "Usuario"}
+            safetyNumber={e2e.safetyNumberStates[selectedId]?.safetyNumber ?? null}
+            verified={e2e.safetyNumberStates[selectedId]?.verified ?? false}
+            loading={e2e.safetyNumberStates[selectedId]?.loading ?? false}
+            onVerify={() => e2e.verifySafetyNumber(selectedId)}
           />
         </Suspense>
       )}

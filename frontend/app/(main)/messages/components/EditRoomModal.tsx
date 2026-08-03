@@ -2,8 +2,8 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { api, User } from "@/lib/api";
-import { Button, Modal, BottomSheet, MaterialIcon } from "@/components/ui";
+import { api } from "@/lib/api";
+import { Button, Modal, BottomSheet } from "@/components/ui";
 import { useImageUpload } from "@/hooks/useFileUpload";
 import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
 import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";

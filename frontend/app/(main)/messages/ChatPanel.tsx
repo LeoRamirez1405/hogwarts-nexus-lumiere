@@ -46,11 +46,12 @@ export default function ChatPanel(props: ChatPanelProps) {
     onUnpinConversation,
     onArchiveRoom,
     onUnarchiveRoom,
-    onArchiveConversation,
-    onUnarchiveConversation,
     onExportChat,
     onToggleStar,
     onShowMediaGallery,
+    e2eEncrypted,
+    e2eVerified,
+    onE2EClick,
   } = props;
 
   const [showMenu, setShowMenu] = useState(false);
@@ -267,6 +268,9 @@ export default function ChatPanel(props: ChatPanelProps) {
         onToggleSearch={() => setShowInChatSearch(!showInChatSearch)}
         moreButtonRef={moreButtonRef}
         onMoreClick={toggleMenu}
+        e2eEncrypted={e2eEncrypted}
+        e2eVerified={e2eVerified}
+        onE2EClick={onE2EClick}
       />
 
       {showInChatSearch && (
