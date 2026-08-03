@@ -11,6 +11,7 @@ from ....middleware.auth import get_current_user
 from ....models.chat_room import ChatRoom, ChatRoomMember
 from ....models.user import User
 from ....schemas.message import MuteRequest
+from ..deps import _invalidate_conversations_cache
 
 router = APIRouter()
 
@@ -125,7 +126,32 @@ async def archive_room(
         raise HTTPException(status_code=403, detail="Not a member of this room")
 
     member.archived = True
+
+    # Also update UserConversationPreference for consistency with DM archive
+    from ....models.chat_room import UserConversationPreference
+    pref_result = await db.execute(
+        select(UserConversationPreference).where(
+            and_(
+                UserConversationPreference.user_id == current_user.id,
+                UserConversationPreference.conversation_type == "room",
+                UserConversationPreference.conversation_id == room_id,
+            )
+        )
+    )
+    pref = pref_result.scalar_one_or_none()
+    if pref:
+        pref.hidden = True
+    else:
+        pref = UserConversationPreference(
+            user_id=current_user.id,
+            conversation_type="room",
+            conversation_id=room_id,
+            hidden=True,
+        )
+        db.add(pref)
+
     await db.commit()
+    await _invalidate_conversations_cache(current_user.id)
     return {"ok": True}
 
 
@@ -146,5 +172,22 @@ async def unarchive_room(
         raise HTTPException(status_code=403, detail="Not a member of this room")
 
     member.archived = False
+
+    # Also update UserConversationPreference for consistency with DM archive
+    from ....models.chat_room import UserConversationPreference
+    pref_result = await db.execute(
+        select(UserConversationPreference).where(
+            and_(
+                UserConversationPreference.user_id == current_user.id,
+                UserConversationPreference.conversation_type == "room",
+                UserConversationPreference.conversation_id == room_id,
+            )
+        )
+    )
+    pref = pref_result.scalar_one_or_none()
+    if pref:
+        pref.hidden = False
+
     await db.commit()
+    await _invalidate_conversations_cache(current_user.id)
     return {"ok": True}

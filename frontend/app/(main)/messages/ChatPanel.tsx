@@ -46,6 +46,8 @@ export default function ChatPanel(props: ChatPanelProps) {
     onUnpinConversation,
     onArchiveRoom,
     onUnarchiveRoom,
+    onArchiveConversation,
+    onUnarchiveConversation,
     onExportChat,
     onToggleStar,
     onShowMediaGallery,
@@ -241,13 +243,13 @@ export default function ChatPanel(props: ChatPanelProps) {
 
   const handleArchiveDM = () => {
     if (!selectedConv || selectedConv.type !== "direct") return;
-    onHideConversation?.("dm", selectedConv.id);
+    onArchiveConversation?.("dm", selectedConv.id);
     setShowMenu(false);
   };
 
   const handleUnarchiveDM = () => {
     if (!selectedConv || selectedConv.type !== "direct") return;
-    onUnarchiveRoom?.(selectedConv.id); // We'll repurpose this for DM unarchive
+    onUnarchiveConversation?.("dm", selectedConv.id);
     setShowMenu(false);
   };
 

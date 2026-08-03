@@ -452,16 +452,29 @@ setLoadingOlder(false);
   };
 
   const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
+  const [forwarding, setForwarding] = useState(false);
   const handleForwardMessage = useCallback(async (message: Message, targetId: string, targetType: "dm" | "room") => {
-    setForwardMessage(null);
+    setForwarding(true);
     try {
       await api.forwardMessage(
         message.id,
         targetType === "dm" ? targetId : undefined,
         targetType === "room" ? targetId : undefined
       );
-    } catch { alert("Error al reenviar el mensaje"); }
-  }, []);
+      setForwardMessage(null);
+      setSelectedId(targetId);
+      setSelectedType(targetType === "room" ? "room" : "direct");
+      setTargetMessageId(null);
+      if (!conversations.some((c) => c.id === targetId)) {
+        api.getConversations().then((convs) => setConversations(convs)).catch(() => {});
+      }
+    } catch (e) {
+      console.error("Failed to forward message:", e);
+      alert("Error al reenviar el mensaje");
+    } finally {
+      setForwarding(false);
+    }
+  }, [conversations]);
 
   const handleShowMediaGallery = useCallback(() => {
     if (selectedId && selectedType) {
@@ -518,14 +531,15 @@ setLoadingOlder(false);
   const selectedConversation = conversations.find((c) => c.id === selectedId);
   const selectedConv = buildSelectedConv(selectedId, selectedType, conversations, allUsers);
 
-  const filtered = debouncedSearch
+  const filtered = (debouncedSearch
     ? conversations.filter((c) => c.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
-    : conversations;
+    : conversations
+  ).filter((c) => !c.is_archived && !c.is_hidden);
 
   const handleHideConv = async (convType: "dm" | "room", convId: string) => {
     try {
       await api.hideConversation(convType, convId);
-      setConversations((prev) => prev.filter((c) => c.id !== convId));
+      setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, is_archived: true, is_hidden: true } : c));
       if (selectedId === convId) {
         setSelectedId(null);
         setSelectedType(null);
@@ -534,6 +548,15 @@ setLoadingOlder(false);
       }
     } catch (error) {
       console.error('Failed to hide conversation:', error);
+    }
+  };
+
+  const handleUnhideConv = async (convType: "dm" | "room", convId: string) => {
+    try {
+      await api.unhideConversation(convType, convId);
+      setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, is_archived: false, is_hidden: false } : c));
+    } catch (error) {
+      console.error('Failed to unhide conversation:', error);
     }
   };
 
@@ -616,6 +639,7 @@ setLoadingOlder(false);
                     isActive={conv.id === selectedId}
                     onlineUsers={onlineUsers}
                     onClick={() => selectConv(conv.id, conv.type as SelectedConvType)}
+                    currentUserId={authUser?.id}
                   />
                 )}
               />
@@ -676,7 +700,13 @@ setLoadingOlder(false);
                 onArchiveRoom={async (roomId) => {
                   try {
                     await api.archiveRoom(roomId);
-                    setConversations((prev) => prev.map((c) => c.id === roomId ? { ...c, is_archived: true } : c));
+                    setConversations((prev) => prev.map((c) => c.id === roomId ? { ...c, is_archived: true, is_hidden: true } : c));
+                    if (selectedId === roomId) {
+                      setSelectedId(null);
+                      setSelectedType(null);
+                      setMessages([]);
+                      setRoomMembers([]);
+                    }
                   } catch (error) {
                     console.error('Failed to archive room:', error);
                   }
@@ -684,11 +714,13 @@ setLoadingOlder(false);
                 onUnarchiveRoom={async (roomId) => {
                   try {
                     await api.unarchiveRoom(roomId);
-                    setConversations((prev) => prev.map((c) => c.id === roomId ? { ...c, is_archived: false } : c));
+                    setConversations((prev) => prev.map((c) => c.id === roomId ? { ...c, is_archived: false, is_hidden: false } : c));
                   } catch (error) {
                     console.error('Failed to unarchive room:', error);
                   }
                 }}
+                onArchiveConversation={handleHideConv}
+                onUnarchiveConversation={handleUnhideConv}
                 onExportChat={handleExportChat}
               />
             </Suspense>
@@ -731,6 +763,7 @@ setLoadingOlder(false);
           <ForwardModal
             message={forwardMessage}
             onForward={handleForwardMessage}
+            forwarding={forwarding}
             onClose={() => setForwardMessage(null)}
           />
         </Suspense>

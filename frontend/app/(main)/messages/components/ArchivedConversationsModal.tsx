@@ -56,6 +56,11 @@ export default function ArchivedConversationsModal({
     }
   };
 
+  const handleOpen = (conv: Conversation) => {
+    onClose();
+    onSelectConversation(conv);
+  };
+
   const handleDeletePermanently = async (conv: Conversation) => {
     if (!confirm("¿Eliminar permanentemente esta conversación? No se puede deshacer.")) return;
     const convType = conv.type === "room" ? "room" : "dm";
@@ -124,18 +129,24 @@ export default function ArchivedConversationsModal({
               {currentList.map((conv) => (
                 <div key={conv.id} className="px-4 py-3 hover:bg-surface-container-low transition-colors">
                   <div className="flex items-center gap-3">
-                    <Avatar
-                      src={conv.avatar_url}
-                      alt={conv.name}
-                      size="md"
-                      initials={getInitials(conv.name)}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-body-md text-on-surface truncate">{conv.name}</p>
-                      <p className="text-label-sm text-on-surface-variant truncate">
-                        {conv.subtitle || conv.last_message?.body?.slice(0, 50) || "Sin mensajes"}
-                      </p>
-                    </div>
+                    <button
+                      onClick={() => handleOpen(conv)}
+                      className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                      aria-label={`Abrir conversación con ${conv.name}`}
+                    >
+                      <Avatar
+                        src={conv.avatar_url}
+                        alt={conv.name}
+                        size="md"
+                        initials={getInitials(conv.name)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-body-md text-on-surface truncate">{conv.name}</p>
+                        <p className="text-label-sm text-on-surface-variant truncate">
+                          {conv.subtitle || conv.last_message?.body?.slice(0, 50) || "Sin mensajes"}
+                        </p>
+                      </div>
+                    </button>
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleRestore(conv)}
