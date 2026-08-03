@@ -28,7 +28,8 @@ export async function proxy(request: NextRequest) {
       try {
         await jwtVerify(accessToken, secret);
         return NextResponse.next();
-      } catch {
+      } catch (error) {
+        console.debug('JWT verification failed:', error);
         // token invalido o expirado -> redirigir
       }
     }
