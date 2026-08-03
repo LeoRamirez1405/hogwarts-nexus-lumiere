@@ -656,6 +656,13 @@ async def seed_feature_flags():
             "enabled": False,
             "category": "pets",
         },
+        {
+            "key": "events.enabled",
+            "name": "Eventos en Grupos",
+            "description": "Habilita la creación y gestión de eventos en las salas de chat. Los administradores y moderadores pueden crear eventos con RSVP, recordatorios y canales de voz.",
+            "enabled": True,
+            "category": "events",
+        },
     ]
 
     async with async_session() as db:
