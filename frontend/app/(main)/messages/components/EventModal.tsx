@@ -5,7 +5,6 @@ import { MaterialIcon } from "@/components/ui";
 import BottomSheet from "@/components/ui/BottomSheet";
 import Button from "@/components/ui/Button";
 import {
-  AdminCrudModal,
   FormField,
   InputField,
   TextareaField,
@@ -57,6 +56,7 @@ export default function EventModal({
 
   // Sync form with initialData when editing
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (initialData) {
       setTitle(initialData.title);
       setDescription(initialData.description || "");
@@ -130,10 +130,8 @@ export default function EventModal({
     };
 
     if (isEditing && initialData) {
-      const updateData: EventUpdate = { ...data };
-      delete (updateData as any).room_id;
-      delete (updateData as any).create_voice_channel;
-      delete (updateData as any).voice_channel_name;
+      const { room_id: _r, create_voice_channel: _c, voice_channel_name: _v, ...updateData } = data;
+      void _r; void _c; void _v;
       await onSubmit(updateData);
     } else {
       await onSubmit(data as EventCreate);

@@ -45,7 +45,13 @@ export default function EventList({
       else setLoadingMore(true);
       setError(null);
 
-      const params: any = { room_id: roomId, limit: LIMIT, offset: append ? offset : 0 };
+      const params: {
+        room_id: string;
+        limit: number;
+        offset: number;
+        status?: string;
+        upcoming_only?: boolean;
+      } = { room_id: roomId, limit: LIMIT, offset: append ? offset : 0 };
       if (statusFilter !== "upcoming") {
         params.status = statusFilter;
         params.upcoming_only = false;
@@ -60,8 +66,9 @@ export default function EventList({
       }
       setHasMore(response.has_more);
       setOffset((prev) => prev + response.events.length);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Error al cargar eventos");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error al cargar eventos";
+      setError(msg);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -69,6 +76,7 @@ export default function EventList({
   }, [roomId, isVisible, offset, statusFilter]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadEvents(false);
   }, [loadEvents]);
 
@@ -78,8 +86,8 @@ export default function EventList({
       await eventsApi.create(data);
       setShowModal(false);
       setEditingEvent(null);
-      loadEvents(false);
-    } catch (err: any) {
+      await loadEvents(false);
+    } catch (err) {
       throw err;
     } finally {
       setModalLoading(false);
@@ -93,9 +101,9 @@ export default function EventList({
         await eventsApi.update(editingEvent.id, data);
         setShowModal(false);
         setEditingEvent(null);
-        loadEvents(false);
+        await loadEvents(false);
       }
-    } catch (err: any) {
+    } catch (err) {
       throw err;
     } finally {
       setModalLoading(false);
@@ -105,8 +113,8 @@ export default function EventList({
   const handleDelete = async (eventId: string) => {
     try {
       await eventsApi.delete(eventId);
-      loadEvents(false);
-    } catch (err: any) {
+      await loadEvents(false);
+    } catch (err) {
       console.error("Error deleting event:", err);
     }
   };
@@ -122,7 +130,7 @@ export default function EventList({
             : e
         )
       );
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error RSVP:", err);
     }
   };
@@ -133,7 +141,7 @@ export default function EventList({
       setEvents((prev) =>
         prev.map((e) => (e.id === eventId ? { ...e, reminder_time: reminder } : e))
       );
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error setting reminder:", err);
     }
   };
@@ -217,7 +225,7 @@ export default function EventList({
           icon="error"
           title="Error al cargar"
           description={error}
-          actionText="Reintentar"
+          actionLabel="Reintentar"
           onAction={() => loadEvents(false)}
         />
       ) : events.length === 0 ? (
@@ -231,7 +239,7 @@ export default function EventList({
                 : "Los administradores pueden crear eventos desde aquí"
               : "Prueba con otro filtro"
           }
-          actionText={isAdminOrMod && statusFilter === "upcoming" ? "Crear evento" : undefined}
+          actionLabel={isAdminOrMod && statusFilter === "upcoming" ? "Crear evento" : undefined}
           onAction={openCreateModal}
         />
       ) : (

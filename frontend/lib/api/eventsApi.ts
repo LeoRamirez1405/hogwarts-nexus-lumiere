@@ -1,25 +1,28 @@
 /** Events API client */
 
-import { api } from '@/lib/api';
+import { request, buildQuery } from "@/lib/api/core";
 import type {
   Event,
   EventListResponse,
   EventCreate,
   EventUpdate,
-  RSVPRequest,
+  RSVPStatus,
   RSVPResponse,
-  ReminderSettingsRequest,
+  ReminderTime,
   ReminderSettingsResponse,
   VisibilitySettingsResponse,
-  VoiceChannelLinkRequest,
-} from './events';
+} from "./events";
 
-const EVENTS_BASE = '/events';
+const EVENTS_BASE = "/events";
 
 export const eventsApi = {
   // Visibility settings (admin only)
-  getVisibility: () => api.get<VisibilitySettingsResponse>(`${EVENTS_BASE}/visibility`),
-  setVisibility: (enabled: boolean) => api.patch<VisibilitySettingsResponse>(`${EVENTS_BASE}/visibility`, { enabled }),
+  getVisibility: () => request<VisibilitySettingsResponse>(`${EVENTS_BASE}/visibility`),
+  setVisibility: (enabled: boolean) =>
+    request<VisibilitySettingsResponse>(`${EVENTS_BASE}/visibility`, {
+      method: "PATCH",
+      body: JSON.stringify({ enabled }),
+    }),
 
   // CRUD
   list: (params: {
@@ -28,33 +31,60 @@ export const eventsApi = {
     upcoming_only?: boolean;
     limit?: number;
     offset?: number;
-  }) => api.get<EventListResponse>(EVENTS_BASE, { params }),
+  }) =>
+    request<EventListResponse>(
+      `${EVENTS_BASE}${buildQuery({
+        ...params,
+        upcoming_only: params.upcoming_only === true ? "true" : params.upcoming_only === false ? "false" : undefined,
+      })}`
+    ),
 
-  get: (eventId: string) => api.get<Event>(`${EVENTS_BASE}/${eventId}`),
+  get: (eventId: string) => request<Event>(`${EVENTS_BASE}/${eventId}`),
 
-  create: (data: EventCreate) => api.post<Event>(EVENTS_BASE, data),
+  create: (data: EventCreate) =>
+    request<Event>(EVENTS_BASE, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
-  update: (eventId: string, data: EventUpdate) => api.patch<Event>(`${EVENTS_BASE}/${eventId}`, data),
+  update: (eventId: string, data: EventUpdate) =>
+    request<Event>(`${EVENTS_BASE}/${eventId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 
-  delete: (eventId: string) => api.delete(`${EVENTS_BASE}/${eventId}`),
+  delete: (eventId: string) =>
+    request<void>(`${EVENTS_BASE}/${eventId}`, { method: "DELETE" }),
 
   // RSVP
-  rsvp: (eventId: string, status: RSVPRequest['status']) =>
-    api.post<RSVPResponse>(`${EVENTS_BASE}/${eventId}/rsvp`, { status }),
+  rsvp: (eventId: string, status: RSVPStatus) =>
+    request<RSVPResponse>(`${EVENTS_BASE}/${eventId}/rsvp`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    }),
 
-  listRsvps: (eventId: string) => api.get<RSVPResponse[]>(`${EVENTS_BASE}/${eventId}/rsvps`),
+  listRsvps: (eventId: string) => request<RSVPResponse[]>(`${EVENTS_BASE}/${eventId}/rsvps`),
 
-  removeRsvp: (eventId: string) => api.delete(`${EVENTS_BASE}/${eventId}/rsvp`),
+  removeRsvp: (eventId: string) =>
+    request<void>(`${EVENTS_BASE}/${eventId}/rsvp`, { method: "DELETE" }),
 
   // Reminders
-  getReminder: (eventId: string) => api.get<ReminderSettingsResponse>(`${EVENTS_BASE}/${eventId}/reminder`),
+  getReminder: (eventId: string) =>
+    request<ReminderSettingsResponse>(`${EVENTS_BASE}/${eventId}/reminder`),
 
-  setReminder: (eventId: string, reminder_time: ReminderSettingsRequest['reminder_time']) =>
-    api.patch<ReminderSettingsResponse>(`${EVENTS_BASE}/${eventId}/reminder`, { reminder_time }),
+  setReminder: (eventId: string, reminder_time: ReminderTime) =>
+    request<ReminderSettingsResponse>(`${EVENTS_BASE}/${eventId}/reminder`, {
+      method: "PATCH",
+      body: JSON.stringify({ reminder_time }),
+    }),
 
   // Voice channel linking
   linkVoiceChannel: (eventId: string, voice_channel_id: string) =>
-    api.post<Event>(`${EVENTS_BASE}/${eventId}/voice-channel`, { voice_channel_id }),
+    request<Event>(`${EVENTS_BASE}/${eventId}/voice-channel`, {
+      method: "POST",
+      body: JSON.stringify({ voice_channel_id }),
+    }),
 
-  unlinkVoiceChannel: (eventId: string) => api.delete<Event>(`${EVENTS_BASE}/${eventId}/voice-channel`),
+  unlinkVoiceChannel: (eventId: string) =>
+    request<Event>(`${EVENTS_BASE}/${eventId}/voice-channel`, { method: "DELETE" }),
 };

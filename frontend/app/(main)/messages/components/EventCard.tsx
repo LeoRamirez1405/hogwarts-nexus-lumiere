@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { MaterialIcon } from "@/components/ui";
-import { format, formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { AdminCrudModal, FormField, SelectField } from "@/components/ui/AdminCrudModal";
 import Button from "@/components/ui/Button";
@@ -31,17 +31,14 @@ export default function EventCard({
   onJoinVoice,
 }: EventCardProps) {
   const [showRsvpMenu, setShowRsvpMenu] = useState(false);
-  const [showReminderMenu, setShowReminderMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isPast = new Date(event.starts_at) < new Date();
   const isCancelled = event.status === "cancelled";
-  const isGoing = event.my_rsvp === "going";
   const isCreator = event.created_by === currentUserId;
   const canEdit = isAdminOrMod || isCreator;
   const goingCount = event.rsvp_counts?.going || 0;
   const maybeCount = event.rsvp_counts?.maybe || 0;
-  const notGoingCount = event.rsvp_counts?.not_going || 0;
   const totalAttendees = goingCount + maybeCount;
 
   const rsvpOptions = [
