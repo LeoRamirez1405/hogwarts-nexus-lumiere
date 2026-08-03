@@ -675,7 +675,37 @@ async def forward_message(
     await db.flush()
     await db.commit()
     await db.refresh(new_msg)
-    return await serialize_message(db, new_msg, current_user.id, expand_sender=True)
+
+    # Update denormalized conversation preferences (sender + recipients)
+    await _update_conversation_preferences(db, new_msg, current_user)
+
+    # Expunge & reload so relationships are eagerly loaded for serialization
+    db.expunge(new_msg)
+    msg_result = await db.execute(
+        select(Message)
+        .options(selectinload(Message.reply_to).selectinload(Message.sender))
+        .where(Message.id == new_msg.id)
+    )
+    new_msg = msg_result.scalar_one()
+
+    serialized = await serialize_message(
+        db, new_msg, current_user.id, expand_sender=True, expand_reply_to=True
+    )
+
+    # Broadcast via WebSocket to conversation participants
+    conversation_id = target_room_id or target_receiver_id or ""
+    payload = {
+        "t": "new_message",
+        "c": conversation_id,
+        "m": serialized.model_dump(mode="json"),
+        "ts": int(new_msg.created_at.timestamp() * 1000),
+    }
+    if new_msg.room_id:
+        await manager.broadcast_to_room(new_msg.room_id, payload, exclude_user=current_user.id)
+    elif new_msg.receiver_id:
+        await manager.send_to_user(new_msg.receiver_id, payload)
+
+    return serialized
 
 
 @router.put("/{message_id}/star")

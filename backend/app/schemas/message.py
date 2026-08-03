@@ -271,6 +271,8 @@ class ConversationResponse(BaseModel):
     last_message: Optional[MessageResponse] = None
     unread_count: int = 0
     hidden: bool = False
+    is_hidden: bool = False
+    is_archived: bool = False
     is_muted: bool = False
     is_pinned: bool = False
     last_active_at: Optional[datetime] = None

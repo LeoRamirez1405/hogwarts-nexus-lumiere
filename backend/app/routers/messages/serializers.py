@@ -235,18 +235,14 @@ async def build_conversations(
             muted_rooms[m.room_id] = m.muted_until
         last_read_map[m.room_id] = m.last_read_at
 
-    # Get user IDs and room IDs we need to load
-    dm_user_ids = [p.conversation_id for p in dm_prefs if p.conversation_id not in hidden_dm_ids]
-    room_ids = [p.conversation_id for p in room_prefs if p.conversation_id not in hidden_room_ids]
-
-    # Batch load users for DMs
-    dm_users = {}
+    # Batch load users for DMs (include hidden DM users so the archived modal can list them)
+    dm_user_ids = [p.conversation_id for p in dm_prefs]
     if dm_user_ids:
         users_result = await db.execute(select(User).where(User.id.in_(dm_user_ids)))
         dm_users = {u.id: u for u in users_result.scalars().all()}
 
-    # Batch load rooms
-    rooms = {}
+    # Batch load rooms (include hidden rooms so the archived modal can list them)
+    room_ids = [p.conversation_id for p in room_prefs]
     if room_ids:
         rooms_result = await db.execute(
             select(ChatRoom)
@@ -258,11 +254,21 @@ async def build_conversations(
     # Build DM conversations using denormalized data
     dm_map = {}
     for pref in dm_prefs:
-        if pref.conversation_id in hidden_dm_ids:
-            continue
+        # Include hidden conversations so the Archived modal can list them;
+        # the inbox filter on the frontend hides them by `is_hidden`.
         other = dm_users.get(pref.conversation_id)
         if not other:
-            continue
+            # User not in dm_users because we skipped loading hidden ones.
+            # Lazily fetch a hidden DM's partner so the modal still shows it.
+            if pref.conversation_id in hidden_dm_ids:
+                partner = (
+                    await db.execute(select(User).where(User.id == pref.conversation_id))
+                ).scalar_one_or_none()
+                if not partner:
+                    continue
+                other = partner
+            else:
+                continue
         dm_is_muted = pref.conversation_id in muted_dm
 
         # Create a minimal last_message from denormalized data
@@ -291,6 +297,7 @@ async def build_conversations(
                 reactions=[],
             )
 
+        is_hidden = pref.conversation_id in hidden_dm_ids
         dm_map[pref.conversation_id] = ConversationResponse(
             type="direct",
             id=other.id,
@@ -301,6 +308,9 @@ async def build_conversations(
             unread_count=pref.unread_count if not dm_is_muted else 0,
             is_muted=dm_is_muted,
             is_pinned=bool(pref.pinned_at),
+            is_hidden=is_hidden,
+            is_archived=is_hidden,
+            hidden=is_hidden,
             last_active_at=other.last_active_at,
         )
 
@@ -308,8 +318,8 @@ async def build_conversations(
     room_convs = []
     now = datetime.utcnow()
     for pref in room_prefs:
-        if pref.conversation_id in hidden_room_ids:
-            continue
+        # Include hidden rooms so the Archived modal can list them; the
+        # inbox filter on the frontend hides them via `is_hidden`.
         room = rooms.get(pref.conversation_id)
         if not room:
             continue
@@ -354,6 +364,7 @@ async def build_conversations(
                 reactions=[],
             )
 
+        is_hidden_room = pref.conversation_id in hidden_room_ids
         room_convs.append(
             ConversationResponse(
                 type="room",
@@ -365,6 +376,9 @@ async def build_conversations(
                 unread_count=pref.unread_count if not is_muted else 0,
                 online_count=online_count,
                 is_pinned=bool(pref.pinned_at),
+                is_hidden=is_hidden_room,
+                is_archived=is_hidden_room,
+                hidden=is_hidden_room,
             )
         )
 
