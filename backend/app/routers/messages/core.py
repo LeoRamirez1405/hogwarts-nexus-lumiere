@@ -1,6 +1,7 @@
 """Core message operations: send, read, edit, delete, forward, pin and star."""
 
 import json
+import base64
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -12,9 +13,10 @@ from sqlalchemy.orm import selectinload
 
 from ...database import get_db
 from ...middleware.auth import get_current_user
-from ...models.chat_room import ChatRoom, ChatRoomMember
+from ...models.chat_room import ChatRoom, ChatRoomMember, UserConversationPreference
 from ...models.message import Message, Poll, PollOption
 from ...models.user import User
+from ...models.e2e_encryption import EncryptedMessage
 from ...notifications_service import notify, resolve_mentions, N
 from ...schemas.message import (
     ForwardMessageRequest,
@@ -22,7 +24,14 @@ from ...schemas.message import (
     MessagePage,
     MessageResponse,
 )
-from .deps import _initial_limit, _older_than, _PIN_OPTS, _resolve_cursor
+from ...ws_manager import manager
+from .deps import (
+    _initial_limit,
+    _invalidate_conversations_cache,
+    _older_than,
+    _PIN_OPTS,
+    _resolve_cursor,
+)
 from .serializers import _update_conversation_preferences, serialize_message
 
 router = APIRouter()
@@ -102,6 +111,8 @@ async def send_message(
     reply_to_id = message_data.reply_to_id
     disappear_at = message_data.disappear_at
 
+    is_e2e = message_data.e2e_encrypted
+
     message = Message(
         sender_id=current_user.id,
         receiver_id=message_data.receiver_id,
@@ -114,10 +125,27 @@ async def send_message(
         attachment_name=message_data.attachment_name,
         metadata_json=metadata_json,
         disappear_at=disappear_at,
+        e2e_encrypted=is_e2e,
     )
 
     db.add(message)
     await db.flush()
+
+    # If E2E encrypted, store the encrypted envelope
+    if is_e2e and message_data.e2e_ciphertext:
+        encrypted_msg = EncryptedMessage(
+            message_id=message.id,
+            sender_id=current_user.id,
+            recipient_id=message_data.receiver_id,
+            ciphertext=base64.b64decode(message_data.e2e_ciphertext),
+            sender_ephemeral_public=base64.b64decode(message_data.e2e_sender_ephemeral or ""),
+            counter=message_data.e2e_counter or 0,
+            previous_counter=message_data.e2e_previous_counter,
+            session_version=message_data.e2e_message_version or 3,
+            kind=message.kind,
+            has_attachment=bool(message.attachment_url),
+        )
+        db.add(encrypted_msg)
 
     if message_data.kind == "poll" and message_data.poll:
         poll_data = message_data.poll
@@ -229,7 +257,20 @@ async def edit_message(
     await db.commit()
     await db.refresh(message)
 
-    return await serialize_message(db, message, current_user.id, expand_sender=True)
+    serialized = await serialize_message(db, message, current_user.id, expand_sender=True)
+    event = {
+        "t": "edit",
+        "c": message.room_id or message.receiver_id,
+        "m": serialized.model_dump(mode="json"),
+        "ts": int(datetime.utcnow().timestamp() * 1000),
+    }
+    if message.room_id:
+        await manager.broadcast_to_room(message.room_id, event, exclude_user=current_user.id)
+    elif message.receiver_id:
+        await manager.send_to_user(message.receiver_id, event)
+        await manager.send_to_user(current_user.id, event)
+
+    return serialized
 
 
 @router.delete("/{message_id}", status_code=204)
@@ -247,8 +288,22 @@ async def delete_message(
     if message.sender_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the sender can delete this message")
 
+    room_id = message.room_id
+    receiver_id = message.receiver_id
     await db.delete(message)
     await db.commit()
+
+    event = {
+      "t": "delete",
+      "c": room_id or receiver_id,
+      "m": message_id,
+      "ts": int(datetime.utcnow().timestamp() * 1000),
+    }
+    if room_id:
+      await manager.broadcast_to_room(room_id, event)
+    elif receiver_id:
+      await manager.send_to_user(receiver_id, event)
+      await manager.send_to_user(current_user.id, event)
 
 
 @router.put("/{message_id}/pin", response_model=MessageResponse)
@@ -339,6 +394,31 @@ async def list_dm_pinned(
     return [await serialize_message(db, m, current_user.id) for m in rows]
 
 
+@router.get("/starred", response_model=List[MessageResponse])
+async def list_starred_messages(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    limit: int = Query(50, ge=1, le=200),
+):
+    room_subq = select(ChatRoomMember.room_id).where(
+        ChatRoomMember.user_id == current_user.id
+    )
+    dm_filter = or_(
+        and_(Message.sender_id == current_user.id),
+        and_(Message.receiver_id == current_user.id),
+    )
+    rows = (
+        await db.execute(
+            select(Message)
+            .where(and_(Message.starred == True, or_(dm_filter, Message.room_id.in_(room_subq))))  # noqa: E712
+            .options(*_PIN_OPTS)
+            .order_by(Message.created_at.desc())
+            .limit(limit)
+        )
+    ).scalars().all()
+    return [await serialize_message(db, m, current_user.id) for m in rows]
+
+
 @router.get("/{user_id}", response_model=MessagePage)
 async def get_messages(
     user_id: str,
@@ -363,6 +443,9 @@ async def get_messages(
             Message.receiver_id == current_user.id,
         ),
     )
+
+    # Hide scheduled messages that have not been delivered yet.
+    convo_filter = and_(convo_filter, Message.scheduled_at.is_(None))
 
     # Unread marker only on the initial load (no cursor).
     first_unread_id = None
@@ -430,7 +513,28 @@ async def get_messages(
             )
             .values(read=True)
         )
+        # Mirror the read state into the denormalized conversation counter so
+        # the badge survives a page reload / fresh GET /conversations.
+        dm_pref = (
+            await db.execute(
+                select(UserConversationPreference).where(
+                    and_(
+                        UserConversationPreference.user_id == current_user.id,
+                        UserConversationPreference.conversation_type == "dm",
+                        UserConversationPreference.conversation_id == user_id,
+                    )
+                )
+            )
+        ).scalar_one_or_none()
+        if dm_pref and dm_pref.unread_count != 0:
+            dm_pref.unread_count = 0
+        await _invalidate_conversations_cache(current_user.id)
     await db.commit()
+
+    # The commit expired every loaded row; re-select so eager loads repopulate
+    # sender/receiver/reactions/reply_to and serialization below does not
+    # lazy-load them one query per message.
+    rows = (await db.execute(query)).scalars().all()[:eff_limit]
 
     out = [
         await serialize_message(

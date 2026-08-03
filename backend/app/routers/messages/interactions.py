@@ -1,5 +1,6 @@
 """Message interactions: poll voting and emoji reactions."""
 
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,11 +11,43 @@ from ...middleware.auth import get_current_user
 from ...models.message import Message, MessageReaction, Poll, PollOption, PollVote
 from ...models.user import User
 from ...schemas.message import MessageReactionResponse, PollVoteRequest, ReactionCreate
+from ...ws_manager import manager
 
 router = APIRouter()
 
 
-@router.post("/messages/{message_id}/poll/vote")
+async def _broadcast_reaction_update(db: AsyncSession, message_id: str, sender_id: str) -> None:
+    result = await db.execute(
+        select(Message).where(Message.id == message_id).options(selectinload(Message.reactions))
+    )
+    message = result.scalar_one_or_none()
+    if not message:
+        return
+    reactions_out = [
+        MessageReactionResponse(
+            id=r.id,
+            message_id=r.message_id,
+            user_id=r.user_id,
+            emoji=r.emoji,
+            created_at=r.created_at,
+        )
+        for r in (message.reactions or [])
+    ]
+    payload = {
+        "t": "reaction_update",
+        "c": message.room_id or message.receiver_id,
+        "m": message.id,
+        "r": [r.model_dump(mode="json") for r in reactions_out],
+        "ts": int(datetime.utcnow().timestamp() * 1000),
+    }
+    if message.room_id:
+        await manager.broadcast_to_room(message.room_id, payload)
+    elif message.receiver_id:
+        await manager.send_to_user(message.receiver_id, payload)
+        await manager.send_to_user(sender_id, payload)
+
+
+@router.post("/{message_id}/poll/vote")
 async def vote_poll(
     message_id: str,
     vote_data: PollVoteRequest,
@@ -65,7 +98,7 @@ async def vote_poll(
     return {"ok": True}
 
 
-@router.delete("/messages/{message_id}/poll/vote")
+@router.delete("/{message_id}/poll/vote")
 async def remove_poll_vote(
     message_id: str,
     option_id: str = Query(...),
@@ -124,6 +157,7 @@ async def add_reaction(
     if existing_reaction:
         await db.delete(existing_reaction)
         await db.commit()
+        await _broadcast_reaction_update(db, message_id, current_user.id)
         return {"id": existing_reaction.id, "message_id": message_id, "user_id": current_user.id, "emoji": reaction_data.emoji, "created_at": existing_reaction.created_at, "removed": True}
 
     reaction = MessageReaction(
@@ -134,6 +168,7 @@ async def add_reaction(
     db.add(reaction)
     await db.commit()
     await db.refresh(reaction)
+    await _broadcast_reaction_update(db, message_id, current_user.id)
     return MessageReactionResponse(
         id=reaction.id,
         message_id=reaction.message_id,
@@ -165,3 +200,4 @@ async def remove_reaction(
 
     await db.delete(reaction)
     await db.commit()
+    await _broadcast_reaction_update(db, message_id, current_user.id)

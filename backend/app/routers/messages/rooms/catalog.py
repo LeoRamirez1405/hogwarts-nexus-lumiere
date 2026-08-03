@@ -1,6 +1,6 @@
 """Admin CRUD endpoints for chat rooms: create, update, delete, toggle-close.
 
-All routes require the ``admin`` role.
+All routes require the ``admin`` role (global admin or room admin).
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -9,12 +9,39 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ....database import get_db
+from ....middleware.auth import get_current_user
 from ....middleware.roles import require_role
 from ....models.chat_room import ChatRoom, ChatRoomMember
 from ....models.user import User
 from ....schemas.message import ChatRoomCreate, ChatRoomResponse, ChatRoomUpdate
 from ...audit_logs import log_audit
 from ..serializers import serialize_room
+
+
+async def require_room_admin(
+    room_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Dependency that ensures the current user is a global admin or room admin."""
+    # Global admin always has access
+    if current_user.role == "admin":
+        return current_user
+
+    # Check if user is a confirmed room admin
+    result = await db.execute(
+        select(ChatRoomMember).where(
+            ChatRoomMember.room_id == room_id,
+            ChatRoomMember.user_id == current_user.id,
+            ChatRoomMember.role == "admin",
+            ChatRoomMember.pending == False,
+        )
+    )
+    member = result.scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=403, detail="Not authorized to administer this room")
+    return current_user
+
 
 router = APIRouter()
 
@@ -82,7 +109,7 @@ async def update_chat_room(
     room_id: str,
     room_data: ChatRoomUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_room_admin),
     request: Request = None,
 ):
     result = await db.execute(

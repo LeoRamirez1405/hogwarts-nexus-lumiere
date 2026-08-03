@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -21,6 +21,12 @@ from ...schemas.message import (
     PollResponse,
 )
 from .deps import _invalidate_conversations_caches
+
+
+# How many nested reply previews to serialize. The client only renders a
+# single-level quoted preview, and deeper levels would grow the payload
+# without a matching eager load. Must match Message.reply_to.join_depth.
+MAX_REPLY_DEPTH = 1
 
 
 def serialize_poll(poll: Poll, user_id: str) -> PollResponse:
@@ -54,6 +60,7 @@ async def serialize_message(
     db: AsyncSession, msg: Message, current_user_id: str,
     expand_sender: bool = False, expand_receiver: bool = False,
     expand_reactions: bool = False, expand_reply_to: bool = False,
+    reply_depth: int = 0,
 ) -> MessageResponse:
     poll_data = None
     if msg.kind == "poll" and msg.poll:
@@ -66,11 +73,17 @@ async def serialize_message(
             pass
 
     reply_to_data = None
-    if expand_reply_to and msg.reply_to_id and msg.reply_to:
+    if (
+        expand_reply_to
+        and msg.reply_to_id
+        and msg.reply_to
+        and reply_depth < MAX_REPLY_DEPTH
+    ):
         reply_to_data = await serialize_message(
             db, msg.reply_to, current_user_id,
             expand_sender=expand_sender, expand_receiver=expand_receiver,
             expand_reactions=expand_reactions,
+            reply_depth=reply_depth + 1,
         )
 
     reactions_out = []
@@ -117,6 +130,13 @@ async def serialize_message(
     poll=poll_data,
     reply_to=reply_to_data,
     reactions=reactions_out,
+    # E2E Encryption fields
+    e2e_encrypted=bool(getattr(msg, "e2e_encrypted", False)),
+    e2e_ciphertext=None,  # Not exposed in API for security
+    e2e_sender_ephemeral=None,
+    e2e_counter=None,
+    e2e_previous_counter=None,
+    e2e_message_version=None,
   )
 
 
@@ -146,6 +166,33 @@ def serialize_room(room: ChatRoom, user_id: str) -> ChatRoomResponse:
         created_by=room.created_by,
         created_at=room.created_at,
         members=members_out,
+    )
+
+
+def _preview_message(msg: Message, sender) -> MessageResponse:
+    """Minimal last-message preview for the conversation list (fallback path)."""
+    return MessageResponse(
+        id=msg.id,
+        sender_id=msg.sender_id,
+        receiver_id=msg.receiver_id,
+        room_id=msg.room_id,
+        reply_to_id=None,
+        kind=msg.kind or "text",
+        body=msg.body,
+        attachment_url=msg.attachment_url,
+        attachment_type=msg.attachment_type,
+        attachment_name=msg.attachment_name,
+        metadata=None,
+        read=True,
+        pinned=False,
+        created_at=msg.created_at,
+        sender=sender,
+        receiver=None,
+        room=None,
+        poll=None,
+        reply_to=None,
+        reactions=[],
+        e2e_encrypted=bool(getattr(msg, "e2e_encrypted", False)),
     )
 
 
@@ -180,9 +227,10 @@ async def build_conversations(
     membership_result = await db.execute(
         select(ChatRoomMember).where(ChatRoomMember.user_id == current_user.id)
     )
+    memberships = membership_result.scalars().all()
     muted_rooms = {}
     last_read_map = {}
-    for m in membership_result.scalars().all():
+    for m in memberships:
         if m.muted_until is not None:
             muted_rooms[m.room_id] = m.muted_until
         last_read_map[m.room_id] = m.last_read_at
@@ -226,11 +274,11 @@ async def build_conversations(
                 receiver_id=current_user.id if pref.last_message_sender_id != current_user.id else other.id,
                 room_id=None,
                 reply_to_id=None,
-                kind="text",
+                kind=pref.last_message_kind or "text",
                 body=pref.last_message_body,
-                attachment_url=None,
-                attachment_type=None,
-                attachment_name=None,
+                attachment_url=pref.last_message_attachment_url,
+                attachment_type=pref.last_message_attachment_type,
+                attachment_name=pref.last_message_attachment_name,
                 metadata=None,
                 read=True,
                 pinned=False,
@@ -289,11 +337,11 @@ async def build_conversations(
                 receiver_id=None,
                 room_id=room.id,
                 reply_to_id=None,
-                kind="text",
+                kind=pref.last_message_kind or "text",
                 body=pref.last_message_body,
-                attachment_url=None,
-                attachment_type=None,
-                attachment_name=None,
+                attachment_url=pref.last_message_attachment_url,
+                attachment_type=pref.last_message_attachment_type,
+                attachment_name=pref.last_message_attachment_name,
                 metadata=None,
                 read=True,
                 pinned=False,
@@ -320,6 +368,120 @@ async def build_conversations(
             )
         )
 
+    # ---- Fallback: conversations without a preference row ----
+    # Prefs are created on the first message, so a missing row means legacy
+    # data (messages written before denormalization) or a membership with no
+    # message yet. Without this fallback those would be invisible in the inbox.
+    known_dm_ids = set(dm_map.keys())
+    known_room_ids = {c.id for c in room_convs}
+
+    # DM partners that exchanged messages but have no pref row.
+    legacy_partner_rows = (
+        await db.execute(
+            select(Message.sender_id, Message.receiver_id)
+            .where(
+                Message.room_id.is_(None),
+                or_(
+                    Message.sender_id == current_user.id,
+                    Message.receiver_id == current_user.id,
+                ),
+            )
+            .distinct()
+        )
+    ).all()
+    legacy_partners = {
+        other
+        for sender_id, receiver_id in legacy_partner_rows
+        for other in (sender_id, receiver_id)
+        if other and other != current_user.id
+    }
+    legacy_partners -= known_dm_ids
+    legacy_partners -= hidden_dm_ids
+    if legacy_partners:
+        legacy_users_result = await db.execute(
+            select(User).where(User.id.in_(legacy_partners))
+        )
+        legacy_users = {u.id: u for u in legacy_users_result.scalars().all()}
+        for partner_id in legacy_partners:
+            partner = legacy_users.get(partner_id)
+            if not partner:
+                continue
+            last_msg = (
+                await db.execute(
+                    select(Message)
+                    .options(selectinload(Message.sender))
+                    .where(
+                        Message.room_id.is_(None),
+                        or_(
+                            and_(Message.sender_id == current_user.id, Message.receiver_id == partner_id),
+                            and_(Message.sender_id == partner_id, Message.receiver_id == current_user.id),
+                        ),
+                    )
+                    .order_by(Message.created_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            dm_map[partner_id] = ConversationResponse(
+                type="direct",
+                id=partner.id,
+                name=partner.name,
+                avatar_url=partner.avatar_url,
+                subtitle=partner.house,
+                last_message=_preview_message(last_msg, partner) if last_msg else None,
+                unread_count=0,
+                is_muted=False,
+                is_pinned=False,
+                last_active_at=partner.last_active_at,
+            )
+
+    # Room memberships without a pref row (rooms with no message yet, or legacy).
+    membership_ids = {m.room_id for m in memberships}
+    legacy_room_ids = membership_ids - known_room_ids - hidden_room_ids
+    if legacy_room_ids:
+        legacy_rooms_result = await db.execute(
+            select(ChatRoom)
+            .where(ChatRoom.id.in_(legacy_room_ids))
+            .options(selectinload(ChatRoom.members).selectinload(ChatRoomMember.user))
+        )
+        legacy_rooms = {r.id: r for r in legacy_rooms_result.scalars().all()}
+        for room_id in legacy_room_ids:
+            member_row = next((m for m in memberships if m.room_id == room_id), None)
+            if member_row and member_row.pending:
+                continue
+            room = legacy_rooms.get(room_id)
+            if not room:
+                continue
+            last_msg = (
+                await db.execute(
+                    select(Message)
+                    .options(selectinload(Message.sender))
+                    .where(Message.room_id == room_id)
+                    .order_by(Message.created_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            online_count = sum(
+                1 for m in room.members
+                if m.user and m.user.last_active_at
+                and (now - m.user.last_active_at).total_seconds() < 300
+            )
+            sender = None
+            if last_msg:
+                sender = next((m.user for m in room.members if m.user_id == last_msg.sender_id), None)
+            room_convs.append(
+                ConversationResponse(
+                    type="room",
+                    id=room.id,
+                    name=room.name,
+                    avatar_url=room.avatar_url,
+                    subtitle=f"{len(room.members)} miembros",
+                    last_message=_preview_message(last_msg, sender) if last_msg else None,
+                    unread_count=0,
+                    online_count=online_count,
+                    is_pinned=False,
+                )
+            )
+
     all_convs = list(dm_map.values()) + room_convs
     all_convs.sort(
         key=lambda c: (not c.is_pinned, c.last_message.created_at if c.last_message else datetime.min),
@@ -336,6 +498,11 @@ async def _update_conversation_preferences(
     body_preview = (message.body or "")[:200] if message.body else ""
     if not body_preview and message.attachment_url:
         body_preview = "📎 Adjunto"
+
+    kind = message.kind or "text"
+    attachment_url = message.attachment_url
+    attachment_type = message.attachment_type
+    attachment_name = message.attachment_name
 
     # Determine conversation key
     if message.room_id:
@@ -365,6 +532,10 @@ async def _update_conversation_preferences(
         last_message_body=body_preview,
         last_message_at=message.created_at,
         last_message_sender_id=sender.id,
+        last_message_kind=kind,
+        last_message_attachment_url=attachment_url,
+        last_message_attachment_type=attachment_type,
+        last_message_attachment_name=attachment_name,
         # Don't increment unread for sender
         unread_increment=0,
     )
@@ -382,6 +553,10 @@ async def _update_conversation_preferences(
             last_message_body=body_preview,
             last_message_at=message.created_at,
             last_message_sender_id=sender.id,
+            last_message_kind=kind,
+            last_message_attachment_url=attachment_url,
+            last_message_attachment_type=attachment_type,
+            last_message_attachment_name=attachment_name,
             unread_increment=1,
         )
 
@@ -400,7 +575,11 @@ async def _upsert_conversation_pref(
     last_message_body: str,
     last_message_at: datetime,
     last_message_sender_id: str,
-    unread_increment: int,
+    last_message_kind: str = "text",
+    last_message_attachment_url: Optional[str] = None,
+    last_message_attachment_type: Optional[str] = None,
+    last_message_attachment_name: Optional[str] = None,
+    unread_increment: int = 0,
 ):
     """Upsert a UserConversationPreference with denormalized message data."""
     result = await db.execute(
@@ -418,6 +597,10 @@ async def _upsert_conversation_pref(
         pref.last_message_body = last_message_body
         pref.last_message_at = last_message_at
         pref.last_message_sender_id = last_message_sender_id
+        pref.last_message_kind = last_message_kind
+        pref.last_message_attachment_url = last_message_attachment_url
+        pref.last_message_attachment_type = last_message_attachment_type
+        pref.last_message_attachment_name = last_message_attachment_name
         if unread_increment > 0:
             pref.unread_count += unread_increment
     else:
@@ -429,6 +612,10 @@ async def _upsert_conversation_pref(
             last_message_body=last_message_body,
             last_message_at=last_message_at,
             last_message_sender_id=last_message_sender_id,
+            last_message_kind=last_message_kind,
+            last_message_attachment_url=last_message_attachment_url,
+            last_message_attachment_type=last_message_attachment_type,
+            last_message_attachment_name=last_message_attachment_name,
             unread_count=unread_increment,
         )
         db.add(pref)

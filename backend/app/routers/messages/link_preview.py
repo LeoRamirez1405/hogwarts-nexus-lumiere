@@ -77,7 +77,7 @@ def _extract_meta(html: str, url: str) -> dict:
 
 
 @router.post(
-    "/messages/link-preview",
+    "/link-preview",
     response_model=LinkPreviewResponse,
     status_code=status.HTTP_200_OK,
 )

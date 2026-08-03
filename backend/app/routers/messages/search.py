@@ -127,3 +127,39 @@ async def search_messages_in_room(
     )
     rows = (await db.execute(stmt)).scalars().all()
     return [await serialize_message(db, m, current_user.id, expand_sender=True, expand_reactions=True) for m in rows]
+
+
+@router.get("/dm/{user_id}/messages/search", response_model=List[MessageResponse])
+async def search_messages_in_dm(
+    user_id: str,
+    q: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    limit: int = Query(50, ge=1, le=200),
+):
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot search your own DM")
+
+    pattern = f"%{q}%"
+    stmt = (
+        select(Message)
+        .options(
+            selectinload(Message.sender),
+            selectinload(Message.reactions),
+            selectinload(Message.reply_to).selectinload(Message.sender),
+        )
+        .where(
+            and_(
+                Message.room_id.is_(None),
+                Message.body.ilike(pattern),
+                or_(
+                    and_(Message.sender_id == current_user.id, Message.receiver_id == user_id),
+                    and_(Message.sender_id == user_id, Message.receiver_id == current_user.id),
+                ),
+            )
+        )
+        .order_by(Message.created_at.desc())
+        .limit(limit)
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+    return [await serialize_message(db, m, current_user.id, expand_sender=True, expand_reactions=True) for m in rows]

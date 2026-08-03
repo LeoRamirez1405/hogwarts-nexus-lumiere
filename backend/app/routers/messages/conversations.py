@@ -12,7 +12,11 @@ from ...middleware.auth import get_current_user
 from ...models.chat_room import ChatRoomMember, UserConversationPreference
 from ...models.user import User
 from ...schemas.message import ConversationResponse, MuteRequest
-from .deps import _get_cached_conversations, _set_cached_conversations
+from .deps import (
+    _get_cached_conversations,
+    _invalidate_conversations_cache,
+    _set_cached_conversations,
+)
 from .serializers import build_conversations
 
 router = APIRouter()
@@ -66,6 +70,7 @@ async def hide_conversation(
         db.add(pref)
 
     await db.commit()
+    await _invalidate_conversations_cache(current_user.id)
     return {"ok": True}
 
 
@@ -92,6 +97,7 @@ async def unhide_conversation(
     if pref:
         pref.hidden = False
         await db.commit()
+        await _invalidate_conversations_cache(current_user.id)
 
     return {"ok": True}
 
@@ -143,6 +149,7 @@ async def mute_conversation(
         db.add(pref)
 
     await db.commit()
+    await _invalidate_conversations_cache(current_user.id)
     return {"ok": True, "muted_until": muted_until.isoformat() if muted_until else None}
 
 
@@ -197,6 +204,7 @@ async def pin_conversation(
         db.add(pref)
 
     await db.commit()
+    await _invalidate_conversations_cache(current_user.id)
     return {"ok": True, "pinned_at": pref.pinned_at.isoformat() if pref.pinned_at else None}
 
 
@@ -226,5 +234,6 @@ async def unpin_conversation(
     if pref:
         pref.pinned_at = None
         await db.commit()
+        await _invalidate_conversations_cache(current_user.id)
 
     return {"ok": True}

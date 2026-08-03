@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from ....database import get_db
 from ....middleware.auth import get_current_user
-from ....models.chat_room import ChatRoomMember
+from ....models.chat_room import ChatRoomMember, UserConversationPreference
 from ....models.message import Message, Poll, PollOption
 from ....models.user import User
 from ....schemas.message import (
@@ -18,7 +18,7 @@ from ....schemas.message import (
     MessageResponse,
 )
 from ..core import send_message
-from ..deps import _initial_limit, _older_than, _resolve_cursor
+from ..deps import _initial_limit, _invalidate_conversations_cache, _older_than, _resolve_cursor
 from ..serializers import serialize_message
 
 router = APIRouter()
@@ -93,7 +93,12 @@ async def get_room_messages(
 
     query = (
         select(Message)
-        .where(Message.room_id == room_id)
+        .where(
+            and_(
+                Message.room_id == room_id,
+                Message.scheduled_at.is_(None),
+            )
+        )
         .options(*query_options)
         .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(eff_limit + 1)
@@ -112,7 +117,28 @@ async def get_room_messages(
         newest = max(m.created_at for m in rows)
         if member.last_read_at is None or newest > member.last_read_at:
             member.last_read_at = newest
+        # Mirror the read position into the denormalized unread counter and
+        # drop the cached conversation list so badges are accurate on reload.
+        room_pref = (
+            await db.execute(
+                select(UserConversationPreference).where(
+                    and_(
+                        UserConversationPreference.user_id == current_user.id,
+                        UserConversationPreference.conversation_type == "room",
+                        UserConversationPreference.conversation_id == room_id,
+                    )
+                )
+            )
+        ).scalar_one_or_none()
+        if room_pref and room_pref.unread_count != 0:
+            room_pref.unread_count = 0
+        await _invalidate_conversations_cache(current_user.id)
     await db.commit()
+
+    # The commit expired every loaded row; re-select so eager loads repopulate
+    # sender/receiver/reactions/reply_to and serialization below does not
+    # lazy-load them one query per message.
+    rows = (await db.execute(query)).scalars().all()[:eff_limit]
 
     out = [
         await serialize_message(
