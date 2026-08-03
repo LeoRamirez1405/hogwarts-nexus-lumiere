@@ -42,6 +42,7 @@ export interface Message {
   edited?: boolean;
   edited_at?: string;
   created_at: string;
+  e2e_encrypted?: boolean;
   sender?: User;
   receiver?: User;
   room?: ChatRoomBrief;

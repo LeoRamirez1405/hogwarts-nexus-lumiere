@@ -12,6 +12,7 @@ import { forumApi } from "./forum";
 import { friendRequestsApi } from "./friendRequests";
 import { uploadApi } from "./upload";
 import { supportApi } from "./support";
+import { e2eApi } from "./e2e";
 import {
   enumTypesApi,
   featureFlagsApi,
@@ -34,6 +35,7 @@ export const api = {
   ...friendRequestsApi,
   ...uploadApi,
   ...supportApi,
+  ...e2eApi,
   ...enumTypesApi,
   ...featureFlagsApi,
   ...auditLogsApi,
@@ -55,4 +57,5 @@ export * from "./forum";
 export * from "./friendRequests";
 export * from "./upload";
 export * from "./support";
+export * from "./e2e";
 export * from "./admin";

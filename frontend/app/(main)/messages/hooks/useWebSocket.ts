@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import { Message } from "@/lib/api";
 import { wsClient } from "@/lib/ws";
-import { getAccessTokenFromCookie } from "@/lib/cookies";
 import {
   WSNewMessage,
   WSTyping,
@@ -51,10 +50,7 @@ export function useWebSocket({
   useEffect(() => {
     if (!authUser) return;
 
-    const token = getAccessTokenFromCookie();
-    if (!token) return;
-
-    wsClient.connect(token);
+    wsClient.connect();
 
     const unsubNewMessage = wsClient.on("new_message", (msg: WSNewMessage) => {
       const conversationId = msg.c;

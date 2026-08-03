@@ -100,4 +100,7 @@ export interface ChatPanelProps {
   onToggleStar?: (msg: Message) => void;
   onShowMediaGallery?: () => void;
   onShowEvents?: () => void;
+  e2eEncrypted?: boolean;
+  e2eVerified?: boolean;
+  onE2EClick?: () => void;
 }

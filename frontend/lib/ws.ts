@@ -12,6 +12,16 @@ interface WSMessage {
   n?: unknown;
 }
 
+interface WSTokenResponse {
+  token: string;
+  expires_in: number;
+}
+
+const API_BASE = (() => {
+  if (typeof window === "undefined") return "";
+  return process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "";
+})();
+
 class WSClient {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
@@ -23,6 +33,17 @@ class WSClient {
   private heartbeatMs: number = 60000;
   private url: string = "";
   private initialized = false;
+
+  private async fetchWSToken(): Promise<string> {
+    const res = await fetch(`${API_BASE}/api/auth/ws-token`, {
+      credentials: "include",
+    });
+    if (!res.ok) {
+      throw new Error("Failed to fetch WS token");
+    }
+    const data: WSTokenResponse = await res.json();
+    return data.token;
+  }
 
   private ensureInitialized() {
     if (this.initialized || typeof window === "undefined") return;
@@ -55,44 +76,55 @@ class WSClient {
     });
   }
 
-  connect(token: string) {
+  connect(token?: string) {
     this.ensureInitialized();
-    this.token = token;
     this.reconnectAttempts = 0;
 
     if (this.ws?.readyState === WebSocket.OPEN) {
       return;
     }
 
-    // The access token travels as the WebSocket subprotocol (Sec-WebSocket-Protocol)
-    // instead of a query parameter so it never ends up in URLs/logs/Referer.
-    // JWTs are valid subprotocol tokens (base64url + dots).
-    this.ws = new WebSocket(this.url, [token]);
+    const doConnect = async (wsToken: string) => {
+      this.token = wsToken;
+      // The access token travels as the WebSocket subprotocol (Sec-WebSocket-Protocol)
+      // instead of a query parameter so it never ends up in URLs/logs/Referer.
+      // JWTs are valid subprotocol tokens (base64url + dots).
+      this.ws = new WebSocket(this.url, [wsToken]);
 
-    this.ws.onopen = () => {
-      this.reconnectAttempts = 0;
-      this.startHeartbeat();
-      this.emit("open", {});
+      this.ws.onopen = () => {
+        this.reconnectAttempts = 0;
+        this.startHeartbeat();
+        this.emit("open", {});
+      };
+
+      this.ws.onmessage = (event) => {
+        try {
+          const msg: WSMessage = JSON.parse(event.data);
+          this.handleMessage(msg);
+        } catch (err) {
+          console.error("WS parse error:", err);
+        }
+      };
+
+      this.ws.onclose = () => {
+        this.stopHeartbeat();
+        this.scheduleReconnect();
+      };
+
+      this.ws.onerror = (err) => {
+        console.error("WS error:", err);
+        this.emit("error", err);
+      };
     };
 
-    this.ws.onmessage = (event) => {
-      try {
-        const msg: WSMessage = JSON.parse(event.data);
-        this.handleMessage(msg);
-      } catch (err) {
-        console.error("WS parse error:", err);
-      }
-    };
-
-    this.ws.onclose = () => {
-      this.stopHeartbeat();
-      this.scheduleReconnect();
-    };
-
-    this.ws.onerror = (err) => {
-      console.error("WS error:", err);
-      this.emit("error", err);
-    };
+    if (token) {
+      doConnect(token);
+    } else {
+      this.fetchWSToken().then(doConnect).catch((err) => {
+        console.error("Failed to fetch WS token:", err);
+        this.emit("error", err);
+      });
+    }
   }
 
   private handleMessage(msg: WSMessage) {
@@ -144,9 +176,13 @@ class WSClient {
     const delay = Math.min(1000 * 2 ** this.reconnectAttempts, 30000);
     this.reconnectAttempts++;
 
-    setTimeout(() => {
-      if (this.token) {
-        this.connect(this.token);
+    setTimeout(async () => {
+      try {
+        const newToken = await this.fetchWSToken();
+        this.connect(newToken);
+      } catch (err) {
+        console.error("Failed to fetch WS token for reconnect:", err);
+        this.scheduleReconnect(); // Try again
       }
     }, delay);
   }

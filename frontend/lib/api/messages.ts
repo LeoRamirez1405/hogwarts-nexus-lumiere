@@ -206,6 +206,11 @@ export const messagesApi = {
       `/messages/starred${buildQuery({ limit })}`
     ),
 
+  getMessagesSince: (lastId: string, limit?: number, expand = "sender,reactions,reply_to") =>
+    request<Message[]>(
+      `/messages/since/${lastId}${buildQuery({ limit, expand })}`
+    ),
+
   searchMessages: (q: string, limit?: number) =>
     request<Message[]>(
       `/messages/search${buildQuery({ q, limit })}`
