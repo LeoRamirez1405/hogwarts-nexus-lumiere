@@ -60,8 +60,23 @@ Antes de agregar campos nuevos al frontend (como `attachment_url`):
 
 1. Agregar la columna al modelo SQLAlchemy en `backend/app/models/`
 2. Agregar el campo al schema Pydantic en `backend/app/schemas/`
-3. Eliminar `nexus.db` y reiniciar el backend para recrear la BD
-4. Recien ahi actualizar el frontend
+3. Generar migracion Alembic: `cd backend && alembic revision --autogenerate -m "descripcion"`
+4. Revisar el SQL generado en `alembic/versions/` antes de aplicar
+5. Aplicar migracion: `alembic upgrade head`
+6. Reiniciar el backend
+7. Recien ahi actualizar el frontend
+
+**NUNCA usar `create_all()` ni borrar `nexus.db` para cambios de esquema. Todo cambio debe ir por Alembic.**
+
+## Regla #11: Verificacion de backend
+
+Despues de cada cambio en modelos o migraciones, ejecutar:
+
+```bash
+cd backend && ruff check .
+cd frontend && npm run lint
+cd frontend && npx tsc --noEmit
+```
 
 ## Regla #8: Lint y build
 
