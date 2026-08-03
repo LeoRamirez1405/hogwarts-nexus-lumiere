@@ -1,31 +1,21 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { MaterialIcon } from "@/components/ui";
 import { api } from "@/lib/api";
 import { STICKER_PACKS } from "@/app/(main)/messages/helpers";
+import { FloatingPopover } from "../FloatingPopover";
 import type { ReactionPickerProps } from "./types";
 
 export const ReactionPicker = ({ messageId, onReacted }: ReactionPickerProps) => {
-  const [showPicker, setShowPicker] = useState(false);
+  const [showQuick, setShowQuick] = useState(false);
   const [showFull, setShowFull] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handle = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setShowPicker(false);
-        setShowFull(false);
-      }
-    };
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, []);
+  const anchorRef = useRef<HTMLButtonElement>(null);
 
   const handleReact = async (emoji: string) => {
     try {
       await api.addReaction(messageId, emoji);
-      setShowPicker(false);
+      setShowQuick(false);
       setShowFull(false);
       onReacted?.();
     } catch (e) {
@@ -33,51 +23,79 @@ export const ReactionPicker = ({ messageId, onReacted }: ReactionPickerProps) =>
     }
   };
 
-  return (
-    <div className="relative" ref={ref}>
+  const quickContent = (
+    <div className="flex gap-1">
+      {["👍", "❤️", "😂", "😮", "😢", "🙏"].map((emoji) => (
+        <button
+          key={emoji}
+          onClick={() => handleReact(emoji)}
+          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-xl transition-transform hover:scale-125"
+        >
+          {emoji}
+        </button>
+      ))}
       <button
-        onClick={() => setShowPicker(!showPicker)}
+        onClick={() => {
+          setShowQuick(false);
+          setShowFull(true);
+        }}
+        className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-on-surface-variant transition-colors"
+      >
+        <MaterialIcon name="more_horiz" className="text-lg" />
+      </button>
+    </div>
+  );
+
+  const fullContent = (
+    <div className="flex flex-wrap gap-1">
+      {Object.values(STICKER_PACKS)
+        .flat()
+        .map((emoji, i) => (
+          <button
+            key={`${i}-${emoji}`}
+            onClick={() => handleReact(emoji)}
+            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-xl transition-transform hover:scale-125"
+          >
+            {emoji}
+          </button>
+        ))}
+    </div>
+  );
+
+  return (
+    <div className="relative">
+      <button
+        ref={anchorRef}
+        onClick={() => setShowQuick(!showQuick)}
         className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant/60 hover:text-on-surface-variant transition-colors"
         title="Reaccionar"
       >
         <MaterialIcon name="add_reaction" className="text-lg" />
       </button>
-      {showPicker && (
-        <div className="absolute bottom-full right-0 mb-2 bg-surface-container-highest rounded-xl shadow-xl py-2 px-2 z-30 flex gap-1">
-          {["👍", "❤️", "😂", "😮", "😢", "🙏"].map((emoji) => (
-            <button
-              key={emoji}
-              onClick={() => handleReact(emoji)}
-              className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-xl transition-transform hover:scale-125"
-            >
-              {emoji}
-            </button>
-          ))}
-          <button
-            onClick={() => setShowFull(!showFull)}
-            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-on-surface-variant transition-colors"
-          >
-            <MaterialIcon name="more_horiz" className="text-lg" />
-          </button>
-        </div>
-      )}
-      {showFull && (
-        <div className="absolute bottom-full right-0 mb-2 mt-1 bg-surface-container-highest rounded-xl shadow-xl py-3 px-3 z-30 w-64 max-h-48 overflow-y-auto">
-          <div className="flex flex-wrap gap-1">
-            {Object.values(STICKER_PACKS)
-              .flat()
-              .map((emoji, i) => (
-                <button
-                  key={`${i}-${emoji}`}
-                  onClick={() => handleReact(emoji)}
-                  className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-xl transition-transform hover:scale-125"
-                >
-                  {emoji}
-                </button>
-              ))}
-          </div>
-        </div>
-      )}
+      <FloatingPopover
+        anchorRef={anchorRef}
+        open={showQuick}
+        onRequestClose={() => setShowQuick(false)}
+        placement="top"
+        align="end"
+        gap={6}
+        maxHeight={200}
+        className="w-auto"
+      >
+        {quickContent}
+      </FloatingPopover>
+      <FloatingPopover
+        anchorRef={anchorRef}
+        open={showFull}
+        onRequestClose={() => setShowFull(false)}
+        placement="top"
+        align="end"
+        gap={6}
+        maxHeight={400}
+        className="w-64"
+      >
+        {fullContent}
+      </FloatingPopover>
     </div>
   );
 };

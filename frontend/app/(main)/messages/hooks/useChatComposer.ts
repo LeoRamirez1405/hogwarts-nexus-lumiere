@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { api, Message, MessageSendData, UserSearchResult } from "@/lib/api";
 import { wsClient } from "@/lib/ws";
 import { useVoiceRecorder } from "./useVoiceRecorder";
+import { useVideoRecorder } from "./useVideoRecorder";
 import { blobToWav } from "../utils/voice";
 import type { SelectedConv } from "../types";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
@@ -26,12 +27,26 @@ export function useChatComposer({
   const [mentionResults, setMentionResults] = useState<UserSearchResult[]>([]);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [disappearAt, setDisappearAt] = useState<string | undefined>(undefined);
+  const [scheduleAt, setScheduleAt] = useState<string | undefined>(undefined);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const voice = useVoiceRecorder();
+  const video = useVideoRecorder();
 
   const isRoom = selectedConv?.type === "room";
+
+  // Typing events: throttled (max 1 every 2s) + auto-stop tras 3s de inactividad.
+  const TYPING_THROTTLE_MS = 2000;
+  const TYPING_STOP_IDLE_MS = 3000;
+  const lastTypingSentRef = useRef(0);
+  const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+    };
+  }, []);
 
   const buildBaseData = useCallback(
     (extra?: Partial<MessageSendData>): MessageSendData => ({
@@ -39,9 +54,10 @@ export function useChatComposer({
       room_id: isRoom ? selectedConv?.id : undefined,
       ...(replyingTo ? { reply_to_id: replyingTo.id } : {}),
       ...(disappearAt ? { disappear_at: disappearAt } : {}),
+      ...(scheduleAt ? { scheduled_at: scheduleAt } : {}),
       ...extra,
     }),
-    [isRoom, selectedConv, replyingTo, disappearAt]
+    [isRoom, selectedConv, replyingTo, disappearAt, scheduleAt]
   );
 
   const clearInputState = useCallback(() => {
@@ -50,6 +66,8 @@ export function useChatComposer({
     setReplyingTo(null);
     setShowStickers(false);
     setShowPoll(false);
+    setDisappearAt(undefined);
+    setScheduleAt(undefined);
   }, []);
 
   const doSend = useCallback(
@@ -59,35 +77,54 @@ export function useChatComposer({
     [onSend]
   );
 
-  const handleSend = () => {
-    const trimmed = input.trim();
-    if (!trimmed && !attachment) return;
-    hapticLight();
+const handleSend = () => {
+  const trimmed = input.trim();
+  if (!trimmed && !attachment) return;
+  hapticLight();
 
-    const data = buildBaseData({ body: trimmed || " " });
+  const data = buildBaseData({ body: trimmed || " " });
 
-    if (attachment) {
-      data.attachment_url = attachment.url;
-      data.attachment_type = attachment.type;
-      data.attachment_name = attachment.name;
-      data.kind = attachment.type.startsWith("image")
-        ? "image"
-        : attachment.type.startsWith("video")
-        ? "video"
-        : attachment.type.startsWith("audio")
-        ? "audio"
-        : "document";
-    }
+  if (attachment) {
+    data.attachment_url = attachment.url;
+    data.attachment_type = attachment.type;
+    data.attachment_name = attachment.name;
+    data.kind = attachment.type.startsWith("image")
+      ? "image"
+      : attachment.type.startsWith("video")
+      ? "video"
+      : attachment.type.startsWith("audio")
+      ? "audio"
+      : "document";
+  }
 
+  if (scheduleAt) {
+    api.scheduleMessage({
+      ...data,
+      scheduled_at: scheduleAt,
+    }).then(() => {
+      clearInputState();
+    }).catch(() => {});
+  } else {
     doSend(data);
     clearInputState();
-  };
+  }
+};
 
   const handleInputChange = useCallback(
     (value: string) => {
       setInput(value);
       if (selectedConv?.id && wsClient.isConnected()) {
-        wsClient.typingStart(selectedConv.id);
+        const now = Date.now();
+        if (now - lastTypingSentRef.current >= TYPING_THROTTLE_MS) {
+          lastTypingSentRef.current = now;
+          wsClient.typingStart(selectedConv.id);
+        }
+        if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+        typingStopTimerRef.current = setTimeout(() => {
+          if (selectedConv?.id && wsClient.isConnected()) {
+            wsClient.typingStop(selectedConv.id);
+          }
+        }, TYPING_STOP_IDLE_MS);
       }
       const atIndex = value.lastIndexOf("@");
       if (atIndex >= 0 && (atIndex === 0 || value[atIndex - 1] === " ")) {
@@ -105,6 +142,10 @@ export function useChatComposer({
   );
 
   const handleTypingStop = useCallback(() => {
+    if (typingStopTimerRef.current) {
+      clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = null;
+    }
     if (selectedConv?.id && wsClient.isConnected()) {
       wsClient.typingStop(selectedConv.id);
     }
@@ -124,7 +165,8 @@ export function useChatComposer({
           setMentionResults(results);
           setShowMentionDropdown(results.length > 0);
         }
-      } catch {
+      } catch (error) {
+        console.error('Failed to search users for mentions:', error);
         if (!cancelled) {
           setMentionResults([]);
           setShowMentionDropdown(false);
@@ -192,6 +234,33 @@ export function useChatComposer({
     setUploading(false);
   };
 
+  const handleSendVideo = async () => {
+    const blob = video.recordedBlob;
+    if (!blob) return;
+    hapticMedium();
+
+    setUploading(true);
+    try {
+      const file = new File([blob], `video-${Date.now()}.webm`, { type: "video/webm" });
+      const result = await api.uploadFile(file);
+      doSend({
+        ...buildBaseData({
+          body: " ",
+          attachment_url: result.url,
+          attachment_type: "video/webm",
+          attachment_name: file.name,
+          kind: "video",
+          metadata: { duration: video.elapsed },
+        }),
+      });
+      clearInputState();
+      video.cleanup();
+    } catch (err) {
+      console.error("Video upload failed", err);
+    }
+    setUploading(false);
+  };
+
   const handleTranscribeVoice = async () => {
     if (voice.transcribing) return;
     const blob = voice.recordedBlob;
@@ -209,7 +278,8 @@ export function useChatComposer({
         alert("No se pudo reconocer el audio. Intenta grabar de nuevo.");
         voice.setTranscribing(false);
       }
-    } catch {
+    } catch (error) {
+      console.error('Speech recognition error:', error);
       alert("Error al transcribir. Intenta de nuevo.");
       voice.setTranscribing(false);
     }
@@ -258,6 +328,7 @@ export function useChatComposer({
     mentionResults,
     showMentionDropdown,
     voice,
+    video,
     inputRef,
     fileInputRef,
     handleSend,
@@ -269,6 +340,10 @@ export function useChatComposer({
     handleTranscribeVoice,
     handleStopRecording,
     handleCancelRecording,
+    handleStartVideoRecording: video.startRecording,
+    handleStopVideoRecording: () => { video.stopRecording(); },
+    handleCancelVideoRecording: () => { video.cleanup(); },
+    handleSendVideo,
     sendSticker,
     handlePollCreate,
     onCancelReply: () => setReplyingTo(null),
@@ -279,7 +354,9 @@ export function useChatComposer({
     onStickerTabChange: setStickerTab,
     onDismissMentions: () => setShowMentionDropdown(false),
     onReply: setReplyingTo,
-    disappearAt,
-    onDisappearChange: setDisappearAt,
-  };
+  disappearAt,
+  onDisappearChange: setDisappearAt,
+  scheduleAt,
+  onScheduleChange: setScheduleAt,
+};
 }

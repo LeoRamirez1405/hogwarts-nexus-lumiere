@@ -2,16 +2,24 @@
 
 import { Avatar } from "@/components/ui";
 import { getInitials } from "../helpers";
+import { FloatingPopover } from "./FloatingPopover";
 import type { UserSearchResult } from "@/lib/api";
 
 interface MentionDropdownProps {
   results: UserSearchResult[];
   onSelect: (name: string) => void;
+  anchorRef: React.RefObject<HTMLTextAreaElement | HTMLInputElement | null>;
 }
 
-export default function MentionDropdown({ results, onSelect }: MentionDropdownProps) {
-  return (
-    <div className="absolute bottom-full left-0 mb-2 w-64 bg-surface-container-highest rounded-xl shadow-xl py-1 z-30 max-h-48 overflow-y-auto">
+export default function MentionDropdown({
+  results,
+  onSelect,
+  anchorRef,
+}: MentionDropdownProps) {
+  const open = results.length > 0;
+
+  const content = (
+    <div className="py-1">
       {results.map((u) => (
         <button
           key={u.id}
@@ -33,5 +41,20 @@ export default function MentionDropdown({ results, onSelect }: MentionDropdownPr
         </button>
       ))}
     </div>
+  );
+
+  return (
+    <FloatingPopover
+      anchorRef={anchorRef}
+      open={open}
+      onRequestClose={() => {}}
+      placement="top"
+      align="start"
+      gap={4}
+      maxHeight={200}
+      className="w-64"
+    >
+      {content}
+    </FloatingPopover>
   );
 }

@@ -12,7 +12,7 @@ interface LinkPreviewViewProps {
 export const LinkPreviewView = ({ preview, isOwn }: LinkPreviewViewProps) => {
   const { url, title, description, image, site_name } = preview;
   const domain = (() => {
-    try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
+    try { return new URL(url).hostname.replace(/^www\./, ""); } catch (error) { console.warn('Invalid URL in link preview:', url, error); return url; }
   })();
 
   return (

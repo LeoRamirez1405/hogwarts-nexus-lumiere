@@ -27,7 +27,8 @@ export const ReactionBar = ({ reactions, messageId, onReacted }: ReactionBarProp
       try {
         await api.removeReaction(messageId, emoji);
         onReacted?.();
-      } catch {
+      } catch (error) {
+        console.error('Failed to remove reaction:', error);
         setLocalReactions(reactions);
       }
     } else {
@@ -47,7 +48,8 @@ export const ReactionBar = ({ reactions, messageId, onReacted }: ReactionBarProp
           setLocalReactions((prev) => prev.filter((r) => !(r.emoji === emoji && r.user_id === user?.id)));
         }
         onReacted?.();
-      } catch {
+      } catch (error) {
+        console.error('Failed to add reaction:', error);
         setLocalReactions(reactions);
       }
     }

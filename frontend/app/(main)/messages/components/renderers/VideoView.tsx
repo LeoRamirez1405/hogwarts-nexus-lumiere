@@ -1,10 +1,58 @@
 "use client";
 
+import { useRef, useState, useEffect, useCallback } from "react";
 import { MaterialIcon } from "@/components/ui";
 import { mediaSrc } from "@/lib/media";
 import type { VideoViewProps } from "./types";
 
-export const VideoView = ({ url, dataSaver, shouldLoad, onLoadClick }: VideoViewProps) => {
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+export const VideoView = ({ message, isOwn, dataSaver, shouldLoad, onLoadClick }: VideoViewProps) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const thumbnailUrl = (message.metadata as Record<string, unknown> | undefined)?.["thumbnail_url"] as string | undefined;
+
+  const handleLoaded = useCallback(() => {
+    if (videoRef.current) {
+      setDuration(videoRef.current.duration || message.metadata?.duration || 0);
+    }
+  }, [message.metadata?.duration]);
+
+  const handleEnded = useCallback(() => {
+    setPlaying(false);
+    setCurrentTime(0);
+  }, []);
+
+  useEffect(() => {
+    if (!playing) return;
+    const interval = setInterval(() => {
+      if (videoRef.current) {
+        setCurrentTime(videoRef.current.currentTime);
+      }
+    }, 200);
+    return () => clearInterval(interval);
+  }, [playing]);
+
+  const handlePlay = useCallback(() => {
+    if (videoRef.current) {
+      videoRef.current.play().catch(() => {});
+      setPlaying(true);
+    }
+  }, []);
+
+  const handlePause = useCallback(() => {
+    if (videoRef.current) {
+      videoRef.current.pause();
+      setPlaying(false);
+    }
+  }, []);
+
   if (dataSaver && !shouldLoad) {
     return (
       <button
@@ -19,7 +67,84 @@ export const VideoView = ({ url, dataSaver, shouldLoad, onLoadClick }: VideoView
     );
   }
 
+  const url = mediaSrc(message.attachment_url);
+  if (!url) {
+    return (
+      <span className={`text-label-sm ${isOwn ? "text-white/60" : "text-on-surface-variant"}`}>
+        El video ya no esta disponible
+      </span>
+    );
+  }
+
+  const posterUrl = thumbnailUrl ? mediaSrc(thumbnailUrl) : undefined;
+  const videoDuration = message.metadata?.duration || 0;
+  const displayDuration = duration || videoDuration;
+  const progress = displayDuration > 0 ? currentTime / displayDuration * 100 : 0;
+
   return (
-    <video src={mediaSrc(url)} controls className="rounded-xl max-h-48 w-full" />
+    <div className="relative inline-block rounded-2xl overflow-hidden bg-surface-container-highest border border-outline-variant/20 shadow-md">
+      <video
+        ref={videoRef}
+        src={url}
+        poster={posterUrl}
+        preload="metadata"
+        playsInline
+        controls={false}
+        className="w-full max-h-72 block cursor-pointer"
+        onLoadedMetadata={handleLoaded}
+        onEnded={handleEnded}
+        onClick={handlePause}
+      />
+
+      {!playing && (
+        <button
+          onClick={handlePlay}
+          className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 hover:bg-black/40 transition-colors z-10"
+          aria-label="Reproducir video"
+        >
+          <div
+            className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${
+              isOwn ? "bg-white/90" : "bg-primary/90"
+            }`}
+          >
+            <MaterialIcon
+              name="play_arrow"
+              className={`text-2xl ${isOwn ? "text-primary" : "text-white"}`}
+            />
+          </div>
+          {displayDuration > 0 && (
+            <span className={`mt-2 text-label-sm font-mono ${isOwn ? "text-white/70" : "text-on-surface/70"}`}>
+              {formatDuration(displayDuration)}
+            </span>
+          )}
+        </button>
+      )}
+
+      {playing && (
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2 z-10 flex items-center gap-2">
+          <button onClick={handlePause} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30">
+            <MaterialIcon name="pause" className="text-white text-lg" />
+          </button>
+          <div className="flex-1 h-1 rounded-full bg-white/20 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-white"
+              style={{ width: `${Math.min(100, progress)}%` }}
+            />
+          </div>
+          <span className="text-xs font-mono text-white/80 min-w-[40px] text-right">
+            {formatDuration(currentTime)}
+          </span>
+          <a
+            href={url}
+            download
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+            title="Descargar"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MaterialIcon name="download" className="text-white text-sm" />
+          </a>
+        </div>
+      )}
+    </div>
   );
 };

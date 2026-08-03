@@ -6,8 +6,10 @@ import { useAuthStore } from "@/lib/authStore";
 import { useNotificationStore } from "@/lib/notificationStore";
 import { api, Message, ChatRoomMemberResponse, MessageSendData, Conversation, User } from "@/lib/api";
 import { useIndexedDBMessages, useOutbox } from "@/hooks/useIndexedDB";
+import { wsClient } from "@/lib/ws";
 import { MaterialIcon } from "./helpers";
 import { useDebounce } from "@/hooks/useDebounce";
+import { Virtuoso } from "react-virtuoso";
 import ConversationItem from "./ConversationItem";
 import GlobalSearchPanel from "./components/GlobalSearchPanel";
 import { useWebSocket } from "./hooks/useWebSocket";
@@ -20,6 +22,10 @@ const ChatPanel = dynamic(() => import("./ChatPanel").then((mod) => mod.default)
   ssr: false,
 });
 const NewChatModal = dynamic(() => import("./NewChatModal").then((mod) => mod.default), { ssr: false });
+const ForwardModal = dynamic(() => import("./ForwardModal").then((mod) => mod.default), { ssr: false });
+const StarredMessagesModal = dynamic(() => import("./StarredMessagesModal").then((mod) => mod.default), { ssr: false });
+const MediaGalleryModal = dynamic(() => import("./components/MediaGalleryModal").then((mod) => mod.default), { ssr: false });
+const ArchivedConversationsModal = dynamic(() => import("./components/ArchivedConversationsModal").then((mod) => mod.default), { ssr: false });
 const ThirdPane = dynamic(() => import("./ThirdPane").then((mod) => mod.default), { ssr: false });
 
 function ChatPanelSkeleton() {
@@ -62,6 +68,9 @@ export default function MessagesPage() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [showNewChat, setShowNewChat] = useState(false);
+  const [showStarred, setShowStarred] = useState(false);
+  const [showMediaGallery, setShowMediaGallery] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [targetMessageId, setTargetMessageId] = useState<string | null>(null);
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const [globalSearchResults, setGlobalSearchResults] = useState<Message[]>([]);
@@ -93,16 +102,30 @@ export default function MessagesPage() {
   }, [cachedMessages, saveMessagesToDB]);
   const { outboxMessages, processOutbox, addMessage: addToOutbox } = useOutbox();
 
-  // Initial load
+  // Initial load: conversations first (non-blocking on the user list)
   useEffect(() => {
     if (!authUser) return;
-    Promise.all([api.getConversations(), api.getUsers()])
-      .then(([convs, users]) => {
-        setConversations(convs);
+    let cancelled = false;
+    (async () => {
+      try {
+        const convs = await api.getConversations();
+        if (!cancelled) setConversations(convs);
+      } catch (error) {
+        console.error('Failed to load conversations:', error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    api
+      .searchUsersServer("", { limit: 100 })
+      .then((users) => {
+        if (cancelled) return;
         setAllUsers(users.items.filter((u) => u.id !== authUser.id));
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [authUser]);
 
   // Global search
@@ -122,9 +145,20 @@ export default function MessagesPage() {
   const handleNewMessage = useCallback((_conversationId: string, message: Message) => {
     if (selectedIdRef.current === _conversationId) {
       setMessages((prev) => {
+        // Check if message already exists (by ID)
         if (prev.some((m) => m.id === message.id)) return prev;
-        return [...prev, message].sort(byCreatedAsc);
+        // Replace optimistic sending message if present
+        const hasSending = prev.some((m) => m.sending && m.optimistic);
+        const next = hasSending
+          ? prev.map((m) => (m.sending && m.optimistic ? message : m))
+          : [...prev, message];
+        return next.sort(byCreatedAsc);
       });
+      // The message just arrived in the open conversation, so it is effectively
+      // read: reset the server-side unread bucket and notify the sender.
+      if (wsClient.isConnected()) {
+        wsClient.markRead(_conversationId, message.id);
+      }
     }
     setConversations((prev) =>
       prev.map((c) =>
@@ -223,6 +257,12 @@ export default function MessagesPage() {
         setFirstUnreadId(page.first_unread_id ?? null);
         setUnreadCount(page.unread_count);
         setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, unread_count: 0 } : c));
+        // Opening the conversation counts as "read": tell the server through
+        // the WebSocket so the denormalized unread counter also resets.
+        const newest = page.messages[page.messages.length - 1];
+        if (newest && wsClient.isConnected()) {
+          wsClient.markRead(selectedId, newest.id);
+        }
       } catch { if (!cancelled && cachedMessagesRef.current.length === 0) setMessages([]); }
       try {
         const pins = selectedType === "room" ? await api.getRoomPinned(selectedId) : await api.getDmPinned(selectedId);
@@ -252,16 +292,19 @@ export default function MessagesPage() {
       setMessages((prev) => {
         const existing = new Set(prev.map((m) => m.id));
         const older = page.messages.filter((m: Message) => !existing.has(m.id));
-        saveMessagesToDBRef.current(older);
-        return [...older, ...prev];
-      });
-      setHasMore(page.has_more);
-    } catch { /* ignore */ }
-    finally { setLoadingOlder(false); }
+saveMessagesToDBRef.current(older);
+         return [...older, ...prev];
+       });
+       setHasMore(page.has_more);
+     } catch (error) {
+       console.error('Failed to load older messages:', error);
+     } finally {
+setLoadingOlder(false);
+    }
   }, []);
 
-  useEffect(() => {
-    if (!targetMessageId || !selectedId) return;
+   useEffect(() => {
+     if (!targetMessageId || !selectedId) return;
     if (messages.some((m) => m.id === targetMessageId)) return;
     if (hasMore && !loadingOlder) loadOlder();
   }, [targetMessageId, selectedId, messages, hasMore, loadingOlder, loadOlder]);
@@ -318,21 +361,36 @@ export default function MessagesPage() {
     setMessages((prev) => [...prev, optimistic]);
     setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, last_message: optimistic } : c));
 
+    // Prepare message data for WS
+    const messageData = {
+      ...data,
+      temp_id: tempId, // Include temp_id to match optimistic message
+    };
+
     try {
-      const msg = selectedType === "room" ? await api.sendRoomMessage(selectedId, data) : await api.sendMessage(data);
-      setMessages((prev) =>
-        prev
-          .filter((m) => m.id !== msg.id)
-          .map((m) => (m.id === tempId ? msg : m))
-      );
-      setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, last_message: msg } : c));
-      const preview = await previewPromise;
-      if (preview) {
-        const withPreview = { ...msg, metadata: { ...(msg.metadata || {}), link_preview: preview } };
-        setMessages((prev) => prev.map((m) => m.id === msg.id ? withPreview : m));
-        setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, last_message: withPreview } : c));
+      if (wsClient.isConnected()) {
+        // Send via WebSocket
+        wsClient.sendMessage(selectedId, messageData);
+        // The real message will arrive via WS push (handleNewMessage)
+        // and replace the optimistic one
+      } else {
+        // Fallback to REST when WS not connected
+        const msg = selectedType === "room" ? await api.sendRoomMessage(selectedId, data) : await api.sendMessage(data);
+        setMessages((prev) =>
+          prev
+            .filter((m) => m.id !== msg.id)
+            .map((m) => (m.id === tempId ? msg : m))
+        );
+        setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, last_message: msg } : c));
+        const preview = await previewPromise;
+        if (preview) {
+          const withPreview = { ...msg, metadata: { ...(msg.metadata || {}), link_preview: preview } };
+          setMessages((prev) => prev.map((m) => m.id === msg.id ? withPreview : m));
+          setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, last_message: withPreview } : c));
+        }
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to send message:', error);
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, sending: false, failed: true } : m));
       addToOutbox(data, selectedId, selectedType);
     }
@@ -347,27 +405,72 @@ export default function MessagesPage() {
         const pins = type === "room" ? await api.getRoomPinned(id) : await api.getDmPinned(id);
         setPinnedMessages(pins);
       }
-    } catch { /* ignore */ }
+    } catch (error) {
+      console.error('Failed to toggle pin:', error);
+    }
   };
 
   const handleEditMessage = async (messageId: string, _convId: string, body: string) => {
-    try { await api.editMessage(messageId, body); setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, body, edited: true, edited_at: new Date().toISOString() } : m)); } catch { /* ignore */ }
+    try {
+      await api.editMessage(messageId, body);
+      setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, body, edited: true, edited_at: new Date().toISOString() } : m));
+    } catch (error) {
+      console.error('Failed to edit message:', error);
+    }
   };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDeleteMessage = async (messageId: string, _convId: string) => {
-    try { await api.deleteMessage(messageId); setMessages((prev) => prev.filter((m) => m.id !== messageId)); } catch { /* ignore */ }
+    try {
+      await api.deleteMessage(messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } catch (error) {
+      console.error('Failed to delete message:', error);
+    }
   };
 
+  const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
+  const handleForwardMessage = useCallback(async (message: Message, targetId: string, targetType: "dm" | "room") => {
+    setForwardMessage(null);
+    try {
+      await api.forwardMessage(
+        message.id,
+        targetType === "dm" ? targetId : undefined,
+        targetType === "room" ? targetId : undefined
+      );
+    } catch { alert("Error al reenviar el mensaje"); }
+  }, []);
+
+  const handleShowMediaGallery = useCallback(() => {
+    if (selectedId && selectedType) {
+      setShowMediaGallery(true);
+    }
+  }, [selectedId, selectedType]);
+
   const handleToggleStar = useCallback(async (message: Message) => {
-    try { await api.toggleStar(message.id); setMessages((prev) => prev.map((m) => m.id === message.id ? { ...m, starred: !m.starred } : m)); } catch { /* ignore */ }
+    try {
+      await api.toggleStar(message.id);
+      setMessages((prev) => prev.map((m) => m.id === message.id ? { ...m, starred: !m.starred } : m));
+    } catch (error) {
+      console.error('Failed to toggle star:', error);
+    }
   }, []);
 
   const handlePinConv = useCallback(async (convType: "dm" | "room", convId: string) => {
-    try { await api.pinConversation(convType, convId); setConversations((prev) => [...prev].map((c) => c.id === convId ? { ...c, is_pinned: true } : c).sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0))); } catch { /* ignore */ }
+    try {
+      await api.pinConversation(convType, convId);
+      setConversations((prev) => [...prev].map((c) => c.id === convId ? { ...c, is_pinned: true } : c).sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)));
+    } catch (error) {
+      console.error('Failed to pin conversation:', error);
+    }
   }, []);
   const handleUnpinConv = useCallback(async (convType: "dm" | "room", convId: string) => {
-    try { await api.unpinConversation(convType, convId); setConversations((prev) => [...prev].map((c) => c.id === convId ? { ...c, is_pinned: false } : c).sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0))); } catch { /* ignore */ }
+    try {
+      await api.unpinConversation(convType, convId);
+      setConversations((prev) => [...prev].map((c) => c.id === convId ? { ...c, is_pinned: false } : c).sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)));
+    } catch (error) {
+      console.error('Failed to unpin conversation:', error);
+    }
   }, []);
 
   const handleExportChat = useCallback(async (convType: "dm" | "room", convId: string, convName: string) => {
@@ -398,7 +501,18 @@ export default function MessagesPage() {
     : conversations;
 
   const handleHideConv = async (convType: "dm" | "room", convId: string) => {
-    try { await api.hideConversation(convType, convId); setConversations((prev) => prev.filter((c) => c.id !== convId)); if (selectedId === convId) { setSelectedId(null); setSelectedType(null); setMessages([]); setRoomMembers([]); } } catch { /* ignore */ }
+    try {
+      await api.hideConversation(convType, convId);
+      setConversations((prev) => prev.filter((c) => c.id !== convId));
+      if (selectedId === convId) {
+        setSelectedId(null);
+        setSelectedType(null);
+        setMessages([]);
+        setRoomMembers([]);
+      }
+    } catch (error) {
+      console.error('Failed to hide conversation:', error);
+    }
   };
 
   const handleLeaveRoom = async (roomId: string) => {
@@ -420,6 +534,12 @@ export default function MessagesPage() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-title-md font-display text-on-surface">Mensajes</h2>
               <div className="flex items-center gap-2">
+                <button onClick={() => setShowStarred(true)} className="w-9 h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors" title="Mensajes destacados">
+                  <MaterialIcon name="star" className="text-xl" />
+                </button>
+                <button onClick={() => setShowArchived(true)} className="w-9 h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors" title="Conversaciones archivadas">
+                  <MaterialIcon name="archive" className="text-xl" />
+                </button>
                 <button onClick={() => setShowGlobalSearch(!showGlobalSearch)} className={`w-9 h-9 inline-flex items-center justify-center rounded-full transition-colors ${showGlobalSearch ? "bg-primary text-on-primary" : "hover:bg-surface-container-high text-on-surface-variant"}`} title="Buscar mensajes globalmente">
                   <MaterialIcon name="search" className="text-xl" />
                 </button>
@@ -451,7 +571,7 @@ export default function MessagesPage() {
               <MaterialIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg" />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto no-scrollbar">
+          <div className="flex-1 min-h-0">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <MaterialIcon name="progress_activity" className="text-4xl text-outline-variant animate-spin mb-3" />
@@ -463,9 +583,20 @@ export default function MessagesPage() {
                 <p className="text-on-surface-variant text-body-md text-center">{search ? "Sin resultados" : "Aún no tienes conversaciones"}</p>
               </div>
             ) : (
-              filtered.map((conv) => (
-                <ConversationItem key={conv.id} conversation={conv} isActive={conv.id === selectedId} onClick={() => selectConv(conv.id, conv.type as SelectedConvType)} />
-              ))
+              <Virtuoso
+                data={filtered}
+                className="h-full"
+                scrollerRef={(ref) => (ref as HTMLElement | null)?.classList?.add("no-scrollbar")}
+                itemContent={(_, conv) => (
+                  <ConversationItem
+                    key={conv.id}
+                    conversation={conv}
+                    isActive={conv.id === selectedId}
+                    onlineUsers={onlineUsers}
+                    onClick={() => selectConv(conv.id, conv.type as SelectedConvType)}
+                  />
+                )}
+              />
             )}
           </div>
         </div>
@@ -506,17 +637,29 @@ export default function MessagesPage() {
                 onTogglePin={handleTogglePin}
                 onEditMessage={handleEditMessage}
                 onDeleteMessage={handleDeleteMessage}
+                onForwardMessage={(message) => setForwardMessage(message)}
                 targetMessageId={targetMessageId}
                 typingUsers={typingUsers.get(selectedConv.id ?? "") || new Map()}
                 onlineUsers={onlineUsers}
                 onToggleStar={handleToggleStar}
+                onShowMediaGallery={handleShowMediaGallery}
                 onPinConversation={handlePinConv}
                 onUnpinConversation={handleUnpinConv}
                 onArchiveRoom={async (roomId) => {
-                  try { await api.archiveRoom(roomId); setConversations((prev) => prev.map((c) => c.id === roomId ? { ...c, is_archived: true } : c)); } catch { /* ignore */ }
+                  try {
+                    await api.archiveRoom(roomId);
+                    setConversations((prev) => prev.map((c) => c.id === roomId ? { ...c, is_archived: true } : c));
+                  } catch (error) {
+                    console.error('Failed to archive room:', error);
+                  }
                 }}
                 onUnarchiveRoom={async (roomId) => {
-                  try { await api.unarchiveRoom(roomId); setConversations((prev) => prev.map((c) => c.id === roomId ? { ...c, is_archived: false } : c)); } catch { /* ignore */ }
+                  try {
+                    await api.unarchiveRoom(roomId);
+                    setConversations((prev) => prev.map((c) => c.id === roomId ? { ...c, is_archived: false } : c));
+                  } catch (error) {
+                    console.error('Failed to unarchive room:', error);
+                  }
                 }}
                 onExportChat={handleExportChat}
               />
@@ -551,6 +694,52 @@ export default function MessagesPage() {
             onSelectUser={(id) => { setShowNewChat(false); selectConv(id, "direct"); }}
             onSelectRoom={(id) => { setShowNewChat(false); selectConv(id, "room"); }}
             onClose={() => setShowNewChat(false)}
+          />
+        </Suspense>
+      )}
+
+      {forwardMessage && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-pulse"><div className="w-96 h-[80vh] max-h-[80vh] rounded-2xl bg-surface" /></div>}>
+          <ForwardModal
+            message={forwardMessage}
+            onForward={handleForwardMessage}
+            onClose={() => setForwardMessage(null)}
+          />
+        </Suspense>
+      )}
+
+      {showStarred && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-pulse"><div className="w-96 h-[80vh] max-h-[80vh] rounded-2xl bg-surface" /></div>}>
+          <StarredMessagesModal
+            onSelectMessage={(msg) => {
+              setShowStarred(false);
+              selectConv(msg.room_id || msg.receiver_id || msg.sender_id, msg.room_id ? "room" : "direct");
+              setTargetMessageId(msg.id);
+            }}
+            onClose={() => setShowStarred(false)}
+          />
+        </Suspense>
+      )}
+
+      {showMediaGallery && selectedConv && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-pulse"><div className="w-96 h-[80vh] max-h-[80vh] rounded-2xl bg-surface" /></div>}>
+          <MediaGalleryModal
+            convId={selectedConv.id}
+            convType={selectedConv.type === "room" ? "room" : "dm"}
+            convName={selectedConv.name}
+            onClose={() => setShowMediaGallery(false)}
+          />
+        </Suspense>
+      )}
+
+      {showArchived && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-pulse"><div className="w-96 h-[80vh] max-h-[80vh] rounded-2xl bg-surface" /></div>}>
+          <ArchivedConversationsModal
+            onClose={() => setShowArchived(false)}
+            onSelectConversation={(conv) => {
+              setShowArchived(false);
+              selectConv(conv.id, conv.type as "direct" | "room");
+            }}
           />
         </Suspense>
       )}

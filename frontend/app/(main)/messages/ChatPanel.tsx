@@ -12,6 +12,8 @@ import PinnedMessagesBar from "./components/PinnedMessagesBar";
 import ChatMessages from "./components/ChatMessages";
 import ChatInput from "./components/ChatInput";
 import ChatMenu from "./components/ChatMenu";
+import EventList from "./components/EventList";
+import { useFeatureFlag } from "@/lib/featureFlagStore";
 import type { ChatPanelProps, ConvType, MuteDuration } from "./types";
 
 export type { SelectedConv, ChatPanelProps } from "./types";
@@ -36,6 +38,7 @@ export default function ChatPanel(props: ChatPanelProps) {
     onTogglePin,
     onEditMessage,
     onDeleteMessage,
+    onForwardMessage,
     targetMessageId,
     typingUsers,
     onlineUsers,
@@ -43,8 +46,11 @@ export default function ChatPanel(props: ChatPanelProps) {
     onUnpinConversation,
     onArchiveRoom,
     onUnarchiveRoom,
+    onArchiveConversation,
+    onUnarchiveConversation,
     onExportChat,
     onToggleStar,
+    onShowMediaGallery,
   } = props;
 
   const [showMenu, setShowMenu] = useState(false);
@@ -55,6 +61,8 @@ export default function ChatPanel(props: ChatPanelProps) {
   const [inChatSearch, setInChatSearch] = useState("");
   const [inChatSearchResults, setInChatSearchResults] = useState<Message[]>([]);
   const [showInChatSearch, setShowInChatSearch] = useState(false);
+  const [showEvents, setShowEvents] = useState(false);
+  const eventsEnabled = useFeatureFlag("events.enabled");
 
   const menuRef = useRef<HTMLDivElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
@@ -115,6 +123,15 @@ export default function ChatPanel(props: ChatPanelProps) {
     [onDeleteMessage, selectedConv?.id]
   );
 
+  const handleForward = useCallback(
+    (message: Message) => {
+      if (onForwardMessage) {
+        onForwardMessage(message, selectedConv?.id || "", selectedConv?.type === "room" ? "room" : "dm");
+      }
+    },
+    [onForwardMessage, selectedConv?.id, selectedConv?.type]
+  );
+
   // In-chat search
   useEffect(() => {
     let cancelled = false;
@@ -125,14 +142,17 @@ export default function ChatPanel(props: ChatPanelProps) {
       }
       if (!selectedConv?.id) return;
       try {
-        const results = await api.searchRoomMessages(selectedConv.id, inChatSearch, 50);
+        const results =
+          selectedConv.type === "room"
+            ? await api.searchRoomMessages(selectedConv.id, inChatSearch, 50)
+            : await api.searchDmMessages(selectedConv.id, inChatSearch, 50);
         if (!cancelled) setInChatSearchResults(results);
       } catch (err) {
         console.error("In-chat search failed", err);
       }
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [inChatSearch, selectedConv?.id]);
+  }, [inChatSearch, selectedConv?.id, selectedConv?.type]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -218,6 +238,18 @@ export default function ChatPanel(props: ChatPanelProps) {
     onUnarchiveRoom?.(selectedConv.id);
   };
 
+  const handleArchiveDM = () => {
+    if (!selectedConv || selectedConv.type !== "direct") return;
+    onHideConversation?.("dm", selectedConv.id);
+    setShowMenu(false);
+  };
+
+  const handleUnarchiveDM = () => {
+    if (!selectedConv || selectedConv.type !== "direct") return;
+    onUnarchiveRoom?.(selectedConv.id); // We'll repurpose this for DM unarchive
+    setShowMenu(false);
+  };
+
   const handleExport = () => {
     if (!selectedConv) return;
     const convType = selectedConv.type === "room" ? "room" : "dm";
@@ -254,11 +286,36 @@ export default function ChatPanel(props: ChatPanelProps) {
         <MembersPanel
           members={roomMembers}
           roomId={selectedConv.id}
+          roomName={selectedConv.name}
+          roomAvatar={selectedConv.avatar_url}
+          roomDescription={selectedConv.subtitle}
           currentUserId={currentUserId ?? ""}
           isAdmin={isAdmin ?? false}
           onClose={() => setShowMembers(false)}
           onRefresh={() => onRefresh?.()}
         />
+      )}
+
+      {showEvents && isRoom && selectedConv && eventsEnabled && (
+        <div className="border-b border-outline-variant/20 max-h-[50vh] overflow-y-auto">
+          <div className="sticky top-0 z-10 bg-surface-container-low px-4 py-2 flex items-center justify-between border-b border-outline-variant/10">
+            <span className="font-display text-headline-sm text-on-surface">Eventos</span>
+            <button
+              onClick={() => setShowEvents(false)}
+              className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors"
+            >
+              <span className="material-symbols-outlined text-on-surface-variant">close</span>
+            </button>
+          </div>
+          <div className="px-4 py-3">
+            <EventList
+              roomId={selectedConv.id}
+              currentUserId={currentUserId ?? ""}
+              isAdminOrMod={isAdmin ?? false}
+              isVisible={true}
+            />
+          </div>
+        </div>
       )}
 
       <div className="relative flex-1 min-h-0">
@@ -296,6 +353,7 @@ export default function ChatPanel(props: ChatPanelProps) {
           onToggleStar={onToggleStar}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onForward={handleForward}
         />
       </div>
 
@@ -310,6 +368,7 @@ export default function ChatPanel(props: ChatPanelProps) {
         mentionResults={composer.mentionResults}
         showMentionDropdown={composer.showMentionDropdown}
         voice={composer.voice}
+        video={composer.video}
         inputRef={composer.inputRef}
         fileInputRef={composer.fileInputRef}
         onInputChange={composer.handleInputChange}
@@ -329,10 +388,16 @@ export default function ChatPanel(props: ChatPanelProps) {
         onCancelRecording={composer.handleCancelRecording}
         onSendVoice={composer.handleSendVoice}
         onTranscribeVoice={composer.handleTranscribeVoice}
+        onStartVideoRecording={composer.handleStartVideoRecording}
+        onStopVideoRecording={composer.handleStopVideoRecording}
+        onCancelVideoRecording={composer.handleCancelVideoRecording}
+        onSendVideo={composer.handleSendVideo}
         onSelectMention={composer.handleSelectMention}
         onDismissMentions={composer.onDismissMentions}
         disappearAt={composer.disappearAt}
         onDisappearChange={composer.onDisappearChange}
+        scheduleAt={composer.scheduleAt}
+        onScheduleChange={composer.onScheduleChange}
       />
 
       <ChatMenu
@@ -352,9 +417,16 @@ export default function ChatPanel(props: ChatPanelProps) {
         onLeaveRoom={handleLeaveRoom}
         onPin={handlePin}
         onUnpin={handleUnpin}
-        onArchive={handleArchive}
-        onUnarchive={handleUnarchive}
+        onArchive={isRoom ? handleArchive : handleArchiveDM}
+        onUnarchive={isRoom ? handleUnarchive : handleUnarchiveDM}
         onExport={handleExport}
+        onShowMediaGallery={onShowMediaGallery ?? (() => {})}
+        onShowEvents={() => {
+          setShowEvents(true);
+          setShowMenu(false);
+        }}
+        isRoom={isRoom}
+        eventsEnabled={eventsEnabled}
       />
     </div>
   );

@@ -6,10 +6,16 @@ import { Avatar } from "@/components/ui";
 import { MaterialIcon, getInitials, computeOnlineStatus, isOnline } from "../helpers";
 import type { ChatRoomMemberResponse, RoomInviteInfoResponse } from "@/lib/api";
 import { messagesApi } from "@/lib/api/messages";
+import { EditRoomModal } from "./EditRoomModal";
+import VoiceChannelPanel from "./VoiceChannelPanel";
+import { useVoiceChannel } from "../hooks/useVoiceChannel";
 
 interface MembersPanelProps {
   members: ChatRoomMemberResponse[];
   roomId: string;
+  roomName: string;
+  roomAvatar?: string;
+  roomDescription?: string;
   currentUserId: string;
   isAdmin: boolean;
   onClose: () => void;
@@ -19,6 +25,9 @@ interface MembersPanelProps {
 export default function MembersPanel({
   members,
   roomId,
+  roomName,
+  roomAvatar,
+  roomDescription,
   currentUserId,
   isAdmin,
   onClose,
@@ -29,6 +38,8 @@ export default function MembersPanel({
     info?: RoomInviteInfoResponse;
     error?: string;
   }>({ show: false });
+  const [showEditRoom, setShowEditRoom] = useState(false);
+  const [showVoiceChannels, setShowVoiceChannels] = useState(false);
 
   const handleCreateInvite = async () => {
     try {
@@ -48,7 +59,8 @@ export default function MembersPanel({
         },
         error: `¡Enlace copiado!\n${link}`,
       });
-    } catch {
+    } catch (error) {
+      console.error('Failed to create invite link:', error);
       setInviteModal({
         show: true,
         error: "Error al crear el enlace",
@@ -77,6 +89,8 @@ export default function MembersPanel({
   const pendingMembers = members.filter((m) => m.pending);
   const confirmedMembers = members.filter((m) => !m.pending);
 
+  const voice = useVoiceChannel();
+
   return (
     <>
       <div className="border-b border-outline-variant/20 bg-surface-container-low max-h-64 overflow-y-auto">
@@ -90,13 +104,29 @@ export default function MembersPanel({
           </p>
           <div className="flex items-center gap-2">
             {isAdmin && (
-              <button
-                onClick={handleCreateInvite}
-                className="w-10 h-10 inline-flex items-center justify-center rounded-full bg-primary-container text-on-primary-container hover:bg-primary-container/80 transition-colors"
-                title="Invitar por enlace"
-              >
-                <MaterialIcon name="link" className="text-lg" />
-              </button>
+              <>
+                <button
+                  onClick={() => setShowVoiceChannels(!showVoiceChannels)}
+                  className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
+                  title="Voz"
+                >
+                  <MaterialIcon name="voice_chat" className="text-lg" />
+                </button>
+                <button
+                  onClick={() => setShowEditRoom(true)}
+                  className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
+                  title="Editar grupo"
+                >
+                  <MaterialIcon name="edit" className="text-lg" />
+                </button>
+                <button
+                  onClick={handleCreateInvite}
+                  className="w-10 h-10 inline-flex items-center justify-center rounded-full bg-primary-container text-on-primary-container hover:bg-primary-container/80 transition-colors"
+                  title="Invitar por enlace"
+                >
+                  <MaterialIcon name="link" className="text-lg" />
+                </button>
+              </>
             )}
             <button
               onClick={onClose}
@@ -214,7 +244,7 @@ export default function MembersPanel({
         </div>
       </div>
 
-      {inviteModal.show && (
+{inviteModal.show && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
           onClick={() => setInviteModal({ show: false })}
@@ -244,6 +274,34 @@ export default function MembersPanel({
             </button>
           </div>
         </div>
+      )}
+
+      {showVoiceChannels && (
+        <VoiceChannelPanel
+          roomId={roomId}
+          activeChannelId={voice.channelId}
+          isMuted={voice.isMuted}
+          isDeafened={voice.isDeafened}
+          isVideoEnabled={voice.isVideoEnabled}
+          onJoin={(channelId) => voice.joinChannel(channelId, roomId)}
+          onLeave={voice.leaveChannel}
+          onToggleMute={voice.toggleMute}
+          onToggleDeafen={voice.toggleDeafen}
+          onToggleVideo={voice.toggleVideo}
+          onClose={() => setShowVoiceChannels(false)}
+        />
+      )}
+
+      {showEditRoom && (
+        <EditRoomModal
+          roomId={roomId}
+          roomName={roomName}
+          roomAvatar={roomAvatar}
+          roomDescription={roomDescription}
+          isOpen={showEditRoom}
+          onClose={() => setShowEditRoom(false)}
+          onRefresh={onRefresh}
+        />
       )}
     </>
   );

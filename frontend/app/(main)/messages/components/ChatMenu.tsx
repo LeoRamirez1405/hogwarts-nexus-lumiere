@@ -15,6 +15,7 @@ interface ChatMenuProps {
   onMute: (duration: MuteDuration) => void;
   onClose: () => void;
   onShowMembers: () => void;
+  onShowEvents: () => void;
   onHideConversation: () => void;
   onLeaveRoom: () => void;
   onPin: (convType: ConvType) => void;
@@ -22,6 +23,9 @@ interface ChatMenuProps {
   onArchive: () => void;
   onUnarchive: () => void;
   onExport: () => void;
+  onShowMediaGallery: () => void;
+  isRoom: boolean;
+  eventsEnabled: boolean;
 }
 
 function MuteSubmenu({
@@ -90,6 +94,7 @@ export default function ChatMenu({
   onMute,
   onClose,
   onShowMembers,
+  onShowEvents,
   onHideConversation,
   onLeaveRoom,
   onPin,
@@ -97,10 +102,11 @@ export default function ChatMenu({
   onArchive,
   onUnarchive,
   onExport,
+  onShowMediaGallery,
+  isRoom,
+  eventsEnabled,
 }: ChatMenuProps) {
   if (!show || !position || !selectedConv) return null;
-
-  const isRoom = selectedConv.type === "room";
 
   return createPortal(
     <div
@@ -117,7 +123,23 @@ export default function ChatMenu({
             <MaterialIcon name="group" className="text-xl" />
             Ver miembros
           </button>
+          {eventsEnabled && (
+            <button
+              onClick={onShowEvents}
+              className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+            >
+              <MaterialIcon name="event" className="text-xl" />
+              Ver eventos
+            </button>
+          )}
           <MuteSubmenu show={showMuteMenu} onToggle={onToggleMuteMenu} onMute={onMute} />
+          <button
+            onClick={onShowMediaGallery}
+            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+          >
+            <MaterialIcon name="photo_library" className="text-xl" />
+            Ver galería
+          </button>
           <button
             onClick={() => onPin("room")}
             className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
@@ -180,6 +202,27 @@ export default function ChatMenu({
             Ver perfil
           </Link>
           <MuteSubmenu show={showMuteMenu} onToggle={onToggleMuteMenu} onMute={onMute} />
+          <button
+            onClick={onShowMediaGallery}
+            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+          >
+            <MaterialIcon name="photo_library" className="text-xl" />
+            Ver galería
+          </button>
+          <button
+            onClick={onArchive}
+            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+          >
+            <MaterialIcon name="archive" className="text-xl" />
+            Archivar
+          </button>
+          <button
+            onClick={onUnarchive}
+            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+          >
+            <MaterialIcon name="unarchive" className="text-xl" />
+            Desarchivar
+          </button>
           <button
             onClick={() => onPin("dm")}
             className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"

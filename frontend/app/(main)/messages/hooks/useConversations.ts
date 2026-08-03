@@ -13,13 +13,14 @@ export function useConversations(authUser: { id: string } | null) {
 
   useEffect(() => {
     if (!authUser) return;
-    Promise.all([api.getConversations(), api.getUsers()])
-      .then(([convs, users]) => {
-        setConversations(convs);
-        setAllUsers(users.items.filter((u) => u.id !== authUser.id));
-      })
+    api.getConversations()
+      .then(setConversations)
       .catch(() => {})
       .finally(() => setLoading(false));
+    api
+      .searchUsersServer("", { limit: 100 })
+      .then((users) => setAllUsers(users.items.filter((u) => u.id !== authUser.id)))
+      .catch(() => {});
   }, [authUser]);
 
   const refreshConversations = useCallback(() => {

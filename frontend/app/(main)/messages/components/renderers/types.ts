@@ -37,11 +37,12 @@ export interface ImageViewProps {
 }
 
 export interface VideoViewProps {
-  url: string;
+  message: Message;
   isOwn: boolean;
   dataSaver?: boolean;
   shouldLoad?: boolean;
   onLoadClick?: () => void;
+  onOpenFullscreen?: () => void;
 }
 
 export interface AudioViewProps {
@@ -86,6 +87,7 @@ export interface MessageActionsProps {
   onEdit?: (msg: Message) => void;
   onDelete?: (msg: Message) => void;
   onReactionChange?: () => void;
+  anchorRef: React.RefObject<HTMLElement | null>;
 }
 
 export interface MessageBubbleProps {

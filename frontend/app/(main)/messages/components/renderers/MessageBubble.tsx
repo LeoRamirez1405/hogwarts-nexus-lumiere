@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { MaterialIcon } from "@/components/ui";
 import { formatMessageTime } from "@/app/(main)/messages/helpers";
 import { ReplyPreview } from "./ReplyPreview";
@@ -16,6 +16,7 @@ import { MentionText } from "./MentionText";
 import { ReactionBar } from "./ReactionBar";
 import { MessageActions } from "./MessageActions";
 import { LinkPreviewView } from "./LinkPreviewView";
+import { detectMessageEffect, MessageEffectBurst } from "@/components/ui/MessageEffects";
 import type { MessageBubbleProps } from "./types";
 
 const formatDisappearTime = (disappearAt: string) => {
@@ -34,20 +35,21 @@ const formatDisappearTime = (disappearAt: string) => {
 const SWIPE_TRIGGER = 90;
 const SWIPE_MAX = 120;
 
-export const MessageBubble = ({
-  message,
-  isOwn,
-  onReply,
-  onReactionChange,
-  onScrollToMessage,
-  onTogglePin,
-  onToggleStar,
-  onForward,
-  onEdit,
-  onDelete,
-  members,
-  isReplyTarget,
-}: MessageBubbleProps) => {
+export const MessageBubble = memo(
+  ({
+    message,
+    isOwn,
+    onReply,
+    onReactionChange,
+    onScrollToMessage,
+    onTogglePin,
+    onToggleStar,
+    onForward,
+    onEdit,
+    onDelete,
+    members,
+    isReplyTarget,
+  }: MessageBubbleProps) => {
   const [dataSaver] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("nexus-data-saver") === "true";
@@ -59,9 +61,13 @@ export const MessageBubble = ({
   const [actionsOpen, setActionsOpen] = useState(false);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [showEffect, setShowEffect] = useState(false);
+  const effectType = detectMessageEffect(message.body || "");
   const dragXRef = useRef(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const movedRef = useRef(false);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
   const kind = message.kind || "text";
 
   useEffect(() => {
@@ -71,6 +77,14 @@ export const MessageBubble = ({
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
   }, [message.disappear_at]);
+
+  useEffect(() => {
+    if (effectType && !message.optimistic) {
+      setShowEffect(true);
+      const timer = setTimeout(() => setShowEffect(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [effectType, message.optimistic, message.id]);
 
   const shouldLoadMedia = (url: string) => {
     if (!dataSaver) return true;
@@ -142,19 +156,21 @@ export const MessageBubble = ({
     setActionsOpen((v) => !v);
   };
 
-  return (
+return (
     <div
       id={`msg-${message.id}`}
+      ref={anchorRef}
       className={`relative flex ${isOwn ? "justify-end" : "justify-start"} mb-3 gap-2 group ${
         message.optimistic ? "opacity-75" : ""
       } ${dragging ? "select-none" : ""} transition-transform ${
         dragging ? "" : "duration-200 ease-out"
-      } ${actionsOpen || dragging ? "z-30" : ""}`}
+      }`}
       style={{ transform: `translateX(${dragX}px)`, touchAction: "pan-y" }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
+      onMouseEnter={() => setActionsOpen(true)}
     >
       {!isOwn && (
         <div className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant text-label-sm shrink-0 mt-1">
@@ -173,7 +189,7 @@ export const MessageBubble = ({
             }
             onReply?.(message);
           }}
-          className={`absolute top-1/2 -translate-y-1/2 z-20 w-9 h-9 flex items-center justify-center rounded-full glass-card shadow-lg text-primary ${
+          className={`absolute top-1/2 -translate-y-1/2 z-[90] w-9 h-9 flex items-center justify-center rounded-full glass-card shadow-lg text-primary ${
             isOwn ? "right-2" : "left-2"
           }`}
           style={{ opacity: Math.min(1, Math.abs(dragX) / SWIPE_TRIGGER) }}
@@ -186,27 +202,23 @@ export const MessageBubble = ({
 
       <div className="relative max-w-[70%] flex flex-col">
         {!message.optimistic && (
-          <div
-            className={`absolute top-1/2 -translate-y-1/2 z-10 ${
-              isOwn ? "right-full mr-2" : "left-full ml-2"
-            }`}
-          >
-            <MessageActions
-              message={message}
-              isOwn={isOwn}
-              open={actionsOpen}
-              onOpenChange={setActionsOpen}
-              onReply={onReply}
-              onTogglePin={onTogglePin}
-              onToggleStar={onToggleStar}
-              onForward={onForward}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onReactionChange={onReactionChange}
-            />
-          </div>
+          <MessageActions
+            message={message}
+            isOwn={isOwn}
+            open={actionsOpen}
+            onOpenChange={setActionsOpen}
+            onReply={onReply}
+            onTogglePin={onTogglePin}
+            onToggleStar={onToggleStar}
+            onForward={onForward}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onReactionChange={onReactionChange}
+            anchorRef={bubbleRef}
+          />
         )}
         <div
+          ref={bubbleRef}
           onClick={handleBubbleClick}
           className={`px-4 py-2.5 cursor-pointer ${
             isOwn
@@ -254,7 +266,7 @@ export const MessageBubble = ({
                   />
                 ) : kind.startsWith("video") ? (
                   <VideoView
-                    url={message.attachment_url!}
+                    message={message}
                     isOwn={isOwn}
                     dataSaver={dataSaver}
                     shouldLoad={false}
@@ -272,7 +284,7 @@ export const MessageBubble = ({
               ) : kind.startsWith("image") ? (
                 <ImageView url={message.attachment_url!} isOwn={isOwn} />
               ) : kind.startsWith("video") ? (
-                <VideoView url={message.attachment_url!} isOwn={isOwn} />
+                <VideoView message={message} isOwn={isOwn} />
               ) : kind.startsWith("audio") ? (
                 <AudioView url={message.attachment_url!} isOwn={isOwn} />
               ) : null}
@@ -299,9 +311,27 @@ export const MessageBubble = ({
                 <span>No enviado</span>
               </span>
             )}
+            {isOwn && !message.optimistic && !message.room_id && message.read && (
+              <span className="flex items-center" title="Leído">
+                <MaterialIcon name="done_all" className="text-[12px]" filled />
+              </span>
+            )}
+            {isOwn && !message.optimistic && !message.room_id && !message.read && (
+              <span className="flex items-center" title="Entregado">
+                <MaterialIcon name="check" className="text-[12px]" />
+              </span>
+            )}
             <p className="text-[10px]">{formatMessageTime(message.created_at)}</p>
           </div>
         </div>
+
+        {showEffect && effectType && (
+          <MessageEffectBurst
+            type={effectType}
+            triggerRef={bubbleRef}
+            onComplete={() => setShowEffect(false)}
+          />
+        )}
 
         {message.reactions && message.reactions.length > 0 && (
           <ReactionBar reactions={message.reactions} messageId={message.id} onReacted={onReactionChange} />
@@ -315,4 +345,12 @@ export const MessageBubble = ({
       )}
     </div>
   );
-};
+  },
+  (prev, next) =>
+    prev.message === next.message &&
+    prev.isOwn === next.isOwn &&
+    prev.isReplyTarget === next.isReplyTarget &&
+    prev.members === next.members
+);
+
+MessageBubble.displayName = "MessageBubble";

@@ -5,11 +5,13 @@ import PollCreator from "../PollCreator";
 import StickerPicker from "./StickerPicker";
 import MentionDropdown from "./MentionDropdown";
 import ChatVoiceRecorder from "./ChatVoiceRecorder";
+import ChatVideoRecorder from "./ChatVideoRecorder";
 import { MaterialIcon } from "../helpers";
 import BottomSheet from "@/components/ui/BottomSheet";
 import type { Message, UserSearchResult } from "@/lib/api";
 import type { AttachmentPreview } from "../types";
 import type { VoiceRecorderState } from "../hooks/useVoiceRecorder";
+import type { VideoRecorderState } from "../hooks/useVideoRecorder";
 
 interface ToolbarButtonProps {
   onClick: () => void;
@@ -44,6 +46,7 @@ interface ChatInputProps {
   mentionResults: UserSearchResult[];
   showMentionDropdown: boolean;
   voice: VoiceRecorderState;
+  video: VideoRecorderState;
   inputRef: React.RefObject<HTMLInputElement | null>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onInputChange: (value: string) => void;
@@ -63,10 +66,16 @@ interface ChatInputProps {
   onCancelRecording: () => void;
   onSendVoice: () => void;
   onTranscribeVoice: () => void;
+  onStartVideoRecording: () => void;
+  onStopVideoRecording: () => void;
+  onCancelVideoRecording: () => void;
+  onSendVideo: () => void;
   onSelectMention: (name: string) => void;
   onDismissMentions: () => void;
   disappearAt?: string;
   onDisappearChange?: (value: string | undefined) => void;
+  scheduleAt?: string;
+  onScheduleChange?: (value: string | undefined) => void;
 }
 
 export default function ChatInput({
@@ -80,6 +89,7 @@ export default function ChatInput({
   mentionResults,
   showMentionDropdown,
   voice,
+  video,
   inputRef,
   fileInputRef,
   onInputChange,
@@ -99,14 +109,23 @@ export default function ChatInput({
   onCancelRecording,
   onSendVoice,
   onTranscribeVoice,
+  onStartVideoRecording,
+  onStopVideoRecording,
+  onCancelVideoRecording,
+  onSendVideo,
   onSelectMention,
   onDismissMentions,
   disappearAt,
   onDisappearChange,
+  scheduleAt,
+  onScheduleChange,
 }: ChatInputProps) {
   const canSend = Boolean(input.trim() || attachment) && !uploading;
 
   const [showMobileToolbar, setShowMobileToolbar] = useState(false);
+
+  const disappearMenuRef = useRef<HTMLDivElement>(null);
+  const scheduleMenuRef = useRef<HTMLDivElement>(null);
 
   const disappearOptions = [
     { label: "Desactivado", value: undefined },
@@ -119,7 +138,21 @@ export default function ChatInput({
     { label: "24 horas", value: 86400 },
   ] as const;
 
-  const disappearMenuRef = useRef<HTMLDivElement>(null);
+  const now = new Date();
+  const scheduleOptions = [
+    { label: "Desactivado", value: undefined },
+    { label: "En 15 minutos", value: (now.getTime() + 15 * 60 * 1000).toString() },
+    { label: "En 30 minutos", value: (now.getTime() + 30 * 60 * 1000).toString() },
+    { label: "En 1 hora", value: (now.getTime() + 60 * 60 * 1000).toString() },
+    { label: "En 3 horas", value: (now.getTime() + 3 * 60 * 60 * 1000).toString() },
+    { label: "Mañana 9:00", value: (() => {
+      const d = new Date(now);
+      d.setDate(d.getDate() + 1);
+      d.setHours(9, 0, 0, 0);
+      return d.getTime().toString();
+    })() },
+    { label: "Fecha personalizada…", value: "custom" },
+  ] as const;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -192,6 +225,14 @@ export default function ChatInput({
           onStopRecording={onStopRecording}
           onCancelRecording={onCancelRecording}
         />
+      ) : video.recording || video.previewUrl ? (
+        <ChatVideoRecorder
+          video={video}
+          uploading={uploading}
+          onSendVideo={onSendVideo}
+          onStopRecording={onStopVideoRecording}
+          onCancelRecording={onCancelVideoRecording}
+        />
       ) : (
         <>
           {/* Desktop: toolbar inline */}
@@ -245,6 +286,16 @@ export default function ChatInput({
               <MaterialIcon name="mic" className="text-xl" />
             </button>
 
+            <button
+              type="button"
+              onClick={onStartVideoRecording}
+              className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors"
+              title="Grabar video"
+              aria-label="Grabar video"
+            >
+              <MaterialIcon name="videocam" className="text-xl" />
+            </button>
+
             <div className="relative">
               <button
                 type="button"
@@ -263,7 +314,7 @@ export default function ChatInput({
               </button>
               <div
                 ref={disappearMenuRef}
-                className="absolute bottom-full right-0 mb-2 w-40 bg-surface-container-high border border-outline-variant rounded-xl shadow-lg hidden z-20 py-1"
+                className="absolute bottom-full right-0 mb-2 w-40 bg-surface-container-high border border-outline-variant rounded-xl shadow-lg hidden z-[100] py-1"
               >
                 {disappearOptions.map((opt) => (
                   <button
@@ -305,7 +356,11 @@ export default function ChatInput({
                 disabled={uploading}
               />
               {mentionResults.length > 0 && (
-                <MentionDropdown results={mentionResults} onSelect={onSelectMention} />
+                <MentionDropdown
+                  results={mentionResults}
+                  onSelect={onSelectMention}
+                  anchorRef={inputRef}
+                />
               )}
             </div>
 
@@ -360,7 +415,11 @@ export default function ChatInput({
                 disabled={uploading}
               />
               {mentionResults.length > 0 && (
-                <MentionDropdown results={mentionResults} onSelect={onSelectMention} />
+                <MentionDropdown
+                  results={mentionResults}
+                  onSelect={onSelectMention}
+                  anchorRef={inputRef}
+                />
               )}
             </div>
 
@@ -413,6 +472,14 @@ export default function ChatInput({
                   icon="mic"
                   label="Voz"
                 />
+                <ToolbarButton
+                  onClick={() => {
+                    onStartVideoRecording();
+                    setShowMobileToolbar(false);
+                  }}
+                  icon="videocam"
+                  label="Video"
+                />
               </div>
 
               <div className="mt-4">
@@ -439,7 +506,7 @@ export default function ChatInput({
                   </button>
                   <div
                     ref={disappearMenuRef}
-                    className="absolute bottom-full left-0 right-0 mb-2 bg-surface-container-high border border-outline-variant rounded-xl shadow-lg hidden z-20 py-1"
+                    className="absolute bottom-full left-0 right-0 mb-2 bg-surface-container-high border border-outline-variant rounded-xl shadow-lg hidden z-[100] py-1"
                   >
                     {disappearOptions.map((opt) => (
                       <button
@@ -461,7 +528,108 @@ export default function ChatInput({
                     ))}
                   </div>
                 </div>
+
+                <p className="text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider mt-4">Programar mensaje</p>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const menu = scheduleMenuRef.current;
+                      if (menu) menu.classList.toggle("hidden");
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                      scheduleAt ? "bg-primary/10 text-primary" : "bg-surface-container text-on-surface hover:bg-surface-container-high"
+                    }`}
+                    aria-label="Programar mensaje"
+                  >
+                    <MaterialIcon name="schedule" className="text-xl" />
+                    <span className="text-body-md">
+                      {scheduleAt
+                        ? scheduleOptions.find((o) => String(o.value) === String(scheduleAt))?.label
+                        : "Desactivado"}
+                    </span>
+                  </button>
+                  <div
+                    ref={scheduleMenuRef}
+                    className="absolute bottom-full left-0 right-0 mb-2 bg-surface-container-high border border-outline-variant rounded-xl shadow-lg hidden z-[100] py-1"
+                  >
+                    {scheduleOptions.map((opt) => (
+                      <button
+                        key={opt.value?.toString() || "off"}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (opt.value === "custom") {
+                            const dt = prompt("Fecha y hora (YYYY-MM-DDTHH:MM):");
+                            if (dt) {
+                              onScheduleChange?.(dt);
+                            }
+                          } else {
+                            onScheduleChange?.(opt.value);
+                          }
+                          scheduleMenuRef.current?.classList.add("hidden");
+                        }}
+                        className={`w-full px-4 py-2 text-left text-body-md ${
+                          scheduleAt === (opt.value?.toString() || undefined)
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "text-on-surface hover:bg-surface-container"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+            </div>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const menu = scheduleMenuRef.current;
+                  if (menu) menu.classList.toggle("hidden");
+                }}
+                className={`p-1 rounded-full transition-colors ${
+                  scheduleAt ? "text-primary" : "text-on-surface-variant"
+                } hover:bg-surface-container-high`}
+                title="Programar mensaje"
+                aria-label="Programar mensaje"
+              >
+                <MaterialIcon name="schedule" className="text-xl" />
+              </button>
+              <div
+                ref={scheduleMenuRef}
+                className="absolute bottom-full right-0 mb-2 w-40 bg-surface-container-high border border-outline-variant rounded-xl shadow-lg hidden z-[100] py-1"
+              >
+                {scheduleOptions.map((opt) => (
+                  <button
+                    key={opt.value?.toString() || "off"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (opt.value === "custom") {
+                        // Open a datetime-local input
+                        const dt = prompt("Fecha y hora (YYYY-MM-DDTHH:MM):");
+                        if (dt) {
+                          onScheduleChange?.(dt);
+                        }
+                      } else {
+                        onScheduleChange?.(opt.value);
+                      }
+                      scheduleMenuRef.current?.classList.add("hidden");
+                    }}
+                    className={`w-full px-3 py-2 text-left text-label-md ${
+                      scheduleAt === (opt.value?.toString() || undefined)
+                        ? "bg-primary/10 text-primary"
+                        : "text-on-surface hover:bg-surface-container"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
+            </div>
             </BottomSheet>
           </div>
         </>

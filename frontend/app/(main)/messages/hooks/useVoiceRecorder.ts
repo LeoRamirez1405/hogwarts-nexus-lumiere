@@ -46,7 +46,7 @@ export function useVoiceRecorder(): VoiceRecorderState {
       audioRef.current = null;
     }
     if (speechRecRef.current) {
-      try { speechRecRef.current.stop(); } catch {}
+      try { speechRecRef.current.stop(); } catch (error) { console.warn('Failed to stop speech recognition:', error); }
       speechRecRef.current = null;
     }
     mediaRecorderRef.current = null;
@@ -83,7 +83,8 @@ export function useVoiceRecorder(): VoiceRecorderState {
       }, 1000);
 
       recorder.start();
-    } catch {
+    } catch (error) {
+      console.error('Failed to start voice recording:', error);
       alert("No se pudo acceder al microfono");
     }
   }, []);
@@ -165,7 +166,8 @@ export function useVoiceRecorder(): VoiceRecorderState {
       recognition.start();
       speechRecRef.current = recognition;
       return true;
-    } catch {
+    } catch (error) {
+      console.error('Failed to start speech recognition:', error);
       setTranscribing(false);
       return false;
     }
@@ -173,7 +175,7 @@ export function useVoiceRecorder(): VoiceRecorderState {
 
   const stopTranscription = useCallback(() => {
     if (speechRecRef.current) {
-      try { speechRecRef.current.stop(); } catch {}
+      try { speechRecRef.current.stop(); } catch (error) { console.warn('Failed to stop speech recognition:', error); }
       speechRecRef.current = null;
     }
     setTranscribing(false);

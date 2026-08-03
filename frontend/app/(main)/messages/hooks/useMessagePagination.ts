@@ -44,8 +44,8 @@ export function useMessagePagination(saveMessagesToDB?: (msgs: Message[]) => voi
         if (saveMessagesToDB) saveMessagesToDB(result);
         return result;
       });
-    } catch {
-      /* ignore */
+    } catch (error) {
+      console.error('Failed to load initial messages:', error);
     }
   }, [fetchPage, saveMessagesToDB]);
 
@@ -65,8 +65,8 @@ export function useMessagePagination(saveMessagesToDB?: (msgs: Message[]) => voi
         return result;
       });
       setHasMore(page.has_more);
-    } catch {
-      /* keep current messages */
+    } catch (error) {
+      console.error('Failed to load older messages:', error);
     } finally {
       setLoadingOlder(false);
     }
@@ -95,7 +95,8 @@ export function useMessagePagination(saveMessagesToDB?: (msgs: Message[]) => voi
         setHasMore(page.has_more);
         setFirstUnreadId(page.first_unread_id ?? null);
         setUnreadCount(page.unread_count);
-      } catch {
+      } catch (error) {
+        console.error('Failed to load conversation:', error);
         if (cachedMessages.length === 0) setMessages([]);
       }
     },

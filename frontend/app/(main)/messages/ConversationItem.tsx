@@ -4,16 +4,41 @@ import { Conversation } from "@/lib/api";
 import { Avatar, Badge } from "@/components/ui";
 import { MaterialIcon, formatTimestamp, getInitials, computeOnlineStatus } from "./helpers";
 
+const KIND_LABELS: Record<string, string> = {
+  image: "Foto",
+  video: "Video",
+  audio: "Audio",
+  voice: "Nota de voz",
+  document: "Documento",
+  sticker: "Sticker",
+  poll: "Encuesta",
+  post: "Publicación",
+};
+
+function lastMessagePreview(msg: { kind?: string; body?: string }) {
+  const body = msg.body?.trim();
+  const label = msg.kind && msg.kind !== "text" ? KIND_LABELS[msg.kind] : undefined;
+  if (label) return body ? `${label} · ${body}` : label;
+  return body || "Sin mensajes";
+}
+
 export default function ConversationItem({
   conversation,
   isActive,
   onClick,
+  onlineUsers,
 }: {
   conversation: Conversation;
   isActive: boolean;
   onClick: () => void;
+  onlineUsers?: Map<string, boolean>;
 }) {
   const isRoom = conversation.type === "room";
+  const isOnlineNow =
+    !isRoom && onlineUsers?.get(conversation.id) === true;
+  const status = isOnlineNow
+    ? "online"
+    : computeOnlineStatus(conversation.last_active_at).status;
   return (
     <button
       onClick={onClick}
@@ -28,7 +53,7 @@ export default function ConversationItem({
         alt={conversation.name}
         size="sm"
         initials={getInitials(conversation.name)}
-        status={isRoom ? undefined : computeOnlineStatus(conversation.last_active_at).status}
+        status={isRoom ? undefined : status}
       />
 <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
@@ -72,7 +97,9 @@ export default function ConversationItem({
                 : "text-on-surface-variant"
             }`}
           >
-            {conversation.last_message?.body ?? "Sin mensajes"}
+            {conversation.last_message
+              ? lastMessagePreview(conversation.last_message)
+              : "Sin mensajes"}
          </p>
           {conversation.unread_count > 0 && (
             <Badge variant="count">

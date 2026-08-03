@@ -58,6 +58,7 @@ export interface SelectedConv {
   created_by?: string;
   last_active_at?: string;
   online_count?: number;
+  subtitle?: string;
 }
 
 export interface AttachmentPreview {
@@ -85,6 +86,7 @@ export interface ChatPanelProps {
   onTogglePin?: (message: Message) => void;
   onEditMessage?: (messageId: string, conversationId: string, body: string) => void;
   onDeleteMessage?: (messageId: string, conversationId: string) => void;
+  onForwardMessage?: (message: Message, targetId: string, targetType: ConvType) => void;
   targetMessageId?: string | null;
   typingUsers?: Map<string, string>;
   onlineUsers?: Map<string, boolean>;
@@ -92,6 +94,10 @@ export interface ChatPanelProps {
   onUnpinConversation?: (convType: ConvType, convId: string) => void;
   onArchiveRoom?: (roomId: string) => void;
   onUnarchiveRoom?: (roomId: string) => void;
+  onArchiveConversation?: (convType: ConvType, convId: string) => void;
+  onUnarchiveConversation?: (convType: ConvType, convId: string) => void;
   onExportChat?: (convType: ConvType, convId: string, convName: string) => void;
   onToggleStar?: (msg: Message) => void;
+  onShowMediaGallery?: () => void;
+  onShowEvents?: () => void;
 }
