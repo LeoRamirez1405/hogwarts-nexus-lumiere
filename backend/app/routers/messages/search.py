@@ -3,7 +3,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, or_, select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -16,6 +16,16 @@ from ...schemas.message import MessageResponse, UserSearchResult
 from .serializers import serialize_message
 
 router = APIRouter()
+
+
+def _build_tsquery(q: str) -> str:
+    """Build a PostgreSQL tsquery from user input with safe escaping."""
+    # Split by whitespace, escape each term, join with & (AND)
+    terms = q.strip().split()
+    if not terms:
+        return ""
+    escaped = [term.replace("'", "''") for term in terms]
+    return " & ".join(f"{t}:*" for t in escaped)
 
 
 @router.get("/users/search", response_model=List[UserSearchResult])
@@ -69,28 +79,65 @@ async def search_messages_global(
     current_user: User = Depends(get_current_user),
     limit: int = Query(25, ge=1, le=100),
 ):
-    pattern = f"%{q}%"
-    dm_filter = or_(
-        and_(Message.sender_id == current_user.id),
-        and_(Message.receiver_id == current_user.id),
-    )
-    room_subq = (
-        select(ChatRoomMember.room_id).where(ChatRoomMember.user_id == current_user.id)
-    )
-    room_filter = Message.room_id.in_(room_subq)
-
-    stmt = (
-        select(Message)
-        .options(
-            selectinload(Message.sender),
-            selectinload(Message.receiver),
-            selectinload(Message.reactions),
-            selectinload(Message.reply_to).selectinload(Message.sender),
+    # Use FTS on PostgreSQL, fallback to ILIKE on SQLite
+    from sqlalchemy import func
+    dialect_name = db.bind.dialect.name if db.bind else "postgresql"
+    
+    if dialect_name == "postgresql":
+        tsquery = _build_tsquery(q)
+        if not tsquery:
+            return []
+        
+        dm_filter = or_(
+            and_(Message.sender_id == current_user.id),
+            and_(Message.receiver_id == current_user.id),
         )
-        .where(and_(or_(dm_filter, room_filter), Message.body.ilike(pattern)))
-        .order_by(Message.created_at.desc())
-        .limit(limit)
-    )
+        room_subq = (
+            select(ChatRoomMember.room_id).where(ChatRoomMember.user_id == current_user.id)
+        )
+        room_filter = Message.room_id.in_(room_subq)
+
+        stmt = (
+            select(Message)
+            .options(
+                selectinload(Message.sender),
+                selectinload(Message.receiver),
+                selectinload(Message.reactions),
+                selectinload(Message.reply_to).selectinload(Message.sender),
+            )
+            .where(
+                and_(
+                    or_(dm_filter, room_filter),
+                    Message.search_vector.op("@@")(func.to_tsquery('english', tsquery))
+                )
+            )
+            .order_by(Message.created_at.desc())
+            .limit(limit)
+        )
+    else:
+        # Fallback for SQLite
+        pattern = f"%{q}%"
+        dm_filter = or_(
+            and_(Message.sender_id == current_user.id),
+            and_(Message.receiver_id == current_user.id),
+        )
+        room_subq = (
+            select(ChatRoomMember.room_id).where(ChatRoomMember.user_id == current_user.id)
+        )
+        room_filter = Message.room_id.in_(room_subq)
+
+        stmt = (
+            select(Message)
+            .options(
+                selectinload(Message.sender),
+                selectinload(Message.receiver),
+                selectinload(Message.reactions),
+                selectinload(Message.reply_to).selectinload(Message.sender),
+            )
+            .where(and_(or_(dm_filter, room_filter), Message.body.ilike(pattern)))
+            .order_by(Message.created_at.desc())
+            .limit(limit)
+        )
     rows = (await db.execute(stmt)).scalars().all()
     return [await serialize_message(db, m, current_user.id, expand_sender=True, expand_reactions=True) for m in rows]
 
@@ -113,18 +160,43 @@ async def search_messages_in_room(
     if not member:
         raise HTTPException(status_code=403, detail="Not a member of this room")
 
-    pattern = f"%{q}%"
-    stmt = (
-        select(Message)
-        .options(
-            selectinload(Message.sender),
-            selectinload(Message.reactions),
-            selectinload(Message.reply_to).selectinload(Message.sender),
+    dialect_name = db.bind.dialect.name if db.bind else "postgresql"
+    
+    if dialect_name == "postgresql":
+        tsquery = _build_tsquery(q)
+        if not tsquery:
+            return []
+        
+        stmt = (
+            select(Message)
+            .options(
+                selectinload(Message.sender),
+                selectinload(Message.reactions),
+                selectinload(Message.reply_to).selectinload(Message.sender),
+            )
+            .where(
+                and_(
+                    Message.room_id == room_id,
+                    Message.search_vector.op("@@")(func.to_tsquery('english', tsquery))
+                )
+            )
+            .order_by(Message.created_at.desc())
+            .limit(limit)
         )
-        .where(and_(Message.room_id == room_id, Message.body.ilike(pattern)))
-        .order_by(Message.created_at.desc())
-        .limit(limit)
-    )
+    else:
+        # Fallback for SQLite
+        pattern = f"%{q}%"
+        stmt = (
+            select(Message)
+            .options(
+                selectinload(Message.sender),
+                selectinload(Message.reactions),
+                selectinload(Message.reply_to).selectinload(Message.sender),
+            )
+            .where(and_(Message.room_id == room_id, Message.body.ilike(pattern)))
+            .order_by(Message.created_at.desc())
+            .limit(limit)
+        )
     rows = (await db.execute(stmt)).scalars().all()
     return [await serialize_message(db, m, current_user.id, expand_sender=True, expand_reactions=True) for m in rows]
 
@@ -140,26 +212,55 @@ async def search_messages_in_dm(
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot search your own DM")
 
-    pattern = f"%{q}%"
-    stmt = (
-        select(Message)
-        .options(
-            selectinload(Message.sender),
-            selectinload(Message.reactions),
-            selectinload(Message.reply_to).selectinload(Message.sender),
-        )
-        .where(
-            and_(
-                Message.room_id.is_(None),
-                Message.body.ilike(pattern),
-                or_(
-                    and_(Message.sender_id == current_user.id, Message.receiver_id == user_id),
-                    and_(Message.sender_id == user_id, Message.receiver_id == current_user.id),
-                ),
+    dialect_name = db.bind.dialect.name if db.bind else "postgresql"
+    
+    if dialect_name == "postgresql":
+        tsquery = _build_tsquery(q)
+        if not tsquery:
+            return []
+        
+        stmt = (
+            select(Message)
+            .options(
+                selectinload(Message.sender),
+                selectinload(Message.reactions),
+                selectinload(Message.reply_to).selectinload(Message.sender),
             )
+            .where(
+                and_(
+                    Message.room_id.is_(None),
+                    Message.search_vector.op("@@")(func.to_tsquery('english', tsquery)),
+                    or_(
+                        and_(Message.sender_id == current_user.id, Message.receiver_id == user_id),
+                        and_(Message.sender_id == user_id, Message.receiver_id == current_user.id),
+                    ),
+                )
+            )
+            .order_by(Message.created_at.desc())
+            .limit(limit)
         )
-        .order_by(Message.created_at.desc())
-        .limit(limit)
-    )
+    else:
+        # Fallback for SQLite
+        pattern = f"%{q}%"
+        stmt = (
+            select(Message)
+            .options(
+                selectinload(Message.sender),
+                selectinload(Message.reactions),
+                selectinload(Message.reply_to).selectinload(Message.sender),
+            )
+            .where(
+                and_(
+                    Message.room_id.is_(None),
+                    Message.body.ilike(pattern),
+                    or_(
+                        and_(Message.sender_id == current_user.id, Message.receiver_id == user_id),
+                        and_(Message.sender_id == user_id, Message.receiver_id == current_user.id),
+                    ),
+                )
+            )
+            .order_by(Message.created_at.desc())
+            .limit(limit)
+        )
     rows = (await db.execute(stmt)).scalars().all()
     return [await serialize_message(db, m, current_user.id, expand_sender=True, expand_reactions=True) for m in rows]

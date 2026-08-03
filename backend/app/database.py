@@ -192,6 +192,35 @@ _WANTED_PARTIAL_INDEXES = [
 ]
 
 
+# Full-Text Search: GIN index on search_vector + trigger to auto-update it
+# Only runs on PostgreSQL (SQLite doesn't support TSVECTOR)
+_FTS_SETUP_SQL = """
+CREATE INDEX IF NOT EXISTS ix_messages_search_vector ON messages USING GIN (search_vector);
+
+CREATE OR REPLACE FUNCTION messages_search_vector_update() RETURNS trigger AS $$
+BEGIN
+    NEW.search_vector :=
+        setweight(to_tsvector('english', COALESCE(NEW.body, '')), 'A') ||
+        setweight(to_tsvector('english', COALESCE(NEW.attachment_name, '')), 'B');
+    RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS messages_search_vector_trigger ON messages;
+CREATE TRIGGER messages_search_vector_trigger
+BEFORE INSERT OR UPDATE ON messages
+FOR EACH ROW EXECUTE FUNCTION messages_search_vector_update();
+"""
+
+
+def _ensure_fts(sync_conn):
+    """Create FTS index and trigger on PostgreSQL."""
+    if sync_conn.dialect.name != "postgresql":
+        return
+    from sqlalchemy import text
+    sync_conn.execute(text(_FTS_SETUP_SQL))
+
+
 def _ensure_indexes(sync_conn):
     from sqlalchemy import inspect, text
 
@@ -287,3 +316,4 @@ async def init_db():
         await conn.run_sync(_run_migrations)
         await conn.run_sync(_sync_missing_columns)
         await conn.run_sync(_ensure_indexes)
+        await conn.run_sync(_ensure_fts)
