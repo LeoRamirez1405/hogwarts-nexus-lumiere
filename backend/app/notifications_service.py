@@ -24,6 +24,7 @@ from .models.article_subscription import Notification
 from .models.user import User
 from .models.post import PostLike
 from .models.friend_request import FriendRequest
+from .ws_manager import manager
 
 
 class N:
@@ -62,6 +63,34 @@ class N:
     FRIEND_POST = "friend_post"
 
 
+def _notification_payload(n: Notification) -> dict:
+    """Shape a Notification row into the WS push payload (mirrors the REST
+    ``NotificationResponse`` fields so the client can prepend it directly)."""
+    return {
+        "id": n.id,
+        "user_id": n.user_id,
+        "type": n.type,
+        "title": n.title,
+        "body": n.body,
+        "related_id": n.related_id,
+        "actor_id": n.actor_id,
+        "read": bool(n.read),
+        "created_at": n.created_at.isoformat() if n.created_at else None,
+    }
+
+
+async def _push_notification(n: Notification) -> None:
+    """Best-effort realtime push of a single notification to its recipient."""
+    try:
+        payload = _notification_payload(n)
+        await manager.send_to_user(
+            n.user_id,
+            {"t": "notification", "n": payload},
+        )
+    except Exception:
+        pass
+
+
 async def notify(
     db: AsyncSession,
     *,
@@ -86,6 +115,9 @@ async def notify(
         read=False,
     )
     db.add(n)
+    # Materialize id/created_at so the realtime WS push carries a full row.
+    await db.flush()
+    await _push_notification(n)
     return n
 
 
@@ -129,6 +161,8 @@ async def notify_like(db: AsyncSession, post, actor: User) -> Optional[Notificat
         existing.body = body
         existing.actor_id = actor.id
         existing.created_at = datetime.utcnow()
+        await db.flush()
+        await _push_notification(existing)
         return existing
 
     return await notify(
@@ -189,7 +223,14 @@ async def notify_all_users(
         )
     )
     result = await db.execute(stmt)
-    return result.rowcount or 0
+    count = result.rowcount or 0
+    # Best-effort realtime nudge to every currently-online user so the bell
+    # updates without waiting for the next REST poll.
+    online = manager.get_online_users()
+    for uid in online:
+        if uid != exclude_id:
+            await manager.send_to_user(uid, {"t": "notification_refresh"})
+    return count
 
 
 # Names can be multi-word and the text after an "@" usually keeps going
@@ -261,16 +302,17 @@ async def notify_friends_of_post(
     for fid in friend_ids:
         if fid == actor.id:
             continue
-        db.add(
-            Notification(
-                user_id=fid,
-                type=N.FRIEND_POST,
-                title=f"{actor.name} publicó algo nuevo",
-                body=body,
-                related_id=post.id,
-                actor_id=actor.id,
-                read=False,
-            )
+        n = Notification(
+            user_id=fid,
+            type=N.FRIEND_POST,
+            title=f"{actor.name} publicó algo nuevo",
+            body=body,
+            related_id=post.id,
+            actor_id=actor.id,
+            read=False,
         )
+        db.add(n)
+        await db.flush()
+        await _push_notification(n)
         count += 1
     return count
