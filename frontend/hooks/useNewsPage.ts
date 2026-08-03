@@ -137,7 +137,8 @@ export function useNewsPage(): UseNewsPageResult {
       savedSkipRef.current += state.saved_articles.length;
 
       initialLoadRef.current = false;
-    } catch {
+    } catch (error) {
+      console.error('Failed to load initial news:', error);
       setLoadError("No se pudo cargar El Quisquilloso. Reviva el santuario y vuelva a intentarlo.");
     } finally {
       setArticlesLoading(false);
@@ -175,8 +176,8 @@ export function useNewsPage(): UseNewsPageResult {
       setArticlesHasMore(state.articles_has_more);
       setArticlesTotal((prev) => prev + state.articles.length);
       articlesSkipRef.current += state.articles.length;
-    } catch {
-      // ignore
+    } catch (error) {
+      console.error('Failed to load more articles:', error);
     } finally {
       setArticlesLoadingMore(false);
     }
@@ -200,8 +201,8 @@ export function useNewsPage(): UseNewsPageResult {
       setFeaturedHasMore(state.featured_articles_has_more);
       setFeaturedTotal((prev) => prev + state.featured_articles.length);
       featuredSkipRef.current += state.featured_articles.length;
-    } catch {
-      // ignore
+    } catch (error) {
+      console.error('Failed to load more featured articles:', error);
     } finally {
       setFeaturedLoadingMore(false);
     }
@@ -225,8 +226,8 @@ export function useNewsPage(): UseNewsPageResult {
       setSavedHasMore(state.saved_articles_has_more);
       setSavedTotal((prev) => prev + state.saved_articles.length);
       savedSkipRef.current += state.saved_articles.length;
-    } catch {
-      // ignore
+    } catch (error) {
+      console.error('Failed to load more saved articles:', error);
     } finally {
       setSavedLoadingMore(false);
     }

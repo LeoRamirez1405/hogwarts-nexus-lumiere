@@ -18,7 +18,8 @@ export const useFeatureFlagStore = create<FeatureFlagState>((set, get) => ({
       const map: Record<string, FeatureFlag> = {};
       for (const f of items) map[f.key] = f;
       set({ flags: map, loaded: true });
-    } catch {
+    } catch (error) {
+      console.error('Failed to load feature flags:', error);
       set({ loaded: true });
     }
   },

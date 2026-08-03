@@ -12,6 +12,8 @@ interface NotificationState {
   load: () => Promise<void>;
   /** Append the next page using the last loaded item as the cursor. */
   loadMore: () => Promise<void>;
+  /** Prepend a notification received over WebSocket (dedupes by id). */
+  push: (n: Notification) => void;
   /** Mark a single notification read (backend + local). */
   markRead: (id: string) => Promise<void>;
   /** Mark every unread notification read (backend + local). */
@@ -66,6 +68,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     } finally {
       set({ loadingMore: false });
     }
+  },
+
+  push: (n) => {
+    set((s) => ({
+      notifications: [n, ...s.notifications.filter((x) => x.id !== n.id)],
+    }));
   },
 
   markRead: async (id) => {

@@ -77,9 +77,8 @@ export function useServiceWorker() {
       try {
         if (sessionStorage.getItem("sw-reloaded") === "1") return;
         sessionStorage.setItem("sw-reloaded", "1");
-      } catch {
-        // sessionStorage unavailable (private mode / disabled): fall back to
-        // the in-memory flag above rather than risk the reload loop.
+      } catch (error) {
+        console.warn('sessionStorage unavailable (private mode?), skipping SW reload:', error);
         return;
       }
       console.log("[SW] Controller changed, reloading...");
@@ -115,7 +114,8 @@ export function usePushSubscription() {
       if (!res.ok) return null;
       const data = await res.json();
       return data.public_key;
-    } catch {
+    } catch (error) {
+      console.error('Failed to fetch VAPID key:', error);
       return null;
     }
   }, []);
@@ -262,7 +262,8 @@ export function usePWAInstall() {
         return true;
       }
       return false;
-    } catch {
+    } catch (error) {
+      console.error('Failed to install PWA:', error);
       return false;
     }
   }, [deferredPrompt]);

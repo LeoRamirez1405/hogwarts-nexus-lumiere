@@ -9,6 +9,7 @@ interface WSMessage {
   s?: string;
   r?: unknown[];
   b?: string;
+  n?: unknown;
 }
 
 class WSClient {
@@ -18,18 +19,22 @@ class WSClient {
   private listeners = new Map<string, Set<WSListener>>();
   private token: string | null = null;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
-  private isMobile: boolean;
-  private heartbeatMs: number;
-  private url: string;
+  private isMobile: boolean = false;
+  private heartbeatMs: number = 60000;
+  private url: string = "";
+  private initialized = false;
 
-  constructor() {
+  private ensureInitialized() {
+    if (this.initialized || typeof window === "undefined") return;
     this.isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     this.heartbeatMs = this.isMobile ? 25000 : 60000;
     this.url = this.getWsUrl();
     this.setupVisibilityHandling();
+    this.initialized = true;
   }
 
   private getWsUrl(): string {
+    if (typeof window === "undefined") return "";
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = process.env.NEXT_PUBLIC_API_URL
       ? new URL(process.env.NEXT_PUBLIC_API_URL).host
@@ -51,6 +56,7 @@ class WSClient {
   }
 
   connect(token: string) {
+    this.ensureInitialized();
     this.token = token;
     this.reconnectAttempts = 0;
 
@@ -58,8 +64,10 @@ class WSClient {
       return;
     }
 
-    const wsUrl = `${this.url}?token=${encodeURIComponent(token)}`;
-    this.ws = new WebSocket(wsUrl);
+    // The access token travels as the WebSocket subprotocol (Sec-WebSocket-Protocol)
+    // instead of a query parameter so it never ends up in URLs/logs/Referer.
+    // JWTs are valid subprotocol tokens (base64url + dots).
+    this.ws = new WebSocket(this.url, [token]);
 
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;
@@ -112,6 +120,12 @@ class WSClient {
         break;
       case "edit":
         this.emit("edit", msg);
+        break;
+      case "notification":
+        this.emit("notification", msg);
+        break;
+      case "notification_refresh":
+        this.emit("notification_refresh", msg);
         break;
       case "pong":
         this.emit("pong", msg);

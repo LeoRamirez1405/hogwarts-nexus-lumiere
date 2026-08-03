@@ -15,7 +15,8 @@ export async function attemptRefresh(): Promise<boolean> {
       headers: { "Content-Type": "application/json" },
     });
     return res.ok;
-  } catch {
+  } catch (error) {
+    console.error('Token refresh failed:', error);
     return false;
   }
 }

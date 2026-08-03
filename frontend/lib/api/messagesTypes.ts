@@ -74,6 +74,7 @@ export interface Conversation {
   is_muted?: boolean;
   is_pinned?: boolean;
   is_archived?: boolean;
+  is_hidden?: boolean;
   last_active_at?: string;
   online_count?: number;
 }
@@ -139,6 +140,7 @@ export interface MessageSendData {
   attachment_name?: string;
   metadata?: MessageMetadata;
   disappear_at?: string;
+  scheduled_at?: string;
   poll?: {
     question: string;
     options: string[];

@@ -201,6 +201,11 @@ export const messagesApi = {
       { method: "PUT" }
     ),
 
+  getStarredMessages: (limit?: number) =>
+    request<Message[]>(
+      `/messages/starred${buildQuery({ limit })}`
+    ),
+
   searchMessages: (q: string, limit?: number) =>
     request<Message[]>(
       `/messages/search${buildQuery({ q, limit })}`
@@ -213,6 +218,15 @@ export const messagesApi = {
   ) =>
     request<Message[]>(
       `/messages/rooms/${roomId}/messages/search${buildQuery({ q, limit })}`
+    ),
+
+  searchDmMessages: (
+    userId: string,
+    q: string,
+    limit?: number
+  ) =>
+    request<Message[]>(
+      `/messages/dm/${userId}/messages/search${buildQuery({ q, limit })}`
     ),
 
   archiveRoom: (roomId: string) =>
