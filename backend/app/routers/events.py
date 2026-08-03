@@ -30,7 +30,7 @@ from ..schemas.user import UserResponse
 from ..ws_manager import manager
 
 
-router = APIRouter(prefix="/events", tags=["events"])
+router = APIRouter(tags=["events"])
 
 
 # ============================================================

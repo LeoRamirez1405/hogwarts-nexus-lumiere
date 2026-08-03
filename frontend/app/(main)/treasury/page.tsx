@@ -8,6 +8,7 @@ import GlassCard from "@/components/ui/GlassCard";
 import TabGroup from "@/components/ui/TabGroup";
 import { CrystalHero, DepositTab, WithdrawTab, TransferTab, HistoryTab } from "@/components/domain/Treasury";
 import { toastError } from "@/lib/toastStore";
+import PullToRefresh from "@/components/ui/PullToRefresh";
 
 export default function TreasuryPage() {
   const { user, setUser } = useAuthStore();
@@ -113,43 +114,45 @@ export default function TreasuryPage() {
     ? activeTab
     : "deposit";
 
-  return (
-    <div className="space-y-8">
-      <CrystalHero balance={displayBalance} loading={loading} />
+return (
+    <PullToRefresh onRefresh={onDone}>
+      <div className="space-y-8">
+        <CrystalHero balance={displayBalance} loading={loading} />
 
-    
-      <TabGroup tabs={tabs} activeTab={validActiveTab} onChange={setActiveTab} />
 
-      <GlassCard>
-        <div className="p-6 md:p-8">
-          {validActiveTab === "deposit" && (
-            <DepositTab
-              onDone={onDone}
-              applyOptimisticBalance={applyOptimisticBalance}
-              onErrorRollback={refreshBalance}
-            />
-          )}
-          {validActiveTab === "withdraw" && (
-            <WithdrawTab
-              balance={displayBalance}
-              onDone={onDone}
-              applyOptimisticBalance={applyOptimisticBalance}
-              onErrorRollback={refreshBalance}
-            />
-          )}
-          {validActiveTab === "transfer" && (
-            <TransferTab
-              balance={displayBalance}
-              onDone={onDone}
-              applyOptimisticBalance={applyOptimisticBalance}
-              onErrorRollback={refreshBalance}
-            />
-          )}
-          {validActiveTab === "history" && (
-            <HistoryTab transactions={transactions} currentUserId={user?.id} />
-          )}
-        </div>
-      </GlassCard>
-    </div>
+        <TabGroup tabs={tabs} activeTab={validActiveTab} onChange={setActiveTab} />
+
+        <GlassCard>
+          <div className="p-6 md:p-8">
+            {validActiveTab === "deposit" && (
+              <DepositTab
+                onDone={onDone}
+                applyOptimisticBalance={applyOptimisticBalance}
+                onErrorRollback={refreshBalance}
+              />
+            )}
+            {validActiveTab === "withdraw" && (
+              <WithdrawTab
+                balance={displayBalance}
+                onDone={onDone}
+                applyOptimisticBalance={applyOptimisticBalance}
+                onErrorRollback={refreshBalance}
+              />
+            )}
+            {validActiveTab === "transfer" && (
+              <TransferTab
+                balance={displayBalance}
+                onDone={onDone}
+                applyOptimisticBalance={applyOptimisticBalance}
+                onErrorRollback={refreshBalance}
+              />
+            )}
+            {validActiveTab === "history" && (
+              <HistoryTab transactions={transactions} currentUserId={user?.id} />
+            )}
+          </div>
+        </GlassCard>
+      </div>
+    </PullToRefresh>
   );
 }

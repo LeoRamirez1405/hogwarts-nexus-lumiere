@@ -3,10 +3,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, DashboardData } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
+import { useCallback } from "react";
 import GlassCard from "@/components/ui/GlassCard";
 import { Button, MaterialIcon } from "@/components/ui";
 import { SkeletonCard, SkeletonLines, AdminDashboard, UserDashboard } from "@/components/domain/Dashboard";
 import { toastError } from "@/lib/toastStore";
+import PullToRefresh from "@/components/ui/PullToRefresh";
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -16,6 +18,10 @@ export default function DashboardPage() {
     queryFn: () => api.getDashboard(),
     refetchInterval: 60_000,
   });
+
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
 
   if (isLoading) {
     return (
@@ -66,13 +72,15 @@ export default function DashboardPage() {
   const isAdmin = user?.role === "admin";
   const dashboard: DashboardData = data;
 
-  return (
-    <div className="space-y-8">
-      {isAdmin ? (
-        <AdminDashboard data={dashboard} />
-      ) : (
-        <UserDashboard data={dashboard} currentUserId={user?.id} />
-      )}
-    </div>
+return (
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="space-y-8 pb-8">
+        {isAdmin ? (
+          <AdminDashboard data={dashboard} />
+        ) : (
+          <UserDashboard data={dashboard} currentUserId={user?.id} />
+        )}
+      </div>
+    </PullToRefresh>
   );
 }

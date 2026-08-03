@@ -17,6 +17,7 @@ import {
   EditGroupModal,
   MembersModal,
 } from "./components";
+import PullToRefresh from "@/components/ui/PullToRefresh";
 
 type CreateFormData = {
   name: string;
@@ -139,72 +140,74 @@ export default function AdminGroupsPage() {
   if (user?.role !== "admin") return null;
 
   return (
-    <div className="space-y-8">
-      <GroupsHeader onCreateClick={() => setShowCreate(true)} />
+    <PullToRefresh onRefresh={crud.refresh}>
+      <div className="space-y-8">
+        <GroupsHeader onCreateClick={() => setShowCreate(true)} />
 
-      <GroupsList
-        rooms={crud.filteredItems}
-        loading={crud.loading}
-        hasMore={crud.hasMore}
-        loadingMore={crud.loadingMore}
-        totalCount={crud.totalCount}
-        totalLoaded={crud.totalLoaded}
-        search={search}
-        onSearchChange={setSearch}
-        onToggleClose={handleToggleClose}
-        onEdit={openEdit}
-        onMembers={openMembersWrapper}
-        onDelete={handleDeleteRoom}
-        onLoadMore={crud.loadMore}
-      />
+        <GroupsList
+          rooms={crud.filteredItems}
+          loading={crud.loading}
+          hasMore={crud.hasMore}
+          loadingMore={crud.loadingMore}
+          totalCount={crud.totalCount}
+          totalLoaded={crud.totalLoaded}
+          search={search}
+          onSearchChange={setSearch}
+          onToggleClose={handleToggleClose}
+          onEdit={openEdit}
+          onMembers={openMembersWrapper}
+          onDelete={handleDeleteRoom}
+          onLoadMore={crud.loadMore}
+        />
 
-      {/* Create Group Modal */}
-      <CreateGroupModal
-        open={showCreate}
-        onClose={() => { setShowCreate(false); setCreateForm(emptyCreateForm); }}
-        onSave={handleCreateSubmit}
-        saving={crud.creating}
-        form={createForm}
-        setForm={setCreateForm}
-        avatarRef={createAvatarRef}
-        onAvatarUpload={(e) => handleAvatarUpload(e, "create")}
-        memberSearch={memberSearch}
-        setMemberSearch={setMemberSearch}
-        availableUsers={availableUsers}
-        usersLoadingMore={membersLoadingMore}
-        loadMoreUsers={loadMoreUsers}
-        toggleMember={toggleMemberInCreateWrapper}
-        selectedMemberCount={createForm.member_ids.length}
-      />
+        {/* Create Group Modal */}
+        <CreateGroupModal
+          open={showCreate}
+          onClose={() => { setShowCreate(false); setCreateForm(emptyCreateForm); }}
+          onSave={handleCreateSubmit}
+          saving={crud.creating}
+          form={createForm}
+          setForm={setCreateForm}
+          avatarRef={createAvatarRef}
+          onAvatarUpload={(e) => handleAvatarUpload(e, "create")}
+          memberSearch={memberSearch}
+          setMemberSearch={setMemberSearch}
+          availableUsers={availableUsers}
+          usersLoadingMore={membersLoadingMore}
+          loadMoreUsers={loadMoreUsers}
+          toggleMember={toggleMemberInCreateWrapper}
+          selectedMemberCount={createForm.member_ids.length}
+        />
 
-      {/* Edit Group Modal */}
-      <EditGroupModal
-        open={!!showEdit}
-        onClose={() => { setShowEdit(null); setEditForm({}); }}
-        onSave={handleUpdateSubmit}
-        saving={crud.saving}
-        form={editForm}
-        setForm={setEditForm}
-        avatarRef={editAvatarRef}
-        onAvatarUpload={(e) => handleAvatarUpload(e, "edit")}
-      />
+        {/* Edit Group Modal */}
+        <EditGroupModal
+          open={!!showEdit}
+          onClose={() => { setShowEdit(null); setEditForm({}); }}
+          onSave={handleUpdateSubmit}
+          saving={crud.saving}
+          form={editForm}
+          setForm={setEditForm}
+          avatarRef={editAvatarRef}
+          onAvatarUpload={(e) => handleAvatarUpload(e, "edit")}
+        />
 
-      {/* Members Modal */}
-      <MembersModal
-        open={!!showMembers}
-        onClose={closeMembers}
-        roomId={showMembers}
-        memberSearch={memberSearch}
-        setMemberSearch={setMemberSearch}
-        selectedMembers={selectedMembers}
-        setSelectedMembers={setSelectedMembers}
-        availableUsers={availableUsers}
-        usersLoadingMore={membersLoadingMore}
-        loadMoreUsers={loadMoreUsers}
-        onAddMembers={handleAddMembersModal}
-        currentMembers={selectedMembers.map((id) => allUsersMap[id]).filter((m): m is NonNullable<typeof m> => Boolean(m))}
-        onRemoveMember={(memberId) => setSelectedMembers((prev) => prev.filter((id) => id !== memberId))}
-      />
-   </div>
+        {/* Members Modal */}
+        <MembersModal
+          open={!!showMembers}
+          onClose={closeMembers}
+          roomId={showMembers}
+          memberSearch={memberSearch}
+          setMemberSearch={setMemberSearch}
+          selectedMembers={selectedMembers}
+          setSelectedMembers={setSelectedMembers}
+          availableUsers={availableUsers}
+          usersLoadingMore={membersLoadingMore}
+          loadMoreUsers={loadMoreUsers}
+          onAddMembers={handleAddMembersModal}
+          currentMembers={selectedMembers.map((id) => allUsersMap[id]).filter((m): m is NonNullable<typeof m> => Boolean(m))}
+          onRemoveMember={(memberId) => setSelectedMembers((prev) => prev.filter((id) => id !== memberId))}
+        />
+     </div>
+    </PullToRefresh>
   );
 }

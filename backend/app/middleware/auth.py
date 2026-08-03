@@ -189,7 +189,13 @@ async def get_current_user_ws(
     if not token:
         return None
     try:
-        payload = decode_token(token)
+        # Prefer the dedicated WS token (short-lived, type="ws") issued by
+        # /auth/ws-token. Fall back to a regular access token so legacy
+        # clients passing the access token still authenticate.
+        try:
+            payload = decode_ws_token(token)
+        except HTTPException:
+            payload = decode_token(token)
     except HTTPException:
         return None
 

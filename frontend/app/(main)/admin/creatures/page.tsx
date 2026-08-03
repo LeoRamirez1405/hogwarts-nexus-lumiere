@@ -11,6 +11,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { toastError, toastSuccess } from "@/lib/toastStore";
+import PullToRefresh from "@/components/ui/PullToRefresh";
 
 const RARITY_LABELS: Record<string, string> = {
   common: "Comun",
@@ -165,237 +166,239 @@ export default function AdminCreaturesPage() {
 
   if (user?.role !== "admin") return null;
 
-  return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-headline-lg text-on-surface">
-            Gestionar Criaturas
-          </h1>
-          <p className="text-on-surface-variant text-body-md mt-1">
-            {crud.totalCount} criaturas en el Santuario
-          </p>
+return (
+    <PullToRefresh onRefresh={crud.refresh}>
+      <div className="space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display text-headline-lg text-on-surface">
+              Gestionar Criaturas
+            </h1>
+            <p className="text-on-surface-variant text-body-md mt-1">
+              {crud.totalCount} criaturas en el Santuario
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              type="text"
+              placeholder="Buscar criaturas..."
+              value={crud.search}
+              onChange={(e) => crud.setSearch(e.target.value)}
+              className="w-full sm:w-64 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
+            />
+            <Button variant="primary" icon="add" onClick={openNew}>
+              Nueva Criatura
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="text"
-            placeholder="Buscar criaturas..."
-            value={crud.search}
-            onChange={(e) => crud.setSearch(e.target.value)}
-            className="w-full sm:w-64 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
-          />
-          <Button variant="primary" icon="add" onClick={openNew}>
-            Nueva Criatura
-          </Button>
-        </div>
-      </div>
 
-      {crud.loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="glass-card rounded-xl p-6 animate-pulse">
-              <div className="h-40 bg-outline-variant/30 rounded-xl mb-4" />
-              <div className="h-4 bg-outline-variant/30 rounded w-2/3 mb-2" />
-              <div className="h-3 bg-outline-variant/30 rounded w-1/3" />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <>
+        {crud.loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {crud.filteredItems.map((c) => (
-              <div key={c.id} className="glass-card rounded-xl overflow-hidden hover:bg-surface-container-high transition-colors">
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <Badge variant="rarity" color={RARITY_COLORS[c.rarity] as "default" | "secondary" | "primary" | "error" | "success"}>
-                      {RARITY_LABELS[c.rarity] || c.rarity}
-                    </Badge>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => openEdit(c)}
-                        className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
-                      >
-                        <MaterialIcon name="edit" className="text-lg" />
-                      </button>
-                    </div>
-                  </div>
-                  <h3 className="font-display text-title-md text-on-surface mb-1">
-                    {c.name}
-                  </h3>
-                  <p className="text-label-sm text-on-surface-variant line-clamp-2 mb-3">
-                    {c.description}
-                  </p>
-                  {c.ability && (
-                    <div className="flex items-start gap-1.5 mb-3 bg-secondary/5 border border-secondary/10 rounded-lg px-2.5 py-1.5">
-                      <MaterialIcon name="auto_awesome" className="text-secondary text-[1em] mt-0.5" filled />
-                      <p className="text-label-sm text-on-surface-variant leading-snug">{c.ability}</p>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <p className="font-display text-title-md text-secondary">
-                      <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled inline /> {c.price.toLocaleString()}
-                    </p>
-                    <p className="text-label-sm text-on-surface-variant capitalize">
-                      {RARITY_LABELS[c.rarity] || c.rarity}
-                    </p>
-                  </div>
-                </div>
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="glass-card rounded-xl p-6 animate-pulse">
+                <div className="h-40 bg-outline-variant/30 rounded-xl mb-4" />
+                <div className="h-4 bg-outline-variant/30 rounded w-2/3 mb-2" />
+                <div className="h-3 bg-outline-variant/30 rounded w-1/3" />
               </div>
             ))}
-            {crud.filteredItems.length === 0 && (
-              <div className="col-span-full text-center py-16">
-                <MaterialIcon
-                  name="pets"
-                  className="text-5xl text-outline-variant mb-3 block mx-auto"
-                />
-                <p className="text-on-surface-variant text-body-md">
-                  No se encontraron criaturas
-                </p>
-              </div>
-            )}
           </div>
-          <ListFooter
-            hasMore={crud.hasMore}
-            loading={crud.loadingMore}
-            pageSize={12}
-            loaded={crud.totalLoaded}
-            total={crud.totalCount}
-            onLoadMore={crud.loadMore}
-          />
-        </>
-      )}
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {crud.filteredItems.map((c) => (
+                <div key={c.id} className="glass-card rounded-xl overflow-hidden hover:bg-surface-container-high transition-colors">
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-3">
+                      <Badge variant="rarity" color={RARITY_COLORS[c.rarity] as "default" | "secondary" | "primary" | "error" | "success"}>
+                        {RARITY_LABELS[c.rarity] || c.rarity}
+                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => openEdit(c)}
+                          className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
+                        >
+                          <MaterialIcon name="edit" className="text-lg" />
+                        </button>
+                      </div>
+                    </div>
+                    <h3 className="font-display text-title-md text-on-surface mb-1">
+                      {c.name}
+                    </h3>
+                    <p className="text-label-sm text-on-surface-variant line-clamp-2 mb-3">
+                      {c.description}
+                    </p>
+                    {c.ability && (
+                      <div className="flex items-start gap-1.5 mb-3 bg-secondary/5 border border-secondary/10 rounded-lg px-2.5 py-1.5">
+                        <MaterialIcon name="auto_awesome" className="text-secondary text-[1em] mt-0.5" filled />
+                        <p className="text-label-sm text-on-surface-variant leading-snug">{c.ability}</p>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <p className="font-display text-title-md text-secondary">
+                        <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled inline /> {c.price.toLocaleString()}
+                      </p>
+                      <p className="text-label-sm text-on-surface-variant capitalize">
+                        {RARITY_LABELS[c.rarity] || c.rarity}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {crud.filteredItems.length === 0 && (
+                <div className="col-span-full text-center py-16">
+                  <MaterialIcon
+                    name="pets"
+                    className="text-5xl text-outline-variant mb-3 block mx-auto"
+                  />
+                  <p className="text-on-surface-variant text-body-md">
+                    No se encontraron criaturas
+                  </p>
+                </div>
+              )}
+            </div>
+            <ListFooter
+              hasMore={crud.hasMore}
+              loading={crud.loadingMore}
+              pageSize={12}
+              loaded={crud.totalLoaded}
+              total={crud.totalCount}
+              onLoadMore={crud.loadMore}
+            />
+          </>
+        )}
 
-      {(showCreate || crud.editItem) && (
-        <AdminCrudModal
-          open
-          onClose={() => { setShowCreate(false); crud.setEditItem(null); }}
-          title={showCreate ? "Nueva Criatura" : "Editar Criatura"}
-          size="md"
-          saving={crud.saving || crud.creating}
-          onSave={handleSave}
-        >
-          <div className="space-y-4">
-              <FormField label="Nombre" required>
-                <InputField
-                  value={form.name}
-                  onChange={(v: string) => setForm((p) => ({ ...p, name: v }))}
-                  autoFocus
-                  firstInput
-                />
-              </FormField>
-              <FormField label="Descripcion">
-                <TextareaField
-                  value={form.description}
-                  onChange={(v: string) => setForm((p) => ({ ...p, description: v }))}
-                />
-              </FormField>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Precio" required>
+        {(showCreate || crud.editItem) && (
+          <AdminCrudModal
+            open
+            onClose={() => { setShowCreate(false); crud.setEditItem(null); }}
+            title={showCreate ? "Nueva Criatura" : "Editar Criatura"}
+            size="md"
+            saving={crud.saving || crud.creating}
+            onSave={handleSave}
+          >
+            <div className="space-y-4">
+                <FormField label="Nombre" required>
                   <InputField
-                    type="number"
-                    value={form.price}
-                    onChange={(v: string) => setForm((p) => ({ ...p, price: v }))}
-                    placeholder="0"
+                    value={form.name}
+                    onChange={(v: string) => setForm((p) => ({ ...p, name: v }))}
+                    autoFocus
+                    firstInput
                   />
                 </FormField>
-                <FormField label="Rareza" required>
+                <FormField label="Descripcion">
+                  <TextareaField
+                    value={form.description}
+                    onChange={(v: string) => setForm((p) => ({ ...p, description: v }))}
+                  />
+                </FormField>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label="Precio" required>
+                    <InputField
+                      type="number"
+                      value={form.price}
+                      onChange={(v: string) => setForm((p) => ({ ...p, price: v }))}
+                      placeholder="0"
+                    />
+                  </FormField>
+                  <FormField label="Rareza" required>
+                    <SelectField
+                      value={form.rarity}
+                      onChange={(v: string) => setForm((p) => ({ ...p, rarity: v as Creature["rarity"] }))}
+                      options={[
+                        { value: "common", label: "Comun" },
+                        { value: "uncommon", label: "Poco Comun" },
+                        { value: "rare", label: "Raro" },
+                        { value: "legendary", label: "Legendario" },
+                        { value: "ethereal", label: "Etereo" },
+                      ]}
+                      placeholder="Seleccionar..."
+                    />
+                  </FormField>
+                </div>
+                <FormField label="Tipo de mascota" required>
                   <SelectField
-                    value={form.rarity}
-                    onChange={(v: string) => setForm((p) => ({ ...p, rarity: v as Creature["rarity"] }))}
-                    options={[
-                      { value: "common", label: "Comun" },
-                      { value: "uncommon", label: "Poco Comun" },
-                      { value: "rare", label: "Raro" },
-                      { value: "legendary", label: "Legendario" },
-                      { value: "ethereal", label: "Etereo" },
-                    ]}
+                    value={form.pet_type}
+                    onChange={(v: string) => setForm((p) => ({ ...p, pet_type: v as Creature["pet_type"] }))}
+                    options={petTypes.map((pt) => ({ value: pt.label, label: pt.label }))}
                     placeholder="Seleccionar..."
                   />
                 </FormField>
-              </div>
-              <FormField label="Tipo de mascota" required>
-                <SelectField
-                  value={form.pet_type}
-                  onChange={(v: string) => setForm((p) => ({ ...p, pet_type: v as Creature["pet_type"] }))}
-                  options={petTypes.map((pt) => ({ value: pt.label, label: pt.label }))}
-                  placeholder="Seleccionar..."
-                />
-              </FormField>
-              <p className="text-label-sm text-on-surface-variant mt-1">Determina que comida y juguetes acepta.</p>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Nivel mágico req.">
-                  <InputField
-                    type="number"
-                    min={1}
-                    value={form.required_user_level}
-                    onChange={(v: string) => setForm((p) => ({ ...p, required_user_level: v }))}
-                    placeholder="1 = sin requisito"
-                  />
-                </FormField>
-                <FormField label="Nivel santuario req.">
-                  <InputField
-                    type="number"
-                    min={0}
-                    value={form.required_sanctuary_level}
-                    onChange={(v: string) => setForm((p) => ({ ...p, required_sanctuary_level: v }))}
-                    placeholder="0 = sin requisito"
-                  />
-                </FormField>
-              </div>
-              <FormField label="Habilidad especial">
-                <InputField
-                  value={form.ability}
-                  onChange={(v: string) => setForm((p) => ({ ...p, ability: v }))}
-                  placeholder="Ej: Doble de Zerines al cuidar"
-                />
-              </FormField>
-              <p className="text-label-sm text-on-surface-variant mt-1">Beneficio que comparten todas las mascotas de esta especie.</p>
-              <FormField label="Imagen (opcional)">
-                <div className="flex items-center gap-3">
-                  {form.image_url && (
-                    <Image
-                      src={form.image_url}
-                      alt="Preview"
-                      width={80}
-                      height={80}
-                      className="w-20 h-20 rounded-xl object-cover"
+                <p className="text-label-sm text-on-surface-variant mt-1">Determina que comida y juguetes acepta.</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label="Nivel mágico req.">
+                    <InputField
+                      type="number"
+                      min={1}
+                      value={form.required_user_level}
+                      onChange={(v: string) => setForm((p) => ({ ...p, required_user_level: v }))}
+                      placeholder="1 = sin requisito"
                     />
-                  )}
-                  <div className="flex-1">
-                    <input
-                      ref={imageInputRef}
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      className="absolute opacity-0 w-0 h-0 pointer-events-none"
-                      onChange={handleImageUpload}
-                      disabled={uploadingImage}
+                  </FormField>
+                  <FormField label="Nivel santuario req.">
+                    <InputField
+                      type="number"
+                      min={0}
+                      value={form.required_sanctuary_level}
+                      onChange={(v: string) => setForm((p) => ({ ...p, required_sanctuary_level: v }))}
+                      placeholder="0 = sin requisito"
                     />
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon="upload"
-                      onClick={() => imageInputRef.current?.click()}
-                      disabled={uploadingImage}
-                    >
-                      {uploadingImage ? "Subiendo..." : "Seleccionar archivo"}
-                    </Button>
-                    {form.image_url && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        icon="delete"
-                        onClick={() => setForm((p) => ({ ...p, image_url: "" }))}
-                      >
-                        Eliminar
-                      </Button>
-                    )}
-                  </div>
+                  </FormField>
                 </div>
-              </FormField>
-            </div>
-        </AdminCrudModal>
-      )}
-    </div>
+                <FormField label="Habilidad especial">
+                  <InputField
+                    value={form.ability}
+                    onChange={(v: string) => setForm((p) => ({ ...p, ability: v }))}
+                    placeholder="Ej: Doble de Zerines al cuidar"
+                  />
+                </FormField>
+                <p className="text-label-sm text-on-surface-variant mt-1">Beneficio que comparten todas las mascotas de esta especie.</p>
+                <FormField label="Imagen (opcional)">
+                  <div className="flex items-center gap-3">
+                    {form.image_url && (
+                      <Image
+                        src={form.image_url}
+                        alt="Preview"
+                        width={80}
+                        height={80}
+                        className="w-20 h-20 rounded-xl object-cover"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="absolute opacity-0 w-0 h-0 pointer-events-none"
+                        onChange={handleImageUpload}
+                        disabled={uploadingImage}
+                      />
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon="upload"
+                        onClick={() => imageInputRef.current?.click()}
+                        disabled={uploadingImage}
+                      >
+                        {uploadingImage ? "Subiendo..." : "Seleccionar archivo"}
+                      </Button>
+                      {form.image_url && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon="delete"
+                          onClick={() => setForm((p) => ({ ...p, image_url: "" }))}
+                        >
+                          Eliminar
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </FormField>
+              </div>
+          </AdminCrudModal>
+        )}
+      </div>
+    </PullToRefresh>
   );
 }

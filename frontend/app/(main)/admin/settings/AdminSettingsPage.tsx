@@ -15,6 +15,7 @@ import { CategoriesSidebar } from "./components/CategoriesSidebar";
 import { ValuesPanel } from "./components/ValuesPanel";
 import { CategoryModal, type CategoryForm } from "./components/CategoryModal";
 import { ValueModal, type ValueForm } from "./components/ValueModal";
+import PullToRefresh from "@/components/ui/PullToRefresh";
 
 export default function AdminSettingsPage() {
   const { user } = useAuthStore();
@@ -167,88 +168,90 @@ export default function AdminSettingsPage() {
   if (user?.role !== "admin") return null;
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <Link
-            href="/admin/users"
-            className="inline-flex items-center gap-1 text-label-sm text-on-surface-variant hover:text-primary transition-colors mb-2"
-          >
-            <MaterialIcon name="arrow_back" className="text-[1.1em]" />
-            Volver
-          </Link>
-          <h1 className="font-display text-headline-lg text-on-surface">Configuración del Sistema</h1>
-          <p className="text-on-surface-variant text-body-md mt-1">
-            Gestiona tipos, categorías y valores del sistema
-          </p>
+    <PullToRefresh onRefresh={crud.refresh}>
+      <div className="space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <Link
+              href="/admin/users"
+              className="inline-flex items-center gap-1 text-label-sm text-on-surface-variant hover:text-primary transition-colors mb-2"
+            >
+              <MaterialIcon name="arrow_back" className="text-[1.1em]" />
+              Volver
+            </Link>
+            <h1 className="font-display text-headline-lg text-on-surface">Configuración del Sistema</h1>
+            <p className="text-on-surface-variant text-body-md mt-1">
+              Gestiona tipos, categorías y valores del sistema
+            </p>
+          </div>
         </div>
+
+        {/* Feature Flags section */}
+        <FeatureFlagsCard
+          flags={flags}
+          loading={flagsLoading}
+          updatingKey={flagUpdating}
+          onToggle={toggleFlag}
+        />
+
+        {crud.loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="glass-card rounded-xl p-6 animate-pulse">
+                <div className="h-4 bg-outline-variant/30 rounded w-1/3 mb-4" />
+                <div className="h-3 bg-outline-variant/30 rounded w-full" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Sidebar - Categories */}
+            <CategoriesSidebar
+              items={crud.filteredItems}
+              activeId={effectiveActiveId}
+              search={search}
+              onSearchChange={setSearch}
+              onSelect={setActiveCategoryId}
+              onNew={openNewCategory}
+              hasMore={crud.hasMore}
+              loadingMore={crud.loadingMore}
+              totalLoaded={crud.totalLoaded}
+              totalCount={crud.totalCount}
+              onLoadMore={crud.loadMore}
+            />
+
+            {/* Main - Values */}
+            <ValuesPanel
+              category={activeCategory ?? null}
+              onNewValue={openNewValue}
+              onEditValue={openEditValue}
+              onDeleteValue={handleDeleteValue}
+            />
+          </div>
+        )}
+
+        {/* Edit Category Modal */}
+        <CategoryModal
+          open={Boolean(crud.editItem || crud.showCreate)}
+          isCreate={crud.showCreate}
+          form={catForm}
+          onFormChange={setCatForm}
+          saving={crud.saving || crud.creating || savingCategory}
+          onSave={handleSaveCategory}
+          onClose={() => { crud.setEditItem(null); crud.setShowCreate(false); }}
+        />
+
+        {/* Edit Value Modal */}
+        <ValueModal
+          open={Boolean(editValue || isNewValue)}
+          isNew={isNewValue}
+          form={valForm}
+          onFormChange={setValForm}
+          saving={savingValue}
+          onSave={handleSaveValue}
+          onClose={() => { setEditValue(null); setIsNewValue(false); }}
+        />
       </div>
-
-      {/* Feature Flags section */}
-      <FeatureFlagsCard
-        flags={flags}
-        loading={flagsLoading}
-        updatingKey={flagUpdating}
-        onToggle={toggleFlag}
-      />
-
-      {crud.loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="glass-card rounded-xl p-6 animate-pulse">
-              <div className="h-4 bg-outline-variant/30 rounded w-1/3 mb-4" />
-              <div className="h-3 bg-outline-variant/30 rounded w-full" />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar - Categories */}
-          <CategoriesSidebar
-            items={crud.filteredItems}
-            activeId={effectiveActiveId}
-            search={search}
-            onSearchChange={setSearch}
-            onSelect={setActiveCategoryId}
-            onNew={openNewCategory}
-            hasMore={crud.hasMore}
-            loadingMore={crud.loadingMore}
-            totalLoaded={crud.totalLoaded}
-            totalCount={crud.totalCount}
-            onLoadMore={crud.loadMore}
-          />
-
-          {/* Main - Values */}
-          <ValuesPanel
-            category={activeCategory ?? null}
-            onNewValue={openNewValue}
-            onEditValue={openEditValue}
-            onDeleteValue={handleDeleteValue}
-          />
-        </div>
-      )}
-
-      {/* Edit Category Modal */}
-      <CategoryModal
-        open={Boolean(crud.editItem || crud.showCreate)}
-        isCreate={crud.showCreate}
-        form={catForm}
-        onFormChange={setCatForm}
-        saving={crud.saving || crud.creating || savingCategory}
-        onSave={handleSaveCategory}
-        onClose={() => { crud.setEditItem(null); crud.setShowCreate(false); }}
-      />
-
-      {/* Edit Value Modal */}
-      <ValueModal
-        open={Boolean(editValue || isNewValue)}
-        isNew={isNewValue}
-        form={valForm}
-        onFormChange={setValForm}
-        saving={savingValue}
-        onSave={handleSaveValue}
-        onClose={() => { setEditValue(null); setIsNewValue(false); }}
-      />
-    </div>
+    </PullToRefresh>
   );
 }

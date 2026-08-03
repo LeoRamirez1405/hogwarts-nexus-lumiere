@@ -12,6 +12,7 @@ import Button from "@/components/ui/Button";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { toastError, toastSuccess } from "@/lib/toastStore";
+import PullToRefresh from "@/components/ui/PullToRefresh";
 
 const KIND_LABELS: Record<PetItemKind, string> = {
   food: "Comida",
@@ -168,252 +169,254 @@ export default function AdminPetItemsPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-headline-lg text-on-surface">
-            Comida y Juguetes
-          </h1>
-          <p className="text-on-surface-variant text-body-md mt-1">
-            {getDisplayCount()} {getDisplayLabel()}
-          </p>
+    <PullToRefresh onRefresh={crud.refresh}>
+      <div className="space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display text-headline-lg text-on-surface">
+              Comida y Juguetes
+            </h1>
+            <p className="text-on-surface-variant text-body-md mt-1">
+              {getDisplayCount()} {getDisplayLabel()}
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              type="text"
+              placeholder="Buscar objetos..."
+              value={crud.search}
+              onChange={(e) => crud.setSearch(e.target.value)}
+              className="w-full sm:w-64 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
+            />
+            <Button variant="primary" icon="add" onClick={openNew}>
+              Nuevo Objeto
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="text"
-            placeholder="Buscar objetos..."
-            value={crud.search}
-            onChange={(e) => crud.setSearch(e.target.value)}
-            className="w-full sm:w-64 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
-          />
-          <Button variant="primary" icon="add" onClick={openNew}>
-            Nuevo Objeto
-          </Button>
-        </div>
-      </div>
 
-      {/* Filters */}
-      <div className="flex gap-2">
-        {(["all", "food", "toy"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded-full text-label-sm font-medium transition-all ${
-              filter === f
-                ? "bg-primary text-on-primary"
-                : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
-            }`}
-          >
-            {f === "all" ? "Todos" : KIND_LABELS[f]}
-          </button>
-        ))}
-      </div>
-
-      {crud.loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="glass-card rounded-xl p-6 animate-pulse">
-              <div className="h-4 bg-outline-variant/30 rounded w-2/3 mb-2" />
-              <div className="h-3 bg-outline-variant/30 rounded w-1/3" />
-            </div>
+        {/* Filters */}
+        <div className="flex gap-2">
+          {(["all", "food", "toy"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 py-2 rounded-full text-label-sm font-medium transition-all ${
+                filter === f
+                  ? "bg-primary text-on-primary"
+                  : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+              }`}
+            >
+              {f === "all" ? "Todos" : KIND_LABELS[f]}
+            </button>
           ))}
         </div>
-      ) : (
-        <>
+
+        {crud.loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {crud.filteredItems.map((it) => (
-              <div key={it.id} className="glass-card rounded-xl overflow-hidden hover:bg-surface-container-high transition-colors">
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="tag" color={it.kind === "food" ? "success" : "primary"}>
-                        {KIND_LABELS[it.kind]}
-                      </Badge>
-                      <Badge variant="tag">{it.pet_type}</Badge>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => openEdit(it)}
-                        className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
-                      >
-                        <MaterialIcon name="edit" className="text-lg" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(it.id)}
-                        className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
-                      >
-                        <MaterialIcon name="delete" className="text-lg" />
-                      </button>
-                    </div>
-                  </div>
-                  <h3 className="font-display text-title-md text-on-surface mb-1">
-                    {it.name}
-                  </h3>
-                  <p className="text-label-sm text-on-surface-variant line-clamp-2 mb-3">
-                    {it.description}
-                  </p>
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="font-display text-title-md text-secondary">
-                      <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled inline /> {it.price.toLocaleString()}
-                    </p>
-                    <p className="text-label-sm text-success font-medium">
-                      +{it.restore_amount} {it.kind === "food" ? "hambre" : "felicidad"}
-                    </p>
-                  </div>
-                  <p className="text-label-sm text-on-surface-variant">
-                    Lote: {it.pack_size} {it.pack_size === 1 ? "unidad" : "unidades"} por compra
-                  </p>
-                </div>
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="glass-card rounded-xl p-6 animate-pulse">
+                <div className="h-4 bg-outline-variant/30 rounded w-2/3 mb-2" />
+                <div className="h-3 bg-outline-variant/30 rounded w-1/3" />
               </div>
             ))}
-            {crud.filteredItems.length === 0 && (
-              <div className="col-span-full text-center py-16">
-                <MaterialIcon
-                  name="pet_supplies"
-                  className="text-5xl text-outline-variant mb-3 block mx-auto"
-                />
-                <p className="text-on-surface-variant text-body-md">
-                  No se encontraron objetos
-                </p>
-              </div>
-            )}
           </div>
-          <ListFooter
-            hasMore={crud.hasMore}
-            loading={crud.loadingMore}
-            pageSize={12}
-            loaded={crud.totalLoaded}
-            total={crud.totalCount}
-            onLoadMore={crud.loadMore}
-          />
-        </>
-      )}
-
-      {(showCreate || crud.editItem) && (
-        <AdminCrudModal
-          open
-          onClose={() => { setShowCreate(false); crud.setEditItem(null); }}
-          title={showCreate ? "Nuevo Objeto" : "Editar Objeto"}
-          size="md"
-          saving={crud.saving || crud.creating}
-          onSave={handleSave}
-        >
-          <div className="space-y-4">
-              <FormField label="Nombre" required>
-                <InputField
-                  value={form.name}
-                  onChange={(v: string) => setForm((p) => ({ ...p, name: v }))}
-                  autoFocus
-                  firstInput
-                />
-              </FormField>
-              <FormField label="Descripcion">
-                <TextareaField
-                  value={form.description}
-                  onChange={(v: string) => setForm((p) => ({ ...p, description: v }))}
-                />
-              </FormField>
-              <div className="flex flex-col gap-4 sm:grid sm:grid-cols-6">
-                <div className="flex gap-4 sm:contents">
-                  <FormField label="Tipo de objeto" required className="flex-1 sm:order-1 sm:col-span-3">
-                    <ToggleButtonGroup
-                      value={form.kind}
-                      onChange={(v) => setForm((p) => ({ ...p, kind: v }))}
-                      options={[
-                        { value: "food", label: "Comida" },
-                        { value: "toy", label: "Juguete" },
-                      ]}
-                    />
-                  </FormField>
-                  <FormField label="Lote (uds.)" required className="w-20 shrink-0 sm:order-5 sm:col-span-2 sm:w-auto sm:max-w-none">
-                    <InputField
-                      type="number"
-                      value={form.pack_size}
-                      onChange={(v: string) => setForm((p) => ({ ...p, pack_size: v }))}
-                      placeholder="1"
-                    />
-                  </FormField>
-                </div>
-                <FormField label="Tipo de mascota" required className="sm:order-2 sm:col-span-3">
-                  <SelectField
-                    value={form.pet_type}
-                    onChange={(v: string) => setForm((p) => ({ ...p, pet_type: v as PetType }))}
-                    options={[
-                      { value: "Aves", label: "Aves" },
-                      { value: "Bestias", label: "Bestias" },
-                      { value: "Criaturas pequeñas", label: "Criaturas pequeñas" },
-                    ]}
-                    placeholder="Seleccionar..."
-                  />
-                </FormField>
-                <div className="flex gap-4 sm:contents">
-                  <FormField label="Precio" required className="flex-1 sm:order-3 sm:col-span-2">
-                    <InputField
-                      type="number"
-                      value={form.price}
-                      onChange={(v: string) => setForm((p) => ({ ...p, price: v }))}
-                      placeholder="0"
-                    />
-                  </FormField>
-                  <FormField label="Restaura" required className="flex-1 sm:order-4 sm:col-span-2">
-                    <InputField
-                      type="number"
-                      value={form.restore_amount}
-                      onChange={(v: string) => setForm((p) => ({ ...p, restore_amount: v }))}
-                      placeholder="1-100"
-                    />
-                  </FormField>
-                </div>
-              </div>
-              <p className="text-label-sm text-on-surface-variant -mt-2">
-                &ldquo;Restaura&rdquo; es cuanto sube la estadistica por uso. &ldquo;Lote&rdquo; es cuantas unidades recibe el comprador por compra.
-              </p>
-              <FormField label="Imagen (opcional)">
-                <div className="flex items-center gap-3">
-                  {form.image_url && (
-                    <Image
-                      src={form.image_url}
-                      alt="Preview"
-                      width={80}
-                      height={80}
-                      className="w-20 h-20 rounded-xl object-cover"
-                    />
-                  )}
-                  <div className="flex-1">
-                    <input
-                      ref={imageInputRef}
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      className="absolute opacity-0 w-0 h-0 pointer-events-none"
-                      onChange={handleImageUpload}
-                      disabled={uploadingImage}
-                    />
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon="upload"
-                      onClick={() => imageInputRef.current?.click()}
-                      disabled={uploadingImage}
-                    >
-                      {uploadingImage ? "Subiendo..." : "Seleccionar archivo"}
-                    </Button>
-                    {form.image_url && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        icon="delete"
-                        onClick={() => setForm((p) => ({ ...p, image_url: "" }))}
-                      >
-                        Eliminar
-                      </Button>
-                    )}
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {crud.filteredItems.map((it) => (
+                <div key={it.id} className="glass-card rounded-xl overflow-hidden hover:bg-surface-container-high transition-colors">
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="tag" color={it.kind === "food" ? "success" : "primary"}>
+                          {KIND_LABELS[it.kind]}
+                        </Badge>
+                        <Badge variant="tag">{it.pet_type}</Badge>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => openEdit(it)}
+                          className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
+                        >
+                          <MaterialIcon name="edit" className="text-lg" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(it.id)}
+                          className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
+                        >
+                          <MaterialIcon name="delete" className="text-lg" />
+                        </button>
+                      </div>
+                    </div>
+                    <h3 className="font-display text-title-md text-on-surface mb-1">
+                      {it.name}
+                    </h3>
+                    <p className="text-label-sm text-on-surface-variant line-clamp-2 mb-3">
+                      {it.description}
+                    </p>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-display text-title-md text-secondary">
+                        <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled inline /> {it.price.toLocaleString()}
+                      </p>
+                      <p className="text-label-sm text-success font-medium">
+                        +{it.restore_amount} {it.kind === "food" ? "hambre" : "felicidad"}
+                      </p>
+                    </div>
+                    <p className="text-label-sm text-on-surface-variant">
+                      Lote: {it.pack_size} {it.pack_size === 1 ? "unidad" : "unidades"} por compra
+                    </p>
                   </div>
                 </div>
-              </FormField>
+              ))}
+              {crud.filteredItems.length === 0 && (
+                <div className="col-span-full text-center py-16">
+                  <MaterialIcon
+                    name="pet_supplies"
+                    className="text-5xl text-outline-variant mb-3 block mx-auto"
+                  />
+                  <p className="text-on-surface-variant text-body-md">
+                    No se encontraron objetos
+                  </p>
+                </div>
+              )}
             </div>
-        </AdminCrudModal>
-      )}
-    </div>
+            <ListFooter
+              hasMore={crud.hasMore}
+              loading={crud.loadingMore}
+              pageSize={12}
+              loaded={crud.totalLoaded}
+              total={crud.totalCount}
+              onLoadMore={crud.loadMore}
+            />
+          </>
+        )}
+
+        {(showCreate || crud.editItem) && (
+          <AdminCrudModal
+            open
+            onClose={() => { setShowCreate(false); crud.setEditItem(null); }}
+            title={showCreate ? "Nuevo Objeto" : "Editar Objeto"}
+            size="md"
+            saving={crud.saving || crud.creating}
+            onSave={handleSave}
+          >
+            <div className="space-y-4">
+                <FormField label="Nombre" required>
+                  <InputField
+                    value={form.name}
+                    onChange={(v: string) => setForm((p) => ({ ...p, name: v }))}
+                    autoFocus
+                    firstInput
+                  />
+                </FormField>
+                <FormField label="Descripcion">
+                  <TextareaField
+                    value={form.description}
+                    onChange={(v: string) => setForm((p) => ({ ...p, description: v }))}
+                  />
+                </FormField>
+                <div className="flex flex-col gap-4 sm:grid sm:grid-cols-6">
+                  <div className="flex gap-4 sm:contents">
+                    <FormField label="Tipo de objeto" required className="flex-1 sm:order-1 sm:col-span-3">
+                      <ToggleButtonGroup
+                        value={form.kind}
+                        onChange={(v) => setForm((p) => ({ ...p, kind: v }))}
+                        options={[
+                          { value: "food", label: "Comida" },
+                          { value: "toy", label: "Juguete" },
+                        ]}
+                      />
+                    </FormField>
+                    <FormField label="Lote (uds.)" required className="w-20 shrink-0 sm:order-5 sm:col-span-2 sm:w-auto sm:max-w-none">
+                      <InputField
+                        type="number"
+                        value={form.pack_size}
+                        onChange={(v: string) => setForm((p) => ({ ...p, pack_size: v }))}
+                        placeholder="1"
+                      />
+                    </FormField>
+                  </div>
+                  <FormField label="Tipo de mascota" required className="sm:order-2 sm:col-span-3">
+                    <SelectField
+                      value={form.pet_type}
+                      onChange={(v: string) => setForm((p) => ({ ...p, pet_type: v as PetType }))}
+                      options={[
+                        { value: "Aves", label: "Aves" },
+                        { value: "Bestias", label: "Bestias" },
+                        { value: "Criaturas pequeñas", label: "Criaturas pequeñas" },
+                      ]}
+                      placeholder="Seleccionar..."
+                    />
+                  </FormField>
+                  <div className="flex gap-4 sm:contents">
+                    <FormField label="Precio" required className="flex-1 sm:order-3 sm:col-span-2">
+                      <InputField
+                        type="number"
+                        value={form.price}
+                        onChange={(v: string) => setForm((p) => ({ ...p, price: v }))}
+                        placeholder="0"
+                      />
+                    </FormField>
+                    <FormField label="Restaura" required className="flex-1 sm:order-4 sm:col-span-2">
+                      <InputField
+                        type="number"
+                        value={form.restore_amount}
+                        onChange={(v: string) => setForm((p) => ({ ...p, restore_amount: v }))}
+                        placeholder="1-100"
+                      />
+                    </FormField>
+                  </div>
+                </div>
+                <p className="text-label-sm text-on-surface-variant -mt-2">
+                  &ldquo;Restaura&rdquo; es cuanto sube la estadistica por uso. &ldquo;Lote&rdquo; es cuantas unidades recibe el comprador por compra.
+                </p>
+                <FormField label="Imagen (opcional)">
+                  <div className="flex items-center gap-3">
+                    {form.image_url && (
+                      <Image
+                        src={form.image_url}
+                        alt="Preview"
+                        width={80}
+                        height={80}
+                        className="w-20 h-20 rounded-xl object-cover"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="absolute opacity-0 w-0 h-0 pointer-events-none"
+                        onChange={handleImageUpload}
+                        disabled={uploadingImage}
+                      />
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon="upload"
+                        onClick={() => imageInputRef.current?.click()}
+                        disabled={uploadingImage}
+                      >
+                        {uploadingImage ? "Subiendo..." : "Seleccionar archivo"}
+                      </Button>
+                      {form.image_url && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon="delete"
+                          onClick={() => setForm((p) => ({ ...p, image_url: "" }))}
+                        >
+                          Eliminar
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </FormField>
+              </div>
+          </AdminCrudModal>
+        )}
+      </div>
+    </PullToRefresh>
   );
 }
