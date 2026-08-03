@@ -50,7 +50,9 @@ export function useWebSocket({
   useEffect(() => {
     if (!authUser) return;
 
-    wsClient.connect();
+    if (!wsClient.isConnected() && wsClient.readyState !== WebSocket.CONNECTING) {
+      wsClient.connect();
+    }
 
     const unsubNewMessage = wsClient.on("new_message", (msg: WSNewMessage) => {
       const conversationId = msg.c;

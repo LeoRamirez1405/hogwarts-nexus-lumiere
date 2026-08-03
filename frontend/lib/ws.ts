@@ -39,7 +39,9 @@ class WSClient {
       credentials: "include",
     });
     if (!res.ok) {
-      throw new Error("Failed to fetch WS token");
+      const err = new Error(`Failed to fetch WS token (${res.status})`);
+      (err as Error & { status: number }).status = res.status;
+      throw err;
     }
     const data: WSTokenResponse = await res.json();
     return data.token;
@@ -123,7 +125,9 @@ class WSClient {
       doConnect(token);
     } else {
       this.fetchWSToken().then(doConnect).catch((err) => {
-        console.error("Failed to fetch WS token:", err);
+        if ((err as { status?: number }).status !== 401) {
+          console.error("Failed to fetch WS token:", err);
+        }
         this.emit("error", err);
       });
     }
@@ -183,8 +187,10 @@ class WSClient {
         const newToken = await this.fetchWSToken();
         this.connect(newToken);
       } catch (err) {
-        console.error("Failed to fetch WS token for reconnect:", err);
-        this.scheduleReconnect(); // Try again
+        if ((err as { status?: number }).status !== 401) {
+          console.error("Failed to fetch WS token for reconnect:", err);
+        }
+        this.scheduleReconnect();
       }
     }, delay);
   }
