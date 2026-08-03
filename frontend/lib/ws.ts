@@ -80,7 +80,8 @@ class WSClient {
     this.ensureInitialized();
     this.reconnectAttempts = 0;
 
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    // Already connected or connecting — nothing to do.
+    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
       return;
     }
 
@@ -111,9 +112,10 @@ class WSClient {
         this.scheduleReconnect();
       };
 
-      this.ws.onerror = (err) => {
-        console.error("WS error:", err);
-        this.emit("error", err);
+      this.ws.onerror = () => {
+        // Browsers fire an opaque Event (no .message) for any WebSocket
+        // failure; the actionable signal arrives via `onclose`, which
+        // already triggers reconnection. Avoid cluttering the console.
       };
     };
 

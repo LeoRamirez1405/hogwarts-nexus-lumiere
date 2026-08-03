@@ -10,6 +10,10 @@ export interface VideoRecorderState {
   startRecording: () => Promise<void>;
   stopRecording: () => Promise<Blob | null>;
   cleanup: () => void;
+  error: string | null;
+  clearError: () => void;
+  hasPermission: boolean;
+  checkPermission: () => Promise<boolean>;
 }
 
 export function useVideoRecorder(): VideoRecorderState {
@@ -17,11 +21,15 @@ export function useVideoRecorder(): VideoRecorderState {
   const [elapsed, setElapsed] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [hasPermission, setHasPermission] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  const clearError = useCallback(() => setError(null), []);
 
   const cleanup = useCallback(() => {
     if (intervalRef.current) {
@@ -48,12 +56,45 @@ export function useVideoRecorder(): VideoRecorderState {
     setRecording(false);
   }, [previewUrl]);
 
+  const checkPermission = useCallback(async () => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices) return false;
+    try {
+      const status = await navigator.permissions.query({ name: "camera" as PermissionName });
+      setHasPermission(status.state === "granted");
+      return status.state === "granted";
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const getHelpMessage = (errName: string) => {
+    switch (errName) {
+      case "NotAllowedError":
+      case "PermissionDeniedError":
+        return "Permiso denegado. Haz clic en el candado 🔒 en la barra de direcciones del navegador y permite 'Cámara' y 'Micrófono' para este sitio. Luego pulsa Reintentar.";
+      case "NotFoundError":
+      case "DevicesNotFoundError":
+        return "No se encontró ninguna cámara o micrófono conectados. Conecta una cámara e inténtalo de nuevo.";
+      case "NotReadableError":
+      case "TrackStartError":
+        return "La cámara o el micrófono están siendo usados por otra aplicación. Cierra las otras apps que usen la cámara (Zoom, Meet, Teams, etc.) e inténtalo de nuevo.";
+      default:
+        if (typeof window !== "undefined" && window.location.protocol === "http:" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+          return "La cámara requiere una conexión segura (HTTPS). Esta función no funciona en HTTP.";
+        }
+        return `Error al acceder a la cámara: ${errName}`;
+    }
+  };
+
   const startRecording = useCallback(async () => {
+    setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 1280 } },
         audio: true,
       });
+      setHasPermission(true);
+
       const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
       const chunks: Blob[] = [];
       chunksRef.current = chunks;
@@ -76,8 +117,11 @@ export function useVideoRecorder(): VideoRecorderState {
 
       recorder.start(1000);
     } catch (error) {
-      console.error('Failed to start video recording:', error);
-      alert("No se pudo acceder a la camara o microfono");
+      console.error("Failed to start video recording:", error);
+      const err = error as DOMException;
+      const message = getHelpMessage(err?.name || "UnknownError");
+      setError(message);
+      setHasPermission(false);
     }
   }, []);
 
@@ -127,5 +171,9 @@ export function useVideoRecorder(): VideoRecorderState {
     startRecording,
     stopRecording,
     cleanup,
+    error,
+    clearError,
+    hasPermission,
+    checkPermission,
   };
 }

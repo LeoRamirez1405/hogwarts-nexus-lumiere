@@ -27,11 +27,12 @@ export function useConversations(authUser: { id: string } | null) {
     api.getConversations().then(setConversations).catch(() => {});
   }, []);
 
-  const filtered = debouncedSearch
-    ? conversations.filter((c) =>
+  const filtered = conversations.filter((c) => !c.is_hidden && !c.is_archived);
+  const searched = debouncedSearch
+    ? filtered.filter((c) =>
         c.name.toLowerCase().includes(debouncedSearch.toLowerCase())
       )
-    : conversations;
+    : filtered;
 
   return {
     conversations,
@@ -41,7 +42,7 @@ export function useConversations(authUser: { id: string } | null) {
     setSearch,
     debouncedSearch,
     loading,
-    filtered,
+    filtered: searched,
     refreshConversations,
   };
 }
