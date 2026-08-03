@@ -12,10 +12,12 @@ from brotli_asgi import BrotliMiddleware
 from .config import settings
 from .rate_limit import limiter
 from .database import init_db
-from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, audit_logs, ws_messages, push
+from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, audit_logs, ws_messages, push, voice_channels, e2e_encryption, events
 from .models import friend_request  # noqa: F401
 from .retention import retention_loop, disappearing_loop
 from .pet_care import pet_care_loop
+from .scheduled_messages import scheduled_messages_loop
+from .event_reminders import event_reminders_loop
 
 
 @asynccontextmanager
@@ -60,12 +62,20 @@ async def lifespan(app: FastAPI):
     retention_task = asyncio.create_task(retention_loop())
     disappearing_task = asyncio.create_task(disappearing_loop())
     pet_care_task = asyncio.create_task(pet_care_loop())
+    scheduled_task = asyncio.create_task(scheduled_messages_loop())
+    event_reminders_task = asyncio.create_task(event_reminders_loop())
+    # Redis pub/sub bus so WebSocket delivery works across uvicorn workers.
+    from .ws_manager import manager
+    await manager.start()
     try:
         yield
     finally:
         retention_task.cancel()
         disappearing_task.cancel()
         pet_care_task.cancel()
+        scheduled_task.cancel()
+        event_reminders_task.cancel()
+        await manager.shutdown()
 
 
 app = FastAPI(title="Hogwarts Nexus Lumiere API", lifespan=lifespan)
@@ -107,6 +117,7 @@ app.include_router(creatures.router, prefix="/creatures", tags=["creatures"])
 app.include_router(pet_items.router, prefix="/pet-items", tags=["pet-items"])
 app.include_router(messages.router, prefix="/messages", tags=["messages"])
 app.include_router(ws_messages.router, prefix="/messages", tags=["messages"])
+app.include_router(voice_channels.ws_router, prefix="/messages", tags=["voice"])
 app.include_router(posts.router, prefix="/posts", tags=["posts"])
 app.include_router(transactions.router, prefix="/transactions", tags=["transactions"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
@@ -121,6 +132,9 @@ app.include_router(enum_types.router, prefix="/enum-types", tags=["enum-types"])
 app.include_router(feature_flags.router, prefix="/feature-flags", tags=["feature-flags"])
 app.include_router(audit_logs.router, prefix="/audit-logs", tags=["audit-logs"])
 app.include_router(push.router, tags=["push"])
+app.include_router(voice_channels.rest_router, prefix="/messages/voice", tags=["voice"])
+app.include_router(events.router, prefix="/events", tags=["events"])
+app.include_router(e2e_encryption.router, prefix="/e2e", tags=["e2e-encryption"])
 
 # Serve locally-stored uploads (avatars, post images, etc.) as static files so
 # the frontend can load them by absolute URL. In production Cloudinary is used

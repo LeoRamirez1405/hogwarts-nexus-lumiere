@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import Depends, HTTPException, Request, Response, status, Query
+from fastapi import Depends, HTTPException, Request, Response, status, Query, WebSocket
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -142,10 +142,25 @@ async def get_current_user(
 
 
 async def get_current_user_ws(
-    token: str = Query(...),
+    websocket: WebSocket,
     db: AsyncSession = Depends(get_db),
 ) -> Optional[User]:
-    """WebSocket authentication via query parameter token."""
+    """WebSocket authentication.
+
+    The access token is sent as the ``Sec-WebSocket-Protocol`` subprotocol
+    (the client passes it as the second argument to ``new WebSocket(url, [token])``)
+    so it never appears in the URL and therefore never leaks into logs, proxies
+    or ``Referer`` headers. Falls back to ``?token=`` for backward compatibility.
+    """
+    token = None
+    subprotocols = websocket.scope.get("subprotocols") or []
+    if subprotocols:
+        token = subprotocols[0]
+    if not token:
+        token = websocket.query_params.get("token")
+
+    if not token:
+        return None
     try:
         payload = decode_token(token)
     except HTTPException:

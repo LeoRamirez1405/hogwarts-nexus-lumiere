@@ -178,6 +178,19 @@ _WANTED_INDEXES = [
     ("products", ["shop", "category"]),
 ]
 
+# Partial indexes: only rows matching the predicate are indexed, so the "unread"
+# counter queries (`WHERE read = false`) and pinned lookups (`WHERE pinned = true`)
+# skip the long tail of already-read / unpinned rows. The doc (3.5) required these
+# explicitly; plain composite indexes over a boolean column are nearly useless when
+# one branch is the overwhelming majority.
+# Entries: (table, cols, predicate_col, expected_value_is_true, idx_name)
+_WANTED_PARTIAL_INDEXES = [
+    ("messages", ["room_id"], "read", False, "ix_messages_room_id_unread"),
+    ("messages", ["receiver_id"], "read", False, "ix_messages_receiver_id_unread"),
+    ("messages", ["sender_id", "receiver_id"], "read", False, "ix_messages_sender_receiver_unread"),
+    ("messages", ["pinned"], "pinned", True, "ix_messages_pinned_true"),
+]
+
 
 def _ensure_indexes(sync_conn):
     from sqlalchemy import inspect, text
@@ -194,6 +207,24 @@ def _ensure_indexes(sync_conn):
         col_list = ", ".join(f'"{c}"' for c in cols)
         sync_conn.execute(
             text(f'CREATE INDEX IF NOT EXISTS {idx_name} ON "{table}" ({col_list})')
+        )
+
+    # SQLite stores booleans as 0/1; Postgres uses TRUE/FALSE.
+    is_postgres = sync_conn.dialect.name == "postgresql"
+    for table, cols, pred_col, is_true, idx_name in _WANTED_PARTIAL_INDEXES:
+        if table not in existing_tables:
+            continue
+        table_cols = {c["name"] for c in inspector.get_columns(table)}
+        if not all(c in table_cols for c in cols):
+            continue
+        col_list = ", ".join(f'"{c}"' for c in cols)
+        literal = ("TRUE" if is_true else "FALSE") if is_postgres else ("1" if is_true else "0")
+        predicate = f"{pred_col} = {literal}"
+        sync_conn.execute(
+            text(
+                f'CREATE INDEX IF NOT EXISTS {idx_name} ON "{table}" ({col_list}) '
+                f"WHERE {predicate}"
+            )
         )
 
 
