@@ -11,10 +11,12 @@ export default function ForwardModal({
   message,
   onForward,
   onClose,
+  forwarding,
 }: {
   message: Message;
   onForward: (message: Message, targetId: string, targetType: "dm" | "room") => void;
   onClose: () => void;
+  forwarding?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
@@ -193,8 +195,9 @@ export default function ForwardModal({
               filteredUsers.map((u) => (
                 <button
                   key={u.id}
+                  disabled={forwarding}
                   onClick={() => onForward(message, u.id, "dm")}
-                  className="flex items-center gap-3 px-6 py-3 w-full text-left hover:bg-surface-container-high transition-colors"
+                  className="flex items-center gap-3 px-6 py-3 w-full text-left hover:bg-surface-container-high transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Avatar
                     src={u.avatar_url}
@@ -219,51 +222,52 @@ export default function ForwardModal({
               ))
             )
           ) : roomsLoading ? (
-            <div className="py-12 text-center">
-              <MaterialIcon
-                name="progress_activity"
-                className="text-4xl text-outline-variant animate-spin mb-2 block mx-auto"
-              />
-              <p className="text-on-surface-variant text-body-md">
-                Cargando grupos
-              </p>
-            </div>
-          ) : filteredRooms.length === 0 ? (
-            <div className="py-12 text-center">
-              <MaterialIcon
-                name="groups"
-                className="text-4xl text-outline-variant mb-2 block mx-auto"
-              />
-              <p className="text-on-surface-variant text-body-md">
-                {rooms.length === 0
-                  ? "No perteneces a ningun grupo aún"
-                  : "No se encontraron grupos"}
-              </p>
-            </div>
-          ) : (
-            filteredRooms.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => onForward(message, r.id, "room")}
-                className="flex items-center gap-3 px-6 py-3 w-full text-left hover:bg-surface-container-high transition-colors"
-              >
-                <Avatar
-                  src={r.avatar_url}
-                  alt={r.name}
-                  size="sm"
-                  initials={getInitials(r.name)}
+              <div className="py-12 text-center">
+                <MaterialIcon
+                  name="progress_activity"
+                  className="text-4xl text-outline-variant animate-spin mb-2 block mx-auto"
                 />
-                <div className="flex-1 min-w-0">
-                  <p className="text-body-md font-medium text-on-surface truncate">
-                    {r.name}
-                  </p>
-                  <p className="text-label-sm text-on-surface-variant truncate">
-                    {r.member_count} miembros
-                  </p>
-                </div>
-                <MaterialIcon name="groups" className="text-on-surface-variant" />
-              </button>
-            ))
+                <p className="text-on-surface-variant text-body-md">
+                  Cargando grupos
+                </p>
+              </div>
+            ) : filteredRooms.length === 0 ? (
+              <div className="py-12 text-center">
+                <MaterialIcon
+                  name="groups"
+                  className="text-4xl text-outline-variant mb-2 block mx-auto"
+                />
+                <p className="text-on-surface-variant text-body-md">
+                  {rooms.length === 0
+                    ? "No perteneces a ningun grupo aún"
+                    : "No se encontraron grupos"}
+                </p>
+              </div>
+            ) : (
+              filteredRooms.map((r) => (
+                <button
+                  key={r.id}
+                  disabled={forwarding}
+                  onClick={() => onForward(message, r.id, "room")}
+                  className="flex items-center gap-3 px-6 py-3 w-full text-left hover:bg-surface-container-high transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Avatar
+                    src={r.avatar_url}
+                    alt={r.name}
+                    size="sm"
+                    initials={getInitials(r.name)}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-body-md font-medium text-on-surface truncate">
+                      {r.name}
+                    </p>
+                    <p className="text-label-sm text-on-surface-variant truncate">
+                      {r.member_count} miembros
+                    </p>
+                  </div>
+                  <MaterialIcon name="groups" className="text-on-surface-variant" />
+                </button>
+              ))
           )}
         </div>
       </div>

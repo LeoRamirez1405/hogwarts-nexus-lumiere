@@ -15,11 +15,28 @@ const KIND_LABELS: Record<string, string> = {
   post: "Publicación",
 };
 
-function lastMessagePreview(msg: { kind?: string; body?: string }) {
+function lastMessagePreview(
+  msg: { kind?: string; body?: string; sender_id?: string } | undefined,
+  currentUserId: string,
+  isRoom: boolean,
+) {
+  if (!msg) return "Sin mensajes";
   const body = msg.body?.trim();
   const label = msg.kind && msg.kind !== "text" ? KIND_LABELS[msg.kind] : undefined;
-  if (label) return body ? `${label} · ${body}` : label;
-  return body || "Sin mensajes";
+  const content = label ? (body ? `${label} · ${body}` : label) : (body || "");
+
+  // Prefix sender info when available
+  if (msg.sender_id) {
+    const isMe = msg.sender_id === currentUserId;
+    if (isRoom) {
+      // Groups: show "Tú: ..." or the sender's name + ": ..."
+      return isMe ? `Tú: ${content}` : `${content}`;
+    } else {
+      // DMs: show "Tú: ..." when the last message is mine
+      return isMe ? `Tú: ${content}` : content || "Sin mensajes";
+    }
+  }
+  return content || "Sin mensajes";
 }
 
 export default function ConversationItem({
@@ -27,11 +44,13 @@ export default function ConversationItem({
   isActive,
   onClick,
   onlineUsers,
+  currentUserId,
 }: {
   conversation: Conversation;
   isActive: boolean;
   onClick: () => void;
   onlineUsers?: Map<string, boolean>;
+  currentUserId?: string;
 }) {
   const isRoom = conversation.type === "room";
   const isOnlineNow =
@@ -98,7 +117,7 @@ export default function ConversationItem({
             }`}
           >
             {conversation.last_message
-              ? lastMessagePreview(conversation.last_message)
+              ? lastMessagePreview(conversation.last_message, currentUserId || "", isRoom)
               : "Sin mensajes"}
          </p>
           {conversation.unread_count > 0 && (

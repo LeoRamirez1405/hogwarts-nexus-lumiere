@@ -6,6 +6,7 @@ import StickerPicker from "./StickerPicker";
 import MentionDropdown from "./MentionDropdown";
 import ChatVoiceRecorder from "./ChatVoiceRecorder";
 import ChatVideoRecorder from "./ChatVideoRecorder";
+import DateTimePickerModal from "./DateTimePickerModal";
 import { MaterialIcon } from "../helpers";
 import BottomSheet from "@/components/ui/BottomSheet";
 import type { Message, UserSearchResult } from "@/lib/api";
@@ -123,9 +124,11 @@ export default function ChatInput({
   const canSend = Boolean(input.trim() || attachment) && !uploading;
 
   const [showMobileToolbar, setShowMobileToolbar] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
   const disappearMenuRef = useRef<HTMLDivElement>(null);
-  const scheduleMenuRef = useRef<HTMLDivElement>(null);
+  const scheduleMenuDesktopRef = useRef<HTMLDivElement>(null);
+  const scheduleMenuMobileRef = useRef<HTMLDivElement>(null);
 
   const disappearOptions = [
     { label: "Desactivado", value: undefined },
@@ -138,6 +141,21 @@ export default function ChatInput({
     { label: "24 horas", value: 86400 },
   ] as const;
 
+  const formatScheduleTime = (isoString: string) => {
+    try {
+      const date = new Date(isoString);
+      const now = new Date();
+      const diff = date.getTime() - now.getTime();
+      
+      if (diff < 0) return "Pasado";
+      if (diff < 60000) return "En menos de 1 min";
+      if (diff < 3600000) return `En ${Math.ceil(diff / 60000)} min`;
+      if (diff < 86400000) return `En ${Math.ceil(diff / 3600000)} h`;
+      return date.toLocaleDateString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return "Programado";
+    }
+  };
   const now = new Date();
   const scheduleOptions = [
     { label: "Desactivado", value: undefined },
@@ -158,6 +176,12 @@ export default function ChatInput({
     const handleClickOutside = (e: MouseEvent) => {
       if (disappearMenuRef.current && !disappearMenuRef.current.contains(e.target as Node)) {
         disappearMenuRef.current.classList.add("hidden");
+      }
+      if (scheduleMenuDesktopRef.current && !scheduleMenuDesktopRef.current.contains(e.target as Node)) {
+        scheduleMenuDesktopRef.current.classList.add("hidden");
+      }
+      if (scheduleMenuMobileRef.current && !scheduleMenuMobileRef.current.contains(e.target as Node)) {
+        scheduleMenuMobileRef.current.classList.add("hidden");
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -225,13 +249,14 @@ export default function ChatInput({
           onStopRecording={onStopRecording}
           onCancelRecording={onCancelRecording}
         />
-      ) : video.recording || video.previewUrl ? (
+      ) : video.recording || video.previewUrl || video.error ? (
         <ChatVideoRecorder
           video={video}
           uploading={uploading}
           onSendVideo={onSendVideo}
           onStopRecording={onStopVideoRecording}
           onCancelRecording={onCancelVideoRecording}
+          onRetryRecording={video.startRecording}
         />
       ) : (
         <>
@@ -326,6 +351,69 @@ export default function ChatInput({
                     }}
                     className={`w-full px-3 py-2 text-left text-label-md ${
                       disappearAt === (opt.value?.toString() || undefined)
+                        ? "bg-primary/10 text-primary"
+                        : "text-on-surface hover:bg-surface-container"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Scheduled message indicator */}
+            {scheduleAt && (
+              <div className="flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-xl text-label-sm font-medium animate-pulse-subtle">
+                <MaterialIcon name="schedule" className="text-sm" />
+                <span>Programado: {formatScheduleTime(scheduleAt)}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onScheduleChange?.(undefined);
+                  }}
+                  className="p-0.5 rounded hover:bg-primary/20"
+                  aria-label="Cancelar programación"
+                >
+                  <MaterialIcon name="close" className="text-sm" />
+                </button>
+              </div>
+            )}
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const menu = scheduleMenuDesktopRef.current;
+                  if (menu) menu.classList.toggle("hidden");
+                }}
+                className={`p-1 rounded-full transition-colors ${
+                  scheduleAt ? "text-primary" : "text-on-surface-variant"
+                } hover:bg-surface-container-high`}
+                title="Programar mensaje"
+                aria-label="Programar mensaje"
+              >
+                <MaterialIcon name="schedule" className="text-xl" />
+              </button>
+              <div
+                ref={scheduleMenuDesktopRef}
+                className="absolute bottom-full right-0 mb-2 w-44 bg-surface-container-high border border-outline-variant rounded-xl shadow-lg hidden z-[100] py-1"
+              >
+{scheduleOptions.map((opt) => (
+                    <button
+                      key={opt.value?.toString() || "off"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (opt.value === "custom") {
+                          setShowScheduleModal(true);
+                        } else {
+                          onScheduleChange?.(opt.value);
+                        }
+                        scheduleMenuDesktopRef.current?.classList.add("hidden");
+                      }}
+                    className={`w-full px-3 py-2 text-left text-label-md ${
+                      scheduleAt === (opt.value?.toString() || undefined)
                         ? "bg-primary/10 text-primary"
                         : "text-on-surface hover:bg-surface-container"
                     }`}
@@ -535,7 +623,7 @@ export default function ChatInput({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      const menu = scheduleMenuRef.current;
+                      const menu = scheduleMenuMobileRef.current;
                       if (menu) menu.classList.toggle("hidden");
                     }}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
@@ -551,7 +639,7 @@ export default function ChatInput({
                     </span>
                   </button>
                   <div
-                    ref={scheduleMenuRef}
+                    ref={scheduleMenuMobileRef}
                     className="absolute bottom-full left-0 right-0 mb-2 bg-surface-container-high border border-outline-variant rounded-xl shadow-lg hidden z-[100] py-1"
                   >
                     {scheduleOptions.map((opt) => (
@@ -561,14 +649,11 @@ export default function ChatInput({
                         onClick={(e) => {
                           e.stopPropagation();
                           if (opt.value === "custom") {
-                            const dt = prompt("Fecha y hora (YYYY-MM-DDTHH:MM):");
-                            if (dt) {
-                              onScheduleChange?.(dt);
-                            }
+                            setShowScheduleModal(true);
                           } else {
                             onScheduleChange?.(opt.value);
                           }
-                          scheduleMenuRef.current?.classList.add("hidden");
+                          scheduleMenuMobileRef.current?.classList.add("hidden");
                         }}
                         className={`w-full px-4 py-2 text-left text-body-md ${
                           scheduleAt === (opt.value?.toString() || undefined)
@@ -581,59 +666,41 @@ export default function ChatInput({
                     ))}
                   </div>
                 </div>
+
+                {/* Scheduled message indicator (mobile) */}
+                {scheduleAt && (
+                  <div className="mt-4 flex items-center gap-2 bg-primary/10 text-primary px-4 py-3 rounded-xl text-body-md font-medium animate-pulse-subtle">
+                    <MaterialIcon name="schedule" className="text-lg" />
+                    <span className="flex-1">Programado: {formatScheduleTime(scheduleAt)}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onScheduleChange?.(undefined);
+                      }}
+                      className="p-1 rounded hover:bg-primary/20"
+                      aria-label="Cancelar programación"
+                    >
+                      <MaterialIcon name="close" className="text-base" />
+                    </button>
+                  </div>
+                )}
+
             </div>
 
-            <div className="relative">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const menu = scheduleMenuRef.current;
-                  if (menu) menu.classList.toggle("hidden");
-                }}
-                className={`p-1 rounded-full transition-colors ${
-                  scheduleAt ? "text-primary" : "text-on-surface-variant"
-                } hover:bg-surface-container-high`}
-                title="Programar mensaje"
-                aria-label="Programar mensaje"
-              >
-                <MaterialIcon name="schedule" className="text-xl" />
-              </button>
-              <div
-                ref={scheduleMenuRef}
-                className="absolute bottom-full right-0 mb-2 w-40 bg-surface-container-high border border-outline-variant rounded-xl shadow-lg hidden z-[100] py-1"
-              >
-                {scheduleOptions.map((opt) => (
-                  <button
-                    key={opt.value?.toString() || "off"}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (opt.value === "custom") {
-                        // Open a datetime-local input
-                        const dt = prompt("Fecha y hora (YYYY-MM-DDTHH:MM):");
-                        if (dt) {
-                          onScheduleChange?.(dt);
-                        }
-                      } else {
-                        onScheduleChange?.(opt.value);
-                      }
-                      scheduleMenuRef.current?.classList.add("hidden");
-                    }}
-                    className={`w-full px-3 py-2 text-left text-label-md ${
-                      scheduleAt === (opt.value?.toString() || undefined)
-                        ? "bg-primary/10 text-primary"
-                        : "text-on-surface hover:bg-surface-container"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
             </BottomSheet>
           </div>
         </>
       )}
+
+      {/* DateTime Picker Modal for Custom Schedule */}
+      <DateTimePickerModal
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        onConfirm={(isoString) => onScheduleChange?.(isoString)}
+        initialDateTime={scheduleAt}
+        title="Programar mensaje"
+      />
     </div>
   );
 }
