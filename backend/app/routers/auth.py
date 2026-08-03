@@ -13,6 +13,7 @@ from ..middleware.auth import (
     verify_password,
     create_access_token,
     create_refresh_token,
+    create_ws_token,
     decode_refresh_token,
     get_current_user,
     set_auth_cookies,
@@ -151,6 +152,13 @@ async def logout(response: Response):
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/ws-token")
+async def get_ws_token(current_user: User = Depends(get_current_user)):
+    """Get a short-lived WebSocket token (60s) for establishing WS connection."""
+    token = create_ws_token(data={"sub": current_user.id})
+    return {"token": token, "expires_in": 60}
 
 
 @router.post("/change-password")

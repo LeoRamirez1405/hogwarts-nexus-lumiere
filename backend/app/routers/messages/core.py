@@ -553,6 +553,82 @@ async def get_messages(
     )
 
 
+@router.get("/since/{last_id}", response_model=List[MessageResponse])
+async def get_messages_since(
+    last_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    limit: int = Query(50, ge=1, le=200),
+    expand: str = Query("", description="Comma-separated list of relations to expand: sender,receiver,reactions,reply_to"),
+):
+    """
+    Catch-up endpoint: fetch messages newer than `last_id` across all conversations.
+    Used by WebSocket client on reconnection to get missed messages.
+    """
+    expand_sender = "sender" in expand
+    expand_receiver = "receiver" in expand
+    expand_reactions = "reactions" in expand
+    expand_reply_to = "reply_to" in expand
+
+    # Get the reference message to determine the timestamp cutoff
+    ref_msg_result = await db.execute(select(Message).where(Message.id == last_id))
+    ref_msg = ref_msg_result.scalar_one_or_none()
+    if not ref_msg:
+        raise HTTPException(status_code=404, detail="Reference message not found")
+
+    # Build filter: messages where current_user is participant and created_after reference message
+    # This covers both DMs and room messages
+    dm_filter = or_(
+        and_(Message.sender_id == current_user.id, Message.receiver_id != None),
+        and_(Message.receiver_id == current_user.id, Message.sender_id != None),
+    )
+    room_subq = select(ChatRoomMember.room_id).where(ChatRoomMember.user_id == current_user.id)
+    room_filter = and_(Message.room_id.in_(room_subq))
+    convo_filter = or_(dm_filter, room_filter)
+
+    # Only messages after the reference message
+    time_filter = and_(
+        Message.created_at > ref_msg.created_at,
+        # Tie-breaker: if same timestamp, use ID
+        or_(
+            Message.created_at > ref_msg.created_at,
+            and_(Message.created_at == ref_msg.created_at, Message.id > last_id),
+        ),
+    )
+
+    query_options = []
+    if expand_sender:
+        query_options.append(selectinload(Message.sender))
+    if expand_receiver:
+        query_options.append(selectinload(Message.receiver))
+    if expand_reactions:
+        query_options.append(selectinload(Message.reactions))
+    if expand_reply_to:
+        query_options.append(selectinload(Message.reply_to).selectinload(Message.sender))
+
+    query = (
+        select(Message)
+        .options(*query_options)
+        .where(and_(convo_filter, time_filter, Message.scheduled_at.is_(None)))
+        .order_by(Message.created_at.asc(), Message.id.asc())  # oldest-first for catch-up
+        .limit(limit)
+    )
+
+    result = await db.execute(query)
+    rows = result.scalars().all()
+
+    out = [
+        await serialize_message(
+            db, m, current_user.id,
+            expand_sender=expand_sender, expand_receiver=expand_receiver,
+            expand_reactions=expand_reactions, expand_reply_to=expand_reply_to,
+        )
+        for m in rows
+    ]
+
+    return out
+
+
 @router.post("/{message_id}/forward", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
 async def forward_message(
     message_id: str,

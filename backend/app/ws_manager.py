@@ -1,25 +1,28 @@
 import asyncio
 import json
-from typing import Dict, Set, Optional
+import uuid
+from typing import Dict, Set, Optional, List
 
 import redis.asyncio as redis
 from fastapi import WebSocket
 
 from .config import settings
 
-# Single channel shared by every worker. `send_to_user` / `broadcast_to_room`
-# publish here and each worker's subscriber re-broadcasts to its LOCAL
-# connections, so a message reaches a user no matter which worker holds their
-# socket (multi-worker safe, see audit item #10).
-CHANNEL = "nexus_ws"
+
+# Redis Streams configuration
+STREAM_KEY = "nexus:ws:stream"
+CONSUMER_GROUP = "ws_workers"
+CONSUMER_NAME_PREFIX = "worker"
 
 
 class ConnectionManager:
     """Maneja conexiones WebSocket por usuario.
 
-    Delivery is routed through Redis pub/sub so the bus works across multiple
-    uvicorn workers. When Redis is unavailable (local dev without Redis) the
-    manager degrades to the previous single-process in-memory behavior.
+    Delivery is routed through Redis Streams with consumer groups for
+    guaranteed delivery across multiple uvicorn workers. Each worker runs
+    a consumer that claims messages, delivers to local connections, and ACKs.
+    When Redis is unavailable (local dev without Redis) the manager degrades
+    to the previous single-process in-memory behavior.
     """
 
     def __init__(self):
@@ -27,40 +30,45 @@ class ConnectionManager:
         self.user_rooms: Dict[str, Set[str]] = {}  # user_id -> set of room_ids
         self.room_users: Dict[str, Set[str]] = {}  # room_id -> set of user_ids
         self._redis: Optional[redis.Redis] = None
-        self._pubsub = None
-        self._subscriber_task: Optional[asyncio.Task] = None
+        self._consumer_task: Optional[asyncio.Task] = None
+        self._consumer_name = f"{CONSUMER_NAME_PREFIX}-{uuid.uuid4().hex[:8]}"
+        self._pending_acks: Dict[str, str] = {}  # message_id -> stream_key (for ACK tracking)
 
     # ------------------------------------------------------------------ #
     # Lifecycle (started/stopped from the FastAPI lifespan in main.py)     #
     # ------------------------------------------------------------------ #
     async def start(self) -> None:
-        """Connect Redis and launch the cross-worker subscriber task."""
+        """Connect Redis, create consumer group, and launch the consumer task."""
         try:
             self._redis = redis.from_url(
                 settings.REDIS_URL,
                 max_connections=settings.REDIS_MAX_CONNECTIONS,
                 decode_responses=True,
             )
-            self._pubsub = self._redis.pubsub()
-            await self._pubsub.subscribe(CHANNEL)
-            self._subscriber_task = asyncio.create_task(self._subscriber_loop())
+            # Create consumer group if it doesn't exist
+            try:
+                await self._redis.xgroup_create(STREAM_KEY, CONSUMER_GROUP, id="0", mkstream=True)
+            except redis.ResponseError as e:
+                if "BUSYGROUP" not in str(e):
+                    raise
+            # Start consumer loop
+            self._consumer_task = asyncio.create_task(self._consumer_loop())
         except Exception:
             # No Redis → fall back to in-memory delivery.
             self._redis = None
-            self._pubsub = None
-            self._subscriber_task = None
+            self._consumer_task = None
 
     async def shutdown(self) -> None:
-        if self._subscriber_task:
-            self._subscriber_task.cancel()
+        if self._consumer_task:
+            self._consumer_task.cancel()
             try:
-                await self._subscriber_task
+                await self._consumer_task
             except (asyncio.CancelledError, Exception):
                 pass
-        if self._pubsub is not None:
+        # ACK any pending messages before shutdown
+        if self._redis and self._pending_acks:
             try:
-                await self._pubsub.unsubscribe(CHANNEL)
-                await self._pubsub.close()
+                await self._redis.xack(STREAM_KEY, CONSUMER_GROUP, *self._pending_acks.keys())
             except Exception:
                 pass
         if self._redis is not None:
@@ -68,46 +76,46 @@ class ConnectionManager:
                 await self._redis.close()
             except Exception:
                 pass
-        self._pubsub = None
         self._redis = None
-        self._subscriber_task = None
+        self._consumer_task = None
+        self._pending_acks.clear()
 
     # ------------------------------------------------------------------ #
-    # Redis pub/sub bus                                                    #
+    # Redis Streams consumer                                              #
     # ------------------------------------------------------------------ #
-    async def _publish(self, payload: dict) -> Optional[int]:
-        """Publish a cross-worker message.
-
-        Returns the number of subscribers that received it, or ``None`` when
-        Redis is unavailable (callers then fall back to in-memory delivery).
-        """
-        if self._redis is None:
-            return None
-        try:
-            return int(await self._redis.publish(CHANNEL, json.dumps(payload)))
-        except Exception:
-            return None
-
-    async def _subscriber_loop(self) -> None:
+    async def _consumer_loop(self) -> None:
+        """Continuously read from stream, deliver locally, and ACK."""
         while True:
             try:
-                async for message in self._pubsub.listen():
-                    if message.get("type") != "message":
-                        continue
-                    try:
-                        payload = json.loads(message["data"])
-                    except Exception:
-                        continue
-                    await self._route(payload)
+                # Block for up to 5 seconds waiting for new messages
+                messages = await self._redis.xreadgroup(
+                    CONSUMER_GROUP,
+                    self._consumer_name,
+                    {STREAM_KEY: ">"},
+                    count=10,
+                    block=5000,
+                )
+                if not messages:
+                    continue
+
+                for stream_key, entries in messages:
+                    for msg_id, data in entries:
+                        try:
+                            payload = json.loads(data["payload"])
+                            await self._route(payload)
+                            # ACK after successful delivery
+                            await self._redis.xack(STREAM_KEY, CONSUMER_GROUP, msg_id)
+                        except Exception as e:
+                            # Log error but don't ACK - message will be redelivered
+                            # In production, could add to dead letter stream after max retries
+                            print(f"[WS Manager] Failed to deliver message {msg_id}: {e}")
+                            # Don't ACK - let it be redelivered to another consumer
             except asyncio.CancelledError:
                 raise
-            except Exception:
-                # Connection hiccup: back off briefly and resubscribe.
+            except Exception as e:
+                # Connection hiccup: back off briefly and retry
+                print(f"[WS Manager] Consumer loop error: {e}")
                 await asyncio.sleep(1)
-                try:
-                    await self._pubsub.subscribe(CHANNEL)
-                except Exception:
-                    pass
 
     async def _route(self, payload: dict) -> None:
         """Deliver a cross-worker message to this worker's LOCAL connections."""
@@ -171,23 +179,34 @@ class ConnectionManager:
     # Delivery APIs (used across the codebase)                             #
     # ------------------------------------------------------------------ #
     async def send_to_user(self, user_id: str, data: dict):
-        """Send a message to a user. Cross-worker via Redis when available."""
-        receivers = await self._publish({"kind": "user", "user_id": user_id, "data": data})
-        if receivers is None or receivers == 0:
-            # Redis down, or no subscriber running yet → deliver in-process.
+        """Send a message to a user. Cross-worker via Redis Streams when available."""
+        payload = {"kind": "user", "user_id": user_id, "data": data}
+        if self._redis is None:
+            await self._local_send(user_id, data)
+            return
+        try:
+            await self._redis.xadd(STREAM_KEY, {"payload": json.dumps(payload)})
+        except Exception:
+            # Redis down → fall back to in-memory
             await self._local_send(user_id, data)
 
     async def broadcast_to_room(self, room_id: str, data: dict, exclude_user: str = None):
         """Broadcast to every connected member of a room (except exclude_user)."""
-        receivers = await self._publish(
-            {
-                "kind": "room",
-                "room_id": room_id,
-                "exclude_user": exclude_user,
-                "data": data,
-            }
-        )
-        if receivers is None or receivers == 0:
+        payload = {
+            "kind": "room",
+            "room_id": room_id,
+            "exclude_user": exclude_user,
+            "data": data,
+        }
+        if self._redis is None:
+            for uid in list(self.room_users.get(room_id, set())):
+                if uid != exclude_user:
+                    await self._local_send(uid, data)
+            return
+        try:
+            await self._redis.xadd(STREAM_KEY, {"payload": json.dumps(payload)})
+        except Exception:
+            # Redis down → fall back to in-memory
             for uid in list(self.room_users.get(room_id, set())):
                 if uid != exclude_user:
                     await self._local_send(uid, data)

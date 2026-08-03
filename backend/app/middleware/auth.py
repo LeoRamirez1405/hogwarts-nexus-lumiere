@@ -43,6 +43,33 @@ def create_refresh_token(data: dict) -> str:
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
+def create_ws_token(data: dict) -> str:
+    """Create a short-lived WebSocket token (60 seconds)."""
+    to_encode = data.copy()
+    to_encode.update({"type": "ws", "purpose": "ws_connect"})
+    expire = datetime.utcnow() + timedelta(seconds=60)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+
+def decode_ws_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired WebSocket token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if payload.get("type") != "ws" or payload.get("purpose") != "ws_connect":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type for WebSocket",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return payload
+
+
 def decode_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
