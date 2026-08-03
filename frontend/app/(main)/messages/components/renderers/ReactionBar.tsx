@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { api } from "@/lib/api";
 import type { MessageReaction } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
@@ -8,8 +8,18 @@ import type { ReactionBarProps } from "./types";
 
 export const ReactionBar = ({ reactions, messageId, onReacted }: ReactionBarProps) => {
   const { user } = useAuthStore();
-  const [localReactions, setLocalReactions] = useState<MessageReaction[]>(reactions);
+  // Merge optimistic temp reactions with prop reactions
+  const [tempReactions, setTempReactions] = useState<{ id: string; reaction: MessageReaction }[]>([]);
   const tempIdRef = useRef(0);
+
+  // Combine prop reactions with optimistic temp additions (dedup by emoji+user_id)
+  const localReactions = useMemo(() => {
+    const seen = new Set(reactions.map((r) => `${r.emoji}-${r.user_id}`));
+    const extras = tempReactions
+      .filter((t) => !seen.has(`${t.reaction.emoji}-${t.reaction.user_id}`))
+      .map((t) => t.reaction);
+    return [...reactions, ...extras];
+  }, [reactions, tempReactions]);
 
   const grouped: Record<string, { count: number; users: string[] }> = {};
   for (const r of localReactions) {
@@ -23,13 +33,13 @@ export const ReactionBar = ({ reactions, messageId, onReacted }: ReactionBarProp
   const handleReactionClick = async (emoji: string) => {
     const myReaction = localReactions.find((r) => r.emoji === emoji && r.user_id === user?.id);
     if (myReaction) {
-      setLocalReactions((prev) => prev.filter((r) => !(r.emoji === emoji && r.user_id === user?.id)));
+      setTempReactions((prev) => prev.filter((t) => !(t.reaction.emoji === emoji && t.reaction.user_id === user?.id)));
       try {
         await api.removeReaction(messageId, emoji);
         onReacted?.();
       } catch (error) {
         console.error('Failed to remove reaction:', error);
-        setLocalReactions(reactions);
+        setTempReactions([]);
       }
     } else {
       tempIdRef.current += 1;
@@ -41,16 +51,16 @@ export const ReactionBar = ({ reactions, messageId, onReacted }: ReactionBarProp
         emoji,
         created_at: new Date().toISOString(),
       };
-      setLocalReactions((prev) => [...prev, tempReaction]);
+      setTempReactions((prev) => [...prev, { id: tempId, reaction: tempReaction }]);
       try {
         const result = await api.addReaction(messageId, emoji);
         if ("removed" in result) {
-          setLocalReactions((prev) => prev.filter((r) => !(r.emoji === emoji && r.user_id === user?.id)));
+          setTempReactions((prev) => prev.filter((t) => t.id !== tempId));
         }
         onReacted?.();
       } catch (error) {
         console.error('Failed to add reaction:', error);
-        setLocalReactions(reactions);
+        setTempReactions((prev) => prev.filter((t) => t.id !== tempId));
       }
     }
   };

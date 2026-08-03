@@ -23,19 +23,24 @@ export const ReactionPicker = ({ messageId, onReacted }: ReactionPickerProps) =>
     }
   };
 
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+
   const quickContent = (
-    <div className="flex gap-1">
+    <div className="flex gap-1" onClick={stop} onMouseDown={stop}>
       {["👍", "❤️", "😂", "😮", "😢", "🙏"].map((emoji) => (
         <button
           key={emoji}
-          onClick={() => handleReact(emoji)}
+          onMouseDown={stop}
+          onClick={(e) => { e.stopPropagation(); handleReact(emoji); }}
           className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-xl transition-transform hover:scale-125"
         >
           {emoji}
         </button>
       ))}
       <button
-        onClick={() => {
+        onMouseDown={stop}
+        onClick={(e) => {
+          e.stopPropagation();
           setShowQuick(false);
           setShowFull(true);
         }}
@@ -47,13 +52,14 @@ export const ReactionPicker = ({ messageId, onReacted }: ReactionPickerProps) =>
   );
 
   const fullContent = (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap gap-1" onClick={stop} onMouseDown={stop}>
       {Object.values(STICKER_PACKS)
         .flat()
         .map((emoji, i) => (
           <button
             key={`${i}-${emoji}`}
-            onClick={() => handleReact(emoji)}
+            onMouseDown={stop}
+            onClick={(e) => { e.stopPropagation(); handleReact(emoji); }}
             className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-xl transition-transform hover:scale-125"
           >
             {emoji}

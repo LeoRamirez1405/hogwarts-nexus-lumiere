@@ -162,7 +162,12 @@ export function FloatingPopover({
     const handle = (e: MouseEvent) => {
       const content = contentRef.current;
       const anchor = anchorRef.current;
+      const target = e.target as Node | null;
+      const insideOtherPopover =
+        target instanceof Element &&
+        target.closest("[data-floating-popover='true']") !== null;
       if (
+        !insideOtherPopover &&
         content && !content.contains(e.target as Node) &&
         anchor && !anchor.contains(e.target as Node)
       ) {
@@ -244,6 +249,7 @@ export function FloatingPopover({
   return createPortal(
     <div
       ref={contentRef}
+      data-floating-popover={open ? "true" : undefined}
       className={`fixed z-[9999] bg-surface-container-highest rounded-xl shadow-xl py-2 px-3 overflow-y-auto no-scrollbar ${className}`}
       style={{
         top: position?.top ?? 0,

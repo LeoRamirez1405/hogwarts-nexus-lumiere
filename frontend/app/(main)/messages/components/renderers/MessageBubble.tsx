@@ -70,6 +70,11 @@ export const MessageBubble = memo(
   const bubbleRef = useRef<HTMLDivElement>(null);
   const kind = message.kind || "text";
 
+  // Find sender info from members for group chats
+  const sender = members?.find((m) => m.user_id === message.sender_id);
+  const senderName = sender?.user?.name || "Desconocido";
+  const isGroup = members && members.length > 0;
+
   useEffect(() => {
     if (!message.disappear_at) return;
     const update = () => setDisappearTime(formatDisappearTime(message.disappear_at!));
@@ -223,16 +228,32 @@ return (
           className={`px-4 py-2.5 cursor-pointer ${
             isOwn
               ? "bg-primary text-white rounded-2xl rounded-tr-none"
-              : "bg-white text-on-surface rounded-2xl rounded-tl-none border border-outline-variant/20"
+              : "bg-secondary-container text-on-secondary-container rounded-2xl rounded-tl-none"
           } ${
             isReplyTarget
               ? isOwn
                 ? "ring-2 ring-white/70"
-                : "ring-2 ring-primary/60"
+                : "ring-2 ring-secondary/60"
               : ""
           }`}
         >
           <ReplyPreview message={message} onScrollToMessage={onScrollToMessage} />
+
+          {message.forwarded && (
+            <div
+              className={`flex items-center gap-1 text-[10px] mb-1 ${isOwn ? "text-white/70" : "text-on-secondary-container/70"}`}
+              title="Mensaje reenviado"
+            >
+              <MaterialIcon name="forward" className="text-[11px]" />
+              <span>Reenviado</span>
+            </div>
+          )}
+
+          {isGroup && !isOwn && (
+            <div className="px-1 text-xs font-medium text-on-secondary-container/70 mb-1" aria-hidden="true">
+              {senderName}
+            </div>
+          )}
 
           {kind === "poll" && message.poll && <PollView poll={message.poll} isOwn={isOwn} />}
           {kind === "post" && <PostShareView message={message} isOwn={isOwn} />}
@@ -241,9 +262,9 @@ return (
           {kind === "document" && message.attachment_url && <DocumentView message={message} isOwn={isOwn} />}
 
           {(kind === "text" || kind === "image" || kind === "video" || kind === "audio") && message.body && (
-            <p className="text-body-md wrap-break-word">
+            <div className="text-body-md wrap-break-word">
               <MentionText text={message.body} isOwn={isOwn} members={members} />
-            </p>
+            </div>
           )}
 
           {message.metadata?.link_preview && (
@@ -291,7 +312,7 @@ return (
             </div>
           )}
 
-          <div className={`flex items-center gap-1 mt-1 ${isOwn ? "text-white/60" : "text-on-surface-variant"}`}>
+          <div className={`flex items-center gap-1 mt-1 ${isOwn ? "text-white/60" : "text-on-secondary-container/70"}`}>
             {message.pinned && <MaterialIcon name="push_pin" className="text-[11px]" filled />}
             {message.disappear_at && (
               <span className="flex items-center gap-0.5 text-[10px]" title="Este mensaje desaparecerá">
