@@ -92,6 +92,11 @@ class Settings(BaseSettings):
                 "JWT_SECRET must be set in the environment (backend/.env). "
                 "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
             )
+        if not self.ENCRYPTION_KEY:
+            raise ValueError(
+                "ENCRYPTION_KEY must be set in the environment (backend/.env). "
+                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
         return self
 
 

@@ -14,7 +14,9 @@ class UserIdentityKey(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id"), nullable=False, unique=True, index=True)
     identity_key_public = Column(LargeBinary, nullable=False)  # X25519 public key (32 bytes)
-    identity_key_private = Column(LargeBinary, nullable=False)  # X25519 private key (32 bytes) - encrypted at rest
+    identity_key_private = Column(Text, nullable=False)  # X25519 private key - encrypted at rest (base64 str)
+    signing_key_public = Column(LargeBinary, nullable=False)  # Ed25519 public key (32 bytes)
+    signing_key_private = Column(Text, nullable=False)  # Ed25519 private key (64 bytes) - encrypted at rest (base64 str)
     registration_id = Column(Integer, nullable=False)  # 16-bit registration ID
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -31,7 +33,7 @@ class UserPreKey(Base):
     identity_id = Column(String, ForeignKey("user_identity_keys.id"), nullable=False, index=True)
     prekey_id = Column(Integer, nullable=False)  # 16-bit prekey ID
     public_key = Column(LargeBinary, nullable=False)  # X25519 public key (32 bytes)
-    private_key = Column(LargeBinary, nullable=False)  # X25519 private key (32 bytes) - encrypted at rest
+    private_key = Column(Text, nullable=False)  # X25519 private key - encrypted at rest (base64 str)
     used = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     used_at = Column(DateTime, nullable=True)
@@ -52,8 +54,8 @@ class UserSignedPreKey(Base):
     identity_id = Column(String, ForeignKey("user_identity_keys.id"), nullable=False, unique=True, index=True)
     prekey_id = Column(Integer, nullable=False)
     public_key = Column(LargeBinary, nullable=False)  # X25519 public key (32 bytes)
-    private_key = Column(LargeBinary, nullable=False)  # X25519 private key (32 bytes) - encrypted at rest
-    signature = Column(LargeBinary, nullable=False)  # Ed25519 signature of public_key by identity key
+    private_key = Column(Text, nullable=False)  # X25519 private key - encrypted at rest (base64 str)
+    signature = Column(LargeBinary, nullable=False)  # Ed25519 signature of public_key
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     expires_at = Column(DateTime, nullable=True)  # Rotation policy
 
@@ -70,13 +72,22 @@ class Session(Base):
     remote_device_id = Column(String, nullable=True)  # For multi-device support
     session_version = Column(Integer, default=3, nullable=False)  # Signal Protocol v3
 
+    # Local keys
+    local_identity_key_public = Column(LargeBinary, nullable=True)
+    local_base_key_public = Column(LargeBinary, nullable=True)
+    local_base_key_private = Column(Text, nullable=True)  # encrypted at rest (base64 str)
+
+    # Remote keys
+    remote_identity_key = Column(LargeBinary, nullable=True)
+    remote_base_key = Column(LargeBinary, nullable=True)
+
     # Root ratchet state
-    root_key = Column(LargeBinary, nullable=False)  # 32 bytes
-    chain_key_sending = Column(LargeBinary, nullable=True)  # 32 bytes
-    chain_key_receiving = Column(LargeBinary, nullable=True)  # 32 bytes
+    root_key = Column(LargeBinary, nullable=True)  # 32 bytes
+    sender_chain_key = Column(LargeBinary, nullable=True)  # 32 bytes
+    receiver_chain_key = Column(LargeBinary, nullable=True)  # 32 bytes
 
     # Ratchet state
-    sender_ratchet_key_private = Column(LargeBinary, nullable=True)  # X25519
+    sender_ratchet_key_private = Column(Text, nullable=True)  # X25519 (encrypted at rest base64 str)
     sender_ratchet_key_public = Column(LargeBinary, nullable=True)  # X25519
     receiver_ratchet_key_public = Column(LargeBinary, nullable=True)  # X25519
 
@@ -84,6 +95,7 @@ class Session(Base):
     sending_message_count = Column(Integer, default=0, nullable=False)
     receiving_message_count = Column(Integer, default=0, nullable=False)
     previous_chain_length = Column(Integer, default=0, nullable=False)
+    has_sent_message = Column(Boolean, default=False, nullable=False)
 
     # Associated keys
     prekey_id = Column(String, ForeignKey("user_prekeys.id"), nullable=True, index=True)

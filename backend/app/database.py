@@ -311,9 +311,32 @@ def _sync_missing_columns(sync_conn):
 
 
 async def init_db():
+    """Apply Alembic migrations and ensure performance indexes.
+
+    Schema changes are versioned via Alembic. The ``create_all`` call has been
+    removed -- all DDL MUST go through ``alembic revision --autogenerate``.
+
+    ``_ensure_indexes`` and ``_ensure_fts`` remain as idempotent backfills for
+    developer-added indexes that are not (yet) reflected in the model metadata.
+    This is a deliberate compromise: hand-maintained indexes on hot paths
+    are faster than compiling every DROP/CREATE into model declarations.
+    Once Alembic has run, apply those indexes on top.
+    """
+    from alembic.config import Config
+    from alembic import command
+
+    # Locate alembic.ini relative to this project root (backend/).
+    import os
+    alembic_path = os.path.join(os.path.dirname(__file__), "..", "alembic.ini")
+    cfg = Config(alembic_path)
+
+    # Run pending migrations (upgrade to head)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        await conn.run_sync(_run_migrations)
-        await conn.run_sync(_sync_missing_columns)
+
+        def _do_upgrade(sync_conn):
+            cfg.attributes["connection"] = sync_conn
+            command.upgrade(cfg, "head")
+
+        await conn.run_sync(_do_upgrade)
         await conn.run_sync(_ensure_indexes)
         await conn.run_sync(_ensure_fts)
