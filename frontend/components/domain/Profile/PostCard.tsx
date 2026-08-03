@@ -140,10 +140,10 @@ function PostCardComponent({
             />
           </div>
         )}
-        <div className="flex items-center gap-x-6 gap-y-2 flex-wrap pt-3 border-t border-outline-variant/20">
+        <div className="flex items-center justify-between sm:justify-start sm:gap-x-6 gap-1 pt-3 border-t border-outline-variant/20">
           <button
             onClick={() => { hapticLight(); onLike(post.id); }}
-            className={`flex items-center gap-2 text-label-sm transition-colors ${
+            className={`flex items-center gap-1 sm:gap-2 text-label-sm transition-colors ${
               post.liked_by_me
                 ? "text-error"
                 : "text-on-surface-variant hover:text-error"
@@ -158,18 +158,18 @@ function PostCardComponent({
           </button>
           <button
             onClick={() => { hapticLight(); setShowComments((v) => !v); }}
-            className="flex items-center gap-2 text-label-sm text-on-surface-variant hover:text-primary transition-colors"
+            className="flex items-center gap-1 sm:gap-2 text-label-sm text-on-surface-variant hover:text-primary transition-colors"
           >
             <MaterialIcon
               name={showComments ? "chat_bubble" : "chat_bubble_outline"}
               className="text-lg"
               filled={showComments}
             />
-            {commentCount > 0 ? commentCount : "Comentar"}
+            {commentCount}
           </button>
           <button
             onClick={() => { hapticLight(); onRepost(post.id); }}
-            className={`flex items-center gap-2 text-label-sm transition-colors ${
+            className={`flex items-center gap-1 sm:gap-2 text-label-sm transition-colors ${
               post.reposted_by_me
                 ? "text-success"
                 : "text-on-surface-variant hover:text-success"
@@ -181,11 +181,11 @@ function PostCardComponent({
           </button>
           <button
             onClick={() => { hapticSelection(); onShare(post); }}
-            className="flex items-center gap-2 text-label-sm text-on-surface-variant hover:text-secondary transition-colors"
+            className="flex items-center gap-1 sm:gap-2 text-label-sm text-on-surface-variant hover:text-secondary transition-colors"
             title="Compartir a un chat o grupo"
           >
             <MaterialIcon name="share" className="text-lg" />
-            Compartir
+            <span className="hidden sm:inline">Compartir</span>
           </button>
         </div>
 

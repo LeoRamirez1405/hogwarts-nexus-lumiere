@@ -175,7 +175,7 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
                   <h3 className="font-display text-title-md text-on-surface mb-1">{a.title}</h3>
                   <p className="text-label-sm text-on-surface-variant line-clamp-1">{a.body.slice(0, 150)}{a.body.length > 150 ? "..." : ""}</p>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => openEdit(a)}
                     className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors"
@@ -220,11 +220,7 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
           saving={crud.saving || crud.creating}
           onSave={handleSave}
         >
-          <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto no-scrollbar">
-            <h2 className="font-display text-headline-lg text-on-surface">
-              {crud.showCreate ? "Nuevo Artículo" : "Editar Artículo"}
-            </h2>
-            <div className="space-y-4">
+          <div className="space-y-4">
               <FormField label="Titulo" required>
                 <InputField
                   value={form.title}
@@ -240,7 +236,7 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
                   rows={8}
                 />
               </FormField>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField label="Categoria" required>
                   <SelectField
                     value={form.category}
@@ -269,70 +265,57 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
                         onChange={handleImageUpload}
                         disabled={uploadingImage}
                       />
-                      <button
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon="upload"
                         onClick={() => imageInputRef.current?.click()}
                         disabled={uploadingImage}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
                       >
                         {uploadingImage ? "Subiendo..." : "Seleccionar archivo"}
-                      </button>
+                      </Button>
                       {form.image_url && (
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon="delete"
                           onClick={() => setForm((f) => ({ ...f, image_url: "" }))}
-                          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
                         >
                           Eliminar
-                        </button>
+                        </Button>
                       )}
                     </div>
                   </div>
                 </FormField>
               </div>
-              <div className="space-y-3">
-                <div className="flex items-center gap-4 rounded-xl bg-surface-container-low border border-outline-variant/20 px-4 py-3">
-                  <label className="flex items-center gap-4 cursor-pointer flex-1">
-                    <Switch
-                      checked={form.pinned}
-                      onChange={() => setForm((f) => ({ ...f, pinned: !f.pinned }))}
-                    />
-                    <div>
-                      <span className="text-body-md text-on-surface block">Fijar como principal</span>
-                      <span className="text-label-sm text-on-surface-variant">Solo puede haber uno a la vez; se mostrará en grande en El Quisquilloso.</span>
-                    </div>
-                  </label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Principal</span>
+                  <div className="rounded-xl bg-surface-container-low border border-outline-variant/20 px-3 py-3">
+                    <label className="cursor-pointer block">
+                      <Switch
+                        checked={form.pinned}
+                        onChange={() => setForm((f) => ({ ...f, pinned: !f.pinned }))}
+                      />
+                    </label>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 rounded-xl bg-surface-container-low border border-outline-variant/20 px-4 py-3">
-                  <label className="flex items-center gap-4 cursor-pointer flex-1">
-                    <Switch
-                      checked={form.featured}
-                      onChange={() => setForm((f) => ({ ...f, featured: !f.featured }))}
-                    />
-                    <div>
-                      <span className="text-body-md text-on-surface block">Destacado</span>
-                      <span className="text-label-sm text-on-surface-variant">Resalta el art&iacute;culo (borde dorado) y aparece en la pesta&ntilde;a &ldquo;Destacadas&rdquo;. Puede haber varios.</span>
-                    </div>
-                  </label>
+                <div>
+                  <span className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">Destacado</span>
+                  <div className="rounded-xl bg-surface-container-low border border-outline-variant/20 px-3 py-3">
+                    <label className="cursor-pointer block">
+                      <Switch
+                        checked={form.featured}
+                        onChange={() => setForm((f) => ({ ...f, featured: !f.featured }))}
+                      />
+                    </label>
+                  </div>
                 </div>
               </div>
+              <p className="text-label-sm text-on-surface-variant hidden sm:block">
+                Principal: solo uno a la vez, se muestra en grande en El Quisquilloso. Destacado: aparece en la pestaña &ldquo;Destacadas&rdquo;, puede haber varios.
+              </p>
             </div>
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="secondary"
-                onClick={() => { crud.setEditItem(null); crud.setShowCreate(false); }}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleSave}
-                disabled={crud.saving || crud.creating || !form.title || !form.body}
-                className="flex-1"
-              >
-                {crud.saving || crud.creating ? "Guardando..." : "Guardar"}
-              </Button>
-            </div>
-          </div>
         </AdminCrudModal>
       )}
     </>

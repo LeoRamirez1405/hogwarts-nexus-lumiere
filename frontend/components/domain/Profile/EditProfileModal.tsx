@@ -16,6 +16,16 @@ interface EditProfileModalProps {
   onSave: (updated: User) => void;
 }
 
+function getDataSaver(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem("nexus-data-saver") === "true";
+}
+
+function setDataSaver(value: boolean) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("nexus-data-saver", value.toString());
+}
+
 function EditProfileForm({
   profile,
   authUser,
@@ -28,6 +38,7 @@ function EditProfileForm({
     avatar_url: profile?.avatar_url ?? "",
     house: profile?.house ?? "",
   });
+  const [dataSaver, setDataSaverState] = useState(() => getDataSaver());
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [currentPass, setCurrentPass] = useState("");
@@ -59,7 +70,9 @@ function EditProfileForm({
       });
       onSave(updated);
       onClose();
-    } catch {}
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+    }
     setSaving(false);
   };
 
@@ -159,6 +172,31 @@ function EditProfileForm({
           enterKeyHint="done"
           className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors resize-none"
         />
+      </div>
+
+      {/* Data Saver Toggle */}
+      <div className="border-t border-outline-variant/20 pt-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Ahorro de datos</p>
+            <p className="text-body-sm text-on-surface-variant">No cargar imágenes, videos ni audio automáticamente en chats</p>
+          </div>
+          <button
+            onClick={() => {
+              const next = !dataSaver;
+              setDataSaverState(next);
+              setDataSaver(next);
+            }}
+            className={`relative w-12 h-7 rounded-full transition-colors ${dataSaver ? "bg-primary" : "bg-surface-container-high"}`}
+            aria-label={dataSaver ? "Desactivar ahorro de datos" : "Activar ahorro de datos"}
+            aria-pressed={dataSaver}
+          >
+            <span
+              className="absolute top-0.5 bottom-0.5 left-0.5 right-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform"
+              style={{ transform: dataSaver ? "translateX(24px)" : "translateX(0)" }}
+            />
+          </button>
+        </div>
       </div>
 
       {/* Password Change */}

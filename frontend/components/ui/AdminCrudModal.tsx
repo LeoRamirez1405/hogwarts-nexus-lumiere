@@ -13,6 +13,7 @@ export interface AdminCrudModalProps {
   saving?: boolean;
   saveLabel?: string;
   cancelLabel?: string;
+  saveDisabled?: boolean;
   onSave: () => Promise<void> | void;
 }
 
@@ -25,6 +26,7 @@ export function AdminCrudModal({
   saving = false,
   saveLabel = "Guardar",
   cancelLabel = "Cancelar",
+  saveDisabled = false,
   onSave,
 }: AdminCrudModalProps) {
   const firstInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(null);
@@ -46,7 +48,7 @@ export function AdminCrudModal({
           <Button variant="secondary" onClick={onClose} className="flex-1" disabled={saving}>
             {cancelLabel}
           </Button>
-          <Button variant="primary" onClick={onSave} disabled={saving} className="flex-1">
+          <Button variant="primary" onClick={onSave} disabled={saving || saveDisabled} className="flex-1">
             {saving ? "Guardando..." : saveLabel}
           </Button>
         </div>
@@ -60,12 +62,13 @@ export interface FormFieldProps {
   required?: boolean;
   helpText?: string;
   error?: string;
+  className?: string;
   children: React.ReactNode;
 }
 
-export function FormField({ label, required, helpText, error, children }: FormFieldProps) {
+export function FormField({ label, required, helpText, error, className, children }: FormFieldProps) {
   return (
-    <div>
+    <div className={className}>
       <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
         {label}
         {required && <span className="text-error ml-1">*</span>}

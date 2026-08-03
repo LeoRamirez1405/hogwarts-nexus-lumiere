@@ -76,7 +76,9 @@ export function SharePostModal({ post, onClose }: SharePostModalProps) {
         await api.sendMessage({ ...data, receiver_id: conv.id });
       }
       setSentIds((prev) => [...prev, conv.id]);
-    } catch {}
+    } catch (error) {
+      console.error('Failed to share post to conversation:', error);
+    }
     setSendingId(null);
   };
 
@@ -90,8 +92,8 @@ export function SharePostModal({ post, onClose }: SharePostModalProps) {
           text: post.body.slice(0, 120),
           url,
         });
-      } catch {
-        /* user cancelled */
+      } catch (error) {
+        console.debug('User cancelled native share:', error);
       }
     } else {
       navigator.clipboard?.writeText(url);

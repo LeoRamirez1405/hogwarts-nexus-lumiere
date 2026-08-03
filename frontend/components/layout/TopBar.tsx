@@ -8,6 +8,8 @@ import { useAuthStore } from "@/lib/authStore";
 import { Notification } from "@/lib/api";
 import { useNotificationStore } from "@/lib/notificationStore";
 import { notificationMeta, autoClearedByPath } from "@/lib/notificationMeta";
+import { wsClient } from "@/lib/ws";
+import { getAccessTokenFromCookie } from "@/lib/cookies";
 import Avatar from "@/components/ui/Avatar";
 import { MaterialIcon } from "@/components/ui";
 import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
@@ -67,6 +69,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
     notifications,
     loading: loadingNotifs,
     load: loadNotifications,
+    push: pushNotification,
     markRead,
     markAllRead,
     markReadMatching,
@@ -98,10 +101,25 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   useEffect(() => {
     if (!user) return;
     loadNotifications();
-    // Light polling so fresh notifications trickle in without a page reload.
-    const id = setInterval(loadNotifications, 45000);
-    return () => clearInterval(id);
-  }, [user, loadNotifications]);
+    // Realtime notifications arrive over the WebSocket when it is up. The REST
+    // poll is kept only as a fallback for when the socket is down.
+    const token = getAccessTokenFromCookie();
+    if (token) wsClient.connect(token);
+    const unsubNotif = wsClient.on("notification", (msg: { n?: Notification }) => {
+      if (msg.n?.id) pushNotification(msg.n);
+    });
+    const unsubRefresh = wsClient.on("notification_refresh", () => {
+      loadNotifications();
+    });
+    const id = setInterval(() => {
+      if (!wsClient.isConnected()) loadNotifications();
+    }, 45000);
+    return () => {
+      unsubNotif();
+      unsubRefresh();
+      clearInterval(id);
+    };
+  }, [user, loadNotifications, pushNotification]);
 
   // Auto-clear: reaching the place a notification points to marks it read,
   // even without clicking it. Messages are handled by the messages page itself.
