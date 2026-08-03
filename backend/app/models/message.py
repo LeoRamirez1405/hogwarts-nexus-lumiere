@@ -34,6 +34,8 @@ class Message(Base):
     edited_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+    e2e_encrypted = Column(Boolean, default=False, nullable=False)
+
     sender = relationship(
         "User",
         foreign_keys=[sender_id],
@@ -63,6 +65,10 @@ class Message(Base):
         remote_side="Message.id",
         foreign_keys=[reply_to_id],
         lazy="selectin",
+        # Bound the self-referential cascade: without this, selectin loading a
+        # message that replies to a chain eagerly walks every ancestor level,
+        # issuing queries proportional to the chain depth (2+ per level).
+        join_depth=2,
     )
     reactions = relationship(
         "MessageReaction",
