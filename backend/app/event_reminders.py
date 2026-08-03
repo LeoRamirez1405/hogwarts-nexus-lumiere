@@ -11,11 +11,11 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..database import async_session
-from ..models.event import Event, EventReminder, EventStatus, ReminderTime
-from ..models.user import User
-from ..notifications_service import notify, N
-from ..ws_manager import manager
+from .database import async_session
+from .models.event import Event, EventReminder, EventStatus, ReminderTime
+from .models.user import User
+from .notifications_service import notify, N
+from .ws_manager import manager
 
 
 # Mapping of reminder time to timedelta before event start

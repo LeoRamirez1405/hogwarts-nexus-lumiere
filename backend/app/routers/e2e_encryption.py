@@ -29,8 +29,10 @@ from ..services.e2e_encryption import (
     verify_safety_number,
     serialize_signal_message,
     deserialize_signal_message,
+    encrypt_at_rest,
+    decrypt_at_rest,
 )
-from ..core.security import get_current_user
+from ..middleware.auth import get_current_user
 from ..models.user import User
 
 
@@ -167,9 +169,9 @@ async def get_my_identity(
         identity = UserIdentityKey(
             user_id=current_user.id,
             identity_key_public=keypair.identity_key.public,
-            identity_key_private=keypair.identity_key.private,  # Should be encrypted at rest!
+            identity_key_private=encrypt_at_rest(keypair.identity_key.private),
             signing_key_public=keypair.signing_key.public,
-            signing_key_private=keypair.signing_key.private,  # Should be encrypted at rest!
+            signing_key_private=encrypt_at_rest(keypair.signing_key.private),
             registration_id=keypair.registration_id,
         )
         db.add(identity)
@@ -213,9 +215,9 @@ async def rotate_identity(
     identity = UserIdentityKey(
         user_id=current_user.id,
         identity_key_public=keypair.identity_key.public,
-        identity_key_private=keypair.identity_key.private,
+        identity_key_private=encrypt_at_rest(keypair.identity_key.private),
         signing_key_public=keypair.signing_key.public,
-        signing_key_private=keypair.signing_key.private,
+        signing_key_private=encrypt_at_rest(keypair.signing_key.private),
         registration_id=keypair.registration_id,
     )
     db.add(identity)
@@ -264,7 +266,7 @@ async def get_prekeys(
                 identity_id=identity.id,
                 prekey_id=pk.prekey_id,
                 public_key=pk.key_pair.public,
-                private_key=pk.key_pair.private,
+                private_key=encrypt_at_rest(pk.key_pair.private),
             )
             db.add(db_pk)
             unused.append(db_pk)
@@ -335,13 +337,14 @@ async def get_signed_prekey(
     if not spk:
         # Generate new
         from ..services.e2e_encryption import generate_signed_prekey
-        new_spk = generate_signed_prekey(identity.signing_key_private)
+        signing_key_private = decrypt_at_rest(identity.signing_key_private)
+        new_spk = generate_signed_prekey(signing_key_private)
 
         spk = UserSignedPreKey(
             identity_id=identity.id,
             prekey_id=new_spk.prekey_id,
             public_key=new_spk.key_pair.public,
-            private_key=new_spk.key_pair.private,
+            private_key=encrypt_at_rest(new_spk.key_pair.private),
             signature=new_spk.signature,
         )
         db.add(spk)
@@ -376,13 +379,14 @@ async def rotate_signed_prekey(
 
     # Generate new
     from ..services.e2e_encryption import generate_signed_prekey
-    new_spk = generate_signed_prekey(identity.signing_key_private)
+    signing_key_private = decrypt_at_rest(identity.signing_key_private)
+    new_spk = generate_signed_prekey(signing_key_private)
 
     spk = UserSignedPreKey(
         identity_id=identity.id,
         prekey_id=new_spk.prekey_id,
         public_key=new_spk.key_pair.public,
-        private_key=new_spk.key_pair.private,
+        private_key=encrypt_at_rest(new_spk.key_pair.private),
         signature=new_spk.signature,
     )
     db.add(spk)
@@ -427,11 +431,11 @@ async def initiate_session(
     our_identity = IdentityKeyPair(
         identity_key=KeyPair(
             public=our_identity_db.identity_key_public,
-            private=our_identity_db.identity_key_private,
+            private=decrypt_at_rest(our_identity_db.identity_key_private),
         ),
         signing_key=KeyPair(
             public=our_identity_db.signing_key_public,
-            private=our_identity_db.signing_key_private,
+            private=decrypt_at_rest(our_identity_db.signing_key_private),
         ),
         registration_id=our_identity_db.registration_id,
     )
@@ -472,13 +476,13 @@ async def initiate_session(
         session_version=session_state.session_version,
         local_identity_key_public=our_identity.identity_key.public,
         local_base_key_public=session_state.local_base_key.public,
-        local_base_key_private=session_state.local_base_key.private,
+        local_base_key_private=encrypt_at_rest(session_state.local_base_key.private),
         remote_identity_key=session_state.remote_identity_key,
         remote_base_key=session_state.remote_base_key,
         root_key=session_state.root_key,
         sender_chain_key=session_state.sender_chain_key,
         receiver_chain_key=session_state.receiver_chain_key,
-        sender_ratchet_key_private=session_state.sender_ratchet_key.private if session_state.sender_ratchet_key else None,
+        sender_ratchet_key_private=encrypt_at_rest(session_state.sender_ratchet_key.private) if session_state.sender_ratchet_key else None,
         sender_ratchet_key_public=session_state.sender_ratchet_key.public if session_state.sender_ratchet_key else None,
         receiver_ratchet_key_public=session_state.receiver_ratchet_key,
         established=True,
@@ -520,11 +524,11 @@ async def receive_session(
     our_identity = IdentityKeyPair(
         identity_key=KeyPair(
             public=our_identity_db.identity_key_public,
-            private=our_identity_db.identity_key_private,
+            private=decrypt_at_rest(our_identity_db.identity_key_private),
         ),
         signing_key=KeyPair(
             public=our_identity_db.signing_key_public,
-            private=our_identity_db.signing_key_private,
+            private=decrypt_at_rest(our_identity_db.signing_key_private),
         ),
         registration_id=our_identity_db.registration_id,
     )
@@ -541,7 +545,7 @@ async def receive_session(
         prekey_id=our_spk_db.prekey_id,
         key_pair=KeyPair(
             public=our_spk_db.public_key,
-            private=our_spk_db.private_key,
+            private=decrypt_at_rest(our_spk_db.private_key),
         ),
         signature=our_spk_db.signature,
         timestamp=int(our_spk_db.created_at.timestamp()),
@@ -560,7 +564,7 @@ async def receive_session(
                 prekey_id=our_prekey_db.prekey_id,
                 key_pair=KeyPair(
                     public=our_prekey_db.public_key,
-                    private=our_prekey_db.private_key,
+                    private=decrypt_at_rest(our_prekey_db.private_key),
                 ),
             )
             # Mark as used
@@ -584,7 +588,7 @@ async def receive_session(
         session_version=session_state.session_version,
         local_identity_key_public=our_identity.identity_key.public,
         local_base_key_public=session_state.local_base_key.public,
-        local_base_key_private=session_state.local_base_key.private,
+        local_base_key_private=encrypt_at_rest(session_state.local_base_key.private),
         remote_identity_key=session_state.remote_identity_key,
         remote_base_key=session_state.remote_base_key,
         root_key=session_state.root_key,
@@ -620,12 +624,12 @@ async def encrypt_message_endpoint(
         raise HTTPException(status_code=404, detail="No established session with recipient")
 
     # Reconstruct session state
-    from ..services.e2e_encryption import SessionState, KeyPair, encrypt_message
+    from ..services.e2e_encryption import SessionState, KeyPair, encrypt_message, decrypt_at_rest
 
     session_state = SessionState(
         session_version=session.session_version,
-        local_identity_key=KeyPair(public=session.local_identity_key_public, private=session.local_identity_key_private or b""),
-        local_base_key=KeyPair(public=session.local_base_key_public, private=session.local_base_key_private or b""),
+        local_identity_key=KeyPair(public=session.local_identity_key_public, private=b""),
+        local_base_key=KeyPair(public=session.local_base_key_public, private=decrypt_at_rest(session.local_base_key_private) if session.local_base_key_private else b""),
         remote_identity_key=session.remote_identity_key,
         remote_base_key=session.remote_base_key,
         root_key=session.root_key,
@@ -633,7 +637,7 @@ async def encrypt_message_endpoint(
         receiver_chain_key=session.receiver_chain_key,
         sender_ratchet_key=KeyPair(
             public=session.sender_ratchet_key_public or b"",
-            private=session.sender_ratchet_key_private or b""
+            private=decrypt_at_rest(session.sender_ratchet_key_private) if session.sender_ratchet_key_private else b""
         ) if session.sender_ratchet_key_public else None,
         receiver_ratchet_key=session.receiver_ratchet_key_public,
         sending_message_counter=session.sending_message_count,
@@ -650,7 +654,7 @@ async def encrypt_message_endpoint(
     session.root_key = session_state.root_key
     session.sender_chain_key = session_state.sender_chain_key
     session.receiver_chain_key = session_state.receiver_chain_key
-    session.sender_ratchet_key_private = session_state.sender_ratchet_key.private if session_state.sender_ratchet_key else None
+    session.sender_ratchet_key_private = encrypt_at_rest(session_state.sender_ratchet_key.private) if session_state.sender_ratchet_key else None
     session.sender_ratchet_key_public = session_state.sender_ratchet_key.public if session_state.sender_ratchet_key else None
     session.receiver_ratchet_key_public = session_state.receiver_ratchet_key
     session.sending_message_count = session_state.sending_message_counter
@@ -688,13 +692,14 @@ async def decrypt_message_endpoint(
         decrypt_message,
         deserialize_signal_message,
         ratchet_receive,
+        decrypt_at_rest,
     )
 
     # Reconstruct session state
     session_state = SessionState(
         session_version=session.session_version,
-        local_identity_key=KeyPair(public=session.local_identity_key_public, private=session.local_identity_key_private or b""),
-        local_base_key=KeyPair(public=session.local_base_key_public, private=session.local_base_key_private or b""),
+        local_identity_key=KeyPair(public=session.local_identity_key_public, private=b""),
+        local_base_key=KeyPair(public=session.local_base_key_public, private=decrypt_at_rest(session.local_base_key_private) if session.local_base_key_private else b""),
         remote_identity_key=session.remote_identity_key,
         remote_base_key=session.remote_base_key,
         root_key=session.root_key,
@@ -702,7 +707,7 @@ async def decrypt_message_endpoint(
         receiver_chain_key=session.receiver_chain_key,
         sender_ratchet_key=KeyPair(
             public=session.sender_ratchet_key_public or b"",
-            private=session.sender_ratchet_key_private or b""
+            private=decrypt_at_rest(session.sender_ratchet_key_private) if session.sender_ratchet_key_private else b""
         ) if session.sender_ratchet_key_public else None,
         receiver_ratchet_key=session.receiver_ratchet_key_public,
         sending_message_counter=session.sending_message_count,
@@ -725,7 +730,7 @@ async def decrypt_message_endpoint(
     session.root_key = session_state.root_key
     session.sender_chain_key = session_state.sender_chain_key
     session.receiver_chain_key = session_state.receiver_chain_key
-    session.sender_ratchet_key_private = session_state.sender_ratchet_key.private if session_state.sender_ratchet_key else None
+    session.sender_ratchet_key_private = encrypt_at_rest(session_state.sender_ratchet_key.private) if session_state.sender_ratchet_key else None
     session.sender_ratchet_key_public = session_state.sender_ratchet_key.public if session_state.sender_ratchet_key else None
     session.receiver_ratchet_key_public = session_state.receiver_ratchet_key
     session.sending_message_count = session_state.sending_message_counter

@@ -10,10 +10,10 @@ from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ...database import get_db
-from ...middleware.auth import get_current_user
-from ...models.chat_room import ChatRoom, ChatRoomMember
-from ...models.event import (
+from ..database import get_db
+from ..middleware.auth import get_current_user
+from ..models.chat_room import ChatRoom, ChatRoomMember
+from ..models.event import (
     Event,
     EventLocationType,
     EventReminder,
@@ -23,11 +23,11 @@ from ...models.event import (
     ReminderTime,
     RSVPStatus,
 )
-from ...models.user import User
-from ...models.voice_channel import VoiceChannel
-from ...notifications_service import notify, N
-from ...schemas.user import UserResponse
-from ...ws_manager import manager
+from ..models.user import User
+from ..models.voice_channel import VoiceChannel
+from ..notifications_service import notify, N
+from ..schemas.user import UserResponse
+from ..ws_manager import manager
 
 
 router = APIRouter(prefix="/events", tags=["events"])
