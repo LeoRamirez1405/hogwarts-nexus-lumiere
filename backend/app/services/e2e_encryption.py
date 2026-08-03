@@ -19,6 +19,40 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.exceptions import InvalidSignature, InvalidTag
 
+from ..config import settings
+
+
+# ============================================================
+# At-Rest Encryption Utilities
+# ============================================================
+
+def _get_encryption_key() -> bytes:
+    """Get the at-rest encryption key from settings."""
+    if not settings.ENCRYPTION_KEY:
+        raise ValueError("ENCRYPTION_KEY must be set in environment for at-rest encryption")
+    # Derive a 32-byte key from the hex string
+    return bytes.fromhex(settings.ENCRYPTION_KEY)
+
+
+def encrypt_at_rest(plaintext: bytes) -> str:
+    """Encrypt data at rest using AES-256-GCM. Returns base64-encoded ciphertext with nonce."""
+    key = _get_encryption_key()
+    nonce = os.urandom(NONCE_SIZE)
+    aesgcm = AESGCM(key)
+    ciphertext = aesgcm.encrypt(nonce, plaintext, None)
+    # Store as: nonce + ciphertext (base64 encoded)
+    return base64.b64encode(nonce + ciphertext).decode()
+
+
+def decrypt_at_rest(encrypted_b64: str) -> bytes:
+    """Decrypt data at rest. Expects base64-encoded nonce + ciphertext."""
+    key = _get_encryption_key()
+    data = base64.b64decode(encrypted_b64)
+    nonce = data[:NONCE_SIZE]
+    ciphertext = data[NONCE_SIZE:]
+    aesgcm = AESGCM(key)
+    return aesgcm.decrypt(nonce, ciphertext, None)
+
 
 # ============================================================
 # Constants

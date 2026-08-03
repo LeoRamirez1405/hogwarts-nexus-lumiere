@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     VAPID_PRIVATE_KEY: str = os.getenv("VAPID_PRIVATE_KEY", "")
     VAPID_SUBJECT: str = os.getenv("VAPID_SUBJECT", "mailto:admin@hogwarts-nexus.example")
 
+    # At-rest encryption key for sensitive data (private keys, etc.)
+    # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+    ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY", "")
+
     class Config:
         env_file = ".env"
         extra = "ignore"
