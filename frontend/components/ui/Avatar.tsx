@@ -16,7 +16,7 @@ interface AvatarProps extends HTMLAttributes<HTMLDivElement> {
 
 const sizeClasses: Record<Size, string> = {
   xs: "w-8 h-8",
-  sm: "w-10 h-10",
+  sm: "w-11 h-11",
   md: "w-12 h-12",
   lg: "w-16 h-16",
   xl: "w-32 h-32 md:w-40 md:h-40",

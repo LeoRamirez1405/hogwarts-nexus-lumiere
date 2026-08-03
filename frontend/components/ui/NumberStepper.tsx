@@ -22,12 +22,12 @@ const sizeClasses: Record<NonNullable<NumberStepperProps["size"]>, {
   gap: string;
 }> = {
   sm: {
-    button: "w-8 h-8",
+    button: "w-11 h-11",
     input: "text-body-md w-16",
     gap: "gap-2",
   },
   md: {
-    button: "w-10 h-10",
+    button: "w-11 h-11",
     input: "text-title-md w-24",
     gap: "gap-3",
   },

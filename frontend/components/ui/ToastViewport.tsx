@@ -2,6 +2,7 @@
 
 import { useToastStore } from "@/lib/toastStore";
 import { MaterialIcon } from "./MaterialIcon";
+import { useVisualViewport } from "@/hooks/useVisualViewport";
 
 const VARIANT_STYLES: Record<
   string,
@@ -27,14 +28,21 @@ const VARIANT_STYLES: Record<
 export function ToastViewport() {
   const toasts = useToastStore((s) => s.toasts);
   const dismiss = useToastStore((s) => s.dismiss);
+  const { isKeyboardOpen, keyboardHeight } = useVisualViewport();
 
   if (toasts.length === 0) return null;
+
+  const bottomOffset = isKeyboardOpen ? keyboardHeight + 20 : 20;
 
   return (
     <div
       role="status"
       aria-live="polite"
-      className="fixed top-20 md:top-6 right-4 left-4 md:left-auto z-[100] flex flex-col items-end gap-2 pointer-events-none"
+      className="fixed right-4 left-4 md:left-auto z-[100] flex flex-col items-end gap-2 pointer-events-none"
+      style={{
+        top: "auto",
+        bottom: bottomOffset,
+      }}
     >
       {toasts.map((t) => {
         const styles = VARIANT_STYLES[t.variant] ?? VARIANT_STYLES.info;

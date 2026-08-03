@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSwipeable } from "@/hooks/useGestures";
+import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { MaterialIcon } from "./MaterialIcon";
 
 interface BottomSheetProps {
@@ -25,6 +26,7 @@ export default function BottomSheet({
   const titleId = useId();
   const [visible, setVisible] = useState(false);
   const [animOut, setAnimOut] = useState(false);
+  const { keyboardHeight, isKeyboardOpen } = useVisualViewport();
 
   const swipeHandlers = useSwipeable({
     onSwipeDown: () => {
@@ -81,6 +83,8 @@ export default function BottomSheet({
   if (!visible && !open) return null;
   if (typeof window === "undefined") return null;
 
+  const translateY = isKeyboardOpen ? `-${keyboardHeight}px` : "0px";
+
   return createPortal(
     <div
       className={`fixed inset-0 z-[60] transition-opacity duration-200 ${
@@ -102,6 +106,11 @@ export default function BottomSheet({
         className={`absolute bottom-0 left-0 right-0 bg-surface-container-lowest rounded-t-2xl shadow-2xl max-h-[85dvh] flex flex-col outline-none transition-transform duration-200 ease-out ${
           open && !animOut ? "translate-y-0" : "translate-y-full"
         }`}
+        style={{
+          transform: open && !animOut
+            ? `translateY(${translateY})`
+            : "translateY(100%)",
+        }}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={swipeHandlers.onTouchStart}
         onTouchMove={swipeHandlers.onTouchMove}

@@ -104,9 +104,7 @@ export default function TabGroup({
             id={`tab-${tab.id}`}
             onClick={() => onChange(tab.id)}
             onKeyDown={(e) => handleKeyDown(e, idx)}
-            className={`inline-flex items-center gap-2 rounded-full px-6 py-2 text-body-md font-medium transition-all duration-200 focus:outline-none  ${
-              isActive ? activeStyles : inactiveStyles
-            }`}
+            className={`inline-flex items-center gap-2 rounded-full px-6 py-2 text-body-md font-medium transition-all duration-200 focus:outline-none min-h-[44px] ${isActive ? activeStyles : inactiveStyles}`}
           >
             {tab.icon && <MaterialIcon name={tab.icon} className="text-[1.1em]" />}
             {tab.label}

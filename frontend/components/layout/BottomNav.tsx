@@ -25,7 +25,7 @@ function BottomNavTab({ tab, isActive }: { tab: TabItem; isActive: boolean }) {
     <Link
       href={tab.href}
       ref={prefetchRef}
-      className={`flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${
+      className={`flex flex-col items-center justify-center gap-0.5 transition-all duration-200 touch-target min-h-[44px] min-w-[44px] ${
         isActive
           ? "text-primary bg-secondary-container/40 rounded-full px-4 py-1"
           : "text-outline hover:text-primary"

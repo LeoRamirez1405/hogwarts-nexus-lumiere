@@ -4,9 +4,14 @@ import { useState } from "react";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import BottomNav from "./BottomNav";
+import { useVisualViewport } from "@/hooks/useVisualViewport";
+import PWAInstallBanner from "@/components/ui/PWAInstallBanner";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { isKeyboardOpen, keyboardHeight } = useVisualViewport();
+
+  const keyboardPadding = isKeyboardOpen ? keyboardHeight : 0;
 
   return (
     <div className="min-h-screen bg-surface">
@@ -22,9 +27,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         />
       )}
 
+      {/* PWA Install Banner — appears below topbar when installable */}
+      <PWAInstallBanner />
+
       {/* Main content — top/bottom padding driven by the layout CSS vars so it
           always clears the top bar and (on mobile) the bottom nav. */}
-      <main id="main-content" className="lg:pl-72 min-h-screen pt-[var(--topbar-h)] pb-[var(--bottomnav-h)]">
+      <main
+        id="main-content"
+        className="lg:pl-72 min-h-screen pt-[var(--topbar-h)]"
+        style={{
+          paddingBottom: `calc(var(--bottomnav-h) + ${keyboardPadding}px)`,
+        }}
+      >
         <div className="max-w-[1280px] mx-auto px-4 md:px-10 py-6 md:py-8">
           {children}
         </div>

@@ -115,6 +115,8 @@
   :root {
     --topbar-h: 4rem; /* 64px, mobile */
     --bottomnav-h: calc(4rem + env(safe-area-inset-bottom, 0px)); /* mobile */
+    --touch-target-min: 44px;
+    --touch-target-min-coarse: 48px;
   }
   @media (min-width: 768px) {
     :root {
@@ -456,6 +458,30 @@ button:focus-visible,
     }
   }
 
+  @keyframes slide-down {
+    from {
+      transform: translateY(-1rem);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .animate-slide-down {
+    animation: slide-down 0.3s ease-out forwards;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out forwards;
+  }
+
   /* ===== LEVEL-UP CELEBRATION ===== */
   @keyframes lvlup-backdrop { from { opacity: 0 } to { opacity: 1 } }
 
@@ -493,5 +519,17 @@ button:focus-visible,
     0% { transform: rotate(0) scale(1) }
     50% { transform: rotate(10deg) scale(1.15) }
     100% { transform: rotate(0) scale(1) }
+  }
+
+  .touch-target {
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+  }
+
+  @media (pointer: coarse) {
+    .touch-target {
+      min-width: var(--touch-target-min-coarse);
+      min-height: var(--touch-target-min-coarse);
+    }
   }
 }

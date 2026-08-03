@@ -14,8 +14,8 @@ interface SearchBarProps {
 }
 
 const sizeClasses: Record<NonNullable<SearchBarProps["size"]>, string> = {
-  sm: "px-4 py-2",
-  md: "px-6 py-3",
+  sm: "px-4 py-3",
+  md: "px-6 py-3.5",
 };
 
 const variantClasses: Record<

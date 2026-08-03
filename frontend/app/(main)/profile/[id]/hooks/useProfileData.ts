@@ -44,6 +44,7 @@ export function useProfileData(profileId: string) {
     totalLoaded: postsTotal,
     totalCount: postsTotalCount,
     loadMore: loadMorePosts,
+    refresh: refreshPosts,
   } = usePaginatedList({
     fetcher: (p) => api.getProfileFeed(profileId, p),
     pageSize: 8,
@@ -294,6 +295,7 @@ export function useProfileData(profileId: string) {
     postsTotal,
     postsTotalCount,
     loadMorePosts,
+    refreshPosts,
     sentinelRef,
     friendAction,
     likePost,

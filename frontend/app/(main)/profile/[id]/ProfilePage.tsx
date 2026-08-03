@@ -15,6 +15,7 @@ import ProfileDetails from "./ProfileDetails";
 import { useProfileData } from "./hooks/useProfileData";
 import { PostComposer } from "./components/PostComposer";
 import { PostsFeed } from "./components/PostsFeed";
+import PullToRefresh from "@/components/ui/PullToRefresh";
 
 const SharePostModal = dynamic(() =>
   import("@/components/domain/Profile/SharePostModal").then((m) => m.SharePostModal),
@@ -62,6 +63,7 @@ export default function ProfilePage() {
     postsTotal,
     postsTotalCount,
     loadMorePosts,
+    refreshPosts,
     sentinelRef,
     friendAction,
     likePost,
@@ -91,83 +93,85 @@ export default function ProfilePage() {
   if (!profile) return null;
 
   return (
-    <div className="space-y-8 pb-16">
-      <ProfileHeader
-        profile={profile}
-        isOwn={isOwn}
-        onEdit={() => setShowEdit(true)}
-        onMessage={() => router.push(`/messages?user=${profile.id}`)}
-        onFriendAction={friendAction}
-      />
-
-      <div className="max-w-4xl mx-auto space-y-6">
-        <StatsCards
-          postsCount={postsTotal}
-          friendsCount={friends.length}
-          zerines={profile.zerines}
-          memberSince={formatDateShort(profile.created_at)}
+    <PullToRefresh onRefresh={refreshPosts}>
+      <div className="space-y-8 pb-16">
+        <ProfileHeader
+          profile={profile}
+          isOwn={isOwn}
+          onEdit={() => setShowEdit(true)}
+          onMessage={() => router.push(`/messages?user=${profile.id}`)}
+          onFriendAction={friendAction}
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column */}
-          <div className="space-y-6 lg:col-span-1">
-            <ProfileDetails profile={profile} isOwn={isOwn} onUpdate={refetchProfile} />
-            <FriendsGrid friends={friends} onShowAll={() => setShowAllFriends(true)} />
-          </div>
+        <div className="max-w-4xl mx-auto space-y-6">
+          <StatsCards
+            postsCount={postsTotal}
+            friendsCount={friends.length}
+            zerines={profile.zerines}
+            memberSince={formatDateShort(profile.created_at)}
+          />
 
-          {/* Right Column (Posts) */}
-          <div className="space-y-6 lg:col-span-2">
-            {/* Post Creation */}
-            {isOwn && (
-              <PostComposer profile={profile} onCreate={createPost} />
-            )}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Column */}
+            <div className="space-y-6 lg:col-span-1">
+              <ProfileDetails profile={profile} isOwn={isOwn} onUpdate={refetchProfile} />
+              <FriendsGrid friends={friends} onShowAll={() => setShowAllFriends(true)} />
+            </div>
 
-            {/* Posts Feed */}
-            <PostsFeed
-              posts={posts}
-              hasMore={postsHasMore}
-              loadingMore={postsLoadingMore}
-              total={postsTotal}
-              totalCount={postsTotalCount}
-              onLoadMore={loadMorePosts}
-              sentinelRef={sentinelRef}
-              onLike={likePost}
-              onRepost={repostPost}
-              onShare={setShareTarget}
-              onEdit={editPost}
-              onDelete={deletePost}
-              currentUser={authUser ?? undefined}
-            />
+            {/* Right Column (Posts) */}
+            <div className="space-y-6 lg:col-span-2">
+              {/* Post Creation */}
+              {isOwn && (
+                <PostComposer profile={profile} onCreate={createPost} />
+              )}
+
+              {/* Posts Feed */}
+              <PostsFeed
+                posts={posts}
+                hasMore={postsHasMore}
+                loadingMore={postsLoadingMore}
+                total={postsTotal}
+                totalCount={postsTotalCount}
+                onLoadMore={loadMorePosts}
+                sentinelRef={sentinelRef}
+                onLike={likePost}
+                onRepost={repostPost}
+                onShare={setShareTarget}
+                onEdit={editPost}
+                onDelete={deletePost}
+                currentUser={authUser ?? undefined}
+              />
+            </div>
           </div>
         </div>
+
+        {/* Share / Send Post Modal */}
+        {shareTarget && (
+          <SharePostModal post={shareTarget} onClose={() => setShareTarget(null)} />
+        )}
+
+        {/* All Friends Modal */}
+        {showAllFriends && (
+          <AllFriendsModal
+            userId={profileId}
+            initialFriends={friends}
+            isOpen={showAllFriends}
+            onClose={() => setShowAllFriends(false)}
+            onUnfriend={invalidateFriends}
+          />
+        )}
+
+        {/* Edit Profile Modal */}
+        {showEdit && profile && authUser && (
+          <EditProfileModal
+            profile={profile}
+            authUser={authUser}
+            isOpen={showEdit}
+            onClose={() => setShowEdit(false)}
+            onSave={saveProfile}
+          />
+        )}
       </div>
-
-      {/* Share / Send Post Modal */}
-      {shareTarget && (
-        <SharePostModal post={shareTarget} onClose={() => setShareTarget(null)} />
-      )}
-
-      {/* All Friends Modal */}
-      {showAllFriends && (
-        <AllFriendsModal
-          userId={profileId}
-          initialFriends={friends}
-          isOpen={showAllFriends}
-          onClose={() => setShowAllFriends(false)}
-          onUnfriend={invalidateFriends}
-        />
-      )}
-
-      {/* Edit Profile Modal */}
-      {showEdit && profile && authUser && (
-        <EditProfileModal
-          profile={profile}
-          authUser={authUser}
-          isOpen={showEdit}
-          onClose={() => setShowEdit(false)}
-          onSave={saveProfile}
-        />
-      )}
-    </div>
+    </PullToRefresh>
   );
 }

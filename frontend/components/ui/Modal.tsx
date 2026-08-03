@@ -3,6 +3,7 @@ import { useEffect, useCallback, useRef, useId } from "react";
 import { createPortal } from "react-dom";
 import { MaterialIcon } from "./MaterialIcon";
 import { useSwipeable } from "@/hooks/useGestures";
+import { useVisualViewport } from "@/hooks/useVisualViewport";
 
 interface ModalProps {
   open: boolean;
@@ -35,6 +36,7 @@ export default function Modal({
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const titleId = useId();
+  const { keyboardHeight, isKeyboardOpen } = useVisualViewport();
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -101,6 +103,10 @@ export default function Modal({
   if (!open) return null;
   if (typeof window === "undefined") return null;
 
+  const maxHeight = isKeyboardOpen
+    ? `calc(100dvh - 4rem - ${keyboardHeight}px)`
+    : "calc(100dvh - 4rem)";
+
   return createPortal(
     <div
       className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-md flex items-center justify-center p-4"
@@ -113,7 +119,8 @@ export default function Modal({
         aria-labelledby={title ? titleId : undefined}
         aria-label={!title ? ariaLabel : undefined}
         tabIndex={-1}
-        className={`w-full ${sizeClasses[size]} bg-surface-container-lowest rounded-2xl shadow-2xl max-h-[calc(100dvh-4rem)] overflow-y-auto outline-none`}
+        className={`w-full ${sizeClasses[size]} bg-surface-container-lowest rounded-2xl shadow-2xl overflow-y-auto outline-none`}
+        style={{ maxHeight }}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={swipeHandlers.onTouchStart}
         onTouchMove={swipeHandlers.onTouchMove}
@@ -134,7 +141,7 @@ export default function Modal({
             <button
               onClick={onClose}
               aria-label="Cerrar"
-              className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
+              className="w-11 h-11 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
             >
               <MaterialIcon name="close" className="text-[1.2em]" />
             </button>
