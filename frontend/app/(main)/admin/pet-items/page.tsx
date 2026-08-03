@@ -298,11 +298,7 @@ export default function AdminPetItemsPage() {
           saving={crud.saving || crud.creating}
           onSave={handleSave}
         >
-          <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto no-scrollbar">
-            <h2 className="font-display text-headline-lg text-on-surface">
-              {showCreate ? "Nuevo Objeto" : "Editar Objeto"}
-            </h2>
-            <div className="space-y-4">
+          <div className="space-y-4">
               <FormField label="Nombre" required>
                 <InputField
                   value={form.name}
@@ -317,18 +313,28 @@ export default function AdminPetItemsPage() {
                   onChange={(v: string) => setForm((p) => ({ ...p, description: v }))}
                 />
               </FormField>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Tipo de objeto" required>
-                  <ToggleButtonGroup
-                    value={form.kind}
-                    onChange={(v) => setForm((p) => ({ ...p, kind: v }))}
-                    options={[
-                      { value: "food", label: "Comida" },
-                      { value: "toy", label: "Juguete" },
-                    ]}
-                  />
-                </FormField>
-                <FormField label="Tipo de mascota" required>
+              <div className="flex flex-col gap-4 sm:grid sm:grid-cols-6">
+                <div className="flex gap-4 sm:contents">
+                  <FormField label="Tipo de objeto" required className="flex-1 sm:order-1 sm:col-span-3">
+                    <ToggleButtonGroup
+                      value={form.kind}
+                      onChange={(v) => setForm((p) => ({ ...p, kind: v }))}
+                      options={[
+                        { value: "food", label: "Comida" },
+                        { value: "toy", label: "Juguete" },
+                      ]}
+                    />
+                  </FormField>
+                  <FormField label="Lote (uds.)" required className="w-20 shrink-0 sm:order-5 sm:col-span-2 sm:w-auto sm:max-w-none">
+                    <InputField
+                      type="number"
+                      value={form.pack_size}
+                      onChange={(v: string) => setForm((p) => ({ ...p, pack_size: v }))}
+                      placeholder="1"
+                    />
+                  </FormField>
+                </div>
+                <FormField label="Tipo de mascota" required className="sm:order-2 sm:col-span-3">
                   <SelectField
                     value={form.pet_type}
                     onChange={(v: string) => setForm((p) => ({ ...p, pet_type: v as PetType }))}
@@ -340,32 +346,24 @@ export default function AdminPetItemsPage() {
                     placeholder="Seleccionar..."
                   />
                 </FormField>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <FormField label="Precio" required>
-                  <InputField
-                    type="number"
-                    value={form.price}
-                    onChange={(v: string) => setForm((p) => ({ ...p, price: v }))}
-                    placeholder="0"
-                  />
-                </FormField>
-                <FormField label="Restaura" required>
-                  <InputField
-                    type="number"
-                    value={form.restore_amount}
-                    onChange={(v: string) => setForm((p) => ({ ...p, restore_amount: v }))}
-                    placeholder="1-100"
-                  />
-                </FormField>
-                <FormField label="Lote (uds.)" required>
-                  <InputField
-                    type="number"
-                    value={form.pack_size}
-                    onChange={(v: string) => setForm((p) => ({ ...p, pack_size: v }))}
-                    placeholder="1"
-                  />
-                </FormField>
+                <div className="flex gap-4 sm:contents">
+                  <FormField label="Precio" required className="flex-1 sm:order-3 sm:col-span-2">
+                    <InputField
+                      type="number"
+                      value={form.price}
+                      onChange={(v: string) => setForm((p) => ({ ...p, price: v }))}
+                      placeholder="0"
+                    />
+                  </FormField>
+                  <FormField label="Restaura" required className="flex-1 sm:order-4 sm:col-span-2">
+                    <InputField
+                      type="number"
+                      value={form.restore_amount}
+                      onChange={(v: string) => setForm((p) => ({ ...p, restore_amount: v }))}
+                      placeholder="1-100"
+                    />
+                  </FormField>
+                </div>
               </div>
               <p className="text-label-sm text-on-surface-variant -mt-2">
                 &ldquo;Restaura&rdquo; es cuanto sube la estadistica por uso. &ldquo;Lote&rdquo; es cuantas unidades recibe el comprador por compra.
@@ -414,11 +412,6 @@ export default function AdminPetItemsPage() {
                 </div>
               </FormField>
             </div>
-            <div className="flex gap-3 pt-4">
-              <Button variant="secondary" onClick={() => { setShowCreate(false); crud.setEditItem(null); }} className="flex-1">Cancelar</Button>
-              <Button variant="primary" onClick={handleSave} disabled={crud.saving || crud.creating || !form.name} className="flex-1">{crud.saving || crud.creating ? "Guardando..." : "Guardar"}</Button>
-            </div>
-          </div>
         </AdminCrudModal>
       )}
     </div>

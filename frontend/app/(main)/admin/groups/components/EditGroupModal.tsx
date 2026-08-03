@@ -1,7 +1,6 @@
 "use client";
 
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
-import Button from "@/components/ui/Button";
 import Image from "next/image";
 import { AdminCrudModal, FormField, InputField, TextareaField } from "@/components/ui/AdminCrudModal";
 
@@ -88,12 +87,6 @@ export function EditGroupModal({
             rows={3}
           />
         </FormField>
-        <div className="flex gap-4 pt-4 justify-end">
-          <Button variant="primary" onClick={onSave} disabled={saving}>
-            {saving ? "Guardando..." : "Guardar cambios"}
-          </Button>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-        </div>
       </div>
     </AdminCrudModal>
   );

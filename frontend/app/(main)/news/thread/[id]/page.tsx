@@ -67,8 +67,8 @@ export default function ThreadDetailPage() {
       try {
         const updated = await api.voteThread(thread.id, dir);
         setThread(updated);
-      } catch {
-        // ignore
+      } catch (error) {
+        console.error('Failed to vote on thread:', error);
       } finally {
         setBusy(false);
       }
@@ -86,8 +86,8 @@ export default function ThreadDetailPage() {
         await api.subscribeThread(thread.id);
       }
       setThread((t) => (t ? { ...t, subscribed: !t.subscribed } : t));
-    } catch {
-      // ignore
+    } catch (error) {
+      console.error('Failed to toggle thread subscription:', error);
     } finally {
       setBusy(false);
     }
@@ -103,8 +103,8 @@ export default function ThreadDetailPage() {
       setThread((t) =>
         t ? { ...t, comment_count: t.comment_count + 1, subscribed: true } : t
       );
-    } catch {
-      // ignore
+    } catch (error) {
+      console.error('Failed to post comment:', error);
     } finally {
       setPosting(false);
     }

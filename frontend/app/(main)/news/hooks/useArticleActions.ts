@@ -47,8 +47,8 @@ export function useArticleActions(options: UseArticleActionsOptions) {
       try {
         await api.createThread(data);
         onThreadCreated();
-      } catch {
-        // ignore
+      } catch (error) {
+        toastError("No se pudo crear el hilo", error);
       }
     },
     [authUser, onThreadCreated]

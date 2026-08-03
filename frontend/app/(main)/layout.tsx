@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/authStore";
 import { api } from "@/lib/api";
@@ -13,14 +13,13 @@ export default function AuthProvider({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { user, setAuth, setLoading, isLoading } = useAuthStore();
+  const { user, setAuth, isLoading } = useAuthStore();
   const loadFlags = useFeatureFlagStore((s) => s.load);
+  const validatedRef = useRef(false);
 
   useEffect(() => {
-    if (user) {
-      setLoading(false);
-      return;
-    }
+    if (validatedRef.current) return;
+    validatedRef.current = true;
     let cancelled = false;
     api
       .getMe()
@@ -33,7 +32,7 @@ export default function AuthProvider({
     return () => {
       cancelled = true;
     };
-  }, [user, setAuth, setLoading, router]);
+  }, [router, setAuth]);
 
   useEffect(() => {
     if (user) {

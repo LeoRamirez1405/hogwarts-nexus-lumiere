@@ -332,8 +332,8 @@ export default function AdminProductsPage() {
                 />
               </FormField>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Tienda" required>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Tienda" required className="sm:col-span-2">
                 <ToggleButtonGroup
                   value={form.shop}
                   onChange={(v: string) => setForm((p) => ({ ...p, shop: v as "borgin" | "flourish", category: "" }))}
@@ -343,7 +343,7 @@ export default function AdminProductsPage() {
                   ]}
                 />
               </FormField>
-              <FormField label="Categoria" required>
+              <FormField label="Categoria" required className="sm:col-span-2">
                 <SelectField
                   value={form.category}
                   onChange={(v: string) => setForm((p) => ({ ...p, category: v }))}

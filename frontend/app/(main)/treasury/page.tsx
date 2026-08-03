@@ -6,7 +6,6 @@ import { useAuthStore } from "@/lib/authStore";
 import { useFeatureFlag } from "@/lib/featureFlagStore";
 import GlassCard from "@/components/ui/GlassCard";
 import TabGroup from "@/components/ui/TabGroup";
-import { MaterialIcon } from "@/components/ui";
 import { CrystalHero, DepositTab, WithdrawTab, TransferTab, HistoryTab } from "@/components/domain/Treasury";
 import { toastError } from "@/lib/toastStore";
 
@@ -118,19 +117,7 @@ export default function TreasuryPage() {
     <div className="space-y-8">
       <CrystalHero balance={displayBalance} loading={loading} />
 
-      {/* Sticky compact balance bar — visible while scrolling tabs */}
-      <div className="sticky top-2 z-30">
-        <div className="crystal-gradient rounded-full px-5 py-2 inline-flex items-center gap-2 text-on-primary shadow-lg backdrop-blur-md max-w-fit">
-          <MaterialIcon name="diamond" className="text-lg" filled />
-          <span className="font-mono font-bold text-body-md">
-            {loading ? "---" : displayBalance.toLocaleString()}
-          </span>
-          <span className="text-label-sm opacity-70 uppercase tracking-wider">
-            Zerines
-          </span>
-        </div>
-      </div>
-
+    
       <TabGroup tabs={tabs} activeTab={validActiveTab} onChange={setActiveTab} />
 
       <GlassCard>

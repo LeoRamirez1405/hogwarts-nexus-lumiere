@@ -75,6 +75,8 @@ export function CreateGroupModal({
       title="Crear Nuevo Grupo"
       size="md"
       saving={saving}
+      saveLabel={saving ? "Creando..." : "Crear grupo"}
+      saveDisabled={!form.name.trim() || form.member_ids.length < 2}
       onSave={() => onSave(form)}
     >
       <div className="space-y-4">
@@ -180,17 +182,6 @@ export function CreateGroupModal({
               {selectedMemberCount} seleccionado(s)
             </p>
           )}
-        </div>
-
-        <div className="flex gap-4 pt-4 justify-end">
-          <Button
-            variant="primary"
-            onClick={() => onSave(form)}
-            disabled={saving || !form.name.trim() || form.member_ids.length < 2}
-          >
-            {saving ? "Creando..." : "Crear grupo"}
-          </Button>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
         </div>
       </div>
     </AdminCrudModal>

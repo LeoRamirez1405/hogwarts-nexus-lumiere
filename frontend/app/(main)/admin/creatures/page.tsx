@@ -274,11 +274,7 @@ export default function AdminCreaturesPage() {
           saving={crud.saving || crud.creating}
           onSave={handleSave}
         >
-          <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto no-scrollbar">
-            <h2 className="font-display text-headline-lg text-on-surface">
-              {showCreate ? "Nueva Criatura" : "Editar Criatura"}
-            </h2>
-            <div className="space-y-4">
+          <div className="space-y-4">
               <FormField label="Nombre" required>
                 <InputField
                   value={form.name}
@@ -398,11 +394,6 @@ export default function AdminCreaturesPage() {
                 </div>
               </FormField>
             </div>
-            <div className="flex gap-3 pt-4">
-              <Button variant="secondary" onClick={() => { setShowCreate(false); crud.setEditItem(null); }} className="flex-1">Cancelar</Button>
-              <Button variant="primary" onClick={handleSave} disabled={crud.saving || crud.creating || !form.name} className="flex-1">{crud.saving || crud.creating ? "Guardando..." : "Guardar"}</Button>
-            </div>
-          </div>
         </AdminCrudModal>
       )}
     </div>

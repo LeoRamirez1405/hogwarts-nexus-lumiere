@@ -11,4 +11,5 @@ export const CATEGORY_LABELS: Record<string, { label: string; icon: string }> = 
   dashboard: { label: "Dashboard", icon: "dashboard" },
   treasury: { label: "Tesorería", icon: "diamond" },
   pets: { label: "Mascotas", icon: "pets" },
+  events: { label: "Eventos", icon: "event" },
 };
