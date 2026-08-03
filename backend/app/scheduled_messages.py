@@ -15,7 +15,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
 
 from .database import async_session
-from .models.message import Message
+from .models.message import Message, Poll
 from .routers.messages import serialize_message
 from .ws_manager import manager
 
@@ -41,7 +41,7 @@ async def deliver_due_scheduled_messages() -> int:
                     selectinload(Message.sender),
                     selectinload(Message.receiver),
                     selectinload(Message.reply_to).selectinload(Message.sender),
-                    selectinload(Message.poll).selectinload(Message.poll.options),
+                    selectinload(Message.poll).selectinload(Poll.options),
                     selectinload(Message.reactions),
                 )
             )
