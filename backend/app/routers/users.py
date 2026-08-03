@@ -302,10 +302,6 @@ async def get_user(
             detail="User not found",
         )
 
-    user.last_active_at = datetime.utcnow()
-    await db.commit()
-    await db.refresh(user)
-
     return await _enrich_user(db, user)
 
 
