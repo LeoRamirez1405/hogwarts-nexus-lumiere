@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, Integer, DateTime, Text, Boolean, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, String, Integer, DateTime, Text, Boolean, ForeignKey, UniqueConstraint, Index
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import relationship
 
 from ..database import Base
@@ -35,6 +36,14 @@ class Message(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     e2e_encrypted = Column(Boolean, default=False, nullable=False)
+
+    # PostgreSQL Full-Text Search vector (auto-maintained by trigger).
+    # On SQLite the TSVECTOR type can't compile, so we map it to a benign
+    # nullable TEXT column there. The column is created (always NULL on
+    # SQLite) so the ORM's default SELECT includes it without "no such
+    # column" errors; the search endpoints use a LIKE fallback on SQLite
+    # and only touch search_vector on PostgreSQL.
+    search_vector = Column(TSVECTOR().with_variant(Text(), "sqlite"), nullable=True)
 
     sender = relationship(
         "User",
