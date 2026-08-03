@@ -45,16 +45,21 @@ class ConnectionManager:
                 max_connections=settings.REDIS_MAX_CONNECTIONS,
                 decode_responses=True,
             )
-            # Create consumer group if it doesn't exist
+            await self._redis.ping()
             try:
                 await self._redis.xgroup_create(STREAM_KEY, CONSUMER_GROUP, id="0", mkstream=True)
             except redis.ResponseError as e:
                 if "BUSYGROUP" not in str(e):
                     raise
-            # Start consumer loop
             self._consumer_task = asyncio.create_task(self._consumer_loop())
+            print("[WS Manager] Redis Streams consumer started.")
         except Exception:
-            # No Redis → fall back to in-memory delivery.
+            print("[WS Manager] Redis unavailable — falling back to in-memory delivery.")
+            if self._redis is not None:
+                try:
+                    await self._redis.close()
+                except Exception:
+                    pass
             self._redis = None
             self._consumer_task = None
 
