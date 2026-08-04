@@ -98,7 +98,7 @@ async def get_dashboard(
     unread_result = await db.execute(
         select(func.count(Message.id)).where(
             Message.receiver_id == current_user.id,
-            Message.read == False,
+            not Message.read,
         )
     )
     unread_messages = unread_result.scalar() or 0
