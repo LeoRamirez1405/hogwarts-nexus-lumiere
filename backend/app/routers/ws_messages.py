@@ -36,6 +36,8 @@ async def _invalidate_user_conversations_cache(user_id: str) -> None:
             settings.REDIS_URL,
             max_connections=settings.REDIS_MAX_CONNECTIONS,
             decode_responses=True,
+            socket_timeout=None,
+            socket_connect_timeout=10,
         )
         await r.delete(f"conv:{user_id}")
         await r.close()

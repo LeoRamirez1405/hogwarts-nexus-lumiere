@@ -1,7 +1,7 @@
 import asyncio
 import json
 import uuid
-from typing import Dict, Set, Optional, List
+from typing import Dict, Set, Optional
 
 import redis.asyncio as redis
 from fastapi import WebSocket
@@ -44,6 +44,10 @@ class ConnectionManager:
                 settings.REDIS_URL,
                 max_connections=settings.REDIS_MAX_CONNECTIONS,
                 decode_responses=True,
+                # redis-py 8 defaults socket_timeout to 5s, which kills the
+                # blocking xreadgroup(block=5000) read before Redis answers.
+                socket_timeout=None,
+                socket_connect_timeout=10,
             )
             await self._redis.ping()
             try:
