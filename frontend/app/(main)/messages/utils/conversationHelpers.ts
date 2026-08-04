@@ -1,7 +1,45 @@
-import { Conversation, User } from "@/lib/api";
-import { SelectedConv, SelectedConvType } from "../types";
+"use client";
 
-export function selectConversation(
+import type { Conversation, User } from "@/lib/api";
+import type { SelectedConvType } from "../types";
+
+export function buildSelectedConv(
+  selectedId: string | null,
+  selectedType: SelectedConvType | null,
+  conversations: Conversation[],
+  allUsers: User[]
+): Conversation | null {
+  if (!selectedId || !selectedType) return null;
+
+  if (selectedType === "room") {
+    return conversations.find((c) => c.id === selectedId) ?? null;
+  }
+
+  const conv = conversations.find((c) => c.id === selectedId);
+  if (conv) return conv;
+
+  const user = allUsers.find((u) => u.id === selectedId);
+  if (user) {
+    return {
+      id: user.id,
+      name: user.name,
+      type: "direct" as const,
+      avatar_url: user.avatar_url,
+      is_pinned: false,
+      is_archived: false,
+      is_hidden: false,
+      unread_count: 0,
+    };
+  }
+
+  return null;
+}
+
+interface ApiClient {
+  getConversations: () => Promise<Conversation[]>;
+}
+
+export function selectConv(
   id: string,
   type: SelectedConvType,
   setSelectedId: (id: string | null) => void,
@@ -9,45 +47,12 @@ export function selectConversation(
   setTargetMessageId: (id: string | null) => void,
   conversations: Conversation[],
   setConversations: (convs: Conversation[]) => void,
-  getConversations: () => Promise<Conversation[]>
-) {
+  api: ApiClient
+): void {
   setTargetMessageId(null);
   setSelectedId(id);
   setSelectedType(type);
   if (!conversations.some((c) => c.id === id)) {
-    getConversations().then(setConversations).catch(() => {});
+    api.getConversations().then((convs: Conversation[]) => setConversations(convs)).catch(() => {});
   }
-}
-
-export function buildSelectedConv(
-  selectedId: string | null,
-  selectedType: SelectedConvType | null,
-  conversations: Conversation[],
-  allUsers: User[]
-): SelectedConv | null {
-  const selectedConversation = conversations.find((c) => c.id === selectedId);
-  if (selectedConversation) {
-    return {
-      id: selectedConversation.id,
-      name: selectedConversation.name,
-      avatar_url: selectedConversation.avatar_url,
-      type: selectedConversation.type,
-      last_active_at: selectedConversation.last_active_at,
-      online_count: selectedConversation.online_count,
-    };
-  }
-  if (selectedId && selectedType === "direct") {
-    const u = allUsers.find((x) => x.id === selectedId);
-    return {
-      id: selectedId,
-      name: u?.name ?? "",
-      avatar_url: u?.avatar_url,
-      type: "direct",
-      last_active_at: u?.last_active_at,
-    };
-  }
-  if (selectedId && selectedType) {
-    return { id: selectedId, name: "", type: selectedType };
-  }
-  return null;
 }

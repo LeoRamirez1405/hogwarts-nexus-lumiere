@@ -1,65 +1,119 @@
-import type { Message, MessageSendData, ChatRoomMemberResponse } from "@/lib/api";
+"use client";
 
-// --- WebSocket payloads ---------------------------------------------------
-export interface WSNewMessage {
-  c: string;
-  m: Message;
+export type { Message, Conversation, User, MessageSendData, ChatRoomMemberResponse, OutboxMessage } from "@/lib/api";
+
+export interface ConversationItemProps {
+  conversation: Conversation;
+  isActive: boolean;
+  onlineUsers: Map<string, boolean>;
+  onClick: () => void;
+  currentUserId?: string;
 }
 
-export interface WSTyping {
-  c: string;
-  u: string;
+export interface ChatPanelProps {
+  messages: Message[];
+  selectedConv: Conversation;
+  onSend: (data: MessageSendData) => Promise<void>;
+  onBack: () => void;
+  showBack: boolean;
+  roomMembers?: ChatRoomMemberResponse[];
+  onHideConversation: (convType: "dm" | "room", convId: string) => Promise<void>;
+  onLeaveRoom: (roomId: string) => Promise<void>;
+  onRefresh: () => Promise<void>;
+  hasMore: boolean;
+  loadingOlder: boolean;
+  onLoadOlder: () => Promise<void>;
+  firstUnreadId: string | null;
+  unreadCount: number;
+  pinnedMessages: Message[];
+  onTogglePin: (m: Message) => Promise<void>;
+  onEditMessage: (messageId: string, _convId: string, body: string) => Promise<void>;
+  onDeleteMessage: (messageId: string, _convId: string) => Promise<void>;
+  onForwardMessage: (message: Message) => void;
+  targetMessageId: string | null;
+  typingUsers: Map<string, string>;
+  onlineUsers: Map<string, boolean>;
+  onToggleStar: (message: Message) => Promise<void>;
+  onShowMediaGallery: () => void;
+  e2eEncrypted: boolean;
+  e2eVerified: boolean;
+  onE2EClick?: () => void;
+  isPinned: boolean;
+  isArchived: boolean;
+  onPinConversation: (convType: "dm" | "room", convId: string) => Promise<void>;
+  onUnpinConversation: (convType: "dm" | "room", convId: string) => Promise<void>;
+  onArchiveRoom: (roomId: string) => Promise<void>;
+  onUnarchiveRoom: (roomId: string) => Promise<void>;
+  onArchiveConversation: (convType: "dm" | "room", convId: string) => Promise<void>;
+  onUnarchiveConversation: (convType: "dm" | "room", convId: string) => Promise<void>;
+  onExportChat: (convType: "dm" | "room", convId: string, convName: string) => Promise<void>;
 }
 
-export interface WSPresence {
-  u: string;
-  s: "online" | "offline";
+export interface ThirdPaneProps {
+  selectedConv: Conversation;
+  messageCount: number;
 }
 
-export interface WSReadReceipt {
-  c: string;
-  m: string;
-  u: string;
-  ts: number;
+export interface NewChatModalProps {
+  allUsers: User[];
+  onSelectUser: (id: string) => void;
+  onSelectRoom: (id: string) => void;
+  onClose: () => void;
 }
 
-export interface WSReactionUpdate {
-  c: string;
-  m: string;
-  r: Message["reactions"];
+export interface ForwardModalProps {
+  message: Message;
+  onForward: (message: Message, targetId: string, targetType: "dm" | "room") => Promise<void>;
+  forwarding: boolean;
+  onClose: () => void;
 }
 
-export interface WSDelete {
-  c: string;
-  m: string;
+export interface StarredMessagesModalProps {
+  onSelectMessage: (msg: Message) => void;
+  onClose: () => void;
 }
 
-export interface WSEdit {
-  c: string;
-  m: Message;
+export interface MediaGalleryModalProps {
+  convId: string;
+  convType: "room" | "dm";
+  convName: string;
+  onClose: () => void;
 }
 
-// --- Chat primitives ------------------------------------------------------
-export type ConvType = "dm" | "room";
-export type SelectedConvType = "direct" | "room";
-export type MuteDuration = "8h" | "24h" | "forever" | "off";
-
-export const PAGE_SIZE = 30;
-
-export const byCreatedAsc = (a: Message, b: Message) =>
-  a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0;
-
-// --- ChatPanel props ------------------------------------------------------
-export interface SelectedConv {
-  id: string;
-  name: string;
-  avatar_url?: string;
-  type?: SelectedConvType;
-  created_by?: string;
-  last_active_at?: string;
-  online_count?: number;
-  subtitle?: string;
+export interface ArchivedConversationsModalProps {
+  onClose: () => void;
+  onSelectConversation: (conv: Conversation) => void;
 }
+
+export interface GlobalSearchPanelProps {
+  query: string;
+  onQueryChange: (q: string) => void;
+  results: Message[];
+  onSelectResult: (msg: Message) => void;
+}
+
+export interface SafetyNumberDialogProps {
+  open: boolean;
+  onClose: () => void;
+  remoteUserId: string;
+  remoteUserName: string;
+  safetyNumber: string | null;
+  verified: boolean;
+  loading: boolean;
+  onVerify: () => Promise<void>;
+}
+
+export interface MobileToolbarProps {
+  selectedConv: Conversation | null;
+  typingUsers: Map<string, string>;
+  onlineUsers: Map<string, boolean>;
+  onBack: () => void;
+}
+
+// Alias for backward compatibility
+export type SelectedConv = Conversation;
+export type ConvType = "direct" | "room";
+export type MuteDuration = "1h" | "8h" | "24h" | "7d" | "forever";
 
 export interface AttachmentPreview {
   url: string;
@@ -67,42 +121,10 @@ export interface AttachmentPreview {
   name: string;
 }
 
-export interface ChatPanelProps {
-  messages: Message[];
-  selectedConv: SelectedConv | null;
-  onSend: (data: MessageSendData) => void;
-  onBack: () => void;
-  showBack: boolean;
-  onRefresh?: () => void;
-  roomMembers?: ChatRoomMemberResponse[];
-  onHideConversation?: (convType: ConvType, convId: string) => void;
-  onLeaveRoom?: (roomId: string) => void;
-  hasMore?: boolean;
-  loadingOlder?: boolean;
-  onLoadOlder?: () => void;
-  firstUnreadId?: string | null;
-  unreadCount?: number;
-  pinnedMessages?: Message[];
-  onTogglePin?: (message: Message) => void;
-  onEditMessage?: (messageId: string, conversationId: string, body: string) => void;
-  onDeleteMessage?: (messageId: string, conversationId: string) => void;
-  onForwardMessage?: (message: Message, targetId: string, targetType: ConvType) => void;
-  targetMessageId?: string | null;
-  typingUsers?: Map<string, string>;
-  onlineUsers?: Map<string, boolean>;
-  isPinned?: boolean;
-  isArchived?: boolean;
-  onPinConversation?: (convType: ConvType, convId: string) => void;
-  onUnpinConversation?: (convType: ConvType, convId: string) => void;
-  onArchiveRoom?: (roomId: string) => void;
-  onUnarchiveRoom?: (roomId: string) => void;
-  onArchiveConversation?: (convType: ConvType, convId: string) => void;
-  onUnarchiveConversation?: (convType: ConvType, convId: string) => void;
-  onExportChat?: (convType: ConvType, convId: string, convName: string) => void;
-  onToggleStar?: (msg: Message) => void;
-  onShowMediaGallery?: () => void;
-  onShowEvents?: () => void;
-  e2eEncrypted?: boolean;
-  e2eVerified?: boolean;
-  onE2EClick?: () => void;
+export type SelectedConvType = "direct" | "room";
+
+export const PAGE_SIZE = 50;
+
+export function byCreatedAsc(a: Message, b: Message): number {
+  return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
 }
