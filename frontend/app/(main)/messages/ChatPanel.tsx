@@ -13,6 +13,9 @@ import ChatMessages from "./components/ChatMessages";
 import ChatInput from "./components/ChatInput";
 import ChatMenu from "./components/ChatMenu";
 import EventList from "./components/EventList";
+import VoiceChannelPanel from "./components/VoiceChannelPanel";
+import { EditRoomModal } from "./components/EditRoomModal";
+import { useVoiceChannel } from "./hooks/useVoiceChannel";
 import { useFeatureFlag } from "@/lib/featureFlagStore";
 import type { ChatPanelProps, ConvType, MuteDuration } from "./types";
 
@@ -65,6 +68,8 @@ export default function ChatPanel(props: ChatPanelProps) {
   const [inChatSearchResults, setInChatSearchResults] = useState<Message[]>([]);
   const [showInChatSearch, setShowInChatSearch] = useState(false);
   const [showEvents, setShowEvents] = useState(false);
+  const [showVoiceChannels, setShowVoiceChannels] = useState(false);
+  const [showEditRoom, setShowEditRoom] = useState(false);
   const eventsEnabled = useFeatureFlag("events.enabled");
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -102,9 +107,11 @@ export default function ChatPanel(props: ChatPanelProps) {
 
   const isRoom = selectedConv?.type === "room";
   const currentUserId = user?.id;
-  const isAdmin = isRoom && roomMembers?.some(
+  const isAdmin = (isRoom && roomMembers?.some(
     (m: ChatRoomMemberResponse) => m.user_id === currentUserId && m.role === "admin" && !m.pending
-  );
+  )) ?? false;
+
+  const voice = useVoiceChannel();
 
   const handleEdit = useCallback(
     (message: Message) => {
@@ -259,6 +266,30 @@ export default function ChatPanel(props: ChatPanelProps) {
     onExportChat?.(convType, selectedConv.id, selectedConv.name);
   };
 
+  const handleShowVoiceChannels = () => {
+    setShowVoiceChannels(true);
+    setShowMenu(false);
+  };
+
+  const handleShowEditRoom = () => {
+    setShowEditRoom(true);
+    setShowMenu(false);
+  };
+
+  const handleShowInvite = async () => {
+    setShowMenu(false);
+    try {
+      const invite = await api.createRoomInvite(selectedConv?.id || "", {});
+      const link = `${window.location.origin}/messages/invite/${invite.token}`;
+      await navigator.clipboard.writeText(link);
+      // Show a toast or alert
+      alert(`¡Enlace copiado!\n${link}`);
+    } catch (error) {
+      console.error('Failed to create invite link:', error);
+      alert("Error al crear el enlace");
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       <ChatHeader
@@ -292,9 +323,6 @@ export default function ChatPanel(props: ChatPanelProps) {
         <MembersPanel
           members={roomMembers}
           roomId={selectedConv.id}
-          roomName={selectedConv.name}
-          roomAvatar={selectedConv.avatar_url}
-          roomDescription={selectedConv.subtitle}
           currentUserId={currentUserId ?? ""}
           isAdmin={isAdmin ?? false}
           onClose={() => setShowMembers(false)}
@@ -322,6 +350,34 @@ export default function ChatPanel(props: ChatPanelProps) {
             />
           </div>
         </div>
+      )}
+
+      {showVoiceChannels && isRoom && selectedConv && (
+        <VoiceChannelPanel
+          roomId={selectedConv.id}
+          activeChannelId={voice.channelId}
+          isMuted={voice.isMuted}
+          isDeafened={voice.isDeafened}
+          isVideoEnabled={voice.isVideoEnabled}
+          onJoin={(channelId) => voice.joinChannel(channelId, selectedConv.id)}
+          onLeave={voice.leaveChannel}
+          onToggleMute={voice.toggleMute}
+          onToggleDeafen={voice.toggleDeafen}
+          onToggleVideo={voice.toggleVideo}
+          onClose={() => setShowVoiceChannels(false)}
+        />
+      )}
+
+      {showEditRoom && selectedConv && (
+        <EditRoomModal
+          roomId={selectedConv.id}
+          roomName={selectedConv.name}
+          roomAvatar={selectedConv.avatar_url}
+          roomDescription={selectedConv.subtitle}
+          isOpen={showEditRoom}
+          onClose={() => setShowEditRoom(false)}
+          onRefresh={onRefresh ?? (() => {})}
+        />
       )}
 
       <div className="relative flex-1 min-h-0">
@@ -431,8 +487,12 @@ export default function ChatPanel(props: ChatPanelProps) {
           setShowEvents(true);
           setShowMenu(false);
         }}
+        onShowVoiceChannels={handleShowVoiceChannels}
+        onShowEditRoom={handleShowEditRoom}
+        onShowInvite={handleShowInvite}
         isRoom={isRoom}
         eventsEnabled={eventsEnabled}
+        isAdmin={isAdmin}
       />
     </div>
   );

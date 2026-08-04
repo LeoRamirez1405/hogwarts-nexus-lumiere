@@ -16,6 +16,9 @@ interface ChatMenuProps {
   onClose: () => void;
   onShowMembers: () => void;
   onShowEvents: () => void;
+  onShowVoiceChannels: () => void;
+  onShowEditRoom: () => void;
+  onShowInvite: () => void;
   onHideConversation: () => void;
   onLeaveRoom: () => void;
   onPin: (convType: ConvType) => void;
@@ -23,9 +26,10 @@ interface ChatMenuProps {
   onArchive: () => void;
   onUnarchive: () => void;
   onExport: () => void;
-  onShowMediaGallery: () => void;
+  onShowMediaGallery?: () => void;
   isRoom: boolean;
   eventsEnabled: boolean;
+  isAdmin: boolean;
 }
 
 function MuteSubmenu({
@@ -95,6 +99,9 @@ export default function ChatMenu({
   onClose,
   onShowMembers,
   onShowEvents,
+  onShowVoiceChannels,
+  onShowEditRoom,
+  onShowInvite,
   onHideConversation,
   onLeaveRoom,
   onPin,
@@ -105,6 +112,7 @@ export default function ChatMenu({
   onShowMediaGallery,
   isRoom,
   eventsEnabled,
+  isAdmin,
 }: ChatMenuProps) {
   if (!show || !position || !selectedConv) return null;
 
@@ -131,6 +139,32 @@ export default function ChatMenu({
               <MaterialIcon name="event" className="text-xl" />
               Ver eventos
             </button>
+          )}
+          {isAdmin && (
+            <>
+              <button
+                onClick={onShowVoiceChannels}
+                className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+              >
+                <MaterialIcon name="voice_chat" className="text-xl" />
+                Canales de voz
+              </button>
+              <button
+                onClick={onShowEditRoom}
+                className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+              >
+                <MaterialIcon name="edit" className="text-xl" />
+                Editar grupo
+              </button>
+              <button
+                onClick={onShowInvite}
+                className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+              >
+                <MaterialIcon name="link" className="text-xl" />
+                Invitar por enlace
+              </button>
+              <div className="border-t border-outline-variant/20 my-1" />
+            </>
           )}
           <MuteSubmenu show={showMuteMenu} onToggle={onToggleMuteMenu} onMute={onMute} />
           <button

@@ -1,21 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui";
 import { MaterialIcon, getInitials, computeOnlineStatus, isOnline } from "../helpers";
-import type { ChatRoomMemberResponse, RoomInviteInfoResponse } from "@/lib/api";
+import type { ChatRoomMemberResponse } from "@/lib/api";
 import { messagesApi } from "@/lib/api/messages";
-import { EditRoomModal } from "./EditRoomModal";
-import VoiceChannelPanel from "./VoiceChannelPanel";
-import { useVoiceChannel } from "../hooks/useVoiceChannel";
 
 interface MembersPanelProps {
   members: ChatRoomMemberResponse[];
   roomId: string;
-  roomName: string;
-  roomAvatar?: string;
-  roomDescription?: string;
   currentUserId: string;
   isAdmin: boolean;
   onClose: () => void;
@@ -25,49 +18,11 @@ interface MembersPanelProps {
 export default function MembersPanel({
   members,
   roomId,
-  roomName,
-  roomAvatar,
-  roomDescription,
   currentUserId,
   isAdmin,
   onClose,
   onRefresh,
 }: MembersPanelProps) {
-  const [inviteModal, setInviteModal] = useState<{
-    show: boolean;
-    info?: RoomInviteInfoResponse;
-    error?: string;
-  }>({ show: false });
-  const [showEditRoom, setShowEditRoom] = useState(false);
-  const [showVoiceChannels, setShowVoiceChannels] = useState(false);
-
-  const handleCreateInvite = async () => {
-    try {
-      const invite = await messagesApi.createRoomInvite(roomId, {});
-      const link = `${window.location.origin}/messages/invite/${invite.token}`;
-      await navigator.clipboard.writeText(link);
-      setInviteModal({
-        show: true,
-        info: {
-          room_id: roomId,
-          room_name: "",
-          member_count: 0,
-          requires_approval: false,
-          expired: false,
-          revoked: false,
-          uses_exhausted: false,
-        },
-        error: `¡Enlace copiado!\n${link}`,
-      });
-    } catch (error) {
-      console.error('Failed to create invite link:', error);
-      setInviteModal({
-        show: true,
-        error: "Error al crear el enlace",
-      });
-    }
-  };
-
   const handleChangeRole = async (memberId: string, newRole: "admin" | "member") => {
     try {
       await messagesApi.changeMemberRole(roomId, memberId, newRole);
@@ -89,8 +44,6 @@ export default function MembersPanel({
   const pendingMembers = members.filter((m) => m.pending);
   const confirmedMembers = members.filter((m) => !m.pending);
 
-  const voice = useVoiceChannel();
-
   return (
     <>
       <div className="border-b border-outline-variant/20 bg-surface-container-low max-h-64 overflow-y-auto">
@@ -102,39 +55,12 @@ export default function MembersPanel({
             )}
             &middot; {confirmedMembers.filter((m) => isOnline(m.user?.last_active_at)).length} en linea
           </p>
-          <div className="flex items-center gap-2">
-            {isAdmin && (
-              <>
-                <button
-                  onClick={() => setShowVoiceChannels(!showVoiceChannels)}
-                  className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
-                  title="Voz"
-                >
-                  <MaterialIcon name="voice_chat" className="text-lg" />
-                </button>
-                <button
-                  onClick={() => setShowEditRoom(true)}
-                  className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
-                  title="Editar grupo"
-                >
-                  <MaterialIcon name="edit" className="text-lg" />
-                </button>
-                <button
-                  onClick={handleCreateInvite}
-                  className="w-10 h-10 inline-flex items-center justify-center rounded-full bg-primary-container text-on-primary-container hover:bg-primary-container/80 transition-colors"
-                  title="Invitar por enlace"
-                >
-                  <MaterialIcon name="link" className="text-lg" />
-                </button>
-              </>
-            )}
-            <button
-              onClick={onClose}
-              className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant"
-            >
-              <MaterialIcon name="close" className="text-lg" />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant"
+          >
+            <MaterialIcon name="close" className="text-lg" />
+          </button>
         </div>
         <div className="divide-y divide-outline-variant/10">
           {pendingMembers.length > 0 && (
@@ -243,66 +169,6 @@ export default function MembersPanel({
           })}
         </div>
       </div>
-
-{inviteModal.show && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
-          onClick={() => setInviteModal({ show: false })}
-        >
-          <div
-            className="bg-surface-container-highest rounded-xl p-6 w-full max-w-md mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <MaterialIcon name="link" className="text-xl text-primary" />
-              <h3 className="text-headline-sm text-on-surface">Invitar al grupo</h3>
-            </div>
-            {inviteModal.error ? (
-              <div className="bg-primary-container/20 border border-primary/30 rounded-lg p-4 text-body-md text-on-surface">
-                <pre className="whitespace-pre-wrap">{inviteModal.error}</pre>
-              </div>
-            ) : (
-              <p className="text-body-md text-on-surface-variant">
-                Comparte este enlace para que otros se unan al grupo.
-              </p>
-            )}
-            <button
-              onClick={() => setInviteModal({ show: false })}
-              className="mt-4 w-full py-2 px-4 rounded-lg bg-primary text-on-primary font-medium"
-            >
-              Entendido
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showVoiceChannels && (
-        <VoiceChannelPanel
-          roomId={roomId}
-          activeChannelId={voice.channelId}
-          isMuted={voice.isMuted}
-          isDeafened={voice.isDeafened}
-          isVideoEnabled={voice.isVideoEnabled}
-          onJoin={(channelId) => voice.joinChannel(channelId, roomId)}
-          onLeave={voice.leaveChannel}
-          onToggleMute={voice.toggleMute}
-          onToggleDeafen={voice.toggleDeafen}
-          onToggleVideo={voice.toggleVideo}
-          onClose={() => setShowVoiceChannels(false)}
-        />
-      )}
-
-      {showEditRoom && (
-        <EditRoomModal
-          roomId={roomId}
-          roomName={roomName}
-          roomAvatar={roomAvatar}
-          roomDescription={roomDescription}
-          isOpen={showEditRoom}
-          onClose={() => setShowEditRoom(false)}
-          onRefresh={onRefresh}
-        />
-      )}
     </>
   );
 }
