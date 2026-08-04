@@ -6,7 +6,7 @@ import Image from "next/image";
 import { api, Product, EnumValue } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
-import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary } from "@/components/ui";
+import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary, Skeleton, VirtualizedGrid } from "@/components/ui";
 import { BookCard, HeroCarousel, CartSidebar } from "@/components/domain/FlourishBlotts";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -16,6 +16,14 @@ import PullToRefresh from "@/components/ui/PullToRefresh";
 const SuccessModal = dynamic(() => import("@/components/domain/FlourishBlotts").then((m) => m.SuccessModal), { ssr: false });
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
+
+function getResponsiveColumns(): number {
+  if (typeof window === "undefined") return 3;
+  const width = window.innerWidth;
+  if (width >= 1280) return 3;
+  if (width >= 768) return 2;
+  return 1;
+}
 
 export default function FlourishBlottsPage() {
   const { user, setUser } = useAuthStore();
@@ -213,6 +221,65 @@ export default function FlourishBlottsPage() {
   const visibleBooks = filtered;
   const visiblePurchases = allPurchases;
 
+  const renderBookItem = (product: Product, index: number, style: React.CSSProperties) => (
+    <div style={style}>
+      <BookCard
+        key={product.id}
+        product={product}
+        onAddToCart={handleAddToCart}
+      />
+    </div>
+  );
+
+  const renderPurchasedBookItem = (
+    up: { id: string; product?: Product; quantity: number; purchased_at: string },
+    index: number,
+    style: React.CSSProperties
+  ) => (
+    <div style={style} className="glass-card rounded-3xl overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+      <div className="relative h-48 overflow-hidden">
+        {up.product?.image_url
+          ? <Image src={up.product.image_url} alt={up.product?.name ?? "Libro"} fill className="object-cover group-hover:scale-105 transition-transform duration-500" unoptimized={up.product.image_url.startsWith("http://localhost:8000/uploads/")} />
+          : <div className="w-full h-full bg-primary/5 flex items-center justify-center"><MaterialIcon name="menu_book" className="text-5xl text-primary/30" /></div>
+        }
+        <span className="absolute top-3 right-3 bg-success/90 text-on-success backdrop-blur-sm px-3 py-1 rounded-full text-label-sm font-bold flex items-center gap-1">
+          <MaterialIcon name="check" className="text-[1em]" filled />
+          Comprado
+        </span>
+      </div>
+      <div className="p-5">
+        {up.product?.category && (
+          <span className="text-label-sm text-primary font-medium uppercase tracking-wider">
+            {up.product.category}
+          </span>
+        )}
+        <h3 className="font-display text-title-md text-on-surface mt-1 mb-1 line-clamp-2">
+          {up.product?.name ?? "Libro sin nombre"}
+        </h3>
+        {up.product?.description && (
+          <p className="text-body-sm text-on-surface-variant line-clamp-2 mb-3">
+            {up.product.description}
+          </p>
+        )}
+        <div className="flex items-center justify-between text-label-sm text-on-surface-variant">
+          <span>
+            {up.quantity > 1 ? `x${up.quantity} ` : ""}
+            <span className="font-bold text-secondary">
+              <MaterialIcon name="diamond" className="text-[1em]" filled inline /> {((up.product?.price ?? 0) * up.quantity).toLocaleString()}
+            </span>
+          </span>
+          <span>
+            {new Date(up.purchased_at).toLocaleDateString("es-ES", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="min-h-content bg-surface -mx-4 md:-mx-10 -mt-6 md:-mt-8 px-4 md:px-10 py-8">
@@ -297,13 +364,7 @@ export default function FlourishBlottsPage() {
               {booksLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="glass-card rounded-3xl p-6 animate-pulse">
-                      <div className="h-64 bg-surface-container-high rounded-2xl mb-4" />
-                      <div className="h-4 bg-surface-container-high rounded w-1/3 mb-2" />
-                      <div className="h-6 bg-surface-container-high rounded w-2/3 mb-2" />
-                      <div className="h-4 bg-surface-container-high rounded w-full mb-4" />
-                      <div className="h-5 bg-surface-container-high rounded w-1/4" />
-                    </div>
+                    <Skeleton key={i} variant="product" />
                   ))}
                 </div>
               ) : filtered.length === 0 ? (
@@ -318,15 +379,22 @@ export default function FlourishBlottsPage() {
                 </div>
               ) : (
                 <>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {visibleBooks.map((product) => (
-                    <BookCard
-                      key={product.id}
-                      product={product}
-                      onAddToCart={handleAddToCart}
-                    />
-                  ))}
-                </div>
+                <VirtualizedGrid
+                  items={visibleBooks}
+                  itemWidth={360}
+                  itemHeight={420}
+                  columns={getResponsiveColumns()}
+                  gap={24}
+                  loadingMore={booksLoadingMore}
+                  loadMoreSentinel={
+                    <div className="flex items-center gap-2 text-on-surface-variant">
+                      <MaterialIcon name="sync" className="animate-spin text-primary" />
+                      <span>Cargando más...</span>
+                    </div>
+                  }
+                  sentinelRef={undefined}
+                  renderItem={renderBookItem}
+                />
                 <ListFooter
                   hasMore={booksHasMore}
                   loading={booksLoadingMore}
@@ -349,11 +417,7 @@ export default function FlourishBlottsPage() {
             {purchasesLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="glass-card rounded-3xl p-6 animate-pulse">
-                    <div className="h-48 bg-surface-container-high rounded-2xl mb-4" />
-                    <div className="h-4 bg-surface-container-high rounded w-2/3 mb-2" />
-                    <div className="h-3 bg-surface-container-high rounded w-1/2" />
-                  </div>
+                  <Skeleton key={i} variant="product" />
                 ))}
               </div>
             ) : allPurchases.length === 0 ? (
@@ -381,64 +445,22 @@ export default function FlourishBlottsPage() {
                 <p className="text-on-surface-variant text-body-sm mb-6">
                   {allPurchases.length} {allPurchases.length === 1 ? "libro comprado" : "libros comprados"}
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {visiblePurchases.map((up) => (
-                    <div
-                      key={up.id}
-                      className="glass-card rounded-3xl overflow-hidden group hover:-translate-y-1 transition-all duration-300"
-                    >
-                      <div className="relative h-48 overflow-hidden">
-                        {up.product?.image_url ? (
-                          <Image
-                            src={up.product.image_url}
-                            alt={up.product?.name ?? "Libro"}
-                            fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-500"
-                            unoptimized={up.product.image_url.startsWith("http://localhost:8000/uploads/")}
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-primary/5 flex items-center justify-center">
-                            <MaterialIcon name="menu_book" className="text-5xl text-primary/30" />
-                          </div>
-                        )}
-                        <span className="absolute top-3 right-3 bg-success/90 text-on-success backdrop-blur-sm px-3 py-1 rounded-full text-label-sm font-bold flex items-center gap-1">
-                          <MaterialIcon name="check" className="text-[1em]" filled />
-                          Comprado
-                        </span>
-                      </div>
-                      <div className="p-5">
-                        {up.product?.category && (
-                          <span className="text-label-sm text-primary font-medium uppercase tracking-wider">
-                            {up.product.category}
-                          </span>
-                        )}
-                        <h3 className="font-display text-title-md text-on-surface mt-1 mb-1 line-clamp-2">
-                          {up.product?.name ?? "Libro sin nombre"}
-                        </h3>
-                        {up.product?.description && (
-                          <p className="text-body-sm text-on-surface-variant line-clamp-2 mb-3">
-                            {up.product.description}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between text-label-sm text-on-surface-variant">
-                          <span>
-                            {up.quantity > 1 ? `x${up.quantity} ` : ""}
-                            <span className="font-bold text-secondary">
-                              <MaterialIcon name="diamond" className="text-[1em]" filled inline /> {((up.product?.price ?? 0) * up.quantity).toLocaleString()}
-                            </span>
-                          </span>
-                          <span>
-                            {new Date(up.purchased_at).toLocaleDateString("es-ES", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </div>
-                      </div>
+                <VirtualizedGrid
+                  items={visiblePurchases}
+                  itemWidth={360}
+                  itemHeight={420}
+                  columns={getResponsiveColumns()}
+                  gap={24}
+                  loadingMore={purchasesLoadingMore}
+                  loadMoreSentinel={
+                    <div className="flex items-center gap-2 text-on-surface-variant">
+                      <MaterialIcon name="sync" className="animate-spin text-primary" />
+                      <span>Cargando más...</span>
                     </div>
-                  ))}
-                </div>
+                  }
+                  sentinelRef={undefined}
+                  renderItem={renderPurchasedBookItem}
+                />
                 <ListFooter
                   hasMore={purchasesHasMore}
                   loading={purchasesLoadingMore}

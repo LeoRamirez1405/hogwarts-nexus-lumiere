@@ -6,7 +6,7 @@ import Image from "next/image";
 import { api, Product, EnumValue } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
-import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary } from "@/components/ui";
+import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary, Skeleton, VirtualizedGrid } from "@/components/ui";
 import { ArtifactCard, HeroCarousel, CartSidebar } from "@/components/domain/BorginBurkes";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -16,6 +16,14 @@ import PullToRefresh from "@/components/ui/PullToRefresh";
 const SuccessTicket = dynamic(() => import("@/components/domain/BorginBurkes").then((m) => m.SuccessTicket), { ssr: false });
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
+
+function getResponsiveColumns(): number {
+  if (typeof window === "undefined") return 3;
+  const width = window.innerWidth;
+  if (width >= 1280) return 3;
+  if (width >= 768) return 2;
+  return 1;
+}
 
 export default function BorginBurkesPage() {
   const { user, setUser } = useAuthStore();
@@ -213,6 +221,65 @@ export default function BorginBurkesPage() {
     setCurrentSlide(index + 1);
   };
 
+  const renderProductItem = (product: Product, index: number, style: React.CSSProperties) => (
+    <div style={style}>
+      <ArtifactCard
+        key={product.id}
+        product={product}
+        onAddToCart={handleAddToCart}
+      />
+    </div>
+  );
+
+  const renderPurchaseItem = (
+    up: { id: string; product?: Product; quantity: number; purchased_at: string },
+    index: number,
+    style: React.CSSProperties
+  ) => (
+    <div style={style} className="bg-[#2a2828] border border-secondary/20 rounded-3xl overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+      <div className="relative h-48 overflow-hidden">
+        {up.product?.image_url
+          ? <Image src={up.product.image_url} alt={up.product?.name ?? "Artefacto"} fill className="object-cover group-hover:scale-105 transition-transform duration-500" unoptimized={up.product.image_url.startsWith("http://localhost:8000/uploads/")} />
+          : <div className="w-full h-full bg-[#1c1b1b] flex items-center justify-center"><MaterialIcon name="inventory_2" className="text-5xl text-secondary/30" /></div>
+        }
+        <span className="absolute top-3 right-3 bg-green-600/90 text-white backdrop-blur-sm px-3 py-1 rounded-full text-label-sm font-bold flex items-center gap-1">
+          <MaterialIcon name="check" className="text-[1em]" filled />
+          Comprado
+        </span>
+      </div>
+      <div className="p-5">
+        {up.product?.category && (
+          <span className="text-label-sm text-secondary font-medium uppercase tracking-wider">
+            {up.product.category}
+          </span>
+        )}
+        <h3 className="font-display text-title-md text-surface mt-1 mb-1 line-clamp-2">
+          {up.product?.name ?? "Artefacto sin nombre"}
+        </h3>
+        {up.product?.description && (
+          <p className="text-body-sm text-surface-dim line-clamp-2 mb-3">
+            {up.product.description}
+          </p>
+        )}
+        <div className="flex items-center justify-between text-label-sm text-surface-dim">
+          <span>
+            {up.quantity > 1 ? `x${up.quantity} ` : ""}
+            <span className="font-bold text-secondary">
+              <MaterialIcon name="diamond" className="text-[1em]" filled inline /> {((up.product?.price ?? 0) * up.quantity).toLocaleString()}
+            </span>
+          </span>
+          <span>
+            {new Date(up.purchased_at).toLocaleDateString("es-ES", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="min-h-content bg-[#1c1b1b] -mx-4 md:-mx-10 -mt-6 md:-mt-8 px-4 md:px-10 py-8">
@@ -299,13 +366,7 @@ export default function BorginBurkesPage() {
               {productsLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="bg-[#2a2828] border border-secondary/20 rounded-3xl p-6 animate-pulse">
-                      <div className="h-64 bg-[#1c1b1b] rounded-2xl mb-4" />
-                      <div className="h-4 bg-[#1c1b1b] rounded w-1/3 mb-2" />
-                      <div className="h-6 bg-[#1c1b1b] rounded w-2/3 mb-2" />
-                      <div className="h-4 bg-[#1c1b1b] rounded w-full mb-4" />
-                      <div className="h-5 bg-[#1c1b1b] rounded w-1/4" />
-                    </div>
+                    <Skeleton key={i} variant="product" />
                   ))}
                 </div>
               ) : filteredProducts.length === 0 ? (
@@ -320,15 +381,22 @@ export default function BorginBurkesPage() {
                 </div>
               ) : (
                 <>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {visibleProducts.map((product) => (
-                    <ArtifactCard
-                      key={product.id}
-                      product={product}
-                      onAddToCart={handleAddToCart}
-                    />
-                  ))}
-                </div>
+                <VirtualizedGrid
+                  items={visibleProducts}
+                  itemWidth={360}
+                  itemHeight={420}
+                  columns={getResponsiveColumns()}
+                  gap={24}
+                  loadingMore={productsLoadingMore}
+                  loadMoreSentinel={
+                    <div className="flex items-center gap-2 text-surface-dim">
+                      <MaterialIcon name="sync" className="animate-spin text-secondary" />
+                      <span>Cargando más...</span>
+                    </div>
+                  }
+                  sentinelRef={undefined}
+                  renderItem={renderProductItem}
+                />
                 <ListFooter
                   hasMore={productsHasMore}
                   loading={productsLoadingMore}
@@ -350,11 +418,7 @@ export default function BorginBurkesPage() {
             {purchasesLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="bg-[#2a2828] border border-secondary/20 rounded-3xl p-6 animate-pulse">
-                    <div className="h-48 bg-[#1c1b1b] rounded-2xl mb-4" />
-                    <div className="h-4 bg-[#1c1b1b] rounded w-2/3 mb-2" />
-                    <div className="h-3 bg-[#1c1b1b] rounded w-1/2" />
-                  </div>
+                  <Skeleton key={i} variant="product" />
                 ))}
               </div>
             ) : allPurchases.length === 0 ? (
@@ -382,64 +446,22 @@ export default function BorginBurkesPage() {
                 <p className="text-surface-dim text-body-sm mb-6">
                   {allPurchases.length} {allPurchases.length === 1 ? "artículo comprado" : "artículos comprados"}
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {visiblePurchases.map((up) => (
-                    <div
-                      key={up.id}
-                      className="bg-[#2a2828] border border-secondary/20 rounded-3xl overflow-hidden group hover:-translate-y-1 transition-all duration-300"
-                    >
-                      <div className="relative h-48 overflow-hidden">
-                        {up.product?.image_url ? (
-                          <Image
-                            src={up.product.image_url}
-                            alt={up.product?.name ?? "Artefacto"}
-                            fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-500"
-                            unoptimized={up.product.image_url.startsWith("http://localhost:8000/uploads/")}
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-[#1c1b1b] flex items-center justify-center">
-                            <MaterialIcon name="inventory_2" className="text-5xl text-secondary/30" />
-                          </div>
-                        )}
-                        <span className="absolute top-3 right-3 bg-green-600/90 text-white backdrop-blur-sm px-3 py-1 rounded-full text-label-sm font-bold flex items-center gap-1">
-                          <MaterialIcon name="check" className="text-[1em]" filled />
-                          Comprado
-                        </span>
-                      </div>
-                      <div className="p-5">
-                        {up.product?.category && (
-                          <span className="text-label-sm text-secondary font-medium uppercase tracking-wider">
-                            {up.product.category}
-                          </span>
-                        )}
-                        <h3 className="font-display text-title-md text-surface mt-1 mb-1 line-clamp-2">
-                          {up.product?.name ?? "Artefacto sin nombre"}
-                        </h3>
-                        {up.product?.description && (
-                          <p className="text-body-sm text-surface-dim line-clamp-2 mb-3">
-                            {up.product.description}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between text-label-sm text-surface-dim">
-                          <span>
-                            {up.quantity > 1 ? `x${up.quantity} ` : ""}
-                            <span className="font-bold text-secondary">
-                              <MaterialIcon name="diamond" className="text-[1em]" filled inline /> {((up.product?.price ?? 0) * up.quantity).toLocaleString()}
-                            </span>
-                          </span>
-                          <span>
-                            {new Date(up.purchased_at).toLocaleDateString("es-ES", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </div>
-                      </div>
+                <VirtualizedGrid
+                  items={visiblePurchases}
+                  itemWidth={360}
+                  itemHeight={420}
+                  columns={getResponsiveColumns()}
+                  gap={24}
+                  loadingMore={purchasesLoadingMore}
+                  loadMoreSentinel={
+                    <div className="flex items-center gap-2 text-surface-dim">
+                      <MaterialIcon name="sync" className="animate-spin text-secondary" />
+                      <span>Cargando más...</span>
                     </div>
-                  ))}
-                </div>
+                  }
+                  sentinelRef={undefined}
+                  renderItem={renderPurchaseItem}
+                />
                 <ListFooter
                   hasMore={purchasesHasMore}
                   loading={purchasesLoadingMore}
