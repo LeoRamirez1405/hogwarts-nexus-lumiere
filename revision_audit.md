@@ -434,7 +434,7 @@ alembic upgrade head
 - [x] `alembic downgrade -1` revierte correctamente → solo queda `alembic_version`
 - [x] Datos de usuario **persisten** tras `upgrade head` (no se borra BD) → 5 usuarios intactos
 - [x] Cambio de modelo → `alembic revision --autogenerate` genera SQL correcto → probado y revertido
-- [ ] ~~Seed data via migración `data` Alembic~~ → **EXCLUIDO**: el seed con FeatureFlag (`seed_data()` + `seed_pet_supplies()` + `seed_feature_flags()`) es idempotente, no se ejecuta en boot normal gracias al flag `system.initial_seed_done`, y es más apropiado que `op.bulk_insert()` porque los timestamps son dinámicos y los datos son demo (no esquema).
+- [x] **Seed data via migración `data` Alembic** → migración `91bae5f43996_seed_initial_data` creada con todos los datos demo (users, products, creatures, articles, messages, posts, transactions, pet_items, feature_flags, enum_types). Startup seed removido de `main.py`.
 
 ---
 
@@ -880,7 +880,7 @@ export const useCartStore = create<CartState>()(
 
 | Iteración | Estado | Fecha inicio | Fecha fin | Verificación |
 |-----------|--------|--------------|-----------|--------------|
-| 0. **Alembic Migraciones (BLOQUEANTE)** | ✅ Completado | 2026-08-03 | 2026-08-03 | `alembic upgrade/downgrade + data persist` |
+| 0. **Alembic Migraciones (BLOQUEANTE)** | ✅ Completado | 2026-08-03 | 2026-08-04 | `alembic upgrade/downgrade + data persist` |
 | 1. Touch Targets | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + mobile test` |
 | 2. Pull-to-Refresh | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + 7 vistas` |
 | 3. Virtual Keyboard | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + 5 formularios` |
@@ -889,7 +889,7 @@ export const useCartStore = create<CartState>()(
 | 6. Formularios Mobile | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + 10 inputs` |
 | 7. Skeletons | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + 7 páginas` |
 | 8. Virtualización | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + 4 listas` |
-| 9. Focus/ARIA/Skip | ⏳ Pendiente | | | `lint + tsc + aXe + tab nav` |
+| 9. Focus/ARIA/Skip | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + aXe + tab nav` |
 | 10. Web Share + Offline | ⏳ Pendiente | | | `lint + tsc + share + offline` |
 | 11. Cart Persist + Admin | ⏳ Pendiente | | | `lint + tsc + refresh + delete` |
 | 12. i18n + Cleanup | ⏳ Pendiente | | | `lint + tsc + build` |
