@@ -5,6 +5,7 @@ import { Button } from "@/components/ui";
 import { PetCard } from "@/components/domain/Pets";
 import { MOOD_META } from "../types";
 import type { MyPetsTabProps } from "../types";
+import Skeleton from "@/components/ui/Skeleton";
 
 export const MyPetsTab = ({
   myCreatures,
@@ -31,19 +32,7 @@ export const MyPetsTab = ({
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {[1, 2].map((i) => (
-          <div key={i} className="bg-white border border-outline-variant/30 rounded-3xl p-6 animate-pulse">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-16 h-16 rounded-full bg-surface-container-high" />
-              <div className="space-y-2">
-                <div className="h-4 bg-surface-container-high rounded w-24" />
-                <div className="h-3 bg-surface-container-high rounded w-20" />
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div className="h-8 bg-surface-container-high rounded" />
-              <div className="h-8 bg-surface-container-high rounded" />
-            </div>
-          </div>
+          <Skeleton key={i} variant="card" />
         ))}
       </div>
     );

@@ -4,6 +4,7 @@ import { MaterialIcon } from "@/components/ui";
 import { Button } from "@/components/ui";
 import { MarketCreatureCard } from "@/components/domain/Pets";
 import type { MarketTabProps } from "../types";
+import Skeleton from "@/components/ui/Skeleton";
 
 export const MarketTab = ({
   market,
@@ -19,7 +20,7 @@ export const MarketTab = ({
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[1, 2, 3].map((i) => <div key={i} className="glass-card rounded-3xl p-6 animate-pulse h-64" />)}
+        {[1, 2, 3].map((i) => <Skeleton key={i} variant="card" />)}
       </div>
     );
   }
