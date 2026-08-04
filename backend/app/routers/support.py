@@ -1,9 +1,7 @@
 import httpx
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 
-from ..database import get_db
 from ..models.user import User
 from ..middleware.auth import get_current_user
 from ..config import settings

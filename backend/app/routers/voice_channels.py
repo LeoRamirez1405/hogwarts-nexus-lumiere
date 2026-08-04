@@ -12,18 +12,16 @@ import json
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status, WebSocket, WebSocketDisconnect
-from sqlalchemy import select, delete, update as sql_update, func
+from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..database import get_db, async_session
+from ..database import get_db
 from ..middleware.auth import get_current_user, get_current_user_ws
-from ..middleware.roles import require_role
 from ..models.user import User
-from ..models.chat_room import ChatRoom, ChatRoomMember
+from ..models.chat_room import ChatRoomMember
 from ..models.voice_channel import VoiceChannel, VoiceChannelParticipant
-from ..schemas.message import ChatRoomMemberResponse
 from ..schemas.voice_channel import (
     VoiceChannelCreate,
     VoiceChannelUpdate,

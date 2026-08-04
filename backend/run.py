@@ -1,5 +1,4 @@
 import os
-import signal
 import psutil
 import uvicorn
 

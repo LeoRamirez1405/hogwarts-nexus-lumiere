@@ -23,7 +23,6 @@ from ..schemas.user import (
     AdminCreateUser,
     AdminTitleUpdate,
     HousePointsAdjust,
-    MagicLevelInfo,
     HousePoints,
     AdminResetPassword,
 )

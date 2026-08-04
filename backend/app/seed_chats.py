@@ -1,14 +1,12 @@
 """Seed script for chat rooms, messages, and events."""
 
 from datetime import datetime, timedelta
-import uuid
 from sqlalchemy import select
 from .database import async_session
 from .models.user import User
 from .models.chat_room import ChatRoom, ChatRoomMember, UserConversationPreference
 from .models.message import Message
 from .models.event import Event, EventStatus, EventLocationType, RSVPStatus, EventRSVP
-from .models.voice_channel import VoiceChannel
 
 
 async def seed_chats_and_events():

@@ -5,7 +5,6 @@ from .models.user import User
 from .models.product import Product
 from .models.article import Article
 from .models.creature import Creature
-from .models.user_creature import UserCreature
 from .models.message import Message
 from .models.post import Post, PostLike
 from .models.transaction import Transaction
@@ -598,7 +597,6 @@ async def seed_pet_supplies():
     Runs independently of ``seed_data`` so that databases seeded before the
     pet-supply feature existed still get the catalog and correct pet types.
     """
-    from .models.pet_item import PetItem
 
     async with async_session() as db:
         # Backfill pet_type on creatures still on the default.

@@ -1,16 +1,14 @@
-from datetime import datetime
-from typing import Optional, Any, Dict, List
+from typing import Optional, Any, Dict
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_, desc, and_
+from sqlalchemy import select, func, desc, and_
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
-from ..models.audit_log import AuditLog, AuditAction
+from ..models.audit_log import AuditLog
 from ..models.user import User
 from ..schemas.audit_log import AuditLogResponse, AuditLogPage
-from ..middleware.auth import get_current_user
 from ..middleware.roles import require_role
 
 

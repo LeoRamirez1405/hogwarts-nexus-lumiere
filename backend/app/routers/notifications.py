@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func, and_, or_
-from sqlalchemy.orm import selectinload
 
 from ..database import get_db
 from ..models.article_subscription import Notification

@@ -15,14 +15,9 @@ from ..schemas.article import (
     NotificationResponse, ArticleCommentCreate, ArticleCommentResponse,
     NewsFullStateResponse,
 )
-from ..schemas.announcement import (
-    AnnouncementResponse,
-    ClassifiedResponse,
-)
 from ..schemas.user import UserResponse
 from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
-from ..middleware.roles import require_role
 from ..notifications_service import notify, notify_all_users, resolve_mentions, N
 
 router = APIRouter()

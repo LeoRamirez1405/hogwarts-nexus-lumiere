@@ -83,7 +83,6 @@ class NotificationResponse(BaseModel):
 
 
 from .announcement import AnnouncementResponse, ClassifiedResponse  # noqa: E402
-from ..schemas.pagination import Page  # noqa: E402
 
 
 class NewsFullStateResponse(BaseModel):

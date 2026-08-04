@@ -1,12 +1,11 @@
 """Creature interaction routes: adopt, feed, play, sell/unlist."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db
 from ...middleware.auth import get_current_user
 from ...models.user import User
-from ...models.user_creature import UserCreature
 from ...schemas.creature import (
     AdoptRequest,
     ListForSaleRequest,

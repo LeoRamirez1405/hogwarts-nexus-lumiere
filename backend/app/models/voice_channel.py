@@ -1,8 +1,7 @@
 import uuid
 from datetime import datetime
-from typing import Optional, List
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean, UniqueConstraint
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from ..database import Base

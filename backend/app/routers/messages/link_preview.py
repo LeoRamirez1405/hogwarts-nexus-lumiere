@@ -6,10 +6,9 @@ HTTPS/HTTP URLs to prevent SSRF.
 """
 
 import re
-from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db

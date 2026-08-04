@@ -6,8 +6,8 @@ Handles key distribution, session establishment, and safety number verification.
 import base64
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Body
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,13 +19,10 @@ from ..models.e2e_encryption import (
     Session,
     SafetyNumber,
 )
-from ..schemas.user import UserResponse
 from ..services.e2e_encryption import (
-    E2EEncryptionService,
     IdentityKeyPair,
     PreKeyRecord,
     SignedPreKeyRecord,
-    SignalMessage,
     compute_safety_number,
     verify_safety_number,
     serialize_signal_message,
@@ -450,10 +447,8 @@ async def initiate_session(
 ):
     """Initiate a new E2E session as sender (X3DH)."""
     from ..services.e2e_encryption import (
-        IdentityKeyPair,
         KeyPair,
         PreKeyRecord,
-        SignedPreKeyRecord,
         build_sender_session,
     )
 
@@ -546,9 +541,7 @@ async def receive_session(
 ):
     """Receive and process an initial session message (X3DH receiver)."""
     from ..services.e2e_encryption import (
-        IdentityKeyPair,
         KeyPair,
-        SignedPreKeyRecord,
         build_receiver_session,
     )
 

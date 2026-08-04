@@ -5,7 +5,6 @@ Runs every minute to check for upcoming events and send reminders.
 
 import asyncio
 from datetime import datetime, timedelta
-from typing import Optional
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
