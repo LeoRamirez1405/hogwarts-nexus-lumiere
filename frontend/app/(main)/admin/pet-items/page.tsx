@@ -383,7 +383,6 @@ export default function AdminPetItemsPage() {
                         ref={imageInputRef}
                         type="file"
                         accept="image/*"
-                        capture="environment"
                         className="absolute opacity-0 w-0 h-0 pointer-events-none"
                         onChange={handleImageUpload}
                         disabled={uploadingImage}

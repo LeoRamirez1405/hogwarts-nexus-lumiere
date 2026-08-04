@@ -48,7 +48,6 @@ export function EditGroupModal({
             ref={avatarRef}
             type="file"
             accept="image/*"
-            capture="environment"
             className="absolute opacity-0 w-0 h-0 pointer-events-none"
             onChange={onAvatarUpload}
           />

@@ -23,6 +23,7 @@ export function CreateGroupModal({
   loadMoreUsers,
   toggleMember,
   selectedMemberCount,
+  usersPage,
 }: {
   open: boolean;
   onClose: () => void;
@@ -57,6 +58,7 @@ export function CreateGroupModal({
   loadMoreUsers: () => void;
   toggleMember: (userId: string) => void;
   selectedMemberCount: number;
+  usersPage: { has_more: boolean } | null;
 }) {
   if (!open) return null;
 
@@ -85,7 +87,6 @@ export function CreateGroupModal({
             ref={avatarRef}
             type="file"
             accept="image/*"
-            capture="environment"
             className="absolute opacity-0 w-0 h-0 pointer-events-none"
             onChange={onAvatarUpload}
           />
@@ -170,7 +171,7 @@ export function CreateGroupModal({
               })
             )}
           </div>
-          {(availableUsers.length > 0) && (
+          {usersPage?.has_more && (
             <div className="pt-2 text-center">
               <Button variant="ghost" size="sm" onClick={loadMoreUsers} disabled={usersLoadingMore}>
                 {usersLoadingMore ? "Cargando..." : "Cargar más usuarios"}
