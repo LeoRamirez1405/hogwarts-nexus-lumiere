@@ -230,6 +230,7 @@ export function TransferTab({ balance, onDone, applyOptimisticBalance, onErrorRo
             setError(null);
           }}
           className="w-full px-6 py-3 rounded-full bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:border-primary transition-colors"
+          inputMode="text"
           autoComplete="off"
           enterKeyHint="done"
         />

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { MaterialIcon } from "@/components/ui";
-import { GlassCard, Button, SearchBar } from "@/components/ui";
+import { GlassCard, Button, SearchBar, Skeleton } from "@/components/ui";
 import { useArticlesList } from "@/hooks/useArticlesList";
 import { VirtualizedArticleGrid } from "@/components/domain/News";
 import PullToRefresh from "@/components/ui/PullToRefresh";
@@ -120,11 +120,7 @@ export default function NewsAllPage() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
-              <GlassCard key={i} className="p-6 animate-pulse">
-                <div className="h-40 bg-surface-container-high rounded-xl mb-4" />
-                <div className="h-4 bg-surface-container-high rounded w-3/4 mb-2" />
-                <div className="h-4 bg-surface-container-high rounded w-1/2" />
-              </GlassCard>
+              <Skeleton key={i} variant="article" />
             ))}
           </div>
         ) : articles.length === 0 ? (
