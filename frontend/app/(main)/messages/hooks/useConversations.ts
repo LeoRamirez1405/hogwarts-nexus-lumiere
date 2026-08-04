@@ -2,47 +2,52 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { api, Conversation, User } from "@/lib/api";
-import { useDebounce } from "@/hooks/useDebounce";
 
 export function useConversations(authUser: { id: string } | null) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [search, setSearch] = useState("");
-  const debouncedSearch = useDebounce(search, 300);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadConversations = useCallback(async () => {
     if (!authUser) return;
-    api.getConversations()
-      .then(setConversations)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-    api
-      .searchUsersServer("", { limit: 100 })
-      .then((users) => setAllUsers(users.items.filter((u) => u.id !== authUser.id)))
-      .catch(() => {});
+    try {
+      const convs = await api.getConversations();
+      setConversations(convs);
+    } catch (error) {
+      console.error("Failed to load conversations:", error);
+    }
   }, [authUser]);
 
-  const refreshConversations = useCallback(() => {
-    api.getConversations().then(setConversations).catch(() => {});
-  }, []);
+  const loadAllUsers = useCallback(async () => {
+    if (!authUser) return;
+    try {
+      const users = await api.searchUsersServer("", { limit: 100 });
+      setAllUsers(users.items.filter((u) => u.id !== authUser.id));
+    } catch {
+      // Silent fail
+    }
+  }, [authUser]);
 
-  const filtered = conversations.filter((c) => !c.is_hidden && !c.is_archived);
-  const searched = debouncedSearch
-    ? filtered.filter((c) =>
-        c.name.toLowerCase().includes(debouncedSearch.toLowerCase())
-      )
-    : filtered;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      await loadConversations();
+      await loadAllUsers();
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [loadConversations, loadAllUsers]);
+
+  const refreshConversations = useCallback(async () => {
+    await loadConversations();
+  }, [loadConversations]);
 
   return {
     conversations,
     setConversations,
     allUsers,
-    search,
-    setSearch,
-    debouncedSearch,
+    setAllUsers,
     loading,
-    filtered: searched,
     refreshConversations,
   };
 }

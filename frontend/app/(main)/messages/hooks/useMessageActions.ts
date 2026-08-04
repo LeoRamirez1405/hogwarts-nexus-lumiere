@@ -1,0 +1,271 @@
+"use client";
+
+import { useCallback, useRef } from "react";
+import { api, Message, MessageSendData } from "@/lib/api";
+import type { Conversation, SelectedConvType } from "../types";
+
+interface WsClient {
+  isConnected: () => boolean;
+  sendMessage: (conversationId: string, data: MessageSendData & { temp_id?: string }) => void;
+  markRead: (conversationId: string, messageId: string) => void;
+}
+
+interface E2EEncryption {
+  encryptMessage: (userId: string, body: string) => Promise<{ ciphertext: string; message: unknown } | null>;
+  loadSafetyNumber: (userId: string) => void;
+  verifySafetyNumber: (userId: string) => Promise<void>;
+  safetyNumberStates: Record<string, { safetyNumber: string | null; verified: boolean; loading: boolean }>;
+}
+
+interface UseMessageActionsOptions {
+  authUser: { id: string } | null;
+  selectedId: string | null;
+  selectedType: SelectedConvType | null;
+  messagesRef: React.MutableRefObject<Message[]>;
+  wsClient: WsClient;
+  e2e: E2EEncryption;
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>;
+  addToOutbox: (data: MessageSendData, conversationId: string, conversationType: string) => void;
+}
+
+export function useMessageActions({
+  authUser,
+  selectedId,
+  selectedType,
+  messagesRef,
+  wsClient,
+  e2e,
+  setMessages,
+  setConversations,
+  addToOutbox,
+}: UseMessageActionsOptions) {
+  const tempIdCounterRef = useRef(0);
+
+  const handleSend = useCallback(async (data: MessageSendData) => {
+    if (!selectedId || !selectedType) return;
+    const body = data.body || "";
+    const urlRegex = /(https?::\/\/[^\s]+)/g;
+    const urls = body.match(urlRegex);
+    const previewPromise = urls && urls.length > 0
+      ? api.getLinkPreview(urls[0]).catch(() => null)
+      : Promise.resolve(null);
+
+    tempIdCounterRef.current += 1;
+    const tempId = `temp-${tempIdCounterRef.current}-${Date.now()}`;
+    const replyTo = data.reply_to_id
+      ? messagesRef.current.find((m) => m.id === data.reply_to_id)
+      : undefined;
+    const optimistic: Message = {
+      id: tempId,
+      sender_id: authUser?.id || "",
+      receiver_id: data.receiver_id,
+      room_id: data.room_id,
+      reply_to_id: data.reply_to_id,
+      kind: data.kind || "text",
+      body: data.body,
+      attachment_url: data.attachment_url,
+      attachment_type: data.attachment_type,
+      attachment_name: data.attachment_name,
+      metadata: data.metadata,
+      disappear_at: data.disappear_at,
+      read: true,
+      e2e_encrypted: selectedType === "direct",
+      created_at: new Date().toISOString(),
+      reply_to: replyTo,
+      optimistic: true,
+      sending: true,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, last_message: optimistic } : c));
+
+    let messageData: MessageSendData & { temp_id?: string } = {
+      ...data,
+      temp_id: tempId,
+    };
+
+    if (selectedType === "direct" && data.body && data.kind === "text") {
+      const encrypted = await e2e.encryptMessage(selectedId, data.body);
+      if (encrypted) {
+        messageData = {
+          ...messageData,
+          body: encrypted.ciphertext,
+          metadata: { ...(data.metadata || {}), e2e_message: encrypted.message, e2e_encrypted: true },
+        };
+      }
+    }
+
+    try {
+      if (wsClient.isConnected()) {
+        wsClient.sendMessage(selectedId, messageData);
+      } else {
+        const msg = selectedType === "room"
+          ? await api.sendRoomMessage(selectedId, data)
+          : await api.sendMessage(data);
+        setMessages((prev) =>
+          prev
+            .filter((m) => m.id !== msg.id)
+            .map((m) => (m.id === tempId ? msg : m))
+        );
+        setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, last_message: msg } : c));
+        const preview = await previewPromise;
+        if (preview) {
+          const withPreview = { ...msg, metadata: { ...(msg.metadata || {}), link_preview: preview } };
+          setMessages((prev) => prev.map((m) => m.id === msg.id ? withPreview : m));
+          setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, last_message: withPreview } : c));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, sending: false, failed: true } : m));
+      addToOutbox(data, selectedId, selectedType);
+    }
+  }, [selectedId, selectedType, authUser, messagesRef, wsClient, e2e, setMessages, setConversations, addToOutbox]);
+
+  const handleTogglePin = useCallback(async (m: Message) => {
+    try {
+      const updated = await api.pinMessage(m.id);
+      setMessages((prev) => prev.map((x) => x.id === m.id ? { ...x, pinned: updated.pinned } : x));
+      // Pinned messages are refetched in ChatPanel
+    } catch (error) {
+      console.error("Failed to toggle pin:", error);
+    }
+  }, [setMessages]);
+
+  const handleEditMessage = useCallback(async (messageId: string, body: string) => {
+    try {
+      await api.editMessage(messageId, body);
+      setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, body, edited: true, edited_at: new Date().toISOString() } : m));
+    } catch (error) {
+      console.error("Failed to edit message:", error);
+    }
+  }, [setMessages]);
+
+  const handleDeleteMessage = useCallback(async (messageId: string) => {
+    try {
+      await api.deleteMessage(messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } catch (error) {
+      console.error("Failed to delete message:", error);
+    }
+  }, [setMessages]);
+
+  const handleForwardMessage = useCallback(async (message: Message, targetId: string, targetType: "dm" | "room") => {
+    try {
+      await api.forwardMessage(
+        message.id,
+        targetType === "dm" ? targetId : undefined,
+        targetType === "room" ? targetId : undefined
+      );
+    } catch (e) {
+      console.error("Failed to forward message:", e);
+      alert("Error al reenviar el mensaje");
+    }
+  }, []);
+
+  const handleToggleStar = useCallback(async (message: Message) => {
+    try {
+      await api.toggleStar(message.id);
+      setMessages((prev) => prev.map((m) => m.id === message.id ? { ...m, starred: !m.starred } : m));
+    } catch (error) {
+      console.error("Failed to toggle star:", error);
+    }
+  }, [setMessages]);
+
+  const handlePinConv = useCallback(async (convType: "dm" | "room", convId: string) => {
+    try {
+      await api.pinConversation(convType, convId);
+      setConversations((prev) => [...prev].map((c) => c.id === convId ? { ...c, is_pinned: true } : c).sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)));
+    } catch (error) {
+      console.error("Failed to pin conversation:", error);
+    }
+  }, [setConversations]);
+
+  const handleUnpinConv = useCallback(async (convType: "dm" | "room", convId: string) => {
+    try {
+      await api.unpinConversation(convType, convId);
+      setConversations((prev) => [...prev].map((c) => c.id === convId ? { ...c, is_pinned: false } : c).sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)));
+    } catch (error) {
+      console.error("Failed to unpin conversation:", error);
+    }
+  }, [setConversations]);
+
+  const handleExportChat = useCallback(async (convType: "dm" | "room", convId: string, convName: string) => {
+    const format = confirm("Exportar como JSON? (Cancelar = TXT)") ? "json" : "txt";
+    try {
+      const blob = convType === "room" ? await api.exportRoomChat(convId, format) : await api.exportDmChat(convId, format);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `chat-${convName}-${new Date().toISOString().slice(0, 10)}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Error al exportar el chat");
+    }
+  }, []);
+
+  const handleHideConv = useCallback(async (convType: "dm" | "room", convId: string) => {
+    try {
+      await api.hideConversation(convType, convId);
+      setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, is_archived: true, is_hidden: true } : c));
+    } catch (error) {
+      console.error("Failed to hide conversation:", error);
+    }
+  }, [setConversations]);
+
+  const handleUnhideConv = useCallback(async (convType: "dm" | "room", convId: string) => {
+    try {
+      await api.unhideConversation(convType, convId);
+      setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, is_archived: false, is_hidden: false } : c));
+    } catch (error) {
+      console.error("Failed to unhide conversation:", error);
+    }
+  }, [setConversations]);
+
+  const handleLeaveRoom = useCallback(async (roomId: string) => {
+    try {
+      await api.leaveRoom(roomId);
+      setConversations((prev) => prev.filter((c) => c.id !== roomId));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error al salir del grupo");
+    }
+  }, [setConversations]);
+
+  const handleArchiveRoom = useCallback(async (roomId: string) => {
+    try {
+      await api.archiveRoom(roomId);
+      setConversations((prev) => prev.map((c) => c.id === roomId ? { ...c, is_archived: true, is_hidden: true } : c));
+    } catch (error) {
+      console.error("Failed to archive room:", error);
+    }
+  }, [setConversations]);
+
+  const handleUnarchiveRoom = useCallback(async (roomId: string) => {
+    try {
+      await api.unarchiveRoom(roomId);
+      setConversations((prev) => prev.map((c) => c.id === roomId ? { ...c, is_archived: false, is_hidden: false } : c));
+    } catch (error) {
+      console.error("Failed to unarchive room:", error);
+    }
+  }, [setConversations]);
+
+  return {
+    handleSend,
+    handleTogglePin,
+    handleEditMessage,
+    handleDeleteMessage,
+    handleForwardMessage,
+    handleToggleStar,
+    handlePinConv,
+    handleUnpinConv,
+    handleExportChat,
+    handleHideConv,
+    handleUnhideConv,
+    handleLeaveRoom,
+    handleArchiveRoom,
+    handleUnarchiveRoom,
+  };
+}
