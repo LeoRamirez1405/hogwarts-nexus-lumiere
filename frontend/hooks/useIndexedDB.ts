@@ -14,7 +14,7 @@ interface CachedMessage extends Message {
   conversationType: "direct" | "room";
 }
 
-interface OutboxMessage {
+export interface OutboxMessage {
   id: string;
   data: MessageSendData;
   conversationId: string;
