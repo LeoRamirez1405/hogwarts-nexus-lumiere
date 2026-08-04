@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MaterialIcon } from "@/components/ui";
 import { usePrefetchOnTouch } from "@/hooks/usePrefetchOnTouch";
+import { useHapticSelection } from "@/hooks/useHapticFeedback";
 
 interface TabItem {
   icon: string;
@@ -19,12 +20,13 @@ const tabs: TabItem[] = [
   { icon: "person", label: "Perfil", href: "/profile" },
 ];
 
-function BottomNavTab({ tab, isActive }: { tab: TabItem; isActive: boolean }) {
+function BottomNavTab({ tab, isActive, onSelect }: { tab: TabItem; isActive: boolean; onSelect: () => void }) {
   const prefetchRef = usePrefetchOnTouch(tab.href);
   return (
     <Link
       href={tab.href}
       ref={prefetchRef}
+      onClick={onSelect}
       className={`flex flex-col items-center justify-center gap-0.5 transition-all duration-200 touch-target min-h-[44px] min-w-[44px] ${
         isActive
           ? "text-primary bg-secondary-container/40 rounded-full px-4 py-1"
@@ -49,15 +51,23 @@ function BottomNavTab({ tab, isActive }: { tab: TabItem; isActive: boolean }) {
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const hapticSelection = useHapticSelection();
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-xl border-t border-outline-variant/20 shadow-lg rounded-t-xl pb-safe">
       <div className="flex justify-around items-center h-16 px-2">
-        {tabs.map((tab) => {
-          const isActive =
-            pathname === tab.href || pathname.startsWith(tab.href + "/");
-          return <BottomNavTab key={tab.href} tab={tab} isActive={isActive} />;
-        })}
+{tabs.map((tab) => {
+            const isActive =
+              pathname === tab.href || pathname.startsWith(tab.href + "/");
+            return (
+              <BottomNavTab
+                key={tab.href}
+                tab={tab}
+                isActive={isActive}
+                onSelect={hapticSelection}
+              />
+            );
+          })}
       </div>
     </nav>
   );

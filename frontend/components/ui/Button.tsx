@@ -1,6 +1,7 @@
 "use client";
 import { ButtonHTMLAttributes, forwardRef } from "react";
 import { MaterialIcon } from "./MaterialIcon";
+import { haptic, type HapticPattern } from "@/lib/haptics";
 
 type Variant = "primary" | "secondary" | "ghost" | "outline" | "crystal" | "danger";
 type Size = "sm" | "md" | "lg";
@@ -11,6 +12,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: string;
   iconPosition?: "left" | "right";
   loading?: boolean;
+  hapticPattern?: HapticPattern;
 }
 
 const variantStyles: Record<Variant, string> = {
@@ -40,17 +42,26 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       className = "",
       disabled,
       children,
+      hapticPattern = "light",
+      onClick,
       ...props
     },
     ref
   ) => {
     const isDisabled = disabled || loading;
+    const handleClick = onClick
+      ? (e: React.MouseEvent<HTMLButtonElement>) => {
+          haptic(hapticPattern);
+          onClick(e);
+        }
+      : undefined;
     return (
       <button
         ref={ref}
         disabled={isDisabled}
         aria-busy={loading || undefined}
         className={`inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:pointer-events-none focus:outline-none ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+        onClick={handleClick}
         {...props}
       >
         {loading ? (

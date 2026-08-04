@@ -2,6 +2,7 @@
 import { KeyboardEvent, useCallback, useRef } from "react";
 import { MaterialIcon } from "./MaterialIcon";
 import { useSwipeable, useReducedMotion } from "@/hooks/useGestures";
+import { useHapticSelection } from "@/hooks/useHapticFeedback";
 
 type Variant = "light" | "dark";
 
@@ -27,6 +28,7 @@ export default function TabGroup({
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
   const prefersReducedMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
+  const hapticSelection = useHapticSelection();
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent, idx: number) => {
@@ -45,9 +47,10 @@ export default function TabGroup({
       }
       e.preventDefault();
       tabsRef.current[nextIdx]?.focus();
+      hapticSelection();
       onChange(tabs[nextIdx].id);
     },
-    [tabs, onChange]
+    [tabs, onChange, hapticSelection]
   );
 
   const handleSwipeLeft = useCallback(() => {
@@ -102,7 +105,7 @@ export default function TabGroup({
             aria-controls={`tabpanel-${tab.id}`}
             tabIndex={isActive ? 0 : -1}
             id={`tab-${tab.id}`}
-            onClick={() => onChange(tab.id)}
+            onClick={() => { hapticSelection(); onChange(tab.id); }}
             onKeyDown={(e) => handleKeyDown(e, idx)}
             className={`inline-flex items-center gap-2 rounded-full px-6 py-2 text-body-md font-medium transition-all duration-200 focus:outline-none min-h-[44px] ${isActive ? activeStyles : inactiveStyles}`}
           >

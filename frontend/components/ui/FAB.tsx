@@ -1,6 +1,7 @@
 "use client";
 import { MaterialIcon } from "./MaterialIcon";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
+import { useHapticLight } from "@/hooks/useHapticFeedback";
 
 interface FABProps {
   icon: string;
@@ -21,12 +22,18 @@ export default function FAB({
   position = "bottom-right",
 }: FABProps) {
   const { isKeyboardOpen } = useVisualViewport();
+  const hapticLight = useHapticLight();
 
   if (isKeyboardOpen) return null;
 
+  const handleClick = () => {
+    hapticLight();
+    onClick?.();
+  };
+
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick}
       aria-label={label ?? icon}
       className={`fixed z-50 w-16 h-16 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center transition-transform duration-200 hover:scale-110 active:scale-90 focus:outline-none ${positionClasses[position]} bottom-20 pb-safe`}
     >

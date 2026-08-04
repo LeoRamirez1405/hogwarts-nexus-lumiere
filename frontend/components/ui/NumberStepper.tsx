@@ -2,6 +2,7 @@
 
 import { useCallback, useRef } from "react";
 import { MaterialIcon } from "@/components/ui";
+import { useHapticSelection } from "@/hooks/useHapticFeedback";
 
 interface NumberStepperProps {
   value: number;
@@ -52,6 +53,7 @@ export function NumberStepper({
 }: NumberStepperProps) {
   const classes = sizeClasses[size];
   const inputRef = useRef<HTMLInputElement>(null);
+  const hapticSelection = useHapticSelection();
 
   const clamp = useCallback((v: number) => {
     return Math.max(min, Math.min(max, v));
@@ -60,8 +62,9 @@ export function NumberStepper({
   const handleStep = useCallback((direction: 1 | -1) => {
     if (disabled) return;
     const newValue = clamp(value + direction * step);
+    hapticSelection();
     onChange(newValue);
-  }, [disabled, clamp, value, step, onChange]);
+  }, [disabled, clamp, value, step, onChange, hapticSelection]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;

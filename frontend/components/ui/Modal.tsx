@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { MaterialIcon } from "./MaterialIcon";
 import { useSwipeable } from "@/hooks/useGestures";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
+import { useHapticLight } from "@/hooks/useHapticFeedback";
 
 interface ModalProps {
   open: boolean;
@@ -37,6 +38,7 @@ export default function Modal({
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const { keyboardHeight, isKeyboardOpen } = useVisualViewport();
+  const hapticLight = useHapticLight();
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -139,7 +141,7 @@ export default function Modal({
               {title}
             </h2>
             <button
-              onClick={onClose}
+              onClick={() => { hapticLight(); onClose(); }}
               aria-label="Cerrar"
               className="w-11 h-11 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
             >

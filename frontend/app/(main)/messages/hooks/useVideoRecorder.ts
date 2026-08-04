@@ -89,6 +89,11 @@ export function useVideoRecorder(): VideoRecorderState {
   const startRecording = useCallback(async () => {
     setError(null);
     try {
+      const status = await navigator.permissions.query({ name: "camera" as PermissionName });
+      if (status.state === "denied") {
+        setError("Permiso de cámara bloqueado. Ve a Ajustes del sitio (candado 🔒 en la barra de direcciones) → Permisos → Cámara → Permitir.");
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 1280 } },
         audio: true,
