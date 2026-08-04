@@ -532,4 +532,32 @@ button:focus-visible,
       min-height: var(--touch-target-min-coarse);
     }
   }
+
+  /* ===== SKELETON SHIMMER ANIMATION ===== */
+  @keyframes skeleton-shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--color-surface-container-high) 25%,
+      var(--color-surface-container-highest) 50%,
+      var(--color-surface-container-high) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton-shimmer {
+      animation: none;
+      background: var(--color-surface-container-high);
+    }
+  }
 }

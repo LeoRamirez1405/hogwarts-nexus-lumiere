@@ -886,9 +886,9 @@ export const useCartStore = create<CartState>()(
 | 3. Virtual Keyboard | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + 5 formularios` |
 | 4. PWA Install UX | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + install flow` |
 | 5. Haptic Sistémico | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + 50+ puntos` |
-| 6. Formularios Mobile | ⏳ Pendiente | | | `lint + tsc + 10 inputs` |
-| 7. Skeletons | ⏳ Pendiente | | | `lint + tsc + 7 páginas` |
-| 8. Virtualización | ⏳ Pendiente | | | `lint + tsc + 4 listas` |
+| 6. Formularios Mobile | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + 10 inputs` |
+| 7. Skeletons | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + 7 páginas` |
+| 8. Virtualización | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + 4 listas` |
 | 9. Focus/ARIA/Skip | ⏳ Pendiente | | | `lint + tsc + aXe + tab nav` |
 | 10. Web Share + Offline | ⏳ Pendiente | | | `lint + tsc + share + offline` |
 | 11. Cart Persist + Admin | ⏳ Pendiente | | | `lint + tsc + refresh + delete` |
@@ -918,8 +918,8 @@ cd frontend && npx tsc --noEmit
 - [x] Teclado virtual no oculta FAB/BottomNav/Modal/Botones en 100% formularios
 - [x] PWA install prompt visible + funcional
 - [x] Haptic feedback en ≥ 50 interacciones táctiles
-- [ ] `inputMode`/`autocomplete`/`enterKeyHint` en 100% inputs
-- [ ] Skeletons en 100% loading states (0 `animate-pulse` manual)
+- [x] `inputMode`/`autocomplete`/`enterKeyHint` en 100% inputs
+- [x] Skeletons en 100% loading states (0 `animate-pulse` manual)
 - [ ] Virtualización en 100% listas > 20 items
 - [ ] Focus-visible ring en 100% elementos interactivos + skip link + ARIA completo
 - [ ] Web Share API nativa + fallback clipboard
