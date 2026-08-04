@@ -14,7 +14,7 @@ from ....middleware.roles import require_role
 from ....models.chat_room import ChatRoom, ChatRoomMember
 from ....models.user import User
 from ....notifications_service import N, notify
-from ....schemas.message import ChatRoomMemberResponse, PendingMemberAction
+from ....schemas.message import ChatRoomMemberResponse, PendingMemberAction, RoleUpdateRequest
 from ...audit_logs import log_audit
 
 router = APIRouter()
@@ -230,7 +230,7 @@ async def remove_room_member(
 async def change_member_role(
     room_id: str,
     member_id: str,
-    data: PendingMemberAction,
+    data: RoleUpdateRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
     request: Request = None,
@@ -246,7 +246,7 @@ async def change_member_role(
         raise HTTPException(status_code=404, detail="Room not found")
     if not _room_admin_or_global_admin(current_user, room):
         raise HTTPException(status_code=403, detail="Only room admins can change roles")
-    if data.action not in ("admin", "member"):
+    if data.role not in ("admin", "member"):
         raise HTTPException(status_code=400, detail="role must be 'admin' or 'member'")
 
     member_result = await db.execute(
@@ -266,7 +266,7 @@ async def change_member_role(
         raise HTTPException(status_code=400, detail="Cannot change role of pending member")
 
     old_role = member.role
-    member.role = data.action
+    member.role = data.role
     await db.commit()
     await db.refresh(member)
 
@@ -276,7 +276,7 @@ async def change_member_role(
         action="change_role",
         entity_type="ChatRoomMember",
         entity_id=member.id,
-        details={"room_id": room_id, "room_name": room.name, "user_id": member_id, "old_role": old_role, "new_role": data.action},
+        details={"room_id": room_id, "room_name": room.name, "user_id": member_id, "old_role": old_role, "new_role": data.role},
         request=request,
     )
 
