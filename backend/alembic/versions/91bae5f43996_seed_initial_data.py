@@ -28,8 +28,8 @@ HARRY_ID = "00000000-0000-0000-0000-000000000005"
 
 # Password hash for "admin123" and "user123" (bcrypt)
 # Generated with: hash_password("admin123") and hash_password("user123")
-ADMIN_PWD_HASH = "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.PZvO.S"
-USER_PWD_HASH = "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.PZvO.S"
+ADMIN_PWD_HASH = "$2b$12$Gwq23dl4JYN1XMAt.ylwfOvH4P1unDbMi6WrMZ2snpO8w4c.cMeHy"
+USER_PWD_HASH = "$2b$12$OEAga83wnDfKEYUls7wS2uUv5AKQ9S7tn7q/yyXjqDbJWHHoe6P4i"
 
 # Base timestamps (relative to migration run time via SQL functions)
 # We'll use datetime.utcnow() equivalent for created_at
