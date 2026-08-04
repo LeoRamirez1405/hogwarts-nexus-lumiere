@@ -20,22 +20,16 @@ export function useServiceWorker() {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
   const [isSupported, setIsSupported] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const supported = "serviceWorker" in navigator;
-    // Use setTimeout to avoid lint warning about sync setState in effect
     setTimeout(() => setIsSupported(supported), 0);
 
     if (!supported) return;
 
-    // In production the SW is always registered. In development it is only
-    // registered when NEXT_PUBLIC_ENABLE_SW=true (for PWA install/push testing
-    // from a phone); otherwise we proactively unregister any SW left over from
-    // a previous prod build / earlier dev session, so it stops controlling
-    // this origin (a custom SW that caches /_next/* assets interferes with
-    // Next.js dev HMR/Fast Refresh and caused an endless reload loop).
     if (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_ENABLE_SW !== "true") {
       navigator.serviceWorker.getRegistrations().then((regs) => {
         regs.forEach((reg) => reg.unregister());
@@ -53,24 +47,23 @@ export function useServiceWorker() {
         // Check for updates periodically
         setInterval(() => {
           reg.update();
-        }, 60 * 60 * 1000); // Every hour
+        }, 60 * 60 * 1000);
+
+        // Listen for SW update
+        reg.addEventListener("updatefound", () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener("statechange", () => {
+            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+              setUpdateAvailable(true);
+            }
+          });
+        });
       })
       .catch((error) => {
         console.error("[SW] Registration failed:", error);
       });
 
-    // Listen for controller change (new SW activated). Guard against the
-    // classic PWA reload loop: the SW uses skipWaiting()+clients.claim(), which
-    // makes controllerchange fire on the very first (uncontrolled) load — and
-    // in dev, where sw.js is served fresh, it can fire on every load. An
-    // unguarded window.location.reload() here then ping-pongs forever:
-    // load -> claim -> controllerchange -> reload -> load -> ...
-    //
-    // A module-level flag only prevents duplicate reloads within a single page
-    // load (it resets on reload), so it can't stop the cross-reload loop. We
-    // use sessionStorage so the "already reloaded once" fact survives reloads:
-    // we refresh at most once per tab session to pick up the new SW's assets,
-    // then never again for the life of the tab.
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (reloadingForSW) return;
       reloadingForSW = true;
@@ -78,7 +71,7 @@ export function useServiceWorker() {
         if (sessionStorage.getItem("sw-reloaded") === "1") return;
         sessionStorage.setItem("sw-reloaded", "1");
       } catch (error) {
-        console.warn('sessionStorage unavailable (private mode?), skipping SW reload:', error);
+        console.warn("sessionStorage unavailable (private mode?), skipping SW reload:", error);
         return;
       }
       console.log("[SW] Controller changed, reloading...");
@@ -86,7 +79,13 @@ export function useServiceWorker() {
     });
   }, []);
 
-  return { registration, isSupported, isRegistered };
+  const applyUpdate = useCallback(async () => {
+    if (!registration || !registration.waiting) return;
+    registration.waiting.postMessage({ type: "SKIP_WAITING" });
+    setUpdateAvailable(false);
+  }, [registration]);
+
+  return { registration, isSupported, isRegistered, updateAvailable, applyUpdate };
 }
 
 export function usePushSubscription() {

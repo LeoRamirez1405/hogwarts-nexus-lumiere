@@ -7,6 +7,7 @@ import BottomNav from "./BottomNav";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { useBorginZone } from "@/hooks/useBorginZone";
 import PWAInstallBanner from "@/components/ui/PWAInstallBanner";
+import { SWUpdateNotifier } from "@/components/ui/SWUpdateNotifier";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -37,6 +38,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* PWA Install Banner — appears below topbar when installable */}
       <PWAInstallBanner />
+
+      {/* SW Update Notifier */}
+      <SWUpdateNotifier />
 
       {/* Main content — top/bottom padding driven by the layout CSS vars so it
           always clears the top bar and (on mobile) the bottom nav. */}

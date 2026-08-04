@@ -7,9 +7,10 @@
 // was happening after `await caches.open()`, by which time the page had
 // already consumed the response body) and stops intercepting Next.js RSC
 // fetches. v2 purged the v1 HTML cache; we still never cache HTML pages.
-const CACHE_NAME = 'nexus-lumiere-v3';
+const CACHE_NAME = 'nexus-lumiere-v4';
 const STATIC_ASSETS = [
   '/manifest.json',
+  '/offline.html',
 ];
 
 // Cache strategies
@@ -131,7 +132,10 @@ async function networkFirst(request) {
     }
     // Return offline page for navigation requests
     if (request.mode === 'navigate') {
-      return caches.match('/');
+      const offlineResponse = await caches.match('/offline.html');
+      if (offlineResponse) {
+        return offlineResponse;
+      }
     }
     throw error;
   }
@@ -237,11 +241,98 @@ self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-notifications') {
     event.waitUntil(syncNotifications());
   }
+  if (event.tag === 'sync-mutations') {
+    event.waitUntil(syncMutations());
+  }
 });
 
 async function syncNotifications() {
   // Could sync offline actions when connection restored
   console.log('Background sync: notifications');
+}
+
+async function syncMutations() {
+  try {
+    const db = await openDB();
+    const mutations = await getAllMutations(db);
+    console.log(`[SW] Syncing ${mutations.length} offline mutations`);
+    
+    for (const mutation of mutations) {
+      try {
+        await fetch(mutation.url, {
+          method: mutation.method,
+          headers: mutation.headers,
+          body: mutation.body,
+          credentials: 'include',
+        });
+        await deleteMutation(db, mutation.id);
+      } catch (error) {
+        console.error('[SW] Failed to sync mutation:', error);
+      }
+    }
+  } catch (error) {
+    console.error('[SW] Background sync error:', error);
+  }
+}
+
+// IndexedDB for offline mutation queue
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('nexus-offline', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('mutations')) {
+        db.createObjectStore('mutations', { keyPath: 'id', autoIncrement: true });
+      }
+    };
+  });
+}
+
+function getAllMutations(db) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('mutations', 'readonly');
+    const store = tx.objectStore('mutations');
+    const request = store.getAll();
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+function deleteMutation(db, id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('mutations', 'readwrite');
+    const store = tx.objectStore('mutations');
+    const request = store.delete(id);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+}
+
+// Helper to queue mutations from the client
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'QUEUE_MUTATION') {
+    queueMutation(event.data.payload);
+  }
+});
+
+async function queueMutation(payload) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('mutations', 'readwrite');
+      const store = tx.objectStore('mutations');
+      const request = store.add({
+        ...payload,
+        timestamp: Date.now(),
+      });
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    });
+  } catch (error) {
+    console.error('[SW] Failed to queue mutation:', error);
+  }
 }
 
 // Share Target API
