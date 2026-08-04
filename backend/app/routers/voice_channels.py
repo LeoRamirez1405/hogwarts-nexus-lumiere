@@ -52,21 +52,7 @@ async def _is_room_member(db: AsyncSession, room_id: str, user_id: str) -> bool:
 
 async def _serialize_participant(p: VoiceChannelParticipant) -> VoiceChannelParticipantResponse:
     user = p.user
-    user_data = None
-    if user:
-        user_data = UserResponse(
-            id=user.id,
-            name=user.name,
-            email=user.email,
-            username=user.username or "",
-            house=user.house,
-            avatar_url=user.avatar_url,
-            diamonds=user.diamonds or 0,
-            role=user.role or "user",
-            profile_type=user.profile_type or "standard",
-            last_active_at=user.last_active_at,
-            bio=user.bio,
-        )
+    user_data = UserResponse.model_validate(user) if user else None
     return VoiceChannelParticipantResponse(
         id=p.id,
         channel_id=p.channel_id,
@@ -154,6 +140,11 @@ async def create_voice_channel(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Only admins can start a voice channel",
+        )
     if not await _is_room_member(db, room_id, current_user.id):
         raise HTTPException(status_code=403, detail="Not a member of this room")
 
@@ -219,16 +210,8 @@ async def update_voice_channel(
     if not channel:
         raise HTTPException(status_code=404, detail="Voice channel not found")
 
-    # Must be room admin or channel creator
-    is_admin = current_user.role == "admin" or await db.scalar(
-        select(ChatRoomMember).where(
-            ChatRoomMember.room_id == channel.room_id,
-            ChatRoomMember.user_id == current_user.id,
-            ChatRoomMember.role == "admin",
-            ChatRoomMember.pending == False,
-        )
-    )
-    if not is_admin and channel.created_by != current_user.id:
+    # Must be a site admin or the channel creator
+    if current_user.role != "admin" and channel.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     for key, value in data.model_dump(exclude_unset=True).items():
@@ -261,17 +244,7 @@ async def delete_voice_channel(
         raise HTTPException(status_code=404, detail="Voice channel not found")
 
     if current_user.role != "admin" and channel.created_by != current_user.id:
-        # Also allow room admins
-        is_room_admin = await db.scalar(
-            select(ChatRoomMember).where(
-                ChatRoomMember.room_id == channel.room_id,
-                ChatRoomMember.user_id == current_user.id,
-                ChatRoomMember.role == "admin",
-                ChatRoomMember.pending == False,
-            )
-        )
-        if not is_room_admin:
-            raise HTTPException(status_code=403, detail="Not authorized")
+        raise HTTPException(status_code=403, detail="Not authorized")
 
     await db.delete(channel)
     await db.commit()
@@ -320,8 +293,7 @@ async def join_voice_channel(
     await db.refresh(participant, attribute_names=["user"])
 
     # Notify all participants asynchronously
-    full = await get_full_channel(db, channel_id)
-    asyncio.create_task(_broadcast_channel_state(full))
+    await _serialize_and_broadcast(db, channel_id)
     return await _serialize_participant(participant)
 
 
@@ -332,6 +304,16 @@ async def get_full_channel(db: AsyncSession, channel_id: str) -> VoiceChannel:
         .where(VoiceChannel.id == channel_id)
     )
     return result.scalar_one_or_none()
+
+
+async def _serialize_and_broadcast(db: AsyncSession, channel_id: str):
+    """Serialize the channel (while the DB session is still open) and schedule a
+    non-blocking broadcast of its state to every participant."""
+    full = await get_full_channel(db, channel_id)
+    if not full:
+        return
+    serialized = await _serialize_channel(full)
+    asyncio.create_task(_broadcast_channel_state(channel_id, serialized))
 
 
 @rest_router.post("/channels/{channel_id}/leave", status_code=204)
@@ -369,8 +351,7 @@ async def leave_voice_channel(
             await db.delete(channel)
             await db.commit()
     else:
-        full = await get_full_channel(db, channel_id)
-        asyncio.create_task(_broadcast_channel_state(full))
+        await _serialize_and_broadcast(db, channel_id)
 
 
 @rest_router.put(
@@ -399,8 +380,7 @@ async def update_participant_state(
     await db.refresh(participant, attribute_names=["user"])
 
     # Broadcast update
-    full = await get_full_channel(db, channel_id)
-    asyncio.create_task(_broadcast_channel_state(full))
+    await _serialize_and_broadcast(db, channel_id)
 
     return await _serialize_participant(participant)
 

@@ -235,7 +235,7 @@ async def change_member_role(
     current_user: User = Depends(require_role("admin")),
     request: Request = None,
 ):
-    """Change a member's role (admin <-> member). Admin-only within the room."""
+    """Change a member's role (admin <-> member). Site admins only."""
     room_result = await db.execute(
         select(ChatRoom)
         .where(ChatRoom.id == room_id)
@@ -294,7 +294,7 @@ async def approve_or_reject_pending_member(
     current_user: User = Depends(require_role("admin")),
     request: Request = None,
 ):
-    """Approve or reject a pending join request. Admin-only within the room."""
+    """Approve or reject a pending join request. Site admins only."""
     room_result = await db.execute(
         select(ChatRoom)
         .where(ChatRoom.id == room_id)
@@ -402,7 +402,7 @@ async def list_pending_members(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
-    """List all pending join requests for a room. Admin-only within the room."""
+    """List all pending join requests for a room. Site admins only."""
     room_result = await db.execute(
         select(ChatRoom)
         .where(ChatRoom.id == room_id)

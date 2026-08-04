@@ -52,6 +52,7 @@ async def lifespan(app: FastAPI):
                     description="Marca interna que evita re-ejecutar los seeds de datos en cada arranque.",
                     enabled=True,
                     category="system",
+                    hidden=True,
                 )
             )
             await db.commit()
