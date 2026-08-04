@@ -42,7 +42,7 @@ async def _is_room_member(db: AsyncSession, room_id: str, user_id: str) -> bool:
         select(ChatRoomMember).where(
             ChatRoomMember.room_id == room_id,
             ChatRoomMember.user_id == user_id,
-            ChatRoomMember.pending == False,
+            not ChatRoomMember.pending,
         )
     )
     return r.scalar_one_or_none() is not None

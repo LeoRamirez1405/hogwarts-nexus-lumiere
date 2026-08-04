@@ -150,7 +150,7 @@ async def notify_like(db: AsyncSession, post, actor: User) -> Optional[Notificat
                 Notification.user_id == post.author_id,
                 Notification.type == N.POST_LIKE,
                 Notification.related_id == post.id,
-                Notification.read == False,
+                not Notification.read,
             )
         )
     ).scalar_one_or_none()
