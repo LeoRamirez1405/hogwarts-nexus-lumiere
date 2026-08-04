@@ -15,6 +15,8 @@ type HapticPattern =
   | "warning"    // Warning pattern
   | "error";     // Error pattern
 
+export type { HapticPattern };
+
 const patterns: Record<HapticPattern, number[]> = {
   light: [10],
   medium: [20],
@@ -52,9 +54,10 @@ export function hapticError() { haptic("error"); }
  * Usage: onClick={withHaptic(handleClick, "light")}
  */
 export function withHaptic<T extends (...args: unknown[]) => unknown>(
-  handler: T,
+  handler: T | undefined,
   pattern: HapticPattern = "light"
-): T {
+): T | undefined {
+  if (!handler) return undefined;
   return ((...args: unknown[]) => {
     haptic(pattern);
     return handler(...args);
