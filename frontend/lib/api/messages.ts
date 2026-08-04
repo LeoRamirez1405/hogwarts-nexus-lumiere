@@ -173,7 +173,7 @@ export const messagesApi = {
   muteConversation: (
     convType: "dm" | "room",
     convId: string,
-    duration: "8h" | "24h" | "forever" | "off"
+    duration: "1h" | "8h" | "24h" | "7d" | "forever" | "off"
   ) =>
     request<{ ok: boolean; muted_until: string | null }>(
       `/messages/conversations/${convType}/${convId}/mute`,
