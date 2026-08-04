@@ -177,6 +177,7 @@ export default function AdminGroupsPage() {
           loadMoreUsers={loadMoreUsers}
           toggleMember={toggleMemberInCreateWrapper}
           selectedMemberCount={createForm.member_ids.length}
+          usersPage={usersPage}
         />
 
         {/* Edit Group Modal */}
@@ -206,6 +207,7 @@ export default function AdminGroupsPage() {
           onAddMembers={handleAddMembersModal}
           currentMembers={selectedMembers.map((id) => allUsersMap[id]).filter((m): m is NonNullable<typeof m> => Boolean(m))}
           onRemoveMember={(memberId) => setSelectedMembers((prev) => prev.filter((id) => id !== memberId))}
+          usersPage={usersPage}
         />
      </div>
     </PullToRefresh>

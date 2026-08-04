@@ -19,6 +19,7 @@ export function MembersModal({
   onAddMembers,
   currentMembers,
   onRemoveMember,
+  usersPage,
 }: {
   open: boolean;
   onClose: () => void;
@@ -33,6 +34,7 @@ export function MembersModal({
   onAddMembers: (roomId: string) => Promise<void>;
   currentMembers: User[];
   onRemoveMember: (memberId: string) => void;
+  usersPage: { has_more: boolean } | null;
 }) {
   if (!open) return null;
 
@@ -94,7 +96,7 @@ export function MembersModal({
               ))
             )}
           </div>
-          {(availableUsers.length > 0) && (
+          {usersPage?.has_more && (
             <div className="pt-2 text-center">
               <Button variant="ghost" size="sm" onClick={loadMoreUsers} disabled={usersLoadingMore}>
                 {usersLoadingMore ? "Cargando..." : "Cargar más usuarios"}
