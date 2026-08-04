@@ -371,6 +371,21 @@
   outline: none;
 }
 
+/* ===== QUITAR BORDE AZUL NATIVO EN INPUTS =====
+     Los navegadores dibujan un outline azul rectangular al hacer focus en
+     inputs, textareas y selects. Lo eliminamos globalmente; cada componente
+     ya define su propio estilo de focus (border-primary / ring-primary/20)
+     mediante las utilidades de Tailwind focus:border-primary y focus:ring. */
+input:focus,
+textarea:focus,
+select:focus,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  outline-offset: 0;
+}
+
 /* For elements where outline looks bad (rounded icon buttons),
    use a ring-style via box-shadow instead. */
 a:focus-visible,
