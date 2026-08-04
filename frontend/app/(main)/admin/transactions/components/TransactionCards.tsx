@@ -25,7 +25,7 @@ interface TransactionCardsProps {
 }
 
 export default function TransactionCards({ txs, listFooterProps }: TransactionCardsProps) {
-  const estimatedHeight = 176;
+  const estimatedHeight = 200;
 
   const renderTransactionItem = (tx: Transaction, index: number, style: React.CSSProperties) => {
     const { icon, color } = txIcon(tx.type);
