@@ -27,3 +27,4 @@ export { default as DropdownMenu } from "./DropdownMenu";
 export { default as ContextMenu } from "./ContextMenu";
 export { default as Popover } from "./Popover";
 export { NumberStepper } from "./NumberStepper";
+export { VirtualizedGrid, VirtualizedList } from "./VirtualizedGrid";

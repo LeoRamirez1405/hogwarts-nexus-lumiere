@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { useHapticLight } from "@/hooks/useHapticFeedback";
+import Skeleton from "./Skeleton";
 
 export interface ColumnDef<T> {
   key: string;
@@ -60,16 +61,7 @@ export function AdminCrudTable<T>({
     return (
       <div className="space-y-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="glass-card rounded-xl p-4 animate-pulse">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 rounded-full bg-outline-variant/30" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 bg-outline-variant/30 rounded w-1/3" />
-                <div className="h-3 bg-outline-variant/30 rounded w-1/4" />
-              </div>
-              <div className="h-5 bg-outline-variant/30 rounded w-16" />
-            </div>
-          </div>
+          <Skeleton key={i} variant="table-row" />
         ))}
       </div>
     );
