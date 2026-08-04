@@ -348,8 +348,8 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             <MaterialIcon name="person" className="text-lg" />
             Mi Perfil
           </Link>
-          <div className="border-t border-outline-variant/20 px-3 py-2">
-            <PWAInstallPrompt variant="button" />
+          <div className="border-t border-outline-variant/20">
+            <PWAInstallPrompt variant="row" />
           </div>
           <button
             onClick={handleLogout}

@@ -5,48 +5,89 @@ import { usePWAInstall } from "@/hooks/usePWA";
 import { MaterialIcon } from "@/components/ui";
 
 interface PWAInstallPromptProps {
-  variant?: "banner" | "button" | "inline";
+  variant?: "banner" | "button" | "inline" | "row";
   className?: string;
 }
 
 export default function PWAInstallPrompt({ variant = "banner", className = "" }: PWAInstallPromptProps) {
-  const { isInstallable, isInstalled, install } = usePWAInstall();
+  const { isInstallable, isInstalled, isStandalone, install } = usePWAInstall();
+  const [showHelp, setShowHelp] = useState(false);
   const isIOS = typeof window !== "undefined"
     ? /iPad|iPhone|iPod/.test(navigator.userAgent) && !("MSStream" in window)
+    : false;
+  const isAndroid = typeof window !== "undefined"
+    ? /Android/i.test(navigator.userAgent)
     : false;
 
   // Local state for banner dismissal (session only)
   const [dismissed, setDismissed] = useState(false);
 
-  // Only show if installable and not already installed. A button that does
-  // nothing (beforeinstallprompt never fired: HTTP, untrusted cert, no SW)
-  // is worse UX than no button at all.
-  if (variant === "button" && (!isInstallable || isInstalled)) {
+  // The install option is always offered (unless already installed/running
+  // standalone). When the native prompt never fired (untrusted cert, HTTP,
+  // iOS Safari, Chrome heuristics), the button shows manual instructions
+  // instead of doing nothing.
+  if (isInstalled || isStandalone) {
     return null;
   }
 
-  if (variant === "banner" && (!isInstallable || isInstalled || dismissed)) {
+  if (variant === "banner" && (!isInstallable && !isIOS || dismissed)) {
     return null;
   }
 
   const handleInstall = async () => {
-    await install();
-    // install() will set isInstalled to true via the hook
+    if (isInstallable) {
+      const ok = await install();
+      if (!ok) setShowHelp(true);
+    } else {
+      setShowHelp(true);
+    }
   };
 
   const handleDismiss = () => {
     setDismissed(true);
   };
 
+  const helpText = isIOS
+    ? "En iOS: toca Compartir → Añadir a pantalla de inicio"
+    : isAndroid
+      ? "En Android: menú ⋮ → Añadir a pantalla de inicio"
+      : "Usa el icono de instalar en la barra de direcciones del navegador";
+
+  if (variant === "row") {
+    return (
+      <div>
+        <button
+          onClick={handleInstall}
+          className="w-full flex items-center gap-3 px-4 py-3 text-body-md text-on-surface hover:bg-surface-container-high transition-colors text-left"
+        >
+          <MaterialIcon name="download" className="text-lg" />
+          Instalar App
+        </button>
+        {showHelp && (
+          <p className="px-4 pb-3 -mt-1 text-label-sm text-on-surface-variant">
+            {helpText}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   if (variant === "button") {
     return (
-      <button
-        onClick={handleInstall}
-        className={`w-full sm:w-auto inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors ${className}`}
-      >
-        <MaterialIcon name="download" className="text-lg" />
-        Instalar App
-      </button>
+      <div className="space-y-2">
+        <button
+          onClick={handleInstall}
+          className={`w-full sm:w-auto inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors ${className}`}
+        >
+          <MaterialIcon name="download" className="text-lg" />
+          Instalar App
+        </button>
+        {showHelp && (
+          <p className="text-label-sm text-on-surface-variant px-1">
+            {helpText}
+          </p>
+        )}
+      </div>
     );
   }
 
@@ -59,7 +100,7 @@ export default function PWAInstallPrompt({ variant = "banner", className = "" }:
             Instala Hogwarts Nexus
           </p>
           <p className="text-label-sm text-on-surface-variant">
-            Accede rápido desde tu pantalla de inicio
+            {showHelp ? helpText : "Accede rápido desde tu pantalla de inicio"}
           </p>
         </div>
         <button
@@ -102,11 +143,11 @@ export default function PWAInstallPrompt({ variant = "banner", className = "" }:
             </button>
           </div>
 
-          {isIOS && (
+          {showHelp && (
             <div className="mt-4 p-3 bg-surface-container-high rounded-xl border border-outline-variant/20">
               <p className="text-body-sm text-on-surface-variant flex items-center gap-2">
                 <MaterialIcon name="ios_share" className="text-lg" />
-                En iOS: toca <strong>Compartir</strong> → <strong>Añadir a pantalla de inicio</strong>
+                {helpText}
               </p>
             </div>
           )}

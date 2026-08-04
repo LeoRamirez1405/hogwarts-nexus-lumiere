@@ -5,9 +5,13 @@ import { usePWAInstall } from "@/hooks/usePWA";
 import { MaterialIcon } from "./MaterialIcon";
 
 export default function PWAInstallBanner() {
-  const { isInstallable, isInstalled, install } = usePWAInstall();
+  const { isInstallable, isInstalled, isStandalone, install } = usePWAInstall();
+  const [showHelp, setShowHelp] = useState(false);
   const isIOS = typeof window !== "undefined"
     ? /iPad|iPhone|iPod/.test(navigator.userAgent) && !("MSStream" in window)
+    : false;
+  const isAndroid = typeof window !== "undefined"
+    ? /Android/i.test(navigator.userAgent)
     : false;
 
   const [dismissed, setDismissed] = useState(() => {
@@ -17,13 +21,21 @@ export default function PWAInstallBanner() {
     return false;
   });
 
-  // Only show if installable and not already installed
-  if (!isInstallable || isInstalled || dismissed) {
+  // Banner solo si hay prompt nativo o es iOS (nunca dispara beforeinstallprompt).
+  if (!isInstallable && !isIOS) {
+    return null;
+  }
+  if (isInstalled || isStandalone || dismissed) {
     return null;
   }
 
   const handleInstall = async () => {
-    await install();
+    if (isInstallable) {
+      const ok = await install();
+      if (!ok) setShowHelp(true);
+    } else {
+      setShowHelp(true);
+    }
   };
 
   const handleDismiss = () => {
@@ -31,17 +43,26 @@ export default function PWAInstallBanner() {
     setDismissed(true);
   };
 
+  const helpText = isIOS
+    ? "En iOS: toca Compartir → Añadir a pantalla de inicio"
+    : isAndroid
+      ? "En Android: menú ⋮ → Añadir a pantalla de inicio"
+      : "Usa el icono de instalar en la barra de direcciones del navegador";
+
   return (
     <div
       className="fixed top-16 lg:top-20 left-4 right-4 md:left-auto md:right-4 md:w-[32rem] z-[100] animate-slide-down"
       role="dialog"
       aria-label="Instalar aplicación"
     >
-      <div className="rounded-2xl shadow-2xl border border-primary/20 overflow-hidden animate-fade-in" style={{
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-      }}>
+      <div
+        className="rounded-2xl shadow-2xl border border-primary/20 overflow-hidden animate-fade-in"
+        style={{
+          background: "rgba(255, 255, 255, 0.95)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+        }}
+      >
         <div className="p-4 sm:p-5">
           <div className="flex items-start gap-3">
             <div className="w-12 h-12 flex-shrink-0 inline-flex items-center justify-center rounded-xl bg-primary/10">
@@ -64,11 +85,11 @@ export default function PWAInstallBanner() {
             </button>
           </div>
 
-          {isIOS && (
+          {showHelp && (
             <div className="mt-4 p-3 bg-surface-container-high rounded-xl border border-outline-variant/20">
               <p className="text-body-sm text-on-surface-variant flex items-center gap-2">
                 <MaterialIcon name="ios_share" className="text-lg" />
-                En iOS: toca <strong>Compartir</strong> → <strong>Añadir a pantalla de inicio</strong>
+                {helpText}
               </p>
             </div>
           )}

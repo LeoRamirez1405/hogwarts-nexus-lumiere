@@ -221,13 +221,24 @@ export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [isSecureContext, setIsSecureContext] = useState(false);
 
   useEffect(() => {
-    // Check if already installed (standalone mode)
-    const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
-    if (isStandalone) {
-      setTimeout(() => setIsInstalled(true), 0);
-      return;
+    const checkEnv = () => {
+      const standalone =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        (navigator as { standalone?: boolean }).standalone === true;
+      setIsStandalone(standalone);
+      setIsSecureContext(Boolean(window.isSecureContext));
+      if (standalone) {
+        setIsInstalled(true);
+        return;
+      }
+    };
+    const t = setTimeout(checkEnv, 0);
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      return () => window.clearTimeout(t);
     }
 
     const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
@@ -246,6 +257,7 @@ export function usePWAInstall() {
     window.addEventListener("appinstalled", handleAppInstalled);
 
     return () => {
+      window.clearTimeout(t);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt as EventListener);
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
@@ -268,7 +280,7 @@ export function usePWAInstall() {
     }
   }, [deferredPrompt]);
 
-  return { isInstallable, isInstalled, install };
+  return { isInstallable, isInstalled, isStandalone, isSecureContext, install };
 }
 
 // Extend Window interface for BeforeInstallPromptEvent
