@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useEffect } from "react";
 import { MaterialIcon } from "../helpers";
 import type { VideoRecorderState } from "../hooks/useVideoRecorder";
 
@@ -24,9 +25,16 @@ export default function ChatVideoRecorder({
   onStopRecording,
   onCancelRecording,
 }: ChatVideoRecorderProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current && video.liveStream) {
+      videoRef.current.srcObject = video.liveStream;
+    }
+  }, [video.liveStream]);
 
   if (video.recording) {
-    if (!video.livePreviewUrl) {
+    if (!video.liveStream) {
       return (
         <div className="flex items-center gap-2 bg-error/10 rounded-full px-4 py-2 border border-error/30">
           <div className="w-3 h-3 rounded-full bg-error animate-pulse" />
@@ -40,7 +48,7 @@ export default function ChatVideoRecorder({
     return (
       <div className="relative w-full max-w-xs">
         <video
-          src={video.livePreviewUrl ?? undefined}
+          ref={videoRef}
           autoPlay
           muted
           playsInline

@@ -8,7 +8,7 @@ export interface VideoRecorderState {
   elapsed: number;
   recordedBlob: Blob | null;
   previewUrl: string | null;
-  livePreviewUrl: string | null;
+  liveStream: MediaStream | null;
   startRecording: () => Promise<void>;
   stopRecording: () => Promise<Blob | null>;
   cleanup: () => void;
@@ -23,7 +23,7 @@ export function useVideoRecorder(): VideoRecorderState {
   const [elapsed, setElapsed] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [livePreviewUrl, setLivePreviewUrl] = useState<string | null>(null);
+  const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasPermission, setHasPermission] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -46,9 +46,6 @@ export function useVideoRecorder(): VideoRecorderState {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
     }
-    if (livePreviewUrl) {
-      URL.revokeObjectURL(livePreviewUrl);
-    }
     if (previewVideoRef.current) {
       previewVideoRef.current.pause();
       previewVideoRef.current.src = "";
@@ -59,9 +56,9 @@ export function useVideoRecorder(): VideoRecorderState {
     setElapsed(0);
     setRecordedBlob(null);
     setPreviewUrl(null);
-    setLivePreviewUrl(null);
+    setLiveStream(null);
     setRecording(false);
-  }, [previewUrl, livePreviewUrl]);
+  }, [previewUrl]);
 
   const checkPermission = useCallback(async () => {
     if (typeof navigator === "undefined" || !navigator.mediaDevices) return false;
@@ -151,7 +148,7 @@ export function useVideoRecorder(): VideoRecorderState {
       chunksRef.current = chunks;
       setRecordedBlob(null);
       setPreviewUrl(null);
-      setLivePreviewUrl(URL.createObjectURL(stream as unknown as MediaSource));
+      setLiveStream(stream);
       setElapsed(0);
       setRecording(true);
 
@@ -213,7 +210,7 @@ export function useVideoRecorder(): VideoRecorderState {
     elapsed,
     recordedBlob,
     previewUrl,
-    livePreviewUrl,
+    liveStream,
     startRecording,
     stopRecording,
     cleanup,
