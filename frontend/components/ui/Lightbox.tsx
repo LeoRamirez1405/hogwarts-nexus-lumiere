@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { MaterialIcon } from "./MaterialIcon";
 import { usePinchZoom, useSwipeable } from "@/hooks/useGestures";
 import { useReducedMotion } from "@/hooks/useGestures";
+import { useHapticLight } from "@/hooks/useHapticFeedback";
 
 interface LightboxProps {
   src: string;
@@ -14,13 +15,15 @@ export default function Lightbox({ src, alt, onClose }: LightboxProps) {
   const prefersReducedMotion = useReducedMotion();
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hapticLight = useHapticLight();
 
   const { state, onTouchStart: onPinchStart, onTouchMove: onPinchMove, onTouchEnd: onPinchEnd, reset } = usePinchZoom(1, 4);
 
   const close = useCallback(() => {
+    hapticLight();
     reset();
     onClose();
-  }, [onClose, reset]);
+  }, [onClose, reset, hapticLight]);
 
   const { onTouchStart: onSwipeStart, onTouchMove: onSwipeMove, onTouchEnd: onSwipeEnd } = useSwipeable({
     onSwipeDown: close,

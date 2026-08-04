@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api, PostComment, User } from "@/lib/api";
 import { Avatar, MaterialIcon } from "@/components/ui";
 import { toastError } from "@/lib/toastStore";
+import { useHapticLight, useHapticSelection } from "@/hooks/useHapticFeedback";
 
 const EMOJIS = [
   "😀","😂","😍","🥳","😎","🤩","💀","👻","🔥","✨",
@@ -37,6 +38,8 @@ export const CommentSection = memo(function CommentSection({
   const [sending, setSending] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const hapticLight = useHapticLight();
+  const hapticSelection = useHapticSelection();
 
   useEffect(() => {
     let cancelled = false;
@@ -130,7 +133,7 @@ export const CommentSection = memo(function CommentSection({
             className="w-full bg-surface-container-low rounded-xl px-3 py-2 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-outline-variant/20 focus:border-primary/40 transition-colors pr-10"
           />
           <button
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            onClick={() => { hapticLight(); setShowEmojiPicker(!showEmojiPicker); }}
             className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
             aria-label="Insertar emoji"
           >
@@ -141,7 +144,7 @@ export const CommentSection = memo(function CommentSection({
               {EMOJIS.map((e) => (
                 <button
                   key={e}
-                  onClick={() => insertEmoji(e)}
+                  onClick={() => { hapticSelection(); insertEmoji(e); }}
                   className="p-1.5 rounded-lg hover:bg-surface-container-high text-lg transition-colors"
                 >
                   {e}
@@ -151,7 +154,7 @@ export const CommentSection = memo(function CommentSection({
           )}
         </div>
         <button
-          onClick={handleComment}
+          onClick={() => { hapticLight(); handleComment(); }}
           disabled={!commentText.trim() || sending}
           className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-30 transition-opacity"
           aria-label="Enviar comentario"

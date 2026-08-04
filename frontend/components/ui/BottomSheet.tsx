@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useSwipeable } from "@/hooks/useGestures";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { MaterialIcon } from "./MaterialIcon";
+import { useHapticLight } from "@/hooks/useHapticFeedback";
 
 interface BottomSheetProps {
   open: boolean;
@@ -27,6 +28,7 @@ export default function BottomSheet({
   const [visible, setVisible] = useState(false);
   const [animOut, setAnimOut] = useState(false);
   const { keyboardHeight, isKeyboardOpen } = useVisualViewport();
+  const hapticLight = useHapticLight();
 
   const swipeHandlers = useSwipeable({
     onSwipeDown: () => {
@@ -41,12 +43,13 @@ export default function BottomSheet({
   });
 
   const handleClose = useCallback(() => {
+    hapticLight();
     setAnimOut(true);
     setTimeout(() => {
       setAnimOut(false);
       onClose();
     }, 200);
-  }, [onClose]);
+  }, [onClose, hapticLight]);
 
   useEffect(() => {
     if (!open) return;

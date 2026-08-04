@@ -3,6 +3,7 @@
 import { useToastStore } from "@/lib/toastStore";
 import { MaterialIcon } from "./MaterialIcon";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
+import { useHapticLight } from "@/hooks/useHapticFeedback";
 
 const VARIANT_STYLES: Record<
   string,
@@ -29,6 +30,7 @@ export function ToastViewport() {
   const toasts = useToastStore((s) => s.toasts);
   const dismiss = useToastStore((s) => s.dismiss);
   const { isKeyboardOpen, keyboardHeight } = useVisualViewport();
+  const hapticLight = useHapticLight();
 
   if (toasts.length === 0) return null;
 
@@ -68,7 +70,7 @@ export function ToastViewport() {
               )}
             </div>
             <button
-              onClick={() => dismiss(t.id)}
+              onClick={() => { hapticLight(); dismiss(t.id); }}
               className="w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors"
               aria-label="Cerrar notificacion"
             >

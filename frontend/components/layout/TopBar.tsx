@@ -14,6 +14,7 @@ import Avatar from "@/components/ui/Avatar";
 import { MaterialIcon } from "@/components/ui";
 import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
 import { usePrefetchOnTouch } from "@/hooks/usePrefetchOnTouch";
+import { useHapticLight } from "@/hooks/useHapticFeedback";
 
 interface TopBarProps {
   onMenuToggle?: () => void;
@@ -65,6 +66,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   const userMenuDropdownRef = useRef<HTMLDivElement>(null);
   const [notifPosition, setNotifPosition] = useState<{ top: number; right: number } | null>(null);
   const [userMenuPosition, setUserMenuPosition] = useState<{ top: number; right: number } | null>(null);
+  const hapticLight = useHapticLight();
   const {
     notifications,
     loading: loadingNotifs,
@@ -148,7 +150,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
         {/* LEFT */}
         <div className="flex items-center gap-1.5 sm:gap-4 min-w-0">
           <button
-            onClick={onMenuToggle}
+            onClick={() => { hapticLight(); onMenuToggle?.(); }}
             className="lg:hidden p-2 -ml-1 rounded-xl text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0"
             aria-label="Toggle menu"
           >
@@ -192,6 +194,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             <button
               ref={notifButtonRef}
               onClick={() => {
+                hapticLight();
                 if (!showNotifications && notifButtonRef.current) {
                   const r = notifButtonRef.current.getBoundingClientRect();
                   setNotifPosition({ top: r.bottom + 8, right: window.innerWidth - r.right });
@@ -215,6 +218,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             <button
               ref={userMenuButtonRef}
               onClick={() => {
+                hapticLight();
                 if (!showUserMenu && userMenuButtonRef.current) {
                   const r = userMenuButtonRef.current.getBoundingClientRect();
                   setUserMenuPosition({ top: r.bottom + 8, right: window.innerWidth - r.right });
@@ -247,7 +251,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             </h3>
             {unreadCount > 0 && (
               <button
-                onClick={markAllAsRead}
+                onClick={() => { hapticLight(); markAllAsRead(); }}
                 className="text-label-sm text-primary font-medium hover:underline"
               >
                 Marcar todo leido
@@ -272,7 +276,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                   className={`flex items-start gap-3 px-4 py-3 hover:bg-surface-container-high transition-colors w-full text-left ${!n.read ? "bg-primary/5" : ""}`}
                 >
                   <button
-                    onClick={() => handleNotificationClick(n)}
+                    onClick={() => { hapticLight(); handleNotificationClick(n); }}
                     className="flex items-start gap-3 flex-1 min-w-0 text-left"
                   >
                     <div
@@ -300,7 +304,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                   </button>
                   {!n.read && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); markRead(n.id); }}
+                      onClick={(e) => { e.stopPropagation(); hapticLight(); markRead(n.id); }}
                       className="w-8 h-8 inline-flex items-center justify-center rounded-full text-primary hover:bg-primary/10 transition-colors shrink-0"
                       aria-label="Marcar como leida"
                       title="Marcar como leida"
@@ -352,7 +356,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             <PWAInstallPrompt variant="row" />
           </div>
           <button
-            onClick={handleLogout}
+            onClick={() => { hapticLight(); handleLogout(); }}
             className="w-full flex items-center gap-3 px-4 py-3 text-body-md text-error hover:bg-error/10 transition-colors"
           >
             <MaterialIcon name="logout" className="text-lg" />

@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
+import { useHapticLight } from "@/hooks/useHapticFeedback";
 
 export interface ColumnDef<T> {
   key: string;
@@ -53,6 +54,7 @@ export function AdminCrudTable<T>({
     () => columns.filter((c) => !c.hideOnTablet),
     [columns]
   );
+  const hapticLight = useHapticLight();
 
   if (loading) {
     return (
@@ -96,10 +98,10 @@ export function AdminCrudTable<T>({
                 </div>
               ))}
               <div className="flex items-center justify-end gap-1 pt-2 border-t border-outline-variant/10">
-                <button onClick={() => onEdit(item)} className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors" title="Editar">
+                <button onClick={() => { hapticLight(); onEdit(item); }} className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors" title="Editar">
                   <MaterialIcon name="edit" className="text-lg" />
                 </button>
-                <button onClick={() => onDelete(getId(item))} className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-error transition-colors" title="Eliminar">
+                <button onClick={() => { hapticLight(); onDelete(getId(item)); }} className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-error transition-colors" title="Eliminar">
                   <MaterialIcon name="delete" className="text-lg" />
                 </button>
               </div>
@@ -140,10 +142,10 @@ export function AdminCrudTable<T>({
                 ))}
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <button onClick={() => onEdit(item)} className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors" title="Editar">
+                    <button onClick={() => { hapticLight(); onEdit(item); }} className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors" title="Editar">
                       <MaterialIcon name="edit" className="text-lg" />
                     </button>
-                    <button onClick={() => onDelete(getId(item))} className="p-2 rounded-full hover:bg-error-container text-error transition-colors" title="Eliminar">
+                    <button onClick={() => { hapticLight(); onDelete(getId(item)); }} className="p-2 rounded-full hover:bg-error-container text-error transition-colors" title="Eliminar">
                       <MaterialIcon name="delete" className="text-lg" />
                     </button>
                   </div>

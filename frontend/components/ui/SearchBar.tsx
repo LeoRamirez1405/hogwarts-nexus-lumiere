@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { MaterialIcon } from "./MaterialIcon";
+import { useHapticLight } from "@/hooks/useHapticFeedback";
 
 interface SearchBarProps {
   placeholder?: string;
@@ -48,6 +49,7 @@ export default function SearchBar({
 }: SearchBarProps) {
   const styles = variantClasses[variant];
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hapticLight = useHapticLight();
 
   const [internal, setInternal] = useState(value ?? "");
 
@@ -71,9 +73,10 @@ export default function SearchBar({
   );
 
   const handleClear = useCallback(() => {
+    hapticLight();
     if (!isControlled) setInternal("");
     if (onChange) onChange("");
-  }, [isControlled, onChange]);
+  }, [isControlled, onChange, hapticLight]);
 
   useEffect(() => {
     return () => {

@@ -7,6 +7,7 @@ import { Avatar, Button, GlassCard, MaterialIcon } from "@/components/ui";
 import { useImageUpload } from "@/hooks/useFileUpload";
 import { toastError } from "@/lib/toastStore";
 import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
+import { useHapticLight } from "@/hooks/useHapticFeedback";
 
 interface PostComposerProps {
   profile: User;
@@ -18,6 +19,7 @@ export function PostComposer({ profile, onCreate }: PostComposerProps) {
   const [postImageUrl, setPostImageUrl] = useState("");
   const [posting, setPosting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hapticLight = useHapticLight();
   const {
     textareaRef: postRef,
     height: postHeight,
@@ -86,7 +88,7 @@ export function PostComposer({ profile, onCreate }: PostComposerProps) {
                 unoptimized
               />
               <button
-                onClick={() => setPostImageUrl("")}
+                onClick={() => { hapticLight(); setPostImageUrl(""); }}
                 className="absolute top-2 right-2 w-7 h-7 inline-flex items-center justify-center bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
               >
                 <MaterialIcon name="close" className="text-lg" />
@@ -96,7 +98,7 @@ export function PostComposer({ profile, onCreate }: PostComposerProps) {
           <div className="flex items-center justify-between mt-3">
             <div className="flex items-center gap-2">
               <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => { hapticLight(); fileInputRef.current?.click(); }}
                 className={`w-9 h-9 inline-flex items-center justify-center rounded-full transition-colors ${
                   postImageUrl
                     ? "bg-primary/10 text-primary"

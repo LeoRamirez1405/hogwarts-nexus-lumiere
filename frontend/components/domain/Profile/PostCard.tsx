@@ -108,14 +108,14 @@ function PostCardComponent({
           {isAuthor && (
             <div className="flex items-center gap-1">
               <button
-                onClick={() => setShowEditModal(true)}
+                onClick={() => { hapticLight(); setShowEditModal(true); }}
                 title="Editar publicación"
                 className="w-10 h-10 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors"
               >
                 <MaterialIcon name="edit" className="text-lg" />
               </button>
               <button
-                onClick={() => setShowDeleteModal(true)}
+                onClick={() => { hapticLight(); setShowDeleteModal(true); }}
                 title="Eliminar publicación"
                 className="w-10 h-10 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors"
               >
