@@ -10,7 +10,7 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import SearchBar from "@/components/ui/SearchBar";
 import ListFooter from "@/components/ui/ListFooter";
-import { MaterialIcon } from "@/components/ui";
+import { MaterialIcon, Skeleton } from "@/components/ui";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
 import { AdminCrudModal, FormField, InputField, TextareaField, SelectField, ToggleButtonGroup } from "@/components/ui/AdminCrudModal";
@@ -219,11 +219,7 @@ export default function AdminProductsPage() {
         {crud.loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="glass-card rounded-xl p-6 animate-pulse">
-                <div className="h-40 bg-outline-variant/30 rounded-xl mb-4" />
-                <div className="h-4 bg-outline-variant/30 rounded w-2/3 mb-2" />
-                <div className="h-3 bg-outline-variant/30 rounded w-1/3" />
-              </div>
+              <Skeleton key={i} variant="product" />
             ))}
           </div>
         ) : (

@@ -6,7 +6,7 @@ import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
-import { MaterialIcon } from "@/components/ui/MaterialIcon";
+import { MaterialIcon, Skeleton } from "@/components/ui";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { useFeatureFlags } from "./hooks/useFeatureFlags";
@@ -197,10 +197,7 @@ export default function AdminSettingsPage() {
         {crud.loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="glass-card rounded-xl p-6 animate-pulse">
-                <div className="h-4 bg-outline-variant/30 rounded w-1/3 mb-4" />
-                <div className="h-3 bg-outline-variant/30 rounded w-full" />
-              </div>
+              <Skeleton key={i} variant="card" />
             ))}
           </div>
         ) : (

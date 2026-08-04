@@ -9,7 +9,7 @@ import { AdminCrudModal, FormField, InputField, TextareaField, SelectField, Togg
 import ListFooter from "@/components/ui/ListFooter";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import { MaterialIcon } from "@/components/ui/MaterialIcon";
+import { MaterialIcon, Skeleton } from "@/components/ui";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import PullToRefresh from "@/components/ui/PullToRefresh";
@@ -214,10 +214,7 @@ export default function AdminPetItemsPage() {
         {crud.loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="glass-card rounded-xl p-6 animate-pulse">
-                <div className="h-4 bg-outline-variant/30 rounded w-2/3 mb-2" />
-                <div className="h-3 bg-outline-variant/30 rounded w-1/3" />
-              </div>
+              <Skeleton key={i} variant="card" />
             ))}
           </div>
         ) : (

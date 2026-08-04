@@ -9,7 +9,7 @@ import { AdminCrudModal, FormField, InputField, SelectField } from "@/components
 import ListFooter from "@/components/ui/ListFooter";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import { MaterialIcon } from "@/components/ui/MaterialIcon";
+import { MaterialIcon, Skeleton } from "@/components/ui";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import PullToRefresh from "@/components/ui/PullToRefresh";
@@ -198,15 +198,7 @@ return (
         {crud.loading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="glass-card rounded-xl p-6 animate-pulse">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-outline-variant/30" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-outline-variant/30 rounded w-1/4" />
-                    <div className="h-3 bg-outline-variant/30 rounded w-1/3" />
-                  </div>
-                </div>
-              </div>
+              <Skeleton key={i} variant="list-item" />
             ))}
           </div>
         ) : (
