@@ -8,6 +8,7 @@ class FeatureFlagBase(BaseModel):
     description: Optional[str] = None
     enabled: bool = True
     category: Optional[str] = None
+    hidden: bool = False
 
 
 class FeatureFlagCreate(FeatureFlagBase):
