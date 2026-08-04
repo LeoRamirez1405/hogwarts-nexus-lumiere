@@ -1,12 +1,11 @@
 """Group Events API Routes"""
 
-import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
-from sqlalchemy import and_, func, or_, select, update
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -51,6 +50,15 @@ class EventCreate(BaseModel):
     max_attendees: Optional[int] = Field(None, ge=1)
     require_approval: bool = False
 
+    @field_validator("starts_at", "ends_at")
+    @classmethod
+    def _to_naive_utc(cls, v: Optional[datetime]) -> Optional[datetime]:
+        if v is None:
+            return v
+        if v.tzinfo is not None:
+            v = v.astimezone(timezone.utc).replace(tzinfo=None)
+        return v
+
 
 class EventUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=100)
@@ -63,6 +71,15 @@ class EventUpdate(BaseModel):
     max_attendees: Optional[int] = Field(None, ge=1)
     require_approval: bool = False
     status: Optional[EventStatus] = None
+
+    @field_validator("starts_at", "ends_at")
+    @classmethod
+    def _to_naive_utc(cls, v: Optional[datetime]) -> Optional[datetime]:
+        if v is None:
+            return v
+        if v.tzinfo is not None:
+            v = v.astimezone(timezone.utc).replace(tzinfo=None)
+        return v
 
 
 class EventResponse(BaseModel):
@@ -653,7 +670,6 @@ async def create_or_update_rsvp(
     existing = existing_result.scalar_one_or_none()
 
     if existing:
-        old_status = existing.status
         existing.status = rsvp_data.status
         existing.updated_at = datetime.utcnow()
         existing.responded_at = datetime.utcnow()
