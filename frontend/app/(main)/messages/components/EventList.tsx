@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { MaterialIcon } from "@/components/ui";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
@@ -28,7 +28,7 @@ export default function EventList({
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
-  const [offset, setOffset] = useState(0);
+  const offsetRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -51,21 +51,21 @@ export default function EventList({
         offset: number;
         status?: string;
         upcoming_only?: boolean;
-      } = { room_id: roomId, limit: LIMIT, offset: append ? offset : 0 };
+      } = { room_id: roomId, limit: LIMIT, offset: append ? offsetRef.current : 0 };
       if (statusFilter !== "upcoming") {
         params.status = statusFilter;
         params.upcoming_only = false;
       }
 
       const response = await eventsApi.list(params);
-      
+
       if (append) {
         setEvents((prev) => [...prev, ...response.events]);
       } else {
         setEvents(response.events);
       }
       setHasMore(response.has_more);
-      setOffset((prev) => prev + response.events.length);
+      offsetRef.current = append ? offsetRef.current + response.events.length : response.events.length;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error al cargar eventos";
       setError(msg);
@@ -73,7 +73,7 @@ export default function EventList({
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [roomId, isVisible, offset, statusFilter]);
+  }, [roomId, isVisible, statusFilter]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -132,6 +132,26 @@ export default function EventList({
       );
     } catch (err) {
       console.error("Error RSVP:", err);
+    }
+  };
+
+  const handleRemoveRsvp = async (eventId: string) => {
+    try {
+      await eventsApi.removeRsvp(eventId);
+      // Optimistic update - remove my_rsvp and decrement the count
+      setEvents((prev) =>
+        prev.map((e) => {
+          if (e.id !== eventId) return e;
+          const currentStatus = e.my_rsvp;
+          const newCounts = { ...e.rsvp_counts };
+          if (currentStatus && newCounts[currentStatus]) {
+            newCounts[currentStatus] = Math.max(0, newCounts[currentStatus] - 1);
+          }
+          return { ...e, my_rsvp: null, rsvp_counts: newCounts };
+        })
+      );
+    } catch (err) {
+      console.error("Error removing RSVP:", err);
     }
   };
 
@@ -245,19 +265,20 @@ export default function EventList({
       ) : (
         <>
           <div className="space-y-3">
-            {events.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                currentUserId={currentUserId}
-                isAdminOrMod={isAdminOrMod}
-                onRsvp={handleRsvp}
-                onSetReminder={handleSetReminder}
-                onEdit={openEditModal}
-                onDelete={handleDelete}
-                onJoinVoice={onJoinVoice}
-              />
-            ))}
+{events.map((event) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  currentUserId={currentUserId}
+                  isAdminOrMod={isAdminOrMod}
+                  onRsvp={handleRsvp}
+                  onRemoveRsvp={handleRemoveRsvp}
+                  onSetReminder={handleSetReminder}
+                  onEdit={openEditModal}
+                  onDelete={handleDelete}
+                  onJoinVoice={onJoinVoice}
+                />
+              ))}
           </div>
 
           {hasMore && (

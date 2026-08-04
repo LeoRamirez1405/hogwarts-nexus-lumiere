@@ -14,6 +14,7 @@ interface EventCardProps {
   currentUserId: string;
   isAdminOrMod: boolean;
   onRsvp: (eventId: string, status: RSVPStatus) => Promise<void>;
+  onRemoveRsvp: (eventId: string) => Promise<void>;
   onSetReminder: (eventId: string, reminder: ReminderTime) => Promise<void>;
   onEdit: (event: Event) => void;
   onDelete: (eventId: string) => Promise<void>;
@@ -25,6 +26,7 @@ export default function EventCard({
   currentUserId,
   isAdminOrMod,
   onRsvp,
+  onRemoveRsvp,
   onSetReminder,
   onEdit,
   onDelete,
@@ -49,7 +51,11 @@ export default function EventCard({
 
   const handleRsvp = async (status: RSVPStatus) => {
     setShowRsvpMenu(false);
-    await onRsvp(event.id, status);
+    if (event.my_rsvp === status) {
+      await onRemoveRsvp(event.id);
+    } else {
+      await onRsvp(event.id, status);
+    }
   };
 
   const reminderOptions: { value: ReminderTime; label: string }[] = [
@@ -123,12 +129,19 @@ export default function EventCard({
         {/* RSVP Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-label-sm text-on-surface-variant shrink-0">Tu respuesta:</span>
-          {event.my_rsvp ? (
-            <span className={`px-3 py-1.5 rounded-full text-label-md font-medium ${RSVP_LABELS[event.my_rsvp].color}`}>
-              {RSVP_LABELS[event.my_rsvp].label}
-            </span>
-          ) : (
-            <div className="relative">
+          <div className="relative">
+            {event.my_rsvp ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRsvpMenu(true)}
+                className={`h-9 px-3 ${RSVP_LABELS[event.my_rsvp].color}`}
+              >
+                <MaterialIcon name={RSVP_LABELS[event.my_rsvp].icon} className="text-lg mr-1" />
+                {RSVP_LABELS[event.my_rsvp].label}
+                <MaterialIcon name="keyboard_arrow_down" className="text-lg ml-1" />
+              </Button>
+            ) : (
               <Button
                 variant="outline"
                 size="sm"
@@ -138,24 +151,27 @@ export default function EventCard({
                 <MaterialIcon name="keyboard_arrow_down" className="text-lg" />
                 <span>Responder</span>
               </Button>
-              {showRsvpMenu && (
-                <div className="absolute bottom-full left-0 mb-2 z-10 bg-surface-container-low rounded-xl border border-outline-variant/20 shadow-xl p-1 min-w-[140px]">
-                  {rsvpOptions.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => handleRsvp(opt.value as RSVPStatus)}
-                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-body-md font-medium transition-colors hover:bg-surface-container-high ${
-                        event.my_rsvp === opt.value ? `bg-${opt.color}-container/30 text-${opt.color}` : "text-on-surface"
-                      }`}
-                    >
-                      <MaterialIcon name={RSVP_LABELS[opt.value as RSVPStatus].icon} className="text-lg" />
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+            )}
+            {showRsvpMenu && (
+              <div className="absolute bottom-full left-0 mb-2 z-[60] bg-surface-container-low rounded-xl border border-outline-variant/20 shadow-xl p-1 min-w-[140px]">
+                {rsvpOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => handleRsvp(opt.value as RSVPStatus)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-body-md font-medium transition-colors hover:bg-surface-container-high ${
+                      event.my_rsvp === opt.value ? `bg-${opt.color}-container/30 text-${opt.color}` : "text-on-surface"
+                    }`}
+                  >
+                    <MaterialIcon name={RSVP_LABELS[opt.value as RSVPStatus].icon} className="text-lg" />
+                    {opt.label}
+                    {event.my_rsvp === opt.value && (
+                      <MaterialIcon name="check" className="text-lg ml-auto" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Stats */}
