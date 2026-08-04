@@ -332,6 +332,54 @@
     scrollbar-width: none;
   }
 
+  /* Dark scrollbar theme (Borgin & Burkes zone). Applied to the AppShell root,
+     covers every scrollable element inside the view. */
+  .dark-scrollbar {
+    scrollbar-color: rgba(255, 255, 255, 0.25) rgba(255, 255, 255, 0.05);
+    scrollbar-width: thin;
+  }
+
+  .dark-scrollbar ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .dark-scrollbar ::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .dark-scrollbar ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+  }
+
+  .dark-scrollbar ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+
+  /* Page-level scrollbar (html/body) for the dark zone. */
+  html.dark-scrollbar-html {
+    scrollbar-color: rgba(255, 255, 255, 0.25) #1c1b1b;
+    scrollbar-width: thin;
+  }
+
+  html.dark-scrollbar-html::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  html.dark-scrollbar-html::-webkit-scrollbar-track {
+    background: #1c1b1b;
+  }
+
+  html.dark-scrollbar-html::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+  }
+
+  html.dark-scrollbar-html::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+
   /* ===== TAP HIGHLIGHT ===== */
   .tap-highlight-transparent {
     -webkit-tap-highlight-color: transparent;

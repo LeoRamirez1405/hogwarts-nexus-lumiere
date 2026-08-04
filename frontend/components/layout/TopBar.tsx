@@ -15,6 +15,7 @@ import { MaterialIcon } from "@/components/ui";
 import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
 import { usePrefetchOnTouch } from "@/hooks/usePrefetchOnTouch";
 import { useHapticLight } from "@/hooks/useHapticFeedback";
+import { useBorginZone } from "@/hooks/useBorginZone";
 
 interface TopBarProps {
   onMenuToggle?: () => void;
@@ -35,7 +36,7 @@ const desktopNavItems: DesktopNavItem[] = [
   { label: "Mascotas", href: "/pets" },
 ];
 
-function DesktopNavLink({ item, isActive }: { item: DesktopNavItem; isActive: boolean }) {
+function DesktopNavLink({ item, isActive, isDark }: { item: DesktopNavItem; isActive: boolean; isDark: boolean }) {
   const prefetchRef = usePrefetchOnTouch(item.href);
   return (
     <Link
@@ -43,8 +44,12 @@ function DesktopNavLink({ item, isActive }: { item: DesktopNavItem; isActive: bo
       ref={prefetchRef}
       className={`py-2 text-body-md transition-colors ${
         isActive
-          ? "text-primary font-bold border-b-2 border-primary"
-          : "text-on-surface-variant/70 hover:text-primary"
+          ? isDark
+            ? "text-secondary-fixed font-bold border-b-2 border-secondary"
+            : "text-primary font-bold border-b-2 border-primary"
+          : isDark
+            ? "text-surface-dim/70 hover:text-secondary-fixed"
+            : "text-on-surface-variant/70 hover:text-primary"
       }`}
     >
       {item.label}
@@ -55,6 +60,7 @@ function DesktopNavLink({ item, isActive }: { item: DesktopNavItem; isActive: bo
 export default function TopBar({ onMenuToggle }: TopBarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const isBorgin = useBorginZone();
   const { user, logout } = useAuthStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -145,19 +151,33 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm">
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-xl border-b shadow-sm ${
+        isBorgin
+          ? "bg-[#1c1b1b]/85 border-secondary/20"
+          : "bg-surface/80 border-outline-variant/30"
+      }`}
+    >
       <div className="h-16 lg:h-20 max-w-[1280px] mx-auto px-4 lg:px-10 flex justify-between items-center gap-2">
         {/* LEFT */}
         <div className="flex items-center gap-1.5 sm:gap-4 min-w-0">
           <button
             onClick={() => { hapticLight(); onMenuToggle?.(); }}
-            className="lg:hidden p-2 -ml-1 rounded-xl text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0"
+            className={`lg:hidden p-2 -ml-1 rounded-xl transition-colors shrink-0 ${
+              isBorgin
+                ? "text-surface-dim hover:bg-inverse-surface"
+                : "text-on-surface-variant hover:bg-surface-container-high"
+            }`}
             aria-label="Toggle menu"
           >
             <MaterialIcon name="menu" className="text-2xl" />
           </button>
           <Link href="/dashboard" className="flex items-center min-w-0">
-            <span className="font-display text-title-md sm:text-headline-lg text-primary tracking-tight truncate">
+            <span
+              className={`font-display text-title-md sm:text-headline-lg tracking-tight truncate ${
+                isBorgin ? "text-secondary-fixed" : "text-primary"
+              }`}
+            >
               Nexus Lumière  
             </span>
           </Link>
@@ -169,7 +189,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + "/");
             return (
-              <DesktopNavLink key={item.href} item={item} isActive={isActive} />
+              <DesktopNavLink key={item.href} item={item} isActive={isActive} isDark={isBorgin} />
             );
           })}
         </nav>
@@ -177,14 +197,24 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
         {/* RIGHT */}
         <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-4 shrink-0">
           {/* Wallet */}
-          <div className="flex items-center gap-1.5 sm:gap-2 bg-surface-container-low px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-full border border-outline-variant/30">
+          <div
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-full border ${
+              isBorgin
+                ? "bg-inverse-surface border-secondary/20"
+                : "bg-surface-container-low border-outline-variant/30"
+            }`}
+          >
             <MaterialIcon
               name="diamond"
               className="text-base sm:text-lg text-secondary"
               filled
               inline
             />
-            <span className="text-label-md sm:text-body-md font-semibold text-on-surface">
+            <span
+              className={`text-label-md sm:text-body-md font-semibold ${
+                isBorgin ? "text-surface" : "text-on-surface"
+              }`}
+            >
               {user?.zerines?.toLocaleString() ?? "0"}
             </span>
           </div>
@@ -201,12 +231,20 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                 }
                 setShowNotifications(!showNotifications);
               }}
-              className="w-10 h-10 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors relative"
+              className={`w-10 h-10 inline-flex items-center justify-center rounded-full transition-colors relative ${
+                isBorgin
+                  ? "text-surface-dim hover:bg-inverse-surface"
+                  : "text-on-surface-variant hover:bg-surface-container-high"
+              }`}
               aria-label="Notifications"
             >
               <MaterialIcon name="notifications" className="text-2xl" />
               {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-4.5 h-4.5 px-1 inline-flex items-center justify-center bg-error text-white text-[10px] font-bold rounded-full border-2 border-surface">
+                <span
+                  className={`absolute -top-0.5 -right-0.5 min-w-4.5 h-4.5 px-1 inline-flex items-center justify-center bg-error text-white text-[10px] font-bold rounded-full border-2 ${
+                    isBorgin ? "border-[#1c1b1b]" : "border-surface"
+                  }`}
+                >
                   {unreadLabel}
                 </span>
               )}

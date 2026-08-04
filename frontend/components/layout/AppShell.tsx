@@ -1,20 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import BottomNav from "./BottomNav";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
+import { useBorginZone } from "@/hooks/useBorginZone";
 import PWAInstallBanner from "@/components/ui/PWAInstallBanner";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isKeyboardOpen, keyboardHeight } = useVisualViewport();
+  const isBorgin = useBorginZone();
+
+  // Dark page-level scrollbar while inside the Borgin & Burkes dark zone.
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark-scrollbar-html", isBorgin);
+    return () => document.documentElement.classList.remove("dark-scrollbar-html");
+  }, [isBorgin]);
 
   const keyboardPadding = isKeyboardOpen ? keyboardHeight : 0;
 
   return (
-    <div className="min-h-screen bg-surface">
+    <div className={`min-h-screen ${isBorgin ? "bg-[#1c1b1b] dark-scrollbar" : "bg-surface"}`}>
       <TopBar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 

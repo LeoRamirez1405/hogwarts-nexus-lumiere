@@ -8,6 +8,7 @@ import Avatar from "@/components/ui/Avatar";
 import { MaterialIcon } from "@/components/ui";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { usePrefetchOnTouch } from "@/hooks/usePrefetchOnTouch";
+import { useBorginZone } from "@/hooks/useBorginZone";
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -58,10 +59,12 @@ const adminNavItems: NavItem[] = [
 function NavLink({
   item,
   isActive,
+  isDark,
   onNavigate,
 }: {
   item: NavItem;
   isActive: boolean;
+  isDark: boolean;
   onNavigate?: () => void;
 }) {
   const prefetchRef = usePrefetchOnTouch(item.href);
@@ -74,7 +77,9 @@ function NavLink({
       className={`flex items-center gap-4 py-3 px-8 rounded-xl mx-4 transition-all duration-200 hover:translate-x-1 ${
         isActive
           ? "sidebar-active"
-          : "text-on-surface-variant hover:bg-surface-container-high"
+          : isDark
+            ? "text-surface-dim hover:bg-inverse-surface"
+            : "text-on-surface-variant hover:bg-surface-container-high"
       }`}
     >
       <MaterialIcon
@@ -91,25 +96,30 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuthStore();
   const isAdmin = user?.role === "admin";
+  const isBorgin = useBorginZone();
+
+  const asideClasses = `fixed left-0 top-0 z-40 w-72 max-w-[85vw] border-r pt-[var(--topbar-h)] pb-[var(--bottomnav-h)] ${
+    isBorgin ? "bg-[#1c1b1b] border-secondary/15" : "bg-surface border-outline-variant/30"
+  }`;
 
   return (
     <>
     {/* Mobile / tablet drawer sidebar (below lg) */}
     <aside
-      className={`fixed left-0 top-0 z-40 h-screen w-72 max-w-[85vw] bg-surface border-r border-outline-variant/30 pt-[var(--topbar-h)] pb-[var(--bottomnav-h)] transform transition-transform duration-300 lg:hidden ${
+      className={`${asideClasses} h-screen transform transition-transform duration-300 lg:hidden ${
         isOpen ? "translate-x-0" : "-translate-x-full"
       }`}
       aria-hidden={!isOpen}
     >
       <div className="flex flex-col h-full">
-        <SidebarContent pathname={pathname} isAdmin={isAdmin} user={user} onNavigate={onClose} />
+        <SidebarContent pathname={pathname} isAdmin={isAdmin} isDark={isBorgin} user={user} onNavigate={onClose} />
       </div>
     </aside>
 
     {/* Desktop fixed sidebar (lg+) */}
-    <aside className="hidden lg:flex fixed left-0 top-0 z-40 h-screen w-72 bg-surface border-r border-outline-variant/30 pt-[var(--topbar-h)] flex-col">
+    <aside className={`${asideClasses} hidden lg:flex h-screen flex-col`}>
       <div className="flex flex-col h-full">
-        <SidebarContent pathname={pathname} isAdmin={isAdmin} user={user} />
+        <SidebarContent pathname={pathname} isAdmin={isAdmin} isDark={isBorgin} user={user} />
       </div>
     </aside>
   </>
@@ -119,11 +129,13 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 function SidebarContent({
   pathname,
   isAdmin,
+  isDark,
   user,
   onNavigate,
 }: {
   pathname: string;
   isAdmin: boolean;
+  isDark: boolean;
   user: User | null;
   onNavigate?: () => void;
 }) {
@@ -158,10 +170,18 @@ function SidebarContent({
             className="flex-shrink-0"
           />
           <div className="min-w-0">
-            <p className="font-display text-headline-lg text-primary leading-tight truncate">
+            <p
+              className={`font-display text-headline-lg leading-tight truncate ${
+                isDark ? "text-secondary-fixed" : "text-primary"
+              }`}
+            >
               {user?.name ?? "Usuario"}
             </p>
-            <p className="text-on-surface-variant text-label-sm truncate">
+            <p
+              className={`text-label-sm truncate ${
+                isDark ? "text-surface-dim" : "text-on-surface-variant"
+              }`}
+            >
               {user?.house ?? "Sin casa"}
             </p>
           </div>
@@ -176,6 +196,7 @@ function SidebarContent({
               <NavLink
                 item={item}
                 isActive={pathname === item.href || pathname.startsWith(item.href + "/")}
+                isDark={isDark}
                 onNavigate={onNavigate}
               />
             </li>
@@ -184,7 +205,11 @@ function SidebarContent({
 
         {isAdmin && (
           <div className="mt-6">
-            <p className="px-8 mb-2 text-label-sm font-semibold text-on-surface-variant uppercase tracking-wider">
+            <p
+              className={`px-8 mb-2 text-label-sm font-semibold uppercase tracking-wider ${
+                isDark ? "text-surface-dim" : "text-on-surface-variant"
+              }`}
+            >
               Administracion
             </p>
             <ul className="space-y-1">
@@ -193,6 +218,7 @@ function SidebarContent({
                   <NavLink
                     item={item}
                     isActive={pathname === item.href || pathname.startsWith(item.href + "/")}
+                    isDark={isDark}
                     onNavigate={onNavigate}
                   />
                 </li>
@@ -207,7 +233,11 @@ function SidebarContent({
         <Link
           href="/support"
           onClick={onNavigate}
-          className="flex items-center gap-4 py-3 px-8 text-on-surface-variant hover:bg-surface-container-high rounded-xl mx-0 transition-all duration-200 hover:translate-x-1"
+          className={`flex items-center gap-4 py-3 px-8 rounded-xl mx-0 transition-all duration-200 hover:translate-x-1 ${
+            isDark
+              ? "text-surface-dim hover:bg-inverse-surface"
+              : "text-on-surface-variant hover:bg-surface-container-high"
+          }`}
         >
           <MaterialIcon name="help" className="text-xl" />
           <span className="text-body-md">Soporte</span>

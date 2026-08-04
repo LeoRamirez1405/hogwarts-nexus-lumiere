@@ -26,21 +26,44 @@ export default function ChatVideoRecorder({
 }: ChatVideoRecorderProps) {
 
   if (video.recording) {
+    if (!video.livePreviewUrl) {
+      return (
+        <div className="flex items-center gap-2 bg-error/10 rounded-full px-4 py-2 border border-error/30">
+          <div className="w-3 h-3 rounded-full bg-error animate-pulse" />
+          <span className="font-mono text-body-md text-on-surface tabular-nums">
+            {formatElapsed(video.elapsed)}
+          </span>
+          <span className="text-label-sm text-on-surface-variant">Iniciando cámara...</span>
+        </div>
+      );
+    }
     return (
-      <div className="flex items-center gap-2 bg-error/10 rounded-full px-4 py-2 border border-error/30">
-        <div className="w-3 h-3 rounded-full bg-error animate-pulse" />
-        <span className="font-mono text-body-md text-on-surface tabular-nums">
-          {formatElapsed(video.elapsed)}
-        </span>
-        <span className="text-label-sm text-on-surface-variant">Filmando video...</span>
-        <div className="flex-1" />
-        <button
-          onClick={onStopRecording}
-          className="w-9 h-9 flex items-center justify-center bg-error text-white rounded-full hover:opacity-90"
-          title="Detener grabacion"
-        >
-          <MaterialIcon name="stop" className="text-lg" />
-        </button>
+      <div className="relative w-full max-w-xs">
+        <video
+          src={video.livePreviewUrl ?? undefined}
+          autoPlay
+          muted
+          playsInline
+          className="w-full aspect-video rounded-2xl bg-surface-container-highest object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent rounded-2xl flex items-end p-4">
+          <div className="w-full flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-error animate-pulse" />
+              <span className="font-mono text-body-md text-white tabular-nums">
+                {formatElapsed(video.elapsed)}
+              </span>
+              <span className="text-label-sm text-white/80">Filmando video...</span>
+            </div>
+            <button
+              onClick={onStopRecording}
+              className="w-10 h-10 flex items-center justify-center bg-error text-white rounded-full hover:opacity-90 shadow-lg"
+              title="Detener grabación"
+            >
+              <MaterialIcon name="stop" className="text-lg" />
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
