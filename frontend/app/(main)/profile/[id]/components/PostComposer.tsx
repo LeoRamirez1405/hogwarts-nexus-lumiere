@@ -68,6 +68,9 @@ export function PostComposer({ profile, onCreate }: PostComposerProps) {
             onChange={(e) => setPostText(e.target.value)}
             placeholder="Qué está pasando en tu mundo mágico?"
             className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none resize-none border border-outline-variant/20 focus:border-primary/40 transition-colors"
+            inputMode="text"
+            autoComplete="off"
+            enterKeyHint="send"
           />
           <input
             ref={fileInputRef}

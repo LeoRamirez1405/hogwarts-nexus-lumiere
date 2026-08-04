@@ -10,7 +10,7 @@ import {
   StatsCards,
   FriendsGrid,
 } from "@/components/domain/Profile";
-import { MaterialIcon } from "@/components/ui";
+import { MaterialIcon, Skeleton } from "@/components/ui";
 import ProfileDetails from "./ProfileDetails";
 import { useProfileData } from "./hooks/useProfileData";
 import { PostComposer } from "./components/PostComposer";
@@ -126,7 +126,14 @@ export default function ProfilePage() {
               )}
 
               {/* Posts Feed */}
-              <PostsFeed
+              {postsLoading ? (
+                <div className="space-y-6">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} variant="post" />
+                  ))}
+                </div>
+              ) : (
+                <PostsFeed
                 posts={posts}
                 hasMore={postsHasMore}
                 loadingMore={postsLoadingMore}
@@ -141,6 +148,7 @@ export default function ProfilePage() {
                 onDelete={deletePost}
                 currentUser={authUser ?? undefined}
               />
+            )}
             </div>
           </div>
         </div>

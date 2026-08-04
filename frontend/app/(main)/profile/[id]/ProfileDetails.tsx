@@ -53,6 +53,7 @@ function InlineEditable({
           className="flex-1 text-body-md bg-surface-container-high rounded px-2 py-0.5 outline-none focus:ring-2 focus:ring-primary/30"
           placeholder={placeholder}
           maxLength={80}
+          enterKeyHint="done"
         />
       </li>
     );
@@ -179,6 +180,7 @@ export default function ProfileDetails({
                 className="flex-1 text-body-md bg-surface-container-high rounded px-2 py-0.5 outline-none focus:ring-2 focus:ring-primary/30"
                 placeholder="Titulo oficial..."
                 maxLength={60}
+                enterKeyHint="done"
               />
             ) : (
               <span

@@ -2,7 +2,7 @@
 
 import { Post, User } from "@/lib/api";
 import { PostCard } from "@/components/domain/Profile";
-import { GlassCard, ListFooter, MaterialIcon } from "@/components/ui";
+import { GlassCard, ListFooter, MaterialIcon, VirtualizedList } from "@/components/ui";
 
 interface PostsFeedProps {
   posts: Post[];
@@ -44,22 +44,39 @@ export function PostsFeed({
     );
   }
 
+  const estimatedHeight = 320;
+
+  const renderPostItem = (post: Post, index: number, style: React.CSSProperties) => (
+    <div style={style} className="w-full">
+      <PostCard
+        key={`${post.is_repost ? "r" : "p"}-${post.id}`}
+        post={post}
+        onLike={onLike}
+        onRepost={onRepost}
+        onShare={onShare}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        currentUser={currentUser}
+      />
+    </div>
+  );
+
   return (
     <>
-      <div className="space-y-6">
-        {posts.map((post) => (
-          <PostCard
-            key={`${post.is_repost ? "r" : "p"}-${post.id}`}
-            post={post}
-            onLike={onLike}
-            onRepost={onRepost}
-            onShare={onShare}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            currentUser={currentUser}
-          />
-        ))}
-      </div>
+      <VirtualizedList
+        items={posts}
+        itemHeight={estimatedHeight}
+        loadingMore={loadingMore}
+        loadMoreSentinel={
+          <div className="flex items-center justify-center gap-2 py-4 text-on-surface-variant">
+            <MaterialIcon name="sync" className="animate-spin text-primary" />
+            <span>Cargando más...</span>
+          </div>
+        }
+        sentinelRef={sentinelRef}
+        overscanCount={3}
+        renderItem={renderPostItem}
+      />
       <ListFooter
         hasMore={hasMore}
         loading={loadingMore}
@@ -68,8 +85,6 @@ export function PostsFeed({
         total={totalCount}
         onLoadMore={onLoadMore}
       />
-      {/* Sentinel for IntersectionObserver-driven infinite scroll */}
-      <div ref={sentinelRef} aria-hidden className="h-1 w-full" />
     </>
   );
 }

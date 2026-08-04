@@ -131,6 +131,9 @@ export const CommentSection = memo(function CommentSection({
             onKeyDown={(e) => e.key === "Enter" && handleComment()}
             placeholder="Escribe un comentario..."
             className="w-full bg-surface-container-low rounded-xl px-3 py-2 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-outline-variant/20 focus:border-primary/40 transition-colors pr-10"
+            inputMode="text"
+            autoComplete="off"
+            enterKeyHint="send"
           />
           <button
             onClick={() => { hapticLight(); setShowEmojiPicker(!showEmojiPicker); }}
