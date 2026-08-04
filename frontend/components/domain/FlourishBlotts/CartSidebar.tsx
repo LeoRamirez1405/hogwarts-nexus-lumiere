@@ -37,9 +37,9 @@ export function CartSidebar({
   const insufficient = total > userZerines;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-end md:items-center md:justify-end">
+    <div className="fixed inset-0 z-50 flex justify-end">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" onClick={onClose} aria-hidden="true" />
-      <aside className="relative z-50 w-full md:w-96 bg-white glass-card border-l border-outline-variant/20 h-full md:h-auto max-h-screen flex flex-col animate-slide-in">
+      <aside className="relative z-50 w-full md:max-w-md bg-white glass-card border-l border-outline-variant/20 h-full flex flex-col animate-slide-in">
         <div className="flex items-center justify-between p-4 border-b border-outline-variant/20">
           <h2 className="font-display text-title-md text-on-surface">Mi Caldero</h2>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors" aria-label="Cerrar carrito">

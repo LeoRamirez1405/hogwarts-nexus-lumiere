@@ -5,7 +5,6 @@ import GlassCard from "@/components/ui/GlassCard";
 import Avatar from "@/components/ui/Avatar";
 import ListFooter from "@/components/ui/ListFooter";
 import { MaterialIcon } from "@/components/ui";
-import { VirtualizedList } from "@/components/ui/VirtualizedGrid";
 import {
   txIcon,
   txTypeLabel,
@@ -25,13 +24,10 @@ interface TransactionsTableProps {
 }
 
 export default function TransactionsTable({ txs, listFooterProps }: TransactionsTableProps) {
-  const rowHeight = 72;
-
-  const renderTransactionRow = (tx: Transaction, index: number, style: React.CSSProperties) => {
+  const renderTransactionRow = (tx: Transaction) => {
     const { icon, color } = txIcon(tx.type);
     return (
-      <div style={style} key={tx.id}>
-        <tr className="border-b border-outline-variant/10 last:border-0 hover:bg-surface-container-low/50 transition-colors">
+      <tr key={tx.id} className="border-b border-outline-variant/10 last:border-0 hover:bg-surface-container-low/50 transition-colors">
           <td className="px-6 py-4">
             <div className="flex items-center gap-3">
               <div
@@ -100,7 +96,6 @@ export default function TransactionsTable({ txs, listFooterProps }: Transactions
             </p>
           </td>
         </tr>
-      </div>
     );
   };
 
@@ -127,25 +122,18 @@ export default function TransactionsTable({ txs, listFooterProps }: Transactions
               </th>
             </tr>
           </thead>
-<tbody>
-            <VirtualizedList
-              items={txs}
-              itemHeight={rowHeight}
-              loadingMore={listFooterProps.loading}
-              loadMoreSentinel={
-                <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center gap-2 text-on-surface-variant">
-                      <MaterialIcon name="sync" className="animate-spin text-primary" />
-                      <span>Cargando más...</span>
-                    </div>
-                  </td>
-                </tr>
-              }
-              sentinelRef={undefined}
-              overscanCount={5}
-              renderItem={renderTransactionRow}
-            />
+          <tbody>
+            {txs.map(renderTransactionRow)}
+            {listFooterProps.loading && (
+              <tr>
+                <td colSpan={5} className="px-6 py-4 text-center">
+                  <div className="flex items-center justify-center gap-2 text-on-surface-variant">
+                    <MaterialIcon name="sync" className="animate-spin text-primary" />
+                    <span>Cargando más...</span>
+                  </div>
+                </td>
+              </tr>
+            )}
             {txs.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-6 py-12 text-center">

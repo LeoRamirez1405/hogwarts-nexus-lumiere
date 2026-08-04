@@ -5,6 +5,7 @@ import { CartItem } from "@/lib/cartStore";
 import { MaterialIcon, ZerineDisplay, BottomSheet } from "@/components/ui";
 import { getFallbackForProduct } from "@/lib/fallbacks";
 import { useTheme } from "@/lib/useTheme";
+import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -123,6 +124,7 @@ export function CartSidebar({
   submitting = false,
 }: CartSidebarProps) {
   const theme = useTheme();
+  const isDesktop = useIsDesktopMdUp();
   const fallbackSrc = getFallbackForProduct("borgin", theme);
 
   return (
@@ -162,8 +164,9 @@ export function CartSidebar({
         </div>
       </div>
 
-      {/* Mobile: bottom sheet */}
-      <div className="md:hidden">
+      {/* Mobile: bottom sheet (only below md — the BottomSheet portals to
+          document.body, so CSS `md:hidden` on a wrapper can't hide it) */}
+      {!isDesktop && (
         <BottomSheet
           open={isOpen}
           onClose={onClose}
@@ -182,7 +185,7 @@ export function CartSidebar({
             />
           </div>
         </BottomSheet>
-      </div>
+      )}
     </>
   );
 }
