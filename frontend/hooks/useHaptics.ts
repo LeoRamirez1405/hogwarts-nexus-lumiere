@@ -1,5 +1,7 @@
 "use client";
 
+import { haptic } from "@/lib/haptics";
+
 /**
  * Lightweight haptic feedback hook. Works on mobile browsers that support
  * the Vibration API (Android) and degrades silently on desktop/iOS.
@@ -15,17 +17,13 @@
  *   https://developer.mozilla.org/en-US/docs/Web/API/Navigator/vibrate
  */
 export function useHaptics() {
-  const vibrate = (pattern: number | number[]) => {
-    if (typeof navigator !== "undefined" && navigator.vibrate) {
-      navigator.vibrate(pattern);
-    }
-  };
-
   return {
-    light: () => vibrate(10),
-    medium: () => vibrate(20),
-    heavy: () => vibrate([30, 50, 30]),
-    error: () => vibrate([100, 50, 100]),
-    selection: () => vibrate(15),
+    light: () => haptic("light"),
+    medium: () => haptic("medium"),
+    heavy: () => haptic("heavy"),
+    error: () => haptic("error"),
+    selection: () => haptic("selection"),
+    success: () => haptic("success"),
+    warning: () => haptic("warning"),
   };
 }
