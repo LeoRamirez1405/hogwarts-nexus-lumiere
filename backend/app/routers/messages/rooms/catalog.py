@@ -34,7 +34,7 @@ async def require_room_admin(
             ChatRoomMember.room_id == room_id,
             ChatRoomMember.user_id == current_user.id,
             ChatRoomMember.role == "admin",
-            ChatRoomMember.pending == False,
+            not ChatRoomMember.pending,
         )
     )
     member = result.scalar_one_or_none()

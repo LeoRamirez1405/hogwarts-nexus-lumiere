@@ -27,7 +27,7 @@ async def clear_other_pinned(db: AsyncSession, keep_id: str):
     """Ensure at most one pinned article exists by un-pinning all others."""
     await db.execute(
         update(Article)
-        .where(and_(Article.id != keep_id, Article.pinned == True))
+        .where(and_(Article.id != keep_id, Article.pinned))
         .values(pinned=False)
     )
 
@@ -90,8 +90,8 @@ async def list_articles(
         count_query = count_query.where(Article.category == category)
 
     if featured_only:
-        query = query.where(Article.featured == True)
-        count_query = count_query.where(Article.featured == True)
+        query = query.where(Article.featured)
+        count_query = count_query.where(Article.featured)
 
     # Pinned article first so the main story is always on the first page,
     # then most recent.
@@ -440,7 +440,7 @@ async def mark_all_notifications_read(
         select(Notification).where(
             and_(
                 Notification.user_id == current_user.id,
-                Notification.read == False,
+                not Notification.read,
             )
         )
     )
@@ -491,7 +491,7 @@ async def get_news_full_state(
     featured_query = (
         select(Article)
         .options(selectinload(Article.author))
-        .where(Article.featured == True)
+        .where(Article.featured)
         .order_by(Article.created_at.desc())
         .limit(featured_limit + 1)
         .offset(featured_skip)
@@ -502,7 +502,7 @@ async def get_news_full_state(
     featured_articles = featured_articles[:featured_limit]
 
     featured_total_result = await db.execute(
-        select(func.count(Article.id)).where(Article.featured == True)
+        select(func.count(Article.id)).where(Article.featured)
     )
     featured_total = featured_total_result.scalar_one()
 

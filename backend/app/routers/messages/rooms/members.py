@@ -315,7 +315,7 @@ async def approve_or_reject_pending_member(
             and_(
                 ChatRoomMember.room_id == room_id,
                 ChatRoomMember.user_id == data.user_id,
-                ChatRoomMember.pending == True,
+                ChatRoomMember.pending,
             )
         )
         .options(selectinload(ChatRoomMember.user))
@@ -419,7 +419,7 @@ async def list_pending_members(
         .where(
             and_(
                 ChatRoomMember.room_id == room_id,
-                ChatRoomMember.pending == True,
+                ChatRoomMember.pending,
             )
         )
         .options(selectinload(ChatRoomMember.user))

@@ -30,8 +30,6 @@ async def seed_chats_and_events():
         cedric = users.get("cedric@nexus.com")
         harry = users.get("harry@nexus.com")
 
-        all_users = [u for u in [admin, hermione, luna, cedric, harry] if u]
-
         # ============================================================
         # CREATE CHAT ROOMS
         # ============================================================
