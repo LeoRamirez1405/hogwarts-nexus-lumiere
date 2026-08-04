@@ -101,14 +101,14 @@ export default function SearchBar({
         inputMode="search"
         enterKeyHint="search"
         autoComplete="off"
-        className={`w-full bg-transparent outline-none text-body-md ${styles.text} ${styles.placeholder} ${hasValue ? "pr-8" : ""}`}
+        className={`w-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 text-body-md ${styles.text} ${styles.placeholder} ${hasValue ? "pr-8" : ""}`}
       />
       {hasValue && (
         <button
           type="button"
           onClick={handleClear}
           aria-label="Limpiar búsqueda"
-          className={`absolute right-3 w-6 h-6 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors ${styles.icon}`}
+          className={`absolute right-3 w-6 h-6 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${styles.icon}`}
         >
           <MaterialIcon name="close" className="text-[1.1em]" />
         </button>

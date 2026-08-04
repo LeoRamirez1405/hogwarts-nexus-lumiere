@@ -35,7 +35,7 @@ export default function FAB({
     <button
       onClick={handleClick}
       aria-label={label ?? icon}
-      className={`fixed z-50 w-16 h-16 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center transition-transform duration-200 hover:scale-110 active:scale-90 focus:outline-none ${positionClasses[position]} bottom-20 pb-safe`}
+      className={`fixed z-50 w-16 h-16 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center transition-transform duration-200 hover:scale-110 active:scale-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${positionClasses[position]} bottom-20 pb-safe`}
     >
       <MaterialIcon name={icon} className="text-[1.5em]" />
     </button>

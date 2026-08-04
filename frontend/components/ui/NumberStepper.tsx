@@ -93,7 +93,7 @@ export function NumberStepper({
         onClick={() => handleStep(-1)}
         disabled={!canDecrement}
         aria-label="Disminuir"
-        className={`${classes.button} inline-flex items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed`}
+        className={`${classes.button} inline-flex items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
       >
         <MaterialIcon name="remove" className="text-xl" />
       </button>
@@ -113,7 +113,7 @@ export function NumberStepper({
           disabled={disabled}
           inputMode="numeric"
           enterKeyHint="done"
-          className={`${classes.input} text-center bg-transparent outline-none font-display text-on-surface border-b-2 border-outline-variant/30 focus:border-primary transition-colors`}
+          className={`${classes.input} text-center bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 font-display text-on-surface border-b-2 border-outline-variant/30 focus:border-primary transition-colors`}
           style={{
             MozAppearance: "textfield",
           }}
@@ -130,7 +130,7 @@ export function NumberStepper({
         onClick={() => handleStep(1)}
         disabled={!canIncrement}
         aria-label="Aumentar"
-        className={`${classes.button} inline-flex items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed`}
+        className={`${classes.button} inline-flex items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
       >
         <MaterialIcon name="add" className="text-xl" />
       </button>

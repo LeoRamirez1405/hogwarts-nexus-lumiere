@@ -143,7 +143,7 @@ export default function Modal({
             <button
               onClick={() => { hapticLight(); onClose(); }}
               aria-label="Cerrar"
-              className="w-11 h-11 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
+              className="w-11 h-11 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               <MaterialIcon name="close" className="text-[1.2em]" />
             </button>
