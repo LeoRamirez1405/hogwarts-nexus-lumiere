@@ -113,8 +113,8 @@ export const enumTypesApi = {
 };
 
 export const featureFlagsApi = {
-  getFeatureFlags: () =>
-    request<{ items: FeatureFlag[]; total: number }>("/feature-flags"),
+  getFeatureFlags: (showHidden?: boolean) =>
+    request<{ items: FeatureFlag[]; total: number }>(`/feature-flags${showHidden ? "?show_hidden=true" : ""}`),
 
   getFeatureFlag: (key: string) =>
     request<FeatureFlag>(`/feature-flags/${key}`),

@@ -332,7 +332,7 @@ export const messagesApi = {
   changeMemberRole: (roomId: string, memberId: string, role: "admin" | "member") =>
     request<ChatRoomMemberResponse>(
       `/messages/rooms/${roomId}/members/${memberId}/role`,
-      { method: "PUT", body: JSON.stringify({ action: role }) }
+      { method: "PUT", body: JSON.stringify({ role }) }
     ),
 
   approvePendingMember: (roomId: string, userId: string, action: "approve" | "reject") =>
