@@ -1,4 +1,4 @@
-from .e2e_encryption import (
+from .e2e import (
     E2EEncryptionService,
     IdentityKeyPair,
     PreKeyRecord,

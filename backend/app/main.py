@@ -99,7 +99,7 @@ app.include_router(audit_logs.router, prefix="/audit-logs", tags=["audit-logs"])
 app.include_router(push.router, tags=["push"])
 app.include_router(voice_channels.rest_router, prefix="/messages/voice", tags=["voice"])
 app.include_router(events.router, prefix="/events", tags=["events"])
-app.include_router(e2e_encryption.router, tags=["e2e-encryption"])
+app.include_router(e2e_encryption, tags=["e2e-encryption"])
 
 # Serve locally-stored uploads (avatars, post images, etc.) as static files so
 # the frontend can load them by absolute URL. In production Cloudinary is used
