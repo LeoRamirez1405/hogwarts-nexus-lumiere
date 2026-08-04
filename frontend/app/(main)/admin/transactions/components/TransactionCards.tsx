@@ -5,7 +5,6 @@ import GlassCard from "@/components/ui/GlassCard";
 import Avatar from "@/components/ui/Avatar";
 import ListFooter from "@/components/ui/ListFooter";
 import { MaterialIcon } from "@/components/ui";
-import { VirtualizedList } from "@/components/ui/VirtualizedGrid";
 import {
   txIcon,
   txTypeLabel,
@@ -24,104 +23,94 @@ interface TransactionCardsProps {
   listFooterProps: ListFooterProps;
 }
 
-export default function TransactionCards({ txs, listFooterProps }: TransactionCardsProps) {
-  const estimatedHeight = 200;
-
-  const renderTransactionItem = (tx: Transaction, index: number, style: React.CSSProperties) => {
-    const { icon, color } = txIcon(tx.type);
-    const isTransfer = tx.type === "transfer";
-    return (
-      <div style={style} key={tx.id} className="pb-3 px-0.5">
-        <GlassCard className="p-4">
-          <div className="flex items-start gap-3">
-            <div
-              className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${color}`}
-            >
-              <MaterialIcon name={icon} className="text-xl" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-body-md font-medium text-on-surface">
-                  {txTypeLabel(tx.type)}
-                </p>
-                <p className={`font-display text-title-md shrink-0 ${getAmountColor(tx.type)}`}>
-                  {getAmountPrefix(tx.type)}
-                  {formatAmount(tx.amount)}
-                </p>
-              </div>
-              <div className="mt-2">
-                {isTransfer && tx.sender && tx.receiver ? (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-label-sm text-on-surface-variant w-10 shrink-0">De:</span>
-                      <Avatar
-                        initials={tx.sender.name.charAt(0).toUpperCase()}
-                        src={tx.sender.avatar_url}
-                        size="sm"
-                      />
-                      <p className="text-body-sm text-on-surface truncate">
-                        {tx.sender.name}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-label-sm text-on-surface-variant w-10 shrink-0">Para:</span>
-                      <p className="text-body-sm text-on-surface truncate">
-                        {tx.receiver.name}
-                      </p>
-                      <Avatar
-                        initials={tx.receiver.name.charAt(0).toUpperCase()}
-                        src={tx.receiver.avatar_url}
-                        size="sm"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Avatar
-                      initials={getInitials(getActorName(tx))}
-                      src={getActorAvatar(tx)}
-                      size="sm"
-                    />
-                    <p className="text-body-sm text-on-surface truncate">
-                      {getActorName(tx)}
-                    </p>
-                  </div>
-                )}
-              </div>
-              {tx.description && (
-                <p className="text-label-sm text-on-surface-variant truncate mt-1">
-                  {tx.description}
-                </p>
-              )}
-              <p className="text-label-sm text-on-surface-variant mt-1">
-                {formatTime(tx.created_at)}
-              </p>
-            </div>
+function TxCard({ tx }: { tx: Transaction }) {
+  const { icon, color } = txIcon(tx.type);
+  const isTransfer = tx.type === "transfer";
+  return (
+    <GlassCard className="p-4">
+      <div className="flex items-start gap-3">
+        <div
+          className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${color}`}
+        >
+          <MaterialIcon name={icon} className="text-xl" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-body-md font-medium text-on-surface">
+              {txTypeLabel(tx.type)}
+            </p>
+            <p className={`font-display text-title-md shrink-0 ${getAmountColor(tx.type)}`}>
+              {getAmountPrefix(tx.type)}
+              {formatAmount(tx.amount)}
+            </p>
           </div>
-        </GlassCard>
+          <div className="mt-2">
+            {isTransfer && tx.sender && tx.receiver ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-label-sm text-on-surface-variant w-10 shrink-0">De:</span>
+                  <Avatar
+                    initials={tx.sender.name.charAt(0).toUpperCase()}
+                    src={tx.sender.avatar_url}
+                    size="sm"
+                  />
+                  <p className="text-body-sm text-on-surface truncate">
+                    {tx.sender.name}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-label-sm text-on-surface-variant w-10 shrink-0">Para:</span>
+                  <Avatar
+                    initials={tx.receiver.name.charAt(0).toUpperCase()}
+                    src={tx.receiver.avatar_url}
+                    size="sm"
+                  />
+                  <p className="text-body-sm text-on-surface truncate">
+                    {tx.receiver.name}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Avatar
+                  initials={getInitials(getActorName(tx))}
+                  src={getActorAvatar(tx)}
+                  size="sm"
+                />
+                <p className="text-body-sm text-on-surface truncate">
+                  {getActorName(tx)}
+                </p>
+              </div>
+            )}
+          </div>
+          {tx.description && (
+            <p className="text-label-sm text-on-surface-variant truncate mt-1">
+              {tx.description}
+            </p>
+          )}
+          <p className="text-label-sm text-on-surface-variant mt-1">
+            {formatTime(tx.created_at)}
+          </p>
+        </div>
       </div>
-    );
-  };
+    </GlassCard>
+  );
+}
 
+export default function TransactionCards({ txs, listFooterProps }: TransactionCardsProps) {
   return (
     <div className="md:hidden space-y-3">
-      <VirtualizedList
-        items={txs}
-        itemHeight={estimatedHeight}
-        loadingMore={listFooterProps.loading}
-        loadMoreSentinel={
-          <div className="flex justify-center py-4">
-            <div className="flex items-center gap-2 text-on-surface-variant">
-              <MaterialIcon name="sync" className="animate-spin text-primary" />
-              <span>Cargando más...</span>
-            </div>
+      {txs.map((tx) => (
+        <TxCard key={tx.id} tx={tx} />
+      ))}
+      {listFooterProps.loading && (
+        <div className="flex justify-center py-4">
+          <div className="flex items-center gap-2 text-on-surface-variant">
+            <MaterialIcon name="sync" className="animate-spin text-primary" />
+            <span>Cargando más...</span>
           </div>
-        }
-        sentinelRef={undefined}
-        overscanCount={3}
-        renderItem={renderTransactionItem}
-      >
-      </VirtualizedList>
+        </div>
+      )}
       {txs.length === 0 && (
         <GlassCard className="p-12 text-center">
           <MaterialIcon
