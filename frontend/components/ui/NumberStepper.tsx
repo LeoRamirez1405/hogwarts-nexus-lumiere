@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { MaterialIcon } from "@/components/ui";
 import { useHapticSelection } from "@/hooks/useHapticFeedback";
 
@@ -54,6 +54,16 @@ export function NumberStepper({
   const classes = sizeClasses[size];
   const inputRef = useRef<HTMLInputElement>(null);
   const hapticSelection = useHapticSelection();
+  // Draft en string permite que el input quede vacío mientras el usuario borra
+  // el valor mínimo (por ej. "1") para escribir otro. Sin esto, el input
+  // controlado repondría el "1" instantáneamente y el teclado móvil se
+  // confundiría. Mientras hay foco mostramos el draft; al salir del foco el
+  // valor mostrado se sincroniza con `value` (externo) regularizándolo.
+  const [draft, setDraft] = useState<string>(() => String(value));
+  const [focused, setFocused] = useState(false);
+  // Lo que se muestra: draft editable cuando hay foco, sino el valor externo
+  // normalizado a string.
+  const displayValue = focused ? draft : String(value);
 
   const clamp = useCallback((v: number) => {
     return Math.max(min, Math.min(max, v));
@@ -68,20 +78,43 @@ export function NumberStepper({
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
-    const parsed = parseInt(raw, 10);
-    if (!Number.isNaN(parsed)) {
-      onChange(clamp(parsed));
-    } else if (raw === "") {
-      onChange(min);
+    if (raw === "") {
+      // Permitir input vacío mientras el usuario está editando.
+      setDraft("");
+      return;
     }
-  }, [clamp, onChange, min]);
+    // Solo dígitos; ignorar signos / decimales.
+    if (!/^\d+$/.test(raw)) {
+      return;
+    }
+    const parsed = parseInt(raw, 10);
+    setDraft(String(raw));
+    // Si está dentro del rango, propagar el valor externo.
+    if (parsed >= min && parsed <= max) {
+      onChange(parsed);
+    } else if (parsed > max) {
+      onChange(max);
+    }
+    // Por debajo del mínimo: no propagar todavía, se regulariza al blur.
+  }, [onChange, min, max]);
 
   const handleBlur = useCallback(() => {
-    const parsed = parseInt(inputRef.current?.value ?? "", 10);
+    setFocused(false);
+    const parsed = parseInt(draft, 10);
     if (!Number.isNaN(parsed)) {
       onChange(clamp(parsed));
+    } else {
+      // Input vacío o inválido al salir: regularizar al mínimo.
+      onChange(min);
     }
-  }, [clamp, onChange]);
+  }, [clamp, onChange, min, draft]);
+
+  const handleFocus = useCallback(() => {
+    // Al tomar foco, sincronizar el draft con el valor externo actual para
+    // permitir editarlo desde cero sin regeneraciones abruptas.
+    setDraft(String(value));
+    setFocused(true);
+  }, [value]);
 
   const canDecrement = !disabled && value > min;
   const canIncrement = !disabled && value < max;
@@ -106,10 +139,11 @@ export function NumberStepper({
         )}
         <input
           ref={inputRef}
-          type="number"
-          value={String(value)}
+          type="text"
+          value={displayValue}
           onChange={handleChange}
           onBlur={handleBlur}
+          onFocus={handleFocus}
           disabled={disabled}
           inputMode="numeric"
           enterKeyHint="done"

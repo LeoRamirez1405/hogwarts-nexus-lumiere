@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 
 export interface VisualViewportState {
   keyboardHeight: number;
@@ -17,6 +17,18 @@ export function useVisualViewport(): VisualViewportState {
     viewportWidth: typeof window !== "undefined" ? window.visualViewport?.width ?? window.innerWidth : 0,
   });
 
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const DEBOUNCE_MS = 150;
+
+  const debouncedSetState = useCallback((newState: VisualViewportState) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      setState(newState);
+    }, DEBOUNCE_MS);
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined" || !window.visualViewport) {
       return;
@@ -31,7 +43,7 @@ export function useVisualViewport(): VisualViewportState {
       const keyboardHeight = windowHeight - viewportHeight;
       const isKeyboardOpen = keyboardHeight > 50;
 
-      setState({
+      debouncedSetState({
         keyboardHeight,
         isKeyboardOpen,
         viewportHeight,
@@ -47,8 +59,11 @@ export function useVisualViewport(): VisualViewportState {
     return () => {
       visualViewport.removeEventListener("resize", handleResize);
       visualViewport.removeEventListener("scroll", handleResize);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
     };
-  }, []);
+  }, [debouncedSetState]);
 
   return state;
 }
