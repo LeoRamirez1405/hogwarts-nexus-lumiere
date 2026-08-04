@@ -25,13 +25,13 @@ interface TransactionCardsProps {
 }
 
 export default function TransactionCards({ txs, listFooterProps }: TransactionCardsProps) {
-  const estimatedHeight = 160;
+  const estimatedHeight = 176;
 
   const renderTransactionItem = (tx: Transaction, index: number, style: React.CSSProperties) => {
     const { icon, color } = txIcon(tx.type);
     const isTransfer = tx.type === "transfer";
     return (
-      <div style={style} key={tx.id}>
+      <div style={style} key={tx.id} className="pb-3 px-0.5">
         <GlassCard className="p-4">
           <div className="flex items-start gap-3">
             <div

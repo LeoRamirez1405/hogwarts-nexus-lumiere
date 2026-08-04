@@ -65,8 +65,8 @@ export default function TransactionFilters({
         ))}
       </div>
 
-      {/* Date range filter */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Date range filter — desktop: single row, mobile: two rows */}
+      <div className="hidden md:flex flex-wrap items-center gap-2">
         <label className="text-label-sm text-on-surface-variant whitespace-nowrap">Desde:</label>
         <input
           type="date"
@@ -90,6 +90,37 @@ export default function TransactionFilters({
             <MaterialIcon name="close" className="text-sm" />
           </button>
         )}
+      </div>
+
+      {/* Mobile: each date input on its own row, label + input together */}
+      <div className="flex md:hidden flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <label className="text-label-sm text-on-surface-variant whitespace-nowrap w-12 shrink-0">Desde:</label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="flex-1 px-3 py-2 rounded-lg bg-surface-container-high text-on-surface border border-outline-variant/20 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary text-body-sm"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-label-sm text-on-surface-variant whitespace-nowrap w-12 shrink-0">Hasta:</label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="flex-1 px-3 py-2 rounded-lg bg-surface-container-high text-on-surface border border-outline-variant/20 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary text-body-sm"
+          />
+          {(dateFrom || dateTo) && (
+            <button
+              type="button"
+              onClick={clearDateRange}
+              className="px-2 py-2 rounded-full text-label-sm font-medium bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-all shrink-0"
+            >
+              <MaterialIcon name="close" className="text-sm" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* User filter */}
