@@ -53,6 +53,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       <BottomNav />
+      <footer role="contentinfo" className="sr-only" aria-hidden="true" />
     </div>
   );
 }

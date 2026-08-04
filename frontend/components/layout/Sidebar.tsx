@@ -106,6 +106,8 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     <>
     {/* Mobile / tablet drawer sidebar (below lg) */}
     <aside
+      role="navigation"
+      aria-label="Navegación principal"
       className={`${asideClasses} h-screen transform transition-transform duration-300 lg:hidden ${
         isOpen ? "translate-x-0" : "-translate-x-full"
       }`}
@@ -117,7 +119,11 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     </aside>
 
     {/* Desktop fixed sidebar (lg+) */}
-    <aside className={`${asideClasses} hidden lg:flex h-screen flex-col`}>
+    <aside
+      role="navigation"
+      aria-label="Navegación principal"
+      className={`${asideClasses} hidden lg:flex h-screen flex-col`}
+    >
       <div className="flex flex-col h-full">
         <SidebarContent pathname={pathname} isAdmin={isAdmin} isDark={isBorgin} user={user} />
       </div>
