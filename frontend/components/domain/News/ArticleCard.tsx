@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Article } from "@/lib/api";
 import { GlassCard, Badge, MaterialIcon } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
+import { useShare } from "@/hooks/useShare";
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("es-ES", {
@@ -21,12 +22,23 @@ interface ArticleCardProps {
 export function ArticleCard({ article, onSubscribe }: ArticleCardProps) {
   const router = useRouter();
   const { user } = useAuthStore();
+  const { share } = useShare();
 
   const handleSubscribe = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!user) return;
     onSubscribe(article.id);
+  };
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    share({
+      title: article.title,
+      text: article.body.slice(0, 120),
+      url: window.location.origin + `/news/${article.id}`,
+    });
   };
 
   return (
@@ -51,20 +63,29 @@ export function ArticleCard({ article, onSubscribe }: ArticleCardProps) {
           {formatDate(article.created_at)}
         </span>
         {user && (
-          <button
-            onClick={handleSubscribe}
-            className={`ml-auto p-2 rounded-full transition-colors ${
-              article.subscribed
-                ? "bg-secondary text-on-secondary"
-                : "bg-surface-container-high text-on-surface-variant hover:bg-secondary-container"
-            }`}
-            aria-label={article.subscribed ? "Dejar de seguir" : "Seguir"}
-          >
-            <MaterialIcon
-              name={article.subscribed ? "bookmark_remove" : "bookmark_add"}
-              className="text-sm"
-            />
-          </button>
+          <>
+            <button
+              onClick={handleSubscribe}
+              className={`ml-auto p-2 rounded-full transition-colors ${
+                article.subscribed
+                  ? "bg-secondary text-on-secondary"
+                  : "bg-surface-container-high text-on-surface-variant hover:bg-secondary-container"
+              }`}
+              aria-label={article.subscribed ? "Dejar de seguir" : "Seguir"}
+            >
+              <MaterialIcon
+                name={article.subscribed ? "bookmark_remove" : "bookmark_add"}
+                className="text-sm"
+              />
+            </button>
+            <button
+              onClick={handleShare}
+              className="ml-2 p-2 rounded-full bg-surface-container-high text-on-surface-variant hover:bg-secondary-container transition-colors"
+              aria-label="Compartir artículo"
+            >
+              <MaterialIcon name="share" className="text-sm" />
+            </button>
+          </>
         )}
       </div>
       <h3 className="font-display text-title-md text-on-surface mb-2 leading-snug">
