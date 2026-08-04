@@ -37,6 +37,13 @@ export function useServiceWorker() {
       return;
     }
 
+    const isSecureContext = window.isSecureContext;
+
+    if (!isSecureContext) {
+      console.log("[SW] Skipping registration: not a secure context");
+      return;
+    }
+
     navigator.serviceWorker
       .register("/sw.js", { scope: "/" })
       .then((reg) => {
@@ -61,7 +68,11 @@ export function useServiceWorker() {
         });
       })
       .catch((error) => {
-        console.error("[SW] Registration failed:", error);
+        if (error.name !== "SecurityError") {
+          console.error("[SW] Registration failed:", error);
+        } else {
+          console.log("[SW] Registration skipped: SecurityError (likely insecure context)");
+        }
       });
 
     navigator.serviceWorker.addEventListener("controllerchange", () => {
