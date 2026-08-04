@@ -94,6 +94,12 @@ const META: Record<string, NotificationMeta> = {
     category: "messages",
     route: (n) => (n.related_id ? `/messages?room=${n.related_id}` : "/messages"),
   },
+  group_event: {
+    icon: "event",
+    chip: "bg-tertiary/10 text-tertiary",
+    category: "messages",
+    route: () => "/messages",
+  },
   // Press / articles
   article_created: {
     icon: "newspaper",

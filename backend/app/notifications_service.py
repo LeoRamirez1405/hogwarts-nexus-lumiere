@@ -40,6 +40,7 @@ class N:
     MENTION = "mention"  # existing: mention inside a chat room
     GROUP_ADDED = "group_added"
     GROUP_JOIN_REQUEST = "group_join_request"
+    GROUP_EVENT = "group_event"  # events in chat rooms (created, cancelled, RSVP, reminder)
     # Press / articles / forum
     ARTICLE_CREATED = "article_created"
     ARTICLE_UPDATED = "article_updated"

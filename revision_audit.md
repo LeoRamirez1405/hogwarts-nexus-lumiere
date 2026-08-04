@@ -885,7 +885,7 @@ export const useCartStore = create<CartState>()(
 | 2. Pull-to-Refresh | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + 7 vistas` |
 | 3. Virtual Keyboard | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + 5 formularios` |
 | 4. PWA Install UX | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + install flow` |
-| 5. Haptic Sistémico | ⏳ Pendiente | | | `lint + tsc + 50+ puntos` |
+| 5. Haptic Sistémico | ✅ Completado | 2026-08-03 | 2026-08-03 | `lint + tsc + 50+ puntos` |
 | 6. Formularios Mobile | ⏳ Pendiente | | | `lint + tsc + 10 inputs` |
 | 7. Skeletons | ⏳ Pendiente | | | `lint + tsc + 7 páginas` |
 | 8. Virtualización | ⏳ Pendiente | | | `lint + tsc + 4 listas` |
@@ -917,7 +917,7 @@ cd frontend && npx tsc --noEmit
 - [x] Pull-to-refresh funcional en 100% vistas de lista (7+ vistas)
 - [x] Teclado virtual no oculta FAB/BottomNav/Modal/Botones en 100% formularios
 - [x] PWA install prompt visible + funcional
-- [ ] Haptic feedback en ≥ 50 interacciones táctiles
+- [x] Haptic feedback en ≥ 50 interacciones táctiles
 - [ ] `inputMode`/`autocomplete`/`enterKeyHint` en 100% inputs
 - [ ] Skeletons en 100% loading states (0 `animate-pulse` manual)
 - [ ] Virtualización en 100% listas > 20 items
