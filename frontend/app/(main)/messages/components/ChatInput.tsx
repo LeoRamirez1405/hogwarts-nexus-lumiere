@@ -256,7 +256,6 @@ export default function ChatInput({
           onSendVideo={onSendVideo}
           onStopRecording={onStopVideoRecording}
           onCancelRecording={onCancelVideoRecording}
-          onRetryRecording={video.startRecording}
         />
       ) : (
         <>

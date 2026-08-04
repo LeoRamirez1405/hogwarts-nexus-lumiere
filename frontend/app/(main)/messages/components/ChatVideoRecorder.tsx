@@ -15,7 +15,6 @@ interface ChatVideoRecorderProps {
   onSendVideo: () => void;
   onStopRecording: () => void;
   onCancelRecording: () => void;
-  onRetryRecording?: () => void;
 }
 
 export default function ChatVideoRecorder({
@@ -24,29 +23,7 @@ export default function ChatVideoRecorder({
   onSendVideo,
   onStopRecording,
   onCancelRecording,
-  onRetryRecording,
 }: ChatVideoRecorderProps) {
-  // Show error state if there's a permission error and not recording
-  if (video.error && !video.recording) {
-    return (
-      <div className="flex items-center gap-2 bg-error/10 rounded-full px-4 py-2 border border-error/30 max-w-xs">
-        <MaterialIcon name="error" className="text-error text-lg shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-label-sm text-error font-medium">No se pudo acceder a la cámara</p>
-          <p className="text-label-xs text-on-surface-variant/70 truncate">{video.error}</p>
-        </div>
-        {onRetryRecording && (
-          <button
-            onClick={onRetryRecording}
-            className="px-3 py-1.5 text-xs font-medium text-primary hover:text-primary/80 whitespace-nowrap shrink-0"
-            title="Reintentar"
-          >
-            Reintentar
-          </button>
-        )}
-      </div>
-    );
-  }
 
   if (video.recording) {
     return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { toastError } from "@/lib/toastStore";
 
 export interface VideoRecorderState {
   recording: boolean;
@@ -89,11 +90,6 @@ export function useVideoRecorder(): VideoRecorderState {
   const startRecording = useCallback(async () => {
     setError(null);
     try {
-      const status = await navigator.permissions.query({ name: "camera" as PermissionName });
-      if (status.state === "denied") {
-        setError("Permiso de cámara bloqueado. Ve a Ajustes del sitio (candado 🔒 en la barra de direcciones) → Permisos → Cámara → Permitir.");
-        return;
-      }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 1280 } },
         audio: true,
@@ -125,8 +121,8 @@ export function useVideoRecorder(): VideoRecorderState {
       console.error("Failed to start video recording:", error);
       const err = error as DOMException;
       const message = getHelpMessage(err?.name || "UnknownError");
-      setError(message);
       setHasPermission(false);
+      toastError("No se pudo acceder a la cámara", message);
     }
   }, []);
 
