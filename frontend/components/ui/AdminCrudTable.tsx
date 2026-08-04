@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { useHapticLight } from "@/hooks/useHapticFeedback";
 import Skeleton from "./Skeleton";
+import { confirmDialog } from "./ConfirmDialog";
+import { toastError } from "@/lib/toastStore";
 
 export interface ColumnDef<T> {
   key: string;
@@ -20,6 +22,8 @@ export interface AdminCrudTableProps<T> {
   onEdit: (item: T) => void;
   onDelete: (id: string) => void;
   getId: (item: T) => string;
+  deleteConfirmTitle?: string;
+  deleteConfirmMessage?: string;
   loading?: boolean;
   emptyMessage?: string;
   emptyIcon?: string;
@@ -37,6 +41,8 @@ export function AdminCrudTable<T>({
   onEdit,
   onDelete,
   getId,
+  deleteConfirmTitle = "Eliminar elemento",
+  deleteConfirmMessage = "Esta acción no se puede deshacer.",
   loading = false,
   emptyMessage = "No se encontraron elementos",
   emptyIcon = "inbox",
@@ -56,6 +62,22 @@ export function AdminCrudTable<T>({
     [columns]
   );
   const hapticLight = useHapticLight();
+
+  const handleDelete = (id: string) => {
+    confirmDialog({
+      title: deleteConfirmTitle,
+      message: deleteConfirmMessage,
+      variant: "danger",
+      icon: "delete",
+      onConfirm: async () => {
+        try {
+          await onDelete(id);
+        } catch (err) {
+          toastError("No se pudo eliminar", err);
+        }
+      },
+    });
+  };
 
   if (loading) {
     return (
@@ -93,7 +115,7 @@ export function AdminCrudTable<T>({
                 <button onClick={() => { hapticLight(); onEdit(item); }} className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors" title="Editar">
                   <MaterialIcon name="edit" className="text-lg" />
                 </button>
-                <button onClick={() => { hapticLight(); onDelete(getId(item)); }} className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-error transition-colors" title="Eliminar">
+                <button onClick={() => { hapticLight(); handleDelete(getId(item)); }} className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-error transition-colors" title="Eliminar">
                   <MaterialIcon name="delete" className="text-lg" />
                 </button>
               </div>
@@ -137,7 +159,7 @@ export function AdminCrudTable<T>({
                     <button onClick={() => { hapticLight(); onEdit(item); }} className="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors" title="Editar">
                       <MaterialIcon name="edit" className="text-lg" />
                     </button>
-                    <button onClick={() => { hapticLight(); onDelete(getId(item)); }} className="p-2 rounded-full hover:bg-error-container text-error transition-colors" title="Eliminar">
+                    <button onClick={() => { hapticLight(); handleDelete(getId(item)); }} className="p-2 rounded-full hover:bg-error-container text-error transition-colors" title="Eliminar">
                       <MaterialIcon name="delete" className="text-lg" />
                     </button>
                   </div>

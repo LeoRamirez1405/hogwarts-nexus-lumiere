@@ -102,3 +102,37 @@ No entregar codigo con errores de lint o tipos.
 - Glassmorphism: usar clase `glass-card`
 - Fuentes: EB Garamond (display), Hanken Grotesk (body), JetBrains Mono (labels)
 
+## Regla #12: Límite de tamaño de archivo y modularización obligatoria
+
+**NUNCA permitir que un archivo supere las 500 líneas.** Si un archivo alcanza ~400 líneas, planificar su refactor inmediato.
+
+### Límites duros:
+- **Backend (Python):** 500 líneas máx por archivo
+- **Frontend (TypeScript/TSX):** 500 líneas máx por archivo
+- **Archivos de configuración/schema:** 300 líneas máx
+
+### Cuando un archivo crece demasiado:
+1. **Identificar responsabilidades** — ¿Qué hace este archivo? (ej: router + service + schemas + helpers)
+2. **Extraer a servicios** — Lógica de negocio → `backend/app/services/<domain>/`
+3. **Dividir routers** — Un router por recurso/feature → `backend/app/routers/<feature>/<subrouter>.py`
+4. **Extraer hooks/componentes** — Lógica de UI → `hooks/use<Feature>.ts`, `components/<Feature>/.tsx`
+5. **Mover helpers compartidos** → `deps.py` (backend) o `utils/` (frontend)
+6. **Dataclasses/schemas compartidos** → `schemas/` o `models/`
+
+### Patrones obligatorios:
+- **Router delgado:** Solo validación, auth, llamando a métodos de servicio
+- **Servicio único responsabilidad:** Un servicio = un dominio (ej: `session_manager.py`, `event_service.py`)
+- **Hook por feature:** `useMessages.ts`, `useConversations.ts`, `useE2EEncryption.ts`
+- **Componente por responsabilidad visual:** `ConversationList.tsx`, `ChatPanel.tsx`, `MessageBubble.tsx`
+
+### Verificación automática (CI):
+```bash
+# Backend
+find backend/app -name "*.py" -exec wc -l {} + | awk '$1 > 500 {print "ERROR: " $2 " tiene " $1 " líneas"}'
+
+# Frontend
+find frontend/app -name "*.tsx" -o -name "*.ts" | xargs wc -l | awk '$1 > 500 {print "ERROR: " $2 " tiene " $1 " líneas"}'
+```
+
+**Si el CI falla por tamaño de archivo → bloquear merge hasta modularizar.**
+
