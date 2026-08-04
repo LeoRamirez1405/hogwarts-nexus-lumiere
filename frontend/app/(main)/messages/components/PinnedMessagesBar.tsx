@@ -30,7 +30,7 @@ export default function PinnedMessagesBar({
   onUnpin,
 }: PinnedMessagesBarProps) {
   return (
-    <div className="absolute top-0 left-0 right-0 z-20">
+    <div className="w-full">
       <button
         onClick={onToggle}
         className="w-full flex items-center gap-2 px-4 py-2 bg-surface-container-high/95 backdrop-blur-sm border-b border-outline-variant/20 text-left hover:bg-surface-container-highest transition-colors"

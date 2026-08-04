@@ -7,7 +7,13 @@ import type { VoiceViewProps } from "./types";
 export const VoiceView = ({ message, isOwn }: VoiceViewProps) => {
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [duration, setDuration] = useState(0);
+  // webm blobs recorded by MediaRecorder ship without duration metadata, so
+  // audio.duration reads as Infinity. Start from the duration we stored at
+  // record time and only trust audio.duration when it's a real number.
+  const [duration, setDuration] = useState(() => {
+    const meta = Number(message.metadata?.duration);
+    return Number.isFinite(meta) && meta > 0 ? meta : 0;
+  });
   const [currentTime, setCurrentTime] = useState(0);
 
   const transcription = message.metadata?.transcription;
@@ -26,16 +32,21 @@ export const VoiceView = ({ message, isOwn }: VoiceViewProps) => {
     if (!message.attachment_url) return;
     const audio = new Audio(message.attachment_url);
     audioRef.current = audio;
-    audio.onloadedmetadata = () => setDuration(audio.duration);
+    audio.onloadedmetadata = () => {
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        setDuration(audio.duration);
+      }
+    };
     audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
     audio.onended = () => setPlaying(false);
     return () => {
       audio.pause();
       audio.src = "";
     };
-  }, [message.attachment_url]);
+  }, [message.attachment_url, message.metadata?.duration]);
 
   const formatTime = (sec: number) => {
+    if (!Number.isFinite(sec) || sec < 0) return "0:00";
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60);
     return `${m}:${s.toString().padStart(2, "0")}`;

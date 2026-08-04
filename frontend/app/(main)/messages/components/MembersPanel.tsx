@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui";
 import { MaterialIcon, getInitials, computeOnlineStatus, isOnline } from "../helpers";
 import type { ChatRoomMemberResponse } from "@/lib/api";
 import { messagesApi } from "@/lib/api/messages";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 
 interface MembersPanelProps {
   members: ChatRoomMemberResponse[];
@@ -23,21 +24,13 @@ export default function MembersPanel({
   onClose,
   onRefresh,
 }: MembersPanelProps) {
-  const handleChangeRole = async (memberId: string, newRole: "admin" | "member") => {
-    try {
-      await messagesApi.changeMemberRole(roomId, memberId, newRole);
-      onRefresh();
-    } catch (e) {
-      console.error("Error changing role:", e);
-    }
-  };
-
   const handleApproveReject = async (userId: string, action: "approve" | "reject") => {
     try {
       await messagesApi.approvePendingMember(roomId, userId, action);
+      toastSuccess(action === "approve" ? "Solicitud aprobada" : "Solicitud rechazada");
       onRefresh();
     } catch (e) {
-      console.error("Error approving/rejecting:", e);
+      toastError("No se pudo procesar la solicitud", e);
     }
   };
 
@@ -145,24 +138,6 @@ export default function MembersPanel({
                   <span className="text-label-sm bg-secondary-container/40 text-secondary px-2 py-0.5 rounded-full font-medium">
                     Admin
                   </span>
-                )}
-                {isAdmin && !isSelf && m.role === "member" && (
-                  <button
-                    onClick={() => handleChangeRole(m.user_id, "admin")}
-                    className="w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
-                    title="Hacer admin"
-                  >
-                    <MaterialIcon name="shield" className="text-lg" />
-                  </button>
-                )}
-                {isAdmin && !isSelf && m.role === "admin" && (
-                  <button
-                    onClick={() => handleChangeRole(m.user_id, "member")}
-                    className="w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
-                    title="Quitar admin"
-                  >
-                    <MaterialIcon name="shield_off" className="text-lg" />
-                  </button>
                 )}
               </Link>
             );

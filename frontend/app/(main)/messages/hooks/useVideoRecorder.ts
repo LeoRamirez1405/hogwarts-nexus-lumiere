@@ -68,6 +68,27 @@ export function useVideoRecorder(): VideoRecorderState {
     }
   }, []);
 
+  // Not every browser supports "video/webm". Safari, for instance, only records
+  // "video/mp4". Pick the first supported container so MediaRecorder construction
+  // doesn't throw a NotSupportedError right after the camera was granted.
+  const pickRecorderOptions = (): MediaRecorderOptions => {
+    const candidates = [
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm",
+      "video/mp4",
+    ];
+    const isSupported =
+      typeof MediaRecorder !== "undefined" &&
+      typeof MediaRecorder.isTypeSupported === "function";
+    for (const mimeType of candidates) {
+      if (isSupported && MediaRecorder.isTypeSupported(mimeType)) {
+        return { mimeType };
+      }
+    }
+    return {}; // let the browser choose its default
+  };
+
   const getHelpMessage = (errName: string) => {
     switch (errName) {
       case "NotAllowedError":
@@ -89,6 +110,21 @@ export function useVideoRecorder(): VideoRecorderState {
 
   const startRecording = useCallback(async () => {
     setError(null);
+
+    // getUserMedia only exists in a secure context (HTTPS or localhost). When the
+    // site is opened over plain HTTP on a LAN IP, navigator.mediaDevices is
+    // undefined and accessing it would throw an opaque TypeError.
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      const msg =
+        typeof window !== "undefined" && !window.isSecureContext
+          ? "La cámara solo funciona sobre una conexión segura (HTTPS) o en localhost. Abre el sitio con https:// o desde localhost e inténtalo de nuevo."
+          : "Este navegador no permite acceder a la cámara.";
+      setHasPermission(false);
+      setError(msg);
+      toastError("No se pudo acceder a la cámara", msg);
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 1280 } },
@@ -96,7 +132,7 @@ export function useVideoRecorder(): VideoRecorderState {
       });
       setHasPermission(true);
 
-      const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+      const recorder = new MediaRecorder(stream, pickRecorderOptions());
       const chunks: Blob[] = [];
       chunksRef.current = chunks;
 
@@ -144,12 +180,13 @@ export function useVideoRecorder(): VideoRecorderState {
           streamRef.current.getTracks().forEach((t) => t.stop());
           streamRef.current = null;
         }
+        const mimeType = recorder.mimeType || "video/webm";
         mediaRecorderRef.current = null;
         setRecording(false);
 
         const chunks = chunksRef.current;
         if (chunks.length > 0) {
-          const blob = new Blob(chunks, { type: "video/webm" });
+          const blob = new Blob(chunks, { type: mimeType });
           const url = URL.createObjectURL(blob);
           setRecordedBlob(blob);
           setPreviewUrl(url);

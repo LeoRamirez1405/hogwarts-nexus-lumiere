@@ -11,6 +11,8 @@ interface ChatMenuProps {
   menuRef: React.RefObject<HTMLDivElement | null>;
   selectedConv: SelectedConv | null;
   showMuteMenu: boolean;
+  isPinned: boolean;
+  isArchived: boolean;
   onToggleMuteMenu: () => void;
   onMute: (duration: MuteDuration) => void;
   onClose: () => void;
@@ -32,59 +34,69 @@ interface ChatMenuProps {
   isAdmin: boolean;
 }
 
-function MuteSubmenu({
-  show,
+function MuteTrigger({ onOpen }: { onOpen: () => void }) {
+  return (
+    <button
+      onClick={onOpen}
+      className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+    >
+      <MaterialIcon name="notifications_off" className="text-xl" />
+      Silenciar notificaciones
+      <MaterialIcon name="chevron_right" className="text-lg ml-auto" />
+    </button>
+  );
+}
+
+function MuteView({
+  onBack,
   onMute,
-  onToggle,
 }: {
-  show: boolean;
+  onBack: () => void;
   onMute: (duration: MuteDuration) => void;
-  onToggle: () => void;
 }) {
   return (
-    <div className="relative">
+    <>
       <button
-        onClick={onToggle}
+        onClick={onBack}
+        className="flex items-center gap-3 px-4 py-2.5 text-body-md font-medium text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+      >
+        <MaterialIcon name="arrow_back" className="text-xl" />
+        Volver
+      </button>
+      <div className="border-t border-outline-variant/20 my-1" />
+      <p className="px-4 py-1 text-label-sm text-on-surface-variant">
+        Silenciar durante
+      </p>
+      <button
+        onClick={() => onMute("8h")}
         className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
       >
-        <MaterialIcon name="notifications_off" className="text-xl" />
-        Silenciar notificaciones
-        <MaterialIcon name="chevron_right" className="text-lg ml-auto" />
+        <MaterialIcon name="schedule" className="text-xl" />
+        8 horas
       </button>
-      {show && (
-        <div className="absolute left-full top-0 ml-1 bg-surface-container-highest rounded-xl shadow-xl py-1 z-[60] w-48">
-          <button
-            onClick={() => onMute("8h")}
-            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-          >
-            <MaterialIcon name="schedule" className="text-lg" />
-            8 horas
-          </button>
-          <button
-            onClick={() => onMute("24h")}
-            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-          >
-            <MaterialIcon name="schedule" className="text-lg" />
-            24 horas
-          </button>
-          <button
-            onClick={() => onMute("forever")}
-            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-          >
-            <MaterialIcon name="block" className="text-lg" />
-            Siempre
-          </button>
-          <div className="border-t border-outline-variant/20 my-1" />
-          <button
-            onClick={() => onMute("off")}
-            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-primary hover:bg-surface-container-high transition-colors w-full text-left"
-          >
-            <MaterialIcon name="notifications_active" className="text-lg" />
-            Activar notificaciones
-          </button>
-        </div>
-      )}
-    </div>
+      <button
+        onClick={() => onMute("24h")}
+        className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+      >
+        <MaterialIcon name="schedule" className="text-xl" />
+        24 horas
+      </button>
+      <button
+        onClick={() => onMute("forever")}
+        className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+      >
+        <MaterialIcon name="block" className="text-xl" />
+        Siempre
+      </button>
+      <div className="border-t border-outline-variant/20 my-1" />
+      <button
+        onClick={() => onMute("off")}
+        className="flex items-center gap-3 px-4 py-2.5 text-body-md text-primary hover:bg-surface-container-high transition-colors w-full text-left"
+      >
+        <MaterialIcon name="notifications_active" className="text-xl" />
+        Activar notificaciones
+      </button>
+    </>
   );
 }
 
@@ -94,6 +106,8 @@ export default function ChatMenu({
   menuRef,
   selectedConv,
   showMuteMenu,
+  isPinned,
+  isArchived,
   onToggleMuteMenu,
   onMute,
   onClose,
@@ -122,7 +136,9 @@ export default function ChatMenu({
       className="fixed z-[60] bg-surface-container-highest rounded-xl shadow-xl py-1 w-56"
       style={{ top: position.top, right: position.right }}
     >
-      {isRoom ? (
+      {showMuteMenu ? (
+        <MuteView onBack={onToggleMuteMenu} onMute={onMute} />
+      ) : isRoom ? (
         <>
           <button
             onClick={onShowMembers}
@@ -166,7 +182,7 @@ export default function ChatMenu({
               <div className="border-t border-outline-variant/20 my-1" />
             </>
           )}
-          <MuteSubmenu show={showMuteMenu} onToggle={onToggleMuteMenu} onMute={onMute} />
+          <MuteTrigger onOpen={onToggleMuteMenu} />
           <button
             onClick={onShowMediaGallery}
             className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
@@ -174,34 +190,40 @@ export default function ChatMenu({
             <MaterialIcon name="photo_library" className="text-xl" />
             Ver galería
           </button>
-          <button
-            onClick={() => onPin("room")}
-            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-          >
-            <MaterialIcon name="push_pin" className="text-xl" />
-            Fijar al top
-          </button>
-          <button
-            onClick={() => onUnpin("room")}
-            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-          >
-            <MaterialIcon name="push_pin" className="text-xl" />
-            Desfijar
-          </button>
-          <button
-            onClick={onArchive}
-            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-          >
-            <MaterialIcon name="archive" className="text-xl" />
-            Archivar
-          </button>
-          <button
-            onClick={onUnarchive}
-            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-          >
-            <MaterialIcon name="unarchive" className="text-xl" />
-            Desarchivar
-          </button>
+          {isPinned ? (
+            <button
+              onClick={() => onUnpin("room")}
+              className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+            >
+              <MaterialIcon name="push_pin" className="text-xl" />
+              Desfijar
+            </button>
+          ) : (
+            <button
+              onClick={() => onPin("room")}
+              className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+            >
+              <MaterialIcon name="push_pin" className="text-xl" />
+              Fijar chat
+            </button>
+          )}
+          {isArchived ? (
+            <button
+              onClick={onUnarchive}
+              className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+            >
+              <MaterialIcon name="unarchive" className="text-xl" />
+              Desarchivar
+            </button>
+          ) : (
+            <button
+              onClick={onArchive}
+              className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+            >
+              <MaterialIcon name="archive" className="text-xl" />
+              Archivar
+            </button>
+          )}
           <button
             onClick={onExport}
             className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
@@ -235,7 +257,7 @@ export default function ChatMenu({
             <MaterialIcon name="person" className="text-xl" />
             Ver perfil
           </Link>
-          <MuteSubmenu show={showMuteMenu} onToggle={onToggleMuteMenu} onMute={onMute} />
+          <MuteTrigger onOpen={onToggleMuteMenu} />
           <button
             onClick={onShowMediaGallery}
             className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
@@ -243,34 +265,40 @@ export default function ChatMenu({
             <MaterialIcon name="photo_library" className="text-xl" />
             Ver galería
           </button>
-          <button
-            onClick={onArchive}
-            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-          >
-            <MaterialIcon name="archive" className="text-xl" />
-            Archivar
-          </button>
-          <button
-            onClick={onUnarchive}
-            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-          >
-            <MaterialIcon name="unarchive" className="text-xl" />
-            Desarchivar
-          </button>
-          <button
-            onClick={() => onPin("dm")}
-            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-          >
-            <MaterialIcon name="push_pin" className="text-xl" />
-            Fijar al top
-          </button>
-          <button
-            onClick={() => onUnpin("dm")}
-            className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
-          >
-            <MaterialIcon name="push_pin" className="text-xl" />
-            Desfijar
-          </button>
+          {isArchived ? (
+            <button
+              onClick={onUnarchive}
+              className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+            >
+              <MaterialIcon name="unarchive" className="text-xl" />
+              Desarchivar
+            </button>
+          ) : (
+            <button
+              onClick={onArchive}
+              className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+            >
+              <MaterialIcon name="archive" className="text-xl" />
+              Archivar
+            </button>
+          )}
+          {isPinned ? (
+            <button
+              onClick={() => onUnpin("dm")}
+              className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+            >
+              <MaterialIcon name="push_pin" className="text-xl" />
+              Desfijar
+            </button>
+          ) : (
+            <button
+              onClick={() => onPin("dm")}
+              className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+            >
+              <MaterialIcon name="push_pin" className="text-xl" />
+              Fijar chat
+            </button>
+          )}
           <button
             onClick={onExport}
             className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"

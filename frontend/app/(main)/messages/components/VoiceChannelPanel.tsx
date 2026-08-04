@@ -7,6 +7,7 @@ import { voiceChannelsApi } from "@/lib/api/voice_channels";
 
 interface VoiceChannelPanelProps {
   roomId: string;
+  isAdmin: boolean;
   activeChannelId: string | null;
   isMuted: boolean;
   isDeafened: boolean;
@@ -21,6 +22,7 @@ interface VoiceChannelPanelProps {
 
 export default function VoiceChannelPanel({
   roomId,
+  isAdmin,
   activeChannelId,
   isMuted,
   isDeafened,
@@ -146,15 +148,17 @@ export default function VoiceChannelPanel({
       )}
 
       <div className="px-3 py-2 space-y-1">
-        <button
-          onClick={() => setShowCreate(true)}
-          className="w-full py-2 px-3 rounded-lg bg-primary-container text-on-primary-container text-label-md font-medium hover:bg-primary-container/80 transition-colors flex items-center gap-2"
-        >
-          <MaterialIcon name="add" className="text-lg" />
-          Crear canal de voz
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowCreate(true)}
+            className="w-full py-2 px-3 rounded-lg bg-primary-container text-on-primary-container text-label-md font-medium hover:bg-primary-container/80 transition-colors flex items-center gap-2"
+          >
+            <MaterialIcon name="add" className="text-lg" />
+            Crear canal de voz
+          </button>
+        )}
 
-        {showCreate && (
+        {isAdmin && showCreate && (
           <div className="flex gap-2">
             <input
               type="text"
@@ -186,7 +190,9 @@ export default function VoiceChannelPanel({
 
         {channels.length === 0 && !loading && (
           <p className="text-body-sm text-on-surface-variant text-center py-4">
-            No hay canales de voz activos. ¡Crea uno!
+            {isAdmin
+              ? "No hay canales de voz activos. ¡Crea uno!"
+              : "No hay canales de voz activos. Un administrador puede iniciar uno."}
           </p>
         )}
 
@@ -221,13 +227,15 @@ export default function VoiceChannelPanel({
               </div>
 
               <div className="flex items-center gap-1 ml-2">
-                <button
-                  onClick={() => handleDelete(ch.id)}
-                  className="w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-error-container/30 text-on-surface-variant hover:text-error transition-colors"
-                  title="Eliminar canal"
-                >
-                  <MaterialIcon name="delete" className="text-sm" />
-                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => handleDelete(ch.id)}
+                    className="w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-error-container/30 text-on-surface-variant hover:text-error transition-colors"
+                    title="Eliminar canal"
+                  >
+                    <MaterialIcon name="delete" className="text-sm" />
+                  </button>
+                )}
 
                 {isActive ? (
                   <button

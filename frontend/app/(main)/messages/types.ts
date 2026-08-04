@@ -90,6 +90,8 @@ export interface ChatPanelProps {
   targetMessageId?: string | null;
   typingUsers?: Map<string, string>;
   onlineUsers?: Map<string, boolean>;
+  isPinned?: boolean;
+  isArchived?: boolean;
   onPinConversation?: (convType: ConvType, convId: string) => void;
   onUnpinConversation?: (convType: ConvType, convId: string) => void;
   onArchiveRoom?: (roomId: string) => void;

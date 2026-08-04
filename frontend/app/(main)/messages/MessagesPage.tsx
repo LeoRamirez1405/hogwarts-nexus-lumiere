@@ -695,6 +695,8 @@ setLoadingOlder(false);
                   if (selectedId) e2e.loadSafetyNumber(selectedId);
                   setShowSafetyNumber(true);
                 } : undefined}
+                isPinned={!!selectedConversation?.is_pinned}
+                isArchived={!!selectedConversation?.is_archived}
                 onPinConversation={handlePinConv}
                 onUnpinConversation={handleUnpinConv}
                 onArchiveRoom={async (roomId) => {

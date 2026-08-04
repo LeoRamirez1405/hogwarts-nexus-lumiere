@@ -14,8 +14,10 @@ import ChatInput from "./components/ChatInput";
 import ChatMenu from "./components/ChatMenu";
 import EventList from "./components/EventList";
 import VoiceChannelPanel from "./components/VoiceChannelPanel";
+import ActiveVoiceBar from "./components/ActiveVoiceBar";
 import { EditRoomModal } from "./components/EditRoomModal";
 import { useVoiceChannel } from "./hooks/useVoiceChannel";
+import { useActiveVoiceChannel } from "./hooks/useActiveVoiceChannel";
 import { useFeatureFlag } from "@/lib/featureFlagStore";
 import type { ChatPanelProps, ConvType, MuteDuration } from "./types";
 
@@ -45,6 +47,8 @@ export default function ChatPanel(props: ChatPanelProps) {
     targetMessageId,
     typingUsers,
     onlineUsers,
+    isPinned,
+    isArchived,
     onPinConversation,
     onUnpinConversation,
     onArchiveRoom,
@@ -110,8 +114,26 @@ export default function ChatPanel(props: ChatPanelProps) {
   const isAdmin = (isRoom && roomMembers?.some(
     (m: ChatRoomMemberResponse) => m.user_id === currentUserId && m.role === "admin" && !m.pending
   )) ?? false;
+  // Privileged room actions (change roles, approve members, start/delete voice
+  // channels) are reserved for site admins only — there is no "room admin" tier.
+  const isGlobalAdmin = user?.role === "admin";
 
   const voice = useVoiceChannel();
+  const { active: activeVoice, refresh: refreshActiveVoice } = useActiveVoiceChannel(
+    selectedConv?.id,
+    isRoom
+  );
+
+  const handleJoinActiveVoice = useCallback(async () => {
+    if (!activeVoice || !selectedConv) return;
+    try {
+      await voice.joinChannel(activeVoice.id, selectedConv.id);
+      setShowVoiceChannels(true);
+      refreshActiveVoice();
+    } catch {
+      // useVoiceChannel already logs; surface nothing extra here.
+    }
+  }, [activeVoice, selectedConv, voice, refreshActiveVoice]);
 
   const handleEdit = useCallback(
     (message: Message) => {
@@ -324,7 +346,7 @@ export default function ChatPanel(props: ChatPanelProps) {
           members={roomMembers}
           roomId={selectedConv.id}
           currentUserId={currentUserId ?? ""}
-          isAdmin={isAdmin ?? false}
+          isAdmin={isGlobalAdmin}
           onClose={() => setShowMembers(false)}
           onRefresh={() => onRefresh?.()}
         />
@@ -355,6 +377,7 @@ export default function ChatPanel(props: ChatPanelProps) {
       {showVoiceChannels && isRoom && selectedConv && (
         <VoiceChannelPanel
           roomId={selectedConv.id}
+          isAdmin={isGlobalAdmin}
           activeChannelId={voice.channelId}
           isMuted={voice.isMuted}
           isDeafened={voice.isDeafened}
@@ -381,14 +404,26 @@ export default function ChatPanel(props: ChatPanelProps) {
       )}
 
       <div className="relative flex-1 min-h-0">
-        {pinnedMessages && pinnedMessages.length > 0 && (
-          <PinnedMessagesBar
-            pinnedMessages={pinnedMessages}
-            showPinned={showPinned}
-            onToggle={() => setShowPinned((s) => !s)}
-            onSelectMessage={(pm) => scrollToMessage(pm.id)}
-            onUnpin={onTogglePin}
-          />
+        {((pinnedMessages && pinnedMessages.length > 0) || (isRoom && activeVoice)) && (
+          <div className="absolute top-0 left-0 right-0 z-20">
+            {pinnedMessages && pinnedMessages.length > 0 && (
+              <PinnedMessagesBar
+                pinnedMessages={pinnedMessages}
+                showPinned={showPinned}
+                onToggle={() => setShowPinned((s) => !s)}
+                onSelectMessage={(pm) => scrollToMessage(pm.id)}
+                onUnpin={onTogglePin}
+              />
+            )}
+            {isRoom && activeVoice && (
+              <ActiveVoiceBar
+                channel={activeVoice}
+                isJoined={voice.channelId === activeVoice.id}
+                onJoin={handleJoinActiveVoice}
+                onOpenPanel={() => setShowVoiceChannels(true)}
+              />
+            )}
+          </div>
         )}
 
         <ChatMessages
@@ -468,6 +503,8 @@ export default function ChatPanel(props: ChatPanelProps) {
         menuRef={menuRef}
         selectedConv={selectedConv}
         showMuteMenu={showMuteMenu}
+        isPinned={isPinned ?? false}
+        isArchived={isArchived ?? false}
         onToggleMuteMenu={() => setShowMuteMenu(!showMuteMenu)}
         onMute={handleMuteConversation}
         onClose={() => setShowMenu(false)}

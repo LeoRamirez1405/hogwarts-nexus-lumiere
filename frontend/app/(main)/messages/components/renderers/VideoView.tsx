@@ -6,6 +6,7 @@ import { mediaSrc } from "@/lib/media";
 import type { VideoViewProps } from "./types";
 
 function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
@@ -19,9 +20,12 @@ export const VideoView = ({ message, isOwn, dataSaver, shouldLoad, onLoadClick }
   const thumbnailUrl = (message.metadata as Record<string, unknown> | undefined)?.["thumbnail_url"] as string | undefined;
 
   const handleLoaded = useCallback(() => {
-    if (videoRef.current) {
-      setDuration(videoRef.current.duration || message.metadata?.duration || 0);
-    }
+    // videoRef.duration is Infinity for MediaRecorder webm blobs (no duration
+    // metadata) and Infinity is truthy, so `|| metadata` never kicks in. Only
+    // trust it when it's a finite, positive number; otherwise use metadata.
+    const d = videoRef.current?.duration;
+    const meta = Number(message.metadata?.duration) || 0;
+    setDuration(Number.isFinite(d) && (d as number) > 0 ? (d as number) : meta);
   }, [message.metadata?.duration]);
 
   const handleEnded = useCallback(() => {
