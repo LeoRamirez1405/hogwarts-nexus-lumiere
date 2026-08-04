@@ -46,7 +46,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           always clears the top bar and (on mobile) the bottom nav. */}
       <main
         id="main-content"
-        className="lg:pl-72 min-h-screen pt-[var(--topbar-h)]"
+        className="lg:pl-72 min-h-screen pt-(--topbar-h)"
         style={{
           paddingBottom: `calc(var(--bottomnav-h) + ${keyboardPadding}px)`,
         }}

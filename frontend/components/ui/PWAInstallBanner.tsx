@@ -51,7 +51,7 @@ export default function PWAInstallBanner() {
 
   return (
     <div
-      className="fixed top-16 lg:top-20 left-4 right-4 md:left-auto md:right-4 md:w-[32rem] z-[100] animate-slide-down"
+      className="fixed top-16 lg:top-20 left-4 right-4 md:left-auto md:right-4 md:w-lg z-100 animate-slide-down"
       role="dialog"
       aria-label="Instalar aplicación"
     >
@@ -65,7 +65,7 @@ export default function PWAInstallBanner() {
       >
         <div className="p-4 sm:p-5">
           <div className="flex items-start gap-3">
-            <div className="w-12 h-12 flex-shrink-0 inline-flex items-center justify-center rounded-xl bg-primary/10">
+            <div className="w-12 h-12 shrink-0 inline-flex items-center justify-center rounded-xl bg-primary/10">
               <MaterialIcon name="diamond" className="text-2xl text-primary" filled />
             </div>
             <div className="flex-1 min-w-0">
