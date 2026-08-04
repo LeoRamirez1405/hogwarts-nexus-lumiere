@@ -13,7 +13,7 @@ interface WsClient {
 interface E2EEncryption {
   encryptMessage: (userId: string, body: string) => Promise<{ ciphertext: string; message: unknown } | null>;
   loadSafetyNumber: (userId: string) => void;
-  verifySafetyNumber: (userId: string) => Promise<void>;
+  verifySafetyNumber: (userId: string) => Promise<boolean>;
   safetyNumberStates: Record<string, { safetyNumber: string | null; verified: boolean; loading: boolean }>;
 }
 
@@ -26,7 +26,7 @@ interface UseMessageActionsOptions {
   e2e: E2EEncryption;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>;
-  addToOutbox: (data: MessageSendData, conversationId: string, conversationType: string) => void;
+  addToOutbox: (data: MessageSendData, conversationId: string, conversationType: "direct" | "room") => void;
 }
 
 export function useMessageActions({

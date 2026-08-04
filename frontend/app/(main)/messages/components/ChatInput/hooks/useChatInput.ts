@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback } from "react";
 
 interface UseChatInputOptions {
-  inputRef: React.RefObject<HTMLInputElement | null>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onInputChange: (value: string) => void;
   onTypingStop: () => void;
@@ -11,11 +10,9 @@ interface UseChatInputOptions {
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   showMentionDropdown: boolean;
   onDismissMentions: () => void;
-  uploading: boolean;
 }
 
 export function useChatInput({
-  inputRef,
   fileInputRef,
   onInputChange,
   onTypingStop,
@@ -23,7 +20,6 @@ export function useChatInput({
   onFileSelect,
   showMentionDropdown,
   onDismissMentions,
-  uploading,
 }: UseChatInputOptions) {
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {

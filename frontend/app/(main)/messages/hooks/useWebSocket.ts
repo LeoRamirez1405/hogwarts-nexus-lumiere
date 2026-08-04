@@ -2,16 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Message } from "@/lib/api";
-import { wsClient } from "@/lib/ws";
-import {
-  WSNewMessage,
-  WSTyping,
-  WSPresence,
-  WSReadReceipt,
-  WSReactionUpdate,
-  WSDelete,
-  WSEdit,
-} from "../types";
+import { wsClient, type WSMessage } from "@/lib/ws";
 
 interface UseWebSocketParams {
   authUser: { id: string } | null;
@@ -54,9 +45,9 @@ export function useWebSocket({
       wsClient.connect();
     }
 
-    const unsubNewMessage = wsClient.on("new_message", (msg: WSNewMessage) => {
+    const unsubNewMessage = wsClient.on("new_message", (msg: WSMessage) => {
       const conversationId = msg.c;
-      const message = msg.m;
+      const message = msg.m as Message;
 
       if (selectedIdRef.current === conversationId) {
         onNewMessage(conversationId, message);
@@ -73,32 +64,32 @@ export function useWebSocket({
       }
     });
 
-    const unsubTyping = wsClient.on("typing", (msg: WSTyping) => {
-      onTyping(msg.c, msg.u);
+    const unsubTyping = wsClient.on("typing", (msg: WSMessage) => {
+      onTyping(msg.c as string, msg.u as string);
     });
 
-    const unsubTypingStop = wsClient.on("typing_stop", (msg: WSTyping) => {
-      onTypingStop(msg.c, msg.u);
+    const unsubTypingStop = wsClient.on("typing_stop", (msg: WSMessage) => {
+      onTypingStop(msg.c as string, msg.u as string);
     });
 
-    const unsubPresence = wsClient.on("presence", (msg: WSPresence) => {
-      onPresence(msg.u, msg.s);
+    const unsubPresence = wsClient.on("presence", (msg: WSMessage) => {
+      onPresence(msg.u as string, msg.s as "online" | "offline");
     });
 
-    const unsubReadReceipt = wsClient.on("read_receipt", (msg: WSReadReceipt) => {
-      onReadReceipt(msg.m);
+    const unsubReadReceipt = wsClient.on("read_receipt", (msg: WSMessage) => {
+      onReadReceipt(msg.m as string);
     });
 
-    const unsubReactionUpdate = wsClient.on("reaction_update", (msg: WSReactionUpdate) => {
-      onReactionUpdate(msg.m, msg.r);
+    const unsubReactionUpdate = wsClient.on("reaction_update", (msg: WSMessage) => {
+      onReactionUpdate(msg.m as string, msg.r as Message["reactions"]);
     });
 
-    const unsubDelete = wsClient.on("delete", (msg: WSDelete) => {
-      onDelete(msg.m);
+    const unsubDelete = wsClient.on("delete", (msg: WSMessage) => {
+      onDelete(msg.m as string);
     });
 
-    const unsubEdit = wsClient.on("edit", (msg: WSEdit) => {
-      onEdit(msg.m);
+    const unsubEdit = wsClient.on("edit", (msg: WSMessage) => {
+      onEdit(msg.m as Message);
     });
 
     const unsubCatchUp = wsClient.on("catch_up_requested", () => {

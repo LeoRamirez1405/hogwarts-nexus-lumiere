@@ -1,17 +1,18 @@
 "use client";
 
 import { useEffect } from "react";
-import type { MessageSendData } from "@/lib/api";
+import type { MessageSendData, Message } from "@/lib/api";
+import type { OutboxMessage } from "@/hooks/useIndexedDB";
 
 interface ProcessOutboxFn {
-  (callback: (data: MessageSendData, conversationId: string, conversationType: string) => Promise<unknown>): void;
+  (callback: (data: MessageSendData, conversationId: string, conversationType: "direct" | "room") => Promise<Message>): Promise<void>;
 }
 
-export function useOutboxSync(outboxMessages: MessageSendData[], processOutbox: ProcessOutboxFn) {
+export function useOutboxSync(outboxMessages: OutboxMessage[], processOutbox: ProcessOutboxFn) {
   useEffect(() => {
     const handleOnline = () => {
       if (outboxMessages.length > 0) {
-        processOutbox(async (data: MessageSendData, conversationId: string, conversationType: string) => {
+        void processOutbox(async (data: MessageSendData, conversationId: string, conversationType: string) => {
           const { api } = await import("@/lib/api");
           return conversationType === "room"
             ? api.sendRoomMessage(conversationId, data)

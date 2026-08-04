@@ -164,6 +164,7 @@ export function useMessages({ selectedId, selectedType, wsClient }: UseMessagesO
     pinnedMessages,
     setPinnedMessages,
     roomMembers,
+    setRoomMembers,
     targetMessageId,
     setTargetMessageId,
     loadOlder,

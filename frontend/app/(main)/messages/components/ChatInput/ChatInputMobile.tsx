@@ -93,7 +93,6 @@ export default function ChatInputMobile({
     handleFileClick,
     handleFileChange,
   } = useChatInput({
-    inputRef,
     fileInputRef,
     onInputChange,
     onTypingStop,
@@ -101,7 +100,6 @@ export default function ChatInputMobile({
     onFileSelect,
     showMentionDropdown,
     onDismissMentions,
-    uploading,
   });
 
   return (

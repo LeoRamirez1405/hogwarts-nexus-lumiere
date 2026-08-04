@@ -26,7 +26,6 @@ interface UseWebSocketMessagesOptions {
 
 export function useWebSocketMessages({
   selectedId,
-  selectedType: _selectedType,
   messagesRef,
   selectedIdRef,
   selectedTypeRef,
@@ -58,7 +57,7 @@ export function useWebSocketMessages({
           : c
       )
     );
-  }, [wsClient, setMessages, setConversations]);
+  }, [wsClient, setMessages, setConversations, selectedIdRef]);
 
   const handleTyping = useCallback((conversationId: string, userId: string) => {
     setTypingUsers((prev) => {
@@ -68,7 +67,7 @@ export function useWebSocketMessages({
       next.set(conversationId, ct);
       return next;
     });
-  }, []);
+  }, [setTypingUsers]);
 
   const handleTypingStop = useCallback((conversationId: string, userId: string) => {
     setTypingUsers((prev) => {
@@ -80,7 +79,7 @@ export function useWebSocketMessages({
       }
       return next;
     });
-  }, []);
+  }, [setTypingUsers]);
 
   const handlePresence = useCallback((userId: string, status: "online" | "offline") => {
     setOnlineUsers((prev) => {
@@ -88,23 +87,23 @@ export function useWebSocketMessages({
       next.set(userId, status === "online");
       return next;
     });
-  }, []);
+  }, [setOnlineUsers]);
 
   const handleReadReceipt = useCallback((messageId: string) => {
     setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, read: true } : m));
-  }, []);
+  }, [setMessages]);
 
   const handleReactionUpdate = useCallback((messageId: string, reactions: Message["reactions"]) => {
     setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, reactions } : m));
-  }, []);
+  }, [setMessages]);
 
   const handleWSDelete = useCallback((messageId: string) => {
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
-  }, []);
+  }, [setMessages]);
 
   const handleWSEdit = useCallback((message: Message) => {
     setMessages((prev) => prev.map((m) => m.id === message.id ? { ...m, ...message } : m));
-  }, []);
+  }, [setMessages]);
 
   const handleCatchUp = useCallback(() => {
     const id = selectedIdRef.current;
@@ -122,7 +121,7 @@ export function useWebSocketMessages({
           });
         }).catch(() => {});
       }
-      api.getConversations().then((convs: ConversationItem[]) => setConversations(convs)).catch(() => {});
+      api.getConversations().then((convs: Conversation[]) => setConversations(convs)).catch(() => {});
     }
   }, [api, setMessages, setConversations, messagesRef, selectedIdRef, selectedTypeRef]);
 

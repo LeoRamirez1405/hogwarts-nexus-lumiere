@@ -20,6 +20,7 @@ import { useVoiceChannel } from "./hooks/useVoiceChannel";
 import { useActiveVoiceChannel } from "./hooks/useActiveVoiceChannel";
 import { useFeatureFlag } from "@/lib/featureFlagStore";
 import type { ChatPanelProps, ConvType, MuteDuration } from "./types";
+import { toApiConvType } from "./types";
 
 export type { SelectedConv, ChatPanelProps } from "./types";
 
@@ -158,10 +159,10 @@ export default function ChatPanel(props: ChatPanelProps) {
   const handleForward = useCallback(
     (message: Message) => {
       if (onForwardMessage) {
-        onForwardMessage(message, selectedConv?.id || "", selectedConv?.type === "room" ? "room" : "dm");
+        onForwardMessage(message);
       }
     },
-    [onForwardMessage, selectedConv?.id, selectedConv?.type]
+    [onForwardMessage]
   );
 
   // In-chat search
@@ -239,9 +240,9 @@ export default function ChatPanel(props: ChatPanelProps) {
 
   const handleMuteConversation = async (duration: MuteDuration) => {
     if (!selectedConv) return;
-    const convType = selectedConv.type === "room" ? "room" : "dm";
+    const convType = selectedConv.type === "room" ? "room" : "direct";
     try {
-      await api.muteConversation(convType, selectedConv.id, duration);
+      await api.muteConversation(toApiConvType(convType), selectedConv.id, duration);
       setShowMuteMenu(false);
       setShowMenu(false);
       onRefresh?.();
@@ -252,12 +253,12 @@ export default function ChatPanel(props: ChatPanelProps) {
 
   const handlePin = (convType: ConvType) => {
     if (!selectedConv) return;
-    onPinConversation?.(convType, selectedConv.id);
+    onPinConversation?.(toApiConvType(convType), selectedConv.id);
   };
 
   const handleUnpin = (convType: ConvType) => {
     if (!selectedConv) return;
-    onUnpinConversation?.(convType, selectedConv.id);
+    onUnpinConversation?.(toApiConvType(convType), selectedConv.id);
   };
 
   const handleArchive = () => {

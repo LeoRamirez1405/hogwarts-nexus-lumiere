@@ -9,16 +9,14 @@ interface Notification {
 export function markNotifsReadMatching(
   selectedId: string | null,
   selectedType: SelectedConvType | null,
-  markRead: (filter: { conversationId: string; conversationType: string }) => void,
+  markRead: (predicate: (n: Notification) => boolean) => Promise<void>,
+  // notifications kept for API compatibility; predicate is self-contained
   notifications: Notification[]
 ): void {
   if (!selectedId || !selectedType) return;
-  const matching = notifications.filter(
-    (n) =>
-      n.related_id?.startsWith(`conversation:${selectedId}`) ||
-      (n.related_id?.startsWith(`message:`) && selectedId)
+  if (notifications.length === 0) return;
+  void markRead((n) =>
+    n.related_id?.startsWith(`conversation:${selectedId}`) === true ||
+    n.related_id?.startsWith(`message:${selectedId}`) === true
   );
-  if (matching.length > 0) {
-    markRead({ conversationId: selectedId, conversationType: selectedType });
-  }
 }

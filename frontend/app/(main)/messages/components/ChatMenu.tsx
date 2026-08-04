@@ -1,5 +1,3 @@
-"use client";
-
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { MaterialIcon } from "../helpers";
@@ -80,6 +78,13 @@ function MuteView({
       >
         <MaterialIcon name="schedule" className="text-xl" />
         24 horas
+      </button>
+      <button
+        onClick={() => onMute("7d")}
+        className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
+      >
+        <MaterialIcon name="schedule" className="text-xl" />
+        7 días
       </button>
       <button
         onClick={() => onMute("forever")}
@@ -284,7 +289,7 @@ export default function ChatMenu({
           )}
           {isPinned ? (
             <button
-              onClick={() => onUnpin("dm")}
+              onClick={() => onUnpin("direct")}
               className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
             >
               <MaterialIcon name="push_pin" className="text-xl" />
@@ -292,7 +297,7 @@ export default function ChatMenu({
             </button>
           ) : (
             <button
-              onClick={() => onPin("dm")}
+              onClick={() => onPin("direct")}
               className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
             >
               <MaterialIcon name="push_pin" className="text-xl" />

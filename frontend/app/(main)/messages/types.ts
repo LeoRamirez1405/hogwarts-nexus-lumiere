@@ -1,6 +1,9 @@
 "use client";
 
-export type { Message, Conversation, User, MessageSendData, ChatRoomMemberResponse, OutboxMessage } from "@/lib/api";
+import type { Message, Conversation, User, MessageSendData, ChatRoomMemberResponse } from "@/lib/api";
+import type { OutboxMessage } from "@/hooks/useIndexedDB";
+
+export type { Message, Conversation, User, MessageSendData, ChatRoomMemberResponse, OutboxMessage };
 
 export interface ConversationItemProps {
   conversation: Conversation;
@@ -113,7 +116,8 @@ export interface MobileToolbarProps {
 // Alias for backward compatibility
 export type SelectedConv = Conversation;
 export type ConvType = "direct" | "room";
-export type MuteDuration = "1h" | "8h" | "24h" | "7d" | "forever";
+export type ConvApiType = "dm" | "room";
+export type MuteDuration = "1h" | "8h" | "24h" | "7d" | "forever" | "off";
 
 export interface AttachmentPreview {
   url: string;
@@ -122,6 +126,10 @@ export interface AttachmentPreview {
 }
 
 export type SelectedConvType = "direct" | "room";
+
+export function toApiConvType(type: ConvType): ConvApiType {
+  return type === "direct" ? "dm" : "room";
+}
 
 export const PAGE_SIZE = 50;
 

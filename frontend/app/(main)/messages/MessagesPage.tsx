@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useAuthStore } from "@/lib/authStore";
 import { useNotificationStore } from "@/lib/notificationStore";
 import { api, Message } from "@/lib/api";
-import { useIndexedDBMessages, useOutbox } from "@/hooks/useIndexedDB";
+import { useOutbox } from "@/hooks/useIndexedDB";
 import { useE2EEncryption } from "@/hooks/useE2EEncryption";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Virtuoso } from "react-virtuoso";
@@ -67,6 +67,7 @@ export default function MessagesPage() {
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Map<string, Map<string, string>>>(new Map());
   const [onlineUsers, setOnlineUsers] = useState<Map<string, boolean>>(new Map());
+  const [targetMessageId, setTargetMessageId] = useState<string | null>(null);
 
   const selectedIdRef = useRef(selectedId);
   const selectedTypeRef = useRef(selectedType);
@@ -321,7 +322,7 @@ export default function MessagesPage() {
                 onEditMessage={handleEditMessage}
                 onDeleteMessage={handleDeleteMessage}
                 onForwardMessage={handleForwardMessage}
-                targetMessageId={messagesHook.targetMessageId}
+                targetMessageId={targetMessageId}
                 typingUsers={typingUsers.get(selectedConv.id ?? "") || new Map()}
                 onlineUsers={onlineUsers}
                 onToggleStar={handleToggleStar}
