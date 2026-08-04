@@ -45,6 +45,8 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
+    "lighthouse": "^12.8.2",
+    "puppeteer": "^25.4.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
