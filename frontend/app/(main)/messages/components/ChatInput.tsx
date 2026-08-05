@@ -4,6 +4,8 @@ import React, { useState, Suspense } from "react";
 import ChatVoiceRecorder from "./ChatVoiceRecorder";
 import ChatVideoRecorder from "./ChatVideoRecorder";
 import DateTimePickerModal from "./DateTimePickerModal";
+import StickerPicker from "./StickerPicker";
+import PollCreator from "../PollCreator";
 import type { Message, UserSearchResult } from "@/lib/api";
 import type { AttachmentPreview } from "../types";
 import type { VoiceRecorderState } from "../hooks/useVoiceRecorder";
@@ -102,9 +104,6 @@ export default function ChatInput({
     replyingTo,
     attachment,
     uploading,
-    showStickers,
-    stickerTab,
-    showPoll,
     mentionResults,
     showMentionDropdown,
     disappearAt,
@@ -120,11 +119,7 @@ export default function ChatInput({
     onCancelReply,
     onRemoveAttachment,
     onToggleStickers,
-    onStickerTabChange,
-    onSendSticker,
     onTogglePoll,
-    onPollCreate,
-    onCancelPoll,
     onFileSelect,
     onStartRecording,
     onStopRecording,
@@ -160,6 +155,12 @@ export default function ChatInput({
         />
       ) : (
         <>
+          {showStickers && (
+            <StickerPicker tab={stickerTab} onTabChange={onStickerTabChange} onSendSticker={onSendSticker} />
+          )}
+          {showPoll && (
+            <PollCreator onCreate={onPollCreate} onCancel={onCancelPoll} />
+          )}
           <Suspense fallback={null}>
             <ChatInputDesktop {...commonProps} />
             <ChatInputMobile {...commonProps} />

@@ -8,8 +8,6 @@ import ScheduleMenu from "./ScheduleMenu";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { formatScheduleTime } from "./utils/formatScheduleTime";
 import { useChatInput } from "./hooks/useChatInput";
-import StickerPicker from "@/app/(main)/messages/components/StickerPicker";
-import PollCreator from "@/app/(main)/messages/PollCreator";
 import MentionDropdown from "@/app/(main)/messages/components/MentionDropdown";
 import type { AttachmentPreview } from "../../types";
 import type { Message } from "@/lib/api";
@@ -19,9 +17,6 @@ interface ChatInputMobileProps {
   replyingTo: Message | null;
   attachment: AttachmentPreview | null;
   uploading: boolean;
-  showStickers: boolean;
-  stickerTab: string;
-  showPoll: boolean;
   mentionResults: { id: string; name: string }[];
   showMentionDropdown: boolean;
   disappearAt?: string;
@@ -37,11 +32,7 @@ interface ChatInputMobileProps {
   onCancelReply: () => void;
   onRemoveAttachment: () => void;
   onToggleStickers: () => void;
-  onStickerTabChange: (tab: string) => void;
-  onSendSticker: (sticker: string) => void;
   onTogglePoll: () => void;
-  onPollCreate: (question: string, options: string[], multiChoice: boolean) => void;
-  onCancelPoll: () => void;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onStartRecording: () => void;
   onStartVideoRecording: () => void;
@@ -54,9 +45,6 @@ export default function ChatInputMobile({
   replyingTo,
   attachment,
   uploading,
-  showStickers,
-  stickerTab,
-  showPoll,
   mentionResults,
   showMentionDropdown,
   disappearAt,
@@ -72,11 +60,7 @@ export default function ChatInputMobile({
   onCancelReply,
   onRemoveAttachment,
   onToggleStickers,
-  onStickerTabChange,
-  onSendSticker,
   onTogglePoll,
-  onPollCreate,
-  onCancelPoll,
   onFileSelect,
   onStartRecording,
   onStartVideoRecording,
@@ -129,9 +113,6 @@ export default function ChatInputMobile({
           </button>
         </div>
       )}
-
-      {showStickers && <StickerPicker tab={stickerTab} onTabChange={onStickerTabChange} onSendSticker={onSendSticker} />}
-      {showPoll && <PollCreator onCreate={onPollCreate} onCancel={onCancelPoll} />}
 
       <div className="md:hidden flex items-center gap-2 bg-surface-container-low rounded-full px-3 py-2">
         <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt" className="absolute opacity-0 w-0 h-0 pointer-events-none" onChange={handleFileChange} disabled={uploading} />

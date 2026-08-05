@@ -6,8 +6,6 @@ import DisappearMenu from "./DisappearMenu";
 import ScheduleMenu from "./ScheduleMenu";
 import { formatScheduleTime } from "./utils/formatScheduleTime";
 import { useChatInput } from "./hooks/useChatInput";
-import StickerPicker from "@/app/(main)/messages/components/StickerPicker";
-import PollCreator from "@/app/(main)/messages/PollCreator";
 import MentionDropdown from "@/app/(main)/messages/components/MentionDropdown";
 import type { AttachmentPreview } from "../../types";
 import type { Message } from "@/lib/api";
@@ -17,9 +15,6 @@ interface ChatInputDesktopProps {
   replyingTo: Message | null;
   attachment: AttachmentPreview | null;
   uploading: boolean;
-  showStickers: boolean;
-  stickerTab: string;
-  showPoll: boolean;
   mentionResults: { id: string; name: string }[];
   showMentionDropdown: boolean;
   disappearAt?: string;
@@ -34,11 +29,7 @@ interface ChatInputDesktopProps {
   onCancelReply: () => void;
   onRemoveAttachment: () => void;
   onToggleStickers: () => void;
-  onStickerTabChange: (tab: string) => void;
-  onSendSticker: (sticker: string) => void;
   onTogglePoll: () => void;
-  onPollCreate: (question: string, options: string[], multiChoice: boolean) => void;
-  onCancelPoll: () => void;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onStartRecording: () => void;
   onStartVideoRecording: () => void;
@@ -51,9 +42,6 @@ export default function ChatInputDesktop({
   replyingTo,
   attachment,
   uploading,
-  showStickers,
-  stickerTab,
-  showPoll,
   mentionResults,
   showMentionDropdown,
   disappearAt,
@@ -68,11 +56,7 @@ export default function ChatInputDesktop({
   onCancelReply,
   onRemoveAttachment,
   onToggleStickers,
-  onStickerTabChange,
-  onSendSticker,
   onTogglePoll,
-  onPollCreate,
-  onCancelPoll,
   onFileSelect,
   onStartRecording,
   onStartVideoRecording,
@@ -140,10 +124,6 @@ export default function ChatInputDesktop({
           </button>
         </div>
       )}
-
-      {showStickers && <StickerPicker tab={stickerTab} onTabChange={onStickerTabChange} onSendSticker={onSendSticker} />}
-
-      {showPoll && <PollCreator onCreate={onPollCreate} onCancel={onCancelPoll} />}
 
       <div className="hidden md:flex items-center gap-2 bg-surface-container-low rounded-full px-4 py-2">
         <input
