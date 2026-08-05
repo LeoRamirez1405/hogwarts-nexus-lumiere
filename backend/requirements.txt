@@ -17,6 +17,5 @@ redis==5.0.1
 brotli-asgi==1.1.0
 webpush==1.0.6
 
-# Optional: audio transcription (requires ffmpeg)
-SpeechRecognition==3.14.3
-pydub==0.25.1
+# Audio transcription deps are installed separately in the Dockerfile
+# (see requirements-audio.txt) to lower the peak build memory on Render Free.

@@ -1,0 +1,4 @@
+# Audio transcription (voice notes -> text).
+# Installed in its own Docker layer so the build peak memory stays low on Render Free.
+SpeechRecognition==3.14.3
+pydub==0.25.1
