@@ -12,17 +12,17 @@ export function getScheduleOptions(): ScheduleOption[] {
   const now = new Date();
   return [
     { label: "Desactivado", value: undefined },
-    { label: "En 15 minutos", value: (now.getTime() + 15 * 60 * 1000).toString() },
-    { label: "En 30 minutos", value: (now.getTime() + 30 * 60 * 1000).toString() },
-    { label: "En 1 hora", value: (now.getTime() + 60 * 60 * 1000).toString() },
-    { label: "En 3 horas", value: (now.getTime() + 3 * 60 * 60 * 1000).toString() },
+    { label: "En 15 minutos", value: new Date(now.getTime() + 15 * 60 * 1000).toISOString() },
+    { label: "En 30 minutos", value: new Date(now.getTime() + 30 * 60 * 1000).toISOString() },
+    { label: "En 1 hora", value: new Date(now.getTime() + 60 * 60 * 1000).toISOString() },
+    { label: "En 3 horas", value: new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString() },
     {
       label: "Mañana 9:00",
       value: (() => {
         const d = new Date(now);
         d.setDate(d.getDate() + 1);
         d.setHours(9, 0, 0, 0);
-        return d.getTime().toString();
+        return d.toISOString();
       })(),
     },
     { label: "Fecha personalizada…", value: "custom" },
