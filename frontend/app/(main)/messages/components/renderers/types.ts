@@ -7,6 +7,8 @@ export type MessageKind = Message["kind"];
 export interface PollViewProps {
   poll: Message["poll"];
   isOwn: boolean;
+  messageId: string;
+  onVoteChange?: (messageId: string, updatedPoll: NonNullable<Message["poll"]>) => void;
 }
 
 export interface StickerViewProps {
@@ -102,5 +104,6 @@ export interface MessageBubbleProps {
   onForward?: (msg: Message) => void;
   onEdit?: (msg: Message) => void;
   onDelete?: (msg: Message) => void;
+  onPollVote?: (messageId: string, updatedPoll: NonNullable<Message["poll"]>) => void;
   members?: ChatRoomMemberResponse[];
 }

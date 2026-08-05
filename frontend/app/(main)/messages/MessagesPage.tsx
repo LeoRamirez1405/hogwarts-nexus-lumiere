@@ -4,7 +4,7 @@ import { useState, useCallback, Suspense, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useAuthStore } from "@/lib/authStore";
 import { useNotificationStore } from "@/lib/notificationStore";
-import { api, Message } from "@/lib/api";
+import { api, Message, PollResponse } from "@/lib/api";
 import { useOutbox } from "@/hooks/useIndexedDB";
 import { useE2EEncryption } from "@/hooks/useE2EEncryption";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -115,6 +115,7 @@ export default function MessagesPage() {
     handleDeleteMessage,
     handleForwardMessage: handleForward,
     handleToggleStar,
+    handleMuteConversation,
     handlePinConv,
     handleUnpinConv,
     handleExportChat,
@@ -132,6 +133,7 @@ export default function MessagesPage() {
     e2e,
     setMessages: messagesHook.setMessages,
     setConversations,
+    setPinnedMessages: messagesHook.setPinnedMessages,
     addToOutbox,
   });
 
@@ -193,6 +195,14 @@ export default function MessagesPage() {
     setForwardMessage(message);
   }, []);
 
+  const handlePollVote = useCallback((messageId: string, updatedPoll: PollResponse) => {
+    messagesHook.setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId && m.poll ? { ...m, poll: updatedPoll } : m
+      )
+    );
+  }, [messagesHook]);
+
   const selectedConversation = conversations.find((c) => c.id === selectedId);
   const selectedConv = buildSelectedConv(selectedId, selectedType, conversations, allUsers);
 
@@ -202,16 +212,9 @@ export default function MessagesPage() {
   ).filter((c) => !c.is_archived && !c.is_hidden);
 
   return (
-    <div className="h-content -my-6 md:-my-8 flex flex-col">
-      {!selectedId && (
-        <div className="md:hidden mb-4">
-          <h1 className="font-display text-headline-lg text-primary">
-            <MaterialIcon name="mail" className="text-primary mr-2 align-middle" filled />La Lechuza
-          </h1>
-        </div>
-      )}
-      <div className="flex-1 flex rounded-2xl overflow-hidden border border-outline-variant/20 bg-surface-container-lowest shadow-sm min-h-0">
-        <div className={`${selectedId ? "hidden xl:flex" : "flex"} flex-col w-full xl:w-96 border-r border-outline-variant/20`}>
+    <div className="flex flex-col h-full">
+      <div className="flex-1 flex overflow-hidden bg-surface-container-lowest min-h-0">
+        <div className={`${selectedId ? "hidden xl:flex" : "flex"} flex-col w-full xl:w-96 border-r border-outline-variant/20 overflow-hidden`}>
           <div className="p-4 border-b border-outline-variant/20">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-title-md font-display text-on-surface">Mensajes</h2>
@@ -268,7 +271,7 @@ export default function MessagesPage() {
               <MaterialIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg" />
             </div>
           </div>
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-hidden">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <MaterialIcon name="progress_activity" className="text-4xl text-outline-variant animate-spin mb-3" />
@@ -332,6 +335,7 @@ export default function MessagesPage() {
                 onE2EClick={selectedType === "direct" ? handleE2EClick : undefined}
                 isPinned={!!selectedConversation?.is_pinned}
                 isArchived={!!selectedConversation?.is_archived}
+                onMuteConversation={handleMuteConversation}
                 onPinConversation={handlePinConv}
                 onUnpinConversation={handleUnpinConv}
                 onArchiveRoom={handleArchiveRoom}
@@ -339,6 +343,7 @@ export default function MessagesPage() {
                 onArchiveConversation={handleHideConv}
                 onUnarchiveConversation={handleUnhideConv}
                 onExportChat={handleExportChat}
+                onPollVote={handlePollVote}
               />
             </Suspense>
           ) : (

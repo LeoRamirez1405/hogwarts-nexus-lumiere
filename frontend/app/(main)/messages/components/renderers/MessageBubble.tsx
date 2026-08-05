@@ -47,6 +47,7 @@ export const MessageBubble = memo(
     onForward,
     onEdit,
     onDelete,
+    onPollVote,
     members,
     isReplyTarget,
   }: MessageBubbleProps) => {
@@ -205,7 +206,7 @@ return (
         </button>
       )}
 
-      <div className="relative max-w-[70%] flex flex-col">
+      <div className={`relative flex flex-col ${kind.startsWith("video") ? "max-w-[80%]" : "max-w-[70%]"}`}>
         {!message.optimistic && (
           <MessageActions
             message={message}
@@ -255,7 +256,14 @@ return (
             </div>
           )}
 
-          {kind === "poll" && message.poll && <PollView poll={message.poll} isOwn={isOwn} />}
+          {kind === "poll" && message.poll && (
+            <PollView
+              poll={message.poll}
+              isOwn={isOwn}
+              messageId={message.id}
+              onVoteChange={onPollVote}
+            />
+          )}
           {kind === "post" && <PostShareView message={message} isOwn={isOwn} />}
           {kind === "sticker" && message.body && <StickerView sticker={message.body} />}
           {kind === "voice" && message.attachment_url && <VoiceView message={message} isOwn={isOwn} />}

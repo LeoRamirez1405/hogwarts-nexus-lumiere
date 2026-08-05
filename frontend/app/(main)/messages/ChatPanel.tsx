@@ -50,6 +50,7 @@ export default function ChatPanel(props: ChatPanelProps) {
     onlineUsers,
     isPinned,
     isArchived,
+    onMuteConversation,
     onPinConversation,
     onUnpinConversation,
     onArchiveRoom,
@@ -57,6 +58,7 @@ export default function ChatPanel(props: ChatPanelProps) {
     onArchiveConversation,
     onUnarchiveConversation,
     onExportChat,
+    onPollVote,
     onToggleStar,
     onShowMediaGallery,
     e2eEncrypted,
@@ -241,14 +243,9 @@ export default function ChatPanel(props: ChatPanelProps) {
   const handleMuteConversation = async (duration: MuteDuration) => {
     if (!selectedConv) return;
     const convType = selectedConv.type === "room" ? "room" : "direct";
-    try {
-      await api.muteConversation(toApiConvType(convType), selectedConv.id, duration);
-      setShowMuteMenu(false);
-      setShowMenu(false);
-      onRefresh?.();
-    } catch (err) {
-      console.error("Mute failed", err);
-    }
+    await onMuteConversation?.(toApiConvType(convType), selectedConv.id, duration);
+    setShowMuteMenu(false);
+    setShowMenu(false);
   };
 
   const handlePin = (convType: ConvType) => {
@@ -452,6 +449,7 @@ export default function ChatPanel(props: ChatPanelProps) {
           onEdit={handleEdit}
           onDelete={handleDelete}
           onForward={handleForward}
+          onPollVote={onPollVote}
         />
       </div>
 
@@ -506,6 +504,7 @@ export default function ChatPanel(props: ChatPanelProps) {
         showMuteMenu={showMuteMenu}
         isPinned={isPinned ?? false}
         isArchived={isArchived ?? false}
+        isMuted={!!selectedConv?.is_muted}
         onToggleMuteMenu={() => setShowMuteMenu(!showMuteMenu)}
         onMute={handleMuteConversation}
         onClose={() => setShowMenu(false)}
