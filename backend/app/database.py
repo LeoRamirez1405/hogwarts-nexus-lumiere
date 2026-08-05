@@ -192,25 +192,26 @@ _WANTED_PARTIAL_INDEXES = [
 ]
 
 
-# Full-Text Search: GIN index on search_vector + trigger to auto-update it
-# Only runs on PostgreSQL (SQLite doesn't support TSVECTOR)
-_FTS_SETUP_SQL = """
-CREATE INDEX IF NOT EXISTS ix_messages_search_vector ON messages USING GIN (search_vector);
-
-CREATE OR REPLACE FUNCTION messages_search_vector_update() RETURNS trigger AS $$
+# Full-Text Search: GIN index on search_vector + trigger to auto-update it.
+# Only runs on PostgreSQL (SQLite doesn't support TSVECTOR). Each item MUST be a
+# single statement: the asyncpg driver runs statements as prepared statements and
+# rejects multiple commands in one ("cannot insert multiple commands into a
+# prepared statement"), so they are executed one at a time.
+_FTS_SETUP_STATEMENTS = [
+    "CREATE INDEX IF NOT EXISTS ix_messages_search_vector ON messages USING GIN (search_vector)",
+    """CREATE OR REPLACE FUNCTION messages_search_vector_update() RETURNS trigger AS $$
 BEGIN
     NEW.search_vector :=
         setweight(to_tsvector('english', COALESCE(NEW.body, '')), 'A') ||
         setweight(to_tsvector('english', COALESCE(NEW.attachment_name, '')), 'B');
     RETURN NEW;
 END
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS messages_search_vector_trigger ON messages;
-CREATE TRIGGER messages_search_vector_trigger
+$$ LANGUAGE plpgsql""",
+    "DROP TRIGGER IF EXISTS messages_search_vector_trigger ON messages",
+    """CREATE TRIGGER messages_search_vector_trigger
 BEFORE INSERT OR UPDATE ON messages
-FOR EACH ROW EXECUTE FUNCTION messages_search_vector_update();
-"""
+FOR EACH ROW EXECUTE FUNCTION messages_search_vector_update()""",
+]
 
 
 def _ensure_fts(sync_conn):
@@ -218,7 +219,8 @@ def _ensure_fts(sync_conn):
     if sync_conn.dialect.name != "postgresql":
         return
     from sqlalchemy import text
-    sync_conn.execute(text(_FTS_SETUP_SQL))
+    for statement in _FTS_SETUP_STATEMENTS:
+        sync_conn.execute(text(statement))
 
 
 def _ensure_indexes(sync_conn):

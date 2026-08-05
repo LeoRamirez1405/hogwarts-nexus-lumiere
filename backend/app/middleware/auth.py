@@ -104,13 +104,21 @@ def decode_refresh_token(token: str) -> dict:
     return payload
 
 
+# Frontend and backend live on different sites in production (Vercel + Render),
+# so the session cookies are cross-site. A cross-site cookie is only sent by the
+# browser on XHR/fetch when it is `SameSite=None; Secure`. In local dev (plain
+# HTTP, COOKIE_SECURE off) `SameSite=None` would be rejected, so fall back to
+# `Lax`. secure/samesite are tied: None requires Secure.
+_COOKIE_SAMESITE = "none" if settings.COOKIE_SECURE else "lax"
+
+
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
     response.set_cookie(
         key=ACCESS_COOKIE,
         value=access_token,
         httponly=True,
         secure=settings.COOKIE_SECURE,
-        samesite="lax",
+        samesite=_COOKIE_SAMESITE,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
@@ -119,15 +127,20 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str) 
         value=refresh_token,
         httponly=True,
         secure=settings.COOKIE_SECURE,
-        samesite="lax",
+        samesite=_COOKIE_SAMESITE,
         max_age=settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
 
 
 def clear_auth_cookies(response: Response) -> None:
-    response.delete_cookie(key=ACCESS_COOKIE, path="/")
-    response.delete_cookie(key=REFRESH_COOKIE, path="/")
+    # Match the attributes used when setting, so the browser actually clears them.
+    response.delete_cookie(
+        key=ACCESS_COOKIE, path="/", samesite=_COOKIE_SAMESITE, secure=settings.COOKIE_SECURE
+    )
+    response.delete_cookie(
+        key=REFRESH_COOKIE, path="/", samesite=_COOKIE_SAMESITE, secure=settings.COOKIE_SECURE
+    )
 
 
 async def get_current_user(
