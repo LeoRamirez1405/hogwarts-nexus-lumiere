@@ -2,7 +2,8 @@
 
 import { useCallback, useRef } from "react";
 import { api, Message, MessageSendData } from "@/lib/api";
-import type { Conversation, SelectedConvType } from "../types";
+import { toastSuccess, toastError } from "@/lib/toastStore";
+import type { Conversation, SelectedConvType, MuteDuration } from "../types";
 
 interface WsClient {
   isConnected: () => boolean;
@@ -26,6 +27,7 @@ interface UseMessageActionsOptions {
   e2e: E2EEncryption;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>;
+  setPinnedMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   addToOutbox: (data: MessageSendData, conversationId: string, conversationType: "direct" | "room") => void;
 }
 
@@ -38,6 +40,7 @@ export function useMessageActions({
   e2e,
   setMessages,
   setConversations,
+  setPinnedMessages,
   addToOutbox,
 }: UseMessageActionsOptions) {
   const tempIdCounterRef = useRef(0);
@@ -126,11 +129,19 @@ export function useMessageActions({
     try {
       const updated = await api.pinMessage(m.id);
       setMessages((prev) => prev.map((x) => x.id === m.id ? { ...x, pinned: updated.pinned } : x));
-      // Pinned messages are refetched in ChatPanel
+      // Mantener la lista de mensajes fijados sincronizada en tiempo real
+      // con el PinnedMessagesBar. Sin esto, el bar solo se actualiza al
+      // reabrir la conversación (useMessages carga pins en montaje).
+      setPinnedMessages((prev) => {
+        if (!updated.pinned) return prev.filter((pm) => pm.id !== m.id);
+        if (prev.some((pm) => pm.id === m.id)) return prev;
+        const pinnedMsg = { ...m, pinned: true };
+        return [pinnedMsg, ...prev];
+      });
     } catch (error) {
       console.error("Failed to toggle pin:", error);
     }
-  }, [setMessages]);
+  }, [setMessages, setPinnedMessages]);
 
   const handleEditMessage = useCallback(async (messageId: string, body: string) => {
     try {
@@ -171,6 +182,25 @@ export function useMessageActions({
       console.error("Failed to toggle star:", error);
     }
   }, [setMessages]);
+
+  const handleMuteConversation = useCallback(async (convType: "dm" | "room", convId: string, duration: MuteDuration) => {
+    try {
+      await api.muteConversation(convType, convId, duration);
+      // Sin esto, el flag is_muted no se actualizaba en la UI tras silenciar;
+      // onRefresh solo refresca mensajes, no conversaciones. El usuario no
+      // recibía feedback y al volver a abrir el menú no veía "Silenciado".
+      const muted = duration !== "off";
+      setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, is_muted: muted } : c));
+      if (muted) {
+        const label = duration === "forever" ? "siempre" : duration;
+        toastSuccess("Notificaciones silenciadas", `Silenciado por ${label}`);
+      } else {
+        toastSuccess("Notificaciones activadas", "Volverás a recibir avisos");
+      }
+    } catch (error) {
+      toastError("No se pudo cambiar el estado de silencio", error);
+    }
+  }, [setConversations]);
 
   const handlePinConv = useCallback(async (convType: "dm" | "room", convId: string) => {
     try {
@@ -259,6 +289,7 @@ export function useMessageActions({
     handleDeleteMessage,
     handleForwardMessage,
     handleToggleStar,
+    handleMuteConversation,
     handlePinConv,
     handleUnpinConv,
     handleExportChat,

@@ -11,6 +11,7 @@ interface ChatMenuProps {
   showMuteMenu: boolean;
   isPinned: boolean;
   isArchived: boolean;
+  isMuted: boolean;
   onToggleMuteMenu: () => void;
   onMute: (duration: MuteDuration) => void;
   onClose: () => void;
@@ -32,14 +33,14 @@ interface ChatMenuProps {
   isAdmin: boolean;
 }
 
-function MuteTrigger({ onOpen }: { onOpen: () => void }) {
+function MuteTrigger({ onOpen, isMuted }: { onOpen: () => void; isMuted: boolean }) {
   return (
     <button
       onClick={onOpen}
       className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
     >
-      <MaterialIcon name="notifications_off" className="text-xl" />
-      Silenciar notificaciones
+      <MaterialIcon name={isMuted ? "notifications_off" : "notifications"} className="text-xl" />
+      {isMuted ? "Activar notificaciones" : "Silenciar notificaciones"}
       <MaterialIcon name="chevron_right" className="text-lg ml-auto" />
     </button>
   );
@@ -48,9 +49,11 @@ function MuteTrigger({ onOpen }: { onOpen: () => void }) {
 function MuteView({
   onBack,
   onMute,
+  isMuted,
 }: {
   onBack: () => void;
   onMute: (duration: MuteDuration) => void;
+  isMuted: boolean;
 }) {
   return (
     <>
@@ -100,6 +103,7 @@ function MuteView({
       >
         <MaterialIcon name="notifications_active" className="text-xl" />
         Activar notificaciones
+        {!isMuted ? <MaterialIcon name="check" className="text-lg ml-auto text-primary" /> : null}
       </button>
     </>
   );
@@ -113,6 +117,7 @@ export default function ChatMenu({
   showMuteMenu,
   isPinned,
   isArchived,
+  isMuted,
   onToggleMuteMenu,
   onMute,
   onClose,
@@ -142,7 +147,7 @@ export default function ChatMenu({
       style={{ top: position.top, right: position.right }}
     >
       {showMuteMenu ? (
-        <MuteView onBack={onToggleMuteMenu} onMute={onMute} />
+        <MuteView onBack={onToggleMuteMenu} onMute={onMute} isMuted={isMuted} />
       ) : isRoom ? (
         <>
           <button
@@ -187,7 +192,7 @@ export default function ChatMenu({
               <div className="border-t border-outline-variant/20 my-1" />
             </>
           )}
-          <MuteTrigger onOpen={onToggleMuteMenu} />
+          <MuteTrigger onOpen={onToggleMuteMenu} isMuted={isMuted} />
           <button
             onClick={onShowMediaGallery}
             className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
@@ -262,7 +267,7 @@ export default function ChatMenu({
             <MaterialIcon name="person" className="text-xl" />
             Ver perfil
           </Link>
-          <MuteTrigger onOpen={onToggleMuteMenu} />
+          <MuteTrigger onOpen={onToggleMuteMenu} isMuted={isMuted} />
           <button
             onClick={onShowMediaGallery}
             className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
