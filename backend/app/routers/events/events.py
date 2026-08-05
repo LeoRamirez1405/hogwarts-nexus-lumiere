@@ -192,7 +192,7 @@ async def create_event_endpoint(
     room = room_result.scalar_one()
 
     # Notify room members
-    from ....services.events import notify_event_created
+    from ...services.events import notify_event_created
     await notify_event_created(db, event, room, current_user.id)
 
     return _event_to_response(event, current_user.id)
@@ -285,7 +285,7 @@ async def update_event_endpoint(
     update_dict = event_data.model_dump(exclude_unset=True)
     event = await update_event(db, event, update_dict)
 
-    from ....services.events import notify_event_updated
+    from ...services.events import notify_event_updated
     await notify_event_updated(db, event, event.room_id)
 
     return _event_to_response(event, current_user.id)
@@ -310,7 +310,7 @@ async def delete_event(
 
     event = await cancel_event(db, event, current_user.id)
 
-    from ....services.events import notify_event_cancelled, get_attending_users
+    from ...services.events import notify_event_cancelled, get_attending_users
     await notify_event_cancelled(db, event, current_user.id)
 
     # Notify attending users

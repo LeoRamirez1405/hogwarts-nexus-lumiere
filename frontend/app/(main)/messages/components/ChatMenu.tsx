@@ -157,13 +157,13 @@ export default function ChatMenu({
             <MaterialIcon name="group" className="text-xl" />
             Ver miembros
           </button>
-          {eventsEnabled && (
+          {eventsEnabled && isAdmin && (
             <button
               onClick={onShowEvents}
               className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface hover:bg-surface-container-high transition-colors w-full text-left"
             >
               <MaterialIcon name="event" className="text-xl" />
-              Ver eventos
+              Crear evento
             </button>
           )}
           {isAdmin && (

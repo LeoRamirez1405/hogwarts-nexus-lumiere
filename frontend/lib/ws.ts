@@ -18,10 +18,32 @@ interface WSTokenResponse {
   expires_in: number;
 }
 
-const API_BASE = (() => {
+const getWsUrl = () => {
   if (typeof window === "undefined") return "";
-  return process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "";
-})();
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL || `http://${window.location.host}`;
+
+  // We connect straight to the backend over WSS — NOT through the Next /api
+  // proxy, which does not forward WebSocket upgrades to browsers (the handshake
+  // fails with close 1006 even though plain HTTP proxies fine). The route is
+  // /messages/ws (no /api prefix — that only exists as the REST proxy) and the
+  // token travels in the subprotocol, never in the URL.
+  if (backendUrl.startsWith("https")) {
+    // Production: the backend is already served over TLS.
+    return `wss://${new URL(backendUrl).host}/messages/ws`;
+  }
+
+  // Dev: the backend is plain HTTP, but the page is HTTPS so we need wss://.
+  // A local WSS->WS bridge (backend/ws_tls_bridge.py, started by run.py)
+  // terminates TLS on :8443 with the mkcert cert and forwards to the backend.
+  // Use the page's hostname so it also works over the LAN IP on mobile.
+  const bridgePort = process.env.NEXT_PUBLIC_WS_BRIDGE_PORT || "8443";
+  return `wss://${window.location.hostname}:${bridgePort}/messages/ws`;
+};
+
+const getApiBase = () => {
+  if (typeof window === "undefined") return "";
+  return `${window.location.origin}/api`;
+};
 
 class WSClient {
   private ws: WebSocket | null = null;
@@ -36,7 +58,7 @@ class WSClient {
   private initialized = false;
 
   private async fetchWSToken(): Promise<string> {
-    const res = await fetch(`${API_BASE}/api/auth/ws-token`, {
+    const res = await fetch(`${getApiBase()}/auth/ws-token`, {
       credentials: "include",
     });
     if (!res.ok) {
@@ -52,18 +74,9 @@ class WSClient {
     if (this.initialized || typeof window === "undefined") return;
     this.isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     this.heartbeatMs = this.isMobile ? 25000 : 60000;
-    this.url = this.getWsUrl();
+    this.url = getWsUrl();
     this.setupVisibilityHandling();
     this.initialized = true;
-  }
-
-  private getWsUrl(): string {
-    if (typeof window === "undefined") return "";
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = process.env.NEXT_PUBLIC_API_URL
-      ? new URL(process.env.NEXT_PUBLIC_API_URL).host
-      : window.location.host;
-    return `${protocol}//${host}/api/messages/ws`;
   }
 
   private setupVisibilityHandling() {

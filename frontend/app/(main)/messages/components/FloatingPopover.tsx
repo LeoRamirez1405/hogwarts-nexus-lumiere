@@ -4,7 +4,10 @@ import { useEffect, useRef, useState, useLayoutEffect, useCallback } from "react
 import { createPortal } from "react-dom";
 
 export interface FloatingPopoverProps {
-  anchorRef: React.RefObject<HTMLElement | null>;
+  anchorRef?: React.RefObject<HTMLElement | null>;
+  clientX?: number;
+  clientY?: number;
+  lineHeight?: number;
   open: boolean;
   children: React.ReactNode;
   className?: string;
@@ -53,6 +56,9 @@ function resolveDirection(
 
 export function FloatingPopover({
   anchorRef,
+  clientX,
+  clientY,
+  lineHeight,
   open,
   children,
   className = "",
@@ -76,11 +82,9 @@ export function FloatingPopover({
   const isHoveringAnchorRef = useRef(false);
 
   const updatePosition = useCallback(() => {
-    const anchor = anchorRef.current;
     const content = contentRef.current;
-    if (!anchor || !content) return;
+    if (!content) return;
 
-    const anchorRect = anchor.getBoundingClientRect();
     const contentRect = content.getBoundingClientRect();
     const measuredHeight = contentRect.height;
     if (measuredHeight < 20) return;
@@ -88,6 +92,27 @@ export function FloatingPopover({
 
     const vh = window.innerHeight;
     const vw = window.innerWidth;
+
+    let anchorRect: DOMRect;
+
+    if (clientX !== undefined && clientY !== undefined) {
+      const lh = lineHeight || 24;
+      anchorRect = {
+        left: clientX,
+        right: clientX,
+        top: clientY,
+        bottom: clientY + lh,
+        width: 0,
+        height: lh,
+        x: clientX,
+        y: clientY,
+        toJSON: () => {},
+      } as DOMRect;
+    } else if (anchorRef?.current) {
+      anchorRect = anchorRef.current.getBoundingClientRect();
+    } else {
+      return;
+    }
 
     const dir = resolveDirection(placement, anchorRect, measuredWidth, measuredHeight, gap, vw, vh);
 
@@ -126,7 +151,7 @@ export function FloatingPopover({
     top = Math.max(gap, Math.min(top, vh - measuredHeight - gap));
 
     setPosition({ top, left, width: measuredWidth, height: measuredHeight });
-  }, [anchorRef, placement, align, gap]);
+  }, [anchorRef, clientX, clientY, lineHeight, placement, align, gap]);
 
   const requestClose = useCallback(() => {
     onRequestClose?.(false);
@@ -161,7 +186,7 @@ export function FloatingPopover({
     if (!open) return;
     const handle = (e: MouseEvent) => {
       const content = contentRef.current;
-      const anchor = anchorRef.current;
+      const anchor = anchorRef?.current;
       const target = e.target as Node | null;
       const insideOtherPopover =
         target instanceof Element &&
@@ -227,7 +252,7 @@ export function FloatingPopover({
 
   useEffect(() => {
     if (!open) return;
-    const anchor = anchorRef.current;
+    const anchor = anchorRef?.current;
     if (!anchor) return;
 
     if (anchor.matches(":hover")) {

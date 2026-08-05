@@ -1,33 +1,29 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MaterialIcon } from "@/components/ui";
-import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import { eventsApi } from "@/lib/api/eventsApi";
-import type { Event, EventCreate, EventUpdate, EventStatus, ReminderTime, RSVPStatus } from "@/lib/api/events";
-import { wsClient, type WSMessage } from "@/lib/ws";
+import type { Event, EventCreate, EventUpdate, RSVPStatus, ReminderTime } from "@/lib/api/events";
 import EventCard from "./EventCard";
 import EventModal from "./EventModal";
-
-// Event WS message types that should reload the list for this room.
-const EVENT_WS_TYPES = [
-  "event_created",
-  "event_updated",
-  "event_started",
-  "event_ended",
-  "event_cancelled",
-  "event_rsvp_updated",
-];
 
 interface EventListProps {
   roomId: string;
   currentUserId: string;
   isAdminOrMod: boolean;
-  isVisible: boolean; // Global events feature toggle
+  isVisible: boolean;
   onJoinVoice?: (channelId: string) => void;
 }
 
+/**
+ * Admin/management panel for the room's single live event.
+ *
+ * The wall-facing UI lives in the top `EventLiveBanner` (RSVP, status, voice
+ * join). This panel — opened from the chat menu "Ver eventos" — is where the
+ * admin creates, edits, or deletes the room's one event at a time. Members
+ * also see the current event details here.
+ */
 export default function EventList({
   roomId,
   currentUserId,
@@ -35,78 +31,61 @@ export default function EventList({
   isVisible,
   onJoinVoice,
 }: EventListProps) {
-  const [events, setEvents] = useState<Event[]>([]);
+  const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const offsetRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<EventStatus | "upcoming">("upcoming");
 
-  const LIMIT = 20;
-
-  // One live event per group: a live event is PUBLISHED and not yet ended.
-  // While one exists, creating another is blocked (backend returns 409).
-  const hasLiveEvent = events.some(
-    (e) => e.status === "published" && (!e.ends_at || new Date(e.ends_at) > new Date())
-  );
-
-  const loadEvents = useCallback(async (append = false) => {
+  const loadCurrent = useCallback(async () => {
     if (!isVisible) return;
-    
     try {
-      if (!append) setLoading(true);
-      else setLoadingMore(true);
+      setLoading(true);
       setError(null);
-
-      const params: {
-        room_id: string;
-        limit: number;
-        offset: number;
-        status?: string;
-        upcoming_only?: boolean;
-      } = { room_id: roomId, limit: LIMIT, offset: append ? offsetRef.current : 0 };
-      if (statusFilter !== "upcoming") {
-        params.status = statusFilter;
-        params.upcoming_only = false;
-      }
-
-      const response = await eventsApi.list(params);
-
-      if (append) {
-        setEvents((prev) => [...prev, ...response.events]);
-      } else {
-        setEvents(response.events);
-      }
-      setHasMore(response.has_more);
-      offsetRef.current = append ? offsetRef.current + response.events.length : response.events.length;
+      const ev = await eventsApi.getCurrent(roomId);
+      setCurrentEvent(ev ?? null);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Error al cargar eventos";
-      setError(msg);
+      setError(err instanceof Error ? err.message : "Error al cargar el evento");
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
-  }, [roomId, isVisible, statusFilter]);
+  }, [roomId, isVisible]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadEvents(false);
-  }, [loadEvents]);
+    loadCurrent();
+  }, [loadCurrent]);
 
-  // Live-refresh the list when events change in this room (start/end/RSVP/etc.).
-  useEffect(() => {
-    if (!isVisible) return;
-    const handler = (msg: WSMessage) => {
-      if (msg.c && msg.c !== roomId) return;
-      loadEvents(false);
-    };
-    const unsubs = EVENT_WS_TYPES.map((t) => wsClient.on(t, handler));
-    return () => unsubs.forEach((u) => u());
-  }, [roomId, isVisible, loadEvents]);
+  // Keep in sync with banner-driven mutations (RSVP, status changes, etc.):
+  // the WS push reloads the polled "current" event via this callback when
+  // mutations in ChatPanel fire.
+  const handleRsvp = async (eventId: string, status: RSVPStatus) => {
+    try {
+      await eventsApi.rsvp(eventId, status);
+      await loadCurrent();
+    } catch (err) {
+      console.error("Error RSVP:", err);
+    }
+  };
+
+  const handleRemoveRsvp = async (eventId: string) => {
+    try {
+      await eventsApi.removeRsvp(eventId);
+      await loadCurrent();
+    } catch (err) {
+      console.error("Error removing RSVP:", err);
+    }
+  };
+
+  const handleSetReminder = async (eventId: string, reminder: ReminderTime) => {
+    try {
+      await eventsApi.setReminder(eventId, reminder);
+      await loadCurrent();
+    } catch (err) {
+      console.error("Error setting reminder:", err);
+    }
+  };
 
   const handleCreate = async (data: EventCreate) => {
     setModalLoading(true);
@@ -114,7 +93,7 @@ export default function EventList({
       await eventsApi.create(data);
       setShowModal(false);
       setEditingEvent(null);
-      await loadEvents(false);
+      await loadCurrent();
     } catch (err) {
       throw err;
     } finally {
@@ -129,7 +108,7 @@ export default function EventList({
         await eventsApi.update(editingEvent.id, data);
         setShowModal(false);
         setEditingEvent(null);
-        await loadEvents(false);
+        await loadCurrent();
       }
     } catch (err) {
       throw err;
@@ -141,56 +120,9 @@ export default function EventList({
   const handleDelete = async (eventId: string) => {
     try {
       await eventsApi.delete(eventId);
-      await loadEvents(false);
+      await loadCurrent();
     } catch (err) {
       console.error("Error deleting event:", err);
-    }
-  };
-
-  const handleRsvp = async (eventId: string, status: RSVPStatus) => {
-    try {
-      await eventsApi.rsvp(eventId, status);
-      // Optimistic update
-      setEvents((prev) =>
-        prev.map((e) =>
-          e.id === eventId
-            ? { ...e, my_rsvp: status, rsvp_counts: { ...e.rsvp_counts, [status]: (e.rsvp_counts?.[status] || 0) + 1 } }
-            : e
-        )
-      );
-    } catch (err) {
-      console.error("Error RSVP:", err);
-    }
-  };
-
-  const handleRemoveRsvp = async (eventId: string) => {
-    try {
-      await eventsApi.removeRsvp(eventId);
-      // Optimistic update - remove my_rsvp and decrement the count
-      setEvents((prev) =>
-        prev.map((e) => {
-          if (e.id !== eventId) return e;
-          const currentStatus = e.my_rsvp;
-          const newCounts = { ...e.rsvp_counts };
-          if (currentStatus && newCounts[currentStatus]) {
-            newCounts[currentStatus] = Math.max(0, newCounts[currentStatus] - 1);
-          }
-          return { ...e, my_rsvp: null, rsvp_counts: newCounts };
-        })
-      );
-    } catch (err) {
-      console.error("Error removing RSVP:", err);
-    }
-  };
-
-  const handleSetReminder = async (eventId: string, reminder: ReminderTime) => {
-    try {
-      await eventsApi.setReminder(eventId, reminder);
-      setEvents((prev) =>
-        prev.map((e) => (e.id === eventId ? { ...e, reminder_time: reminder } : e))
-      );
-    } catch (err) {
-      console.error("Error setting reminder:", err);
     }
   };
 
@@ -218,8 +150,8 @@ export default function EventList({
 
   return (
     <div className="space-y-3">
-      {/* Header with filter and create button */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <MaterialIcon name="event" className="text-primary text-xl" />
           <div>
@@ -229,51 +161,18 @@ export default function EventList({
             </p>
           </div>
         </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Status filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as EventStatus | "upcoming")}
-            className="px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary text-sm"
-          >
-            <option value="upcoming">Próximos</option>
-            <option value="published">Publicados</option>
-            <option value="draft">Borradores</option>
-            <option value="cancelled">Cancelados</option>
-            <option value="completed">Finalizados</option>
-          </select>
-
-          {isAdminOrMod && (
-            <Button
-              variant="primary"
-              icon="add"
-              onClick={openCreateModal}
-              size="md"
-              disabled={hasLiveEvent}
-              title={hasLiveEvent ? "Ya hay un evento activo en este grupo" : undefined}
-            >
-              Crear evento
-            </Button>
-          )}
-        </div>
       </div>
 
-      {/* Events list */}
+      {/* Single live event / empty state */}
       {loading ? (
-        <div className="space-y-3" role="status" aria-label="Cargando eventos">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-surface-container-low rounded-2xl border border-outline-variant/20 p-4 animate-pulse">
-              <div className="h-6 bg-surface-container-high rounded w-3/4 mb-2" />
-              <div className="h-4 bg-surface-container-high rounded w-1/2 mb-3" />
-              <div className="h-4 bg-surface-container-high rounded w-full mb-3" />
-              <div className="flex gap-2">
-                <div className="h-8 bg-surface-container-high rounded-full flex-1" />
-                <div className="h-8 bg-surface-container-high rounded-full flex-1" />
-                <div className="h-8 bg-surface-container-high rounded-full flex-1" />
-              </div>
-            </div>
-          ))}
+        <div className="bg-surface-container-low rounded-2xl border border-outline-variant/20 p-4 animate-pulse">
+          <div className="h-6 bg-surface-container-high rounded w-3/4 mb-2" />
+          <div className="h-4 bg-surface-container-high rounded w-1/2 mb-3" />
+          <div className="flex gap-2">
+            <div className="h-8 bg-surface-container-high rounded-full flex-1" />
+            <div className="h-8 bg-surface-container-high rounded-full flex-1" />
+            <div className="h-8 bg-surface-container-high rounded-full flex-1" />
+          </div>
         </div>
       ) : error ? (
         <EmptyState
@@ -281,54 +180,32 @@ export default function EventList({
           title="Error al cargar"
           description={error}
           actionLabel="Reintentar"
-          onAction={() => loadEvents(false)}
+          onAction={() => loadCurrent()}
         />
-      ) : events.length === 0 ? (
-        <EmptyState
-          icon="event_available"
-          title={statusFilter === "upcoming" ? "No hay eventos próximos" : `No hay eventos ${statusFilter}`}
-          description={
-            statusFilter === "upcoming"
-              ? isAdminOrMod
-                ? "Crea el primer evento para tu grupo"
-                : "Los administradores pueden crear eventos desde aquí"
-              : "Prueba con otro filtro"
-          }
-          actionLabel={isAdminOrMod && statusFilter === "upcoming" ? "Crear evento" : undefined}
-          onAction={openCreateModal}
+      ) : currentEvent ? (
+        <EventCard
+          event={currentEvent}
+          currentUserId={currentUserId}
+          isAdminOrMod={isAdminOrMod}
+          onRsvp={handleRsvp}
+          onRemoveRsvp={handleRemoveRsvp}
+          onSetReminder={handleSetReminder}
+          onEdit={openEditModal}
+          onDelete={handleDelete}
+          onJoinVoice={onJoinVoice}
         />
       ) : (
-        <>
-          <div className="space-y-3">
-{events.map((event) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  currentUserId={currentUserId}
-                  isAdminOrMod={isAdminOrMod}
-                  onRsvp={handleRsvp}
-                  onRemoveRsvp={handleRemoveRsvp}
-                  onSetReminder={handleSetReminder}
-                  onEdit={openEditModal}
-                  onDelete={handleDelete}
-                  onJoinVoice={onJoinVoice}
-                />
-              ))}
-          </div>
-
-          {hasMore && (
-            <div className="text-center pt-4">
-              <Button
-                variant="outline"
-                onClick={() => loadEvents(true)}
-                disabled={loadingMore}
-                className="w-full sm:w-auto"
-              >
-                {loadingMore ? "Cargando..." : "Cargar más eventos"}
-              </Button>
-            </div>
-          )}
-        </>
+        <EmptyState
+          icon="event_available"
+          title="Sin eventos"
+          description={
+            isAdminOrMod
+              ? "Crea un evento para tu grupo — todos lo verán en el banner superior del chat."
+              : "Los administradores pueden crear eventos para el grupo."
+          }
+          actionLabel={isAdminOrMod ? "Crear evento" : undefined}
+          onAction={openCreateModal}
+        />
       )}
 
       {/* Create/Edit Modal */}

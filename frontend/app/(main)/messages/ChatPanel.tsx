@@ -12,19 +12,21 @@ import PinnedMessagesBar from "./components/PinnedMessagesBar";
 import ChatMessages from "./components/ChatMessages";
 import ChatInput from "./components/ChatInput";
 import ChatMenu from "./components/ChatMenu";
-import EventList from "./components/EventList";
 import EventLiveBanner from "./components/EventLiveBanner";
 import EventCensusModal from "./components/EventCensusModal";
 import EventLiveWelcome from "./components/EventLiveWelcome";
+import EventModal from "./components/EventModal";
 import ActiveVoiceBar from "./components/ActiveVoiceBar";
 import { EditRoomModal } from "./components/EditRoomModal";
 import { useVoiceChannel } from "./hooks/useVoiceChannel";
 import { useActiveVoiceChannel } from "./hooks/useActiveVoiceChannel";
 import { useRoomLiveEvent } from "./hooks/useRoomLiveEvent";
 import { eventsApi } from "@/lib/api/eventsApi";
+import { isApiError } from "@/lib/api/core/errors";
 import { useFeatureFlag } from "@/lib/featureFlagStore";
 import type { ChatPanelProps, ConvType, MuteDuration } from "./types";
 import { toApiConvType } from "./types";
+import type { Event as RoomEvent, EventCreate, EventUpdate, RSVPStatus, ReminderTime } from "@/lib/api/events";
 
 export type { SelectedConv, ChatPanelProps } from "./types";
 
@@ -79,7 +81,6 @@ export default function ChatPanel(props: ChatPanelProps) {
   const [inChatSearch, setInChatSearch] = useState("");
   const [inChatSearchResults, setInChatSearchResults] = useState<Message[]>([]);
   const [showInChatSearch, setShowInChatSearch] = useState(false);
-  const [showEvents, setShowEvents] = useState(false);
   const [showEditRoom, setShowEditRoom] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const eventsEnabled = useFeatureFlag("events.enabled");
@@ -144,13 +145,17 @@ export default function ChatPanel(props: ChatPanelProps) {
 
   // Live event (single per room): drives the banner, census, and the one-shot
   // welcome animation shown the first time the user is here while it runs.
-  const { liveEvent } = useRoomLiveEvent(
+  const { liveEvent, refresh: refreshLiveEvent } = useRoomLiveEvent(
     isRoom ? selectedConv?.id : undefined,
     eventsEnabled && isRoom
   );
   const [showCensus, setShowCensus] = useState(false);
   const [welcomeTitle, setWelcomeTitle] = useState<string | null>(null);
   const seenCheckedRef = useRef<string | null>(null);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<RoomEvent | null>(null);
+  const [eventModalLoading, setEventModalLoading] = useState(false);
+  const [eventModalError, setEventModalError] = useState<string | null>(null);
 
   const handleJoinEventVoice = useCallback(
     async (channelId: string) => {
@@ -162,6 +167,92 @@ export default function ChatPanel(props: ChatPanelProps) {
       }
     },
     [selectedConv, voice]
+  );
+
+  // Banner-side handlers: live event mutations refresh the banner via the
+  // useRoomLiveEvent poller's refresh (and the WS push is also routed there).
+  const handleBannerRsvp = useCallback(
+    async (eventId: string, status: RSVPStatus) => {
+      try {
+        await eventsApi.rsvp(eventId, status);
+        await refreshLiveEvent();
+      } catch (err) {
+        console.error("Error RSVP:", err);
+      }
+    },
+    [refreshLiveEvent]
+  );
+
+  const handleBannerRemoveRsvp = useCallback(
+    async (eventId: string) => {
+      try {
+        await eventsApi.removeRsvp(eventId);
+        await refreshLiveEvent();
+      } catch (err) {
+        console.error("Error removing RSVP:", err);
+      }
+    },
+    [refreshLiveEvent]
+  );
+
+  const handleBannerSetReminder = useCallback(
+    async (eventId: string, reminder: ReminderTime) => {
+      try {
+        await eventsApi.setReminder(eventId, reminder);
+        await refreshLiveEvent();
+      } catch (err) {
+        console.error("Error setting reminder:", err);
+      }
+    },
+    [refreshLiveEvent]
+  );
+
+  const openEventEditModal = useCallback((event: RoomEvent) => {
+    setEditingEvent(event);
+    setEventModalError(null);
+    setShowEventModal(true);
+  }, []);
+
+  const handleEventSubmit = useCallback(
+    async (data: EventCreate | EventUpdate) => {
+      if (!selectedConv) return;
+      setEventModalLoading(true);
+      setEventModalError(null);
+      try {
+        if (editingEvent) {
+          await eventsApi.update(editingEvent.id, data as EventUpdate);
+        } else {
+          await eventsApi.create({ ...(data as EventCreate), room_id: selectedConv.id });
+        }
+        setShowEventModal(false);
+        setEditingEvent(null);
+        await refreshLiveEvent();
+      } catch (err) {
+        console.error("Error saving event:", err);
+        // Surface a readable message to the user (the modal renders this box).
+        const msg = isApiError(err)
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : "No se pudo guardar el evento. Revisa los campos e inténtalo de nuevo.";
+        setEventModalError(msg);
+      } finally {
+        setEventModalLoading(false);
+      }
+    },
+    [editingEvent, selectedConv, refreshLiveEvent]
+  );
+
+  const handleBannerDelete = useCallback(
+    async (eventId: string) => {
+      try {
+        await eventsApi.delete(eventId);
+        await refreshLiveEvent();
+      } catch (err) {
+        console.error("Error deleting event:", err);
+      }
+    },
+    [refreshLiveEvent]
   );
 
   // Ask the backend (atomically) whether this is the first time the user sees
@@ -339,10 +430,25 @@ export default function ChatPanel(props: ChatPanelProps) {
     onExportChat?.(convType, selectedConv.id, selectedConv.name);
   };
 
-  const handleShowVoiceChannels = () => {
-    if (selectedConv) {
-      voice.toggleChannel(selectedConv.id);
+  const handleShowVoiceChannels = async () => {
+    if (!selectedConv) {
+      setShowMenu(false);
+      return;
+    }
+    // Toggle based on the polled "active" channel — NOT on the local joined
+    // state. The local `state.channelId` only fills when the admin has joined,
+    // so relying on it would make "Cerrar" silently create a duplicate (the
+    // backend 400s and nothing visible happens). Using `activeVoice` makes
+    // the action work whether the admin is joined or just viewing the bar.
+    try {
+      if (activeVoice) {
+        await voice.deleteChannel(activeVoice.id);
+      } else {
+        await voice.createChannel(selectedConv.id, "Chat de voz");
+      }
       refreshActiveVoice();
+    } catch (err) {
+      console.error("Failed to toggle voice channel:", err);
     }
     setShowMenu(false);
   };
@@ -407,28 +513,6 @@ export default function ChatPanel(props: ChatPanelProps) {
         />
       )}
 
-      {showEvents && isRoom && selectedConv && eventsEnabled && (
-        <div className="border-b border-outline-variant/20 max-h-[50vh] overflow-y-auto">
-          <div className="sticky top-0 z-10 bg-surface-container-low px-4 py-2 flex items-center justify-between border-b border-outline-variant/10">
-            <span className="font-display text-headline-sm text-on-surface">Eventos</span>
-            <button
-              onClick={() => setShowEvents(false)}
-              className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors"
-            >
-              <span className="material-symbols-outlined text-on-surface-variant">close</span>
-            </button>
-          </div>
-          <div className="px-4 py-3">
-            <EventList
-              roomId={selectedConv.id}
-              currentUserId={currentUserId ?? ""}
-              isAdminOrMod={isAdmin ?? false}
-              isVisible={true}
-            />
-          </div>
-        </div>
-      )}
-
       {showEditRoom && selectedConv && (
         <EditRoomModal
           roomId={selectedConv.id}
@@ -442,11 +526,17 @@ export default function ChatPanel(props: ChatPanelProps) {
       )}
 
       <div className="relative flex-1 min-h-0">
-        {((pinnedMessages && pinnedMessages.length > 0) || (isRoom && activeVoice) || (isRoom && liveEvent?.in_progress)) && (
+        {((pinnedMessages && pinnedMessages.length > 0) || (isRoom && activeVoice) || (isRoom && liveEvent)) && (
           <div className="absolute top-0 left-0 right-0 z-20">
-            {isRoom && liveEvent?.in_progress && (
+            {isRoom && liveEvent && (
               <EventLiveBanner
                 event={liveEvent}
+                isAdminOrMod={isAdmin ?? false}
+                onRsvp={handleBannerRsvp}
+                onRemoveRsvp={handleBannerRemoveRsvp}
+                onSetReminder={handleBannerSetReminder}
+                onEdit={openEventEditModal}
+                onDelete={handleBannerDelete}
                 onOpenCensus={() => setShowCensus(true)}
                 onJoinVoice={handleJoinEventVoice}
               />
@@ -468,7 +558,15 @@ export default function ChatPanel(props: ChatPanelProps) {
                 onJoin={handleJoinActiveVoice}
                 onToggleMute={voice.toggleMute}
                 onLeave={voice.leaveChannel}
-                onCloseChannel={() => voice.toggleChannel(selectedConv!.id)}
+                onCloseChannel={async () => {
+                  if (!selectedConv || !activeVoice) return;
+                  try {
+                    await voice.deleteChannel(activeVoice.id);
+                    refreshActiveVoice();
+                  } catch (err) {
+                    console.error("Failed to close voice channel:", err);
+                  }
+                }}
                 isMuted={voice.isMuted}
               />
             )}
@@ -565,6 +663,24 @@ export default function ChatPanel(props: ChatPanelProps) {
         onOpen={() => setShowCensus(true)}
       />
 
+      {/* Event create/edit modal — launched from the chat menu or the banner's "..." menu */}
+      {selectedConv && (
+        <EventModal
+          isOpen={showEventModal}
+          onClose={() => {
+            setShowEventModal(false);
+            setEditingEvent(null);
+            setEventModalError(null);
+          }}
+          onSubmit={handleEventSubmit}
+          initialData={editingEvent}
+          roomId={selectedConv.id}
+          isLoading={eventModalLoading}
+          canCreateVoiceChannel={true}
+          serverError={eventModalError}
+        />
+      )}
+
       <ChatMenu
         show={showMenu}
         position={menuPosition}
@@ -590,7 +706,12 @@ export default function ChatPanel(props: ChatPanelProps) {
         onExport={handleExport}
         onShowMediaGallery={onShowMediaGallery ?? (() => {})}
         onShowEvents={() => {
-          setShowEvents(true);
+          // "Crear evento" from the chat menu — opens the modal directly in
+          // create mode (no panel). Live event banner above the chat handles
+          // all read-side interactions (RSVP, edit, delete) once it exists.
+          setEditingEvent(null);
+          setEventModalError(null);
+          setShowEventModal(true);
           setShowMenu(false);
         }}
         onShowVoiceChannels={handleShowVoiceChannels}

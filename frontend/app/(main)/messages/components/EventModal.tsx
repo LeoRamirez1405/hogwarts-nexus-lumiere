@@ -22,6 +22,8 @@ interface EventModalProps {
   roomId: string;
   isLoading?: boolean;
   canCreateVoiceChannel: boolean;
+  /** Server-side error string surfaced after a failed submit. */
+  serverError?: string | null;
 }
 
 const LOCATION_OPTIONS: { value: EventLocationType; label: string }[] = [
@@ -39,6 +41,7 @@ export default function EventModal({
   roomId,
   isLoading = false,
   canCreateVoiceChannel = true,
+  serverError = null,
 }: EventModalProps) {
   const isEditing = !!initialData;
   const [title, setTitle] = useState("");
@@ -49,9 +52,6 @@ export default function EventModal({
   const [locationName, setLocationName] = useState("");
   const [locationUrl, setLocationUrl] = useState("");
   const [createVoiceChannel, setCreateVoiceChannel] = useState(false);
-  const [voiceChannelName, setVoiceChannelName] = useState("");
-  const [maxAttendees, setMaxAttendees] = useState("");
-  const [requireApproval, setRequireApproval] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Sync form with initialData when editing
@@ -66,9 +66,6 @@ export default function EventModal({
       setLocationName(initialData.location_name || "");
       setLocationUrl(initialData.location_url || "");
       setCreateVoiceChannel(false);
-      setVoiceChannelName("");
-      setMaxAttendees(initialData.max_attendees?.toString() || "");
-      setRequireApproval(initialData.require_approval);
     } else {
       // Reset for new event - default to tomorrow at 8pm
       const tomorrow = new Date();
@@ -80,9 +77,6 @@ export default function EventModal({
       setLocationName("");
       setLocationUrl("");
       setCreateVoiceChannel(false);
-      setVoiceChannelName("");
-      setMaxAttendees("");
-      setRequireApproval(false);
     }
     setErrors({});
   }, [initialData, isOpen]);
@@ -91,7 +85,9 @@ export default function EventModal({
     const newErrors: Record<string, string> = {};
     if (!title.trim()) newErrors.title = "El título es obligatorio";
     if (!startsAt) newErrors.startsAt = "La fecha de inicio es obligatoria";
-    if (endsAt && new Date(endsAt) <= new Date(startsAt)) {
+    if (!endsAt) {
+      newErrors.endsAt = "La fecha de fin es obligatoria";
+    } else if (new Date(endsAt) <= new Date(startsAt)) {
       newErrors.endsAt = "La fecha de fin debe ser posterior al inicio";
     }
     if (locationType === "physical" && !locationName.trim()) {
@@ -100,41 +96,39 @@ export default function EventModal({
     if (locationType === "external_link" && !locationUrl.trim()) {
       newErrors.locationUrl = "Indica el enlace";
     }
-    if (createVoiceChannel && !voiceChannelName.trim()) {
-      newErrors.voiceChannelName = "Nombre del canal obligatorio";
-    }
-    if (maxAttendees && (parseInt(maxAttendees) < 1 || isNaN(parseInt(maxAttendees)))) {
-      newErrors.maxAttendees = "Número inválido";
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [title, startsAt, endsAt, locationType, locationName, locationUrl, createVoiceChannel, voiceChannelName, maxAttendees]);
+  }, [title, startsAt, endsAt, locationType, locationName, locationUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
-    const data: EventCreate | EventUpdate = {
-      room_id: roomId,
-      title: title.trim(),
-      description: description.trim() || undefined,
-      starts_at: new Date(startsAt).toISOString(),
-      ends_at: endsAt ? new Date(endsAt).toISOString() : undefined,
-      location_type: locationType,
-      location_name: locationName.trim() || undefined,
-      location_url: locationUrl.trim() || undefined,
-      create_voice_channel: createVoiceChannel,
-      voice_channel_name: voiceChannelName.trim() || undefined,
-      max_attendees: maxAttendees ? parseInt(maxAttendees) : undefined,
-      require_approval: requireApproval,
-    };
-
     if (isEditing && initialData) {
-      const { room_id: _r, create_voice_channel: _c, voice_channel_name: _v, ...updateData } = data;
-      void _r; void _c; void _v;
+      const updateData: EventUpdate = {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        starts_at: new Date(startsAt).toISOString(),
+        ends_at: endsAt ? new Date(endsAt).toISOString() : undefined,
+        location_type: locationType,
+        location_name: locationName.trim() || undefined,
+        location_url: locationUrl.trim() || undefined,
+      };
       await onSubmit(updateData);
     } else {
-      await onSubmit(data as EventCreate);
+      const createData: EventCreate = {
+        room_id: roomId,
+        title: title.trim(),
+        description: description.trim() || undefined,
+        starts_at: new Date(startsAt).toISOString(),
+        ends_at: endsAt ? new Date(endsAt).toISOString() : undefined,
+        location_type: locationType,
+        location_name: locationName.trim() || undefined,
+        location_url: locationUrl.trim() || undefined,
+        create_voice_channel: createVoiceChannel,
+        require_approval: false,
+      };
+      await onSubmit(createData);
     }
   };
 
@@ -186,7 +180,9 @@ export default function EventModal({
             {errors.startsAt && <p className="text-label-sm text-error">{errors.startsAt}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="block text-label text-on-surface">Fin (opcional)</label>
+            <label className="block text-label text-on-surface">
+              Fin <span className="text-error">*</span>
+            </label>
             <input
               type="datetime-local"
               value={endsAt}
@@ -247,37 +243,15 @@ export default function EventModal({
               onChange={setCreateVoiceChannel}
               label="Crear canal de voz automáticamente al iniciar el evento"
             />
-            {createVoiceChannel && (
-              <FormField label="Nombre del canal" required error={errors.voiceChannelName}>
-                <InputField
-                  value={voiceChannelName}
-                  onChange={setVoiceChannelName}
-                  placeholder={title || "Se usará el título del evento"}
-                />
-              </FormField>
-            )}
           </div>
         )}
 
-        {/* Max Attendees */}
-        <FormField label="Límite de asistentes (opcional)" error={errors.maxAttendees}>
-          <InputField
-            type="number"
-            min="1"
-            value={maxAttendees}
-            onChange={setMaxAttendees}
-            placeholder="Sin límite"
-          />
-        </FormField>
-
-        {/* Require Approval */}
-        <FormField label="Requiere aprobación del organizador">
-          <Switch
-            checked={requireApproval}
-            onChange={setRequireApproval}
-            label="Los usuarios deben ser aprobados tras marcar 'Voy'"
-          />
-        </FormField>
+        {/* Server-side error (e.g. backend rejection) */}
+        {serverError && (
+          <div className="p-3 bg-error-container/20 border border-error/20 rounded-lg">
+            <p className="text-label-md text-error font-medium">{serverError}</p>
+          </div>
+        )}
 
         {/* Error summary */}
         {Object.keys(errors).length > 0 && (
