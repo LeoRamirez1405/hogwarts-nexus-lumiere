@@ -154,6 +154,7 @@ def serialize_room(room: ChatRoom, user_id: str) -> ChatRoomResponse:
         closed=room.closed,
         join_approval=bool(getattr(room, "join_approval", False)),
         created_by=room.created_by,
+        creator_name=room.creator.name if room.creator else None,
         created_at=room.created_at,
         members=members_out,
     )

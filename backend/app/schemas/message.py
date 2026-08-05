@@ -99,6 +99,7 @@ class ChatRoomResponse(BaseModel):
     closed: bool = False
     join_approval: bool = False
     created_by: str
+    creator_name: Optional[str] = None
     created_at: datetime
     members: List[ChatRoomMemberResponse] = Field(default_factory=list)
 
@@ -115,6 +116,7 @@ class ChatRoomBrief(BaseModel):
     closed: bool = False
     join_approval: bool = False
     created_by: str
+    creator_name: Optional[str] = None
     created_at: datetime
     member_count: int = 0
 

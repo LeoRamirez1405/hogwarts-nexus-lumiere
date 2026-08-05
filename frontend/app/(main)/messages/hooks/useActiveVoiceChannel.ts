@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { voiceChannelsApi, VoiceChannelBrief } from "@/lib/api/voice_channels";
+import { ApiError } from "@/lib/api/core/errors";
 
 const POLL_INTERVAL_MS = 15000;
 
@@ -38,6 +39,18 @@ export function useActiveVoiceChannel(roomId: string | null | undefined, enabled
         .sort((a, b) => b.participant_count - a.participant_count)[0];
       setActive(busiest ?? null);
     } catch (err) {
+      // The user is no longer a member of this room (or was never one, e.g. a
+      // global admin inspecting a room created by someone else before the
+      // backend membership bypass). Stop polling to avoid spamming errors and
+      // clear any stale active channel instead of logging every 15s.
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        setActive(null);
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+        return;
+      }
       console.error("Failed to poll voice channels", err);
     }
   }, [roomId, enabled]);

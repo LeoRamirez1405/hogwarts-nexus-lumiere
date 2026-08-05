@@ -107,7 +107,7 @@ export function GroupsList({
                       )}
                     </div>
                     <p className="text-label-sm text-on-surface-variant mt-1">
-                      Creado {formatDate(room.created_at)}
+                      Creado por {room.creator_name ?? room.created_by.slice(0, 8)} · {formatDate(room.created_at)}
                     </p>
                   </div>
                 </div>
@@ -214,7 +214,7 @@ export function GroupsList({
                   </td>
                   <td className="px-6 py-4 hidden lg:table-cell">
                     <p className="text-label-sm text-on-surface-variant">
-                      {room.created_by.slice(0, 8)}
+                      {room.creator_name ?? room.created_by.slice(0, 8)}
                     </p>
                   </td>
                   <td className="px-6 py-4 hidden lg:table-cell">

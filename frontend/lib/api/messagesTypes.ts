@@ -99,6 +99,7 @@ export interface ChatRoomBrief {
   closed: boolean;
   join_approval: boolean;
   created_by: string;
+  creator_name?: string;
   created_at: string;
   member_count: number;
 }
@@ -112,6 +113,7 @@ export interface ChatRoomResponse {
   closed: boolean;
   join_approval: boolean;
   created_by: string;
+  creator_name?: string;
   created_at: string;
   members: ChatRoomMemberResponse[];
 }

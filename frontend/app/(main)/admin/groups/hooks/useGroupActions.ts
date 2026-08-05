@@ -2,7 +2,6 @@
 
 import { useCallback } from "react";
 import { api, ChatRoomBrief } from "@/lib/api";
-import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 
 type CreateFormInput = {
@@ -36,14 +35,13 @@ export function useGroupActions(crud: CrudLike, refresh: () => Promise<void>) {
   );
 
   const handleDeleteRoom = useCallback(
+    // `crud.handleDelete` ALREADY shows its own confirm dialog and performs the
+    // delete + toast + refresh. Wrapping it in a second confirmDialog raced on
+    // the singleton confirm store: this dialog's runConfirm cleared the store
+    // right after crud.handleDelete opened its own dialog, so the real delete
+    // never ran ("no me deja eliminar"). Call it directly — one confirm, works.
     (id: string) => {
-      confirmDialog({
-        title: "Eliminar grupo?",
-        message: "Se borraran todos sus mensajes. Esta accion no se puede deshacer.",
-        variant: "danger",
-        icon: "delete",
-        onConfirm: () => crud.handleDelete(id),
-      });
+      crud.handleDelete(id);
     },
     [crud]
   );

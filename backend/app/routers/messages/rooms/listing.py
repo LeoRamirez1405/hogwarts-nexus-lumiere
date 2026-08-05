@@ -56,6 +56,7 @@ async def list_my_rooms(
                 closed=r.closed,
                 join_approval=bool(getattr(r, "join_approval", False)),
                 created_by=r.created_by,
+                creator_name=r.creator.name if r.creator else None,
                 created_at=r.created_at,
                 member_count=len(r.members),
             )
@@ -74,16 +75,19 @@ async def get_chat_room(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    member_result = await db.execute(
-        select(ChatRoomMember).where(
-            and_(
-                ChatRoomMember.room_id == room_id,
-                ChatRoomMember.user_id == current_user.id,
+    # Global admins can inspect any room (e.g. manage members/voice/events of
+    # rooms created by other admins) without being a member themselves.
+    if current_user.role != "admin":
+        member_result = await db.execute(
+            select(ChatRoomMember).where(
+                and_(
+                    ChatRoomMember.room_id == room_id,
+                    ChatRoomMember.user_id == current_user.id,
+                )
             )
         )
-    )
-    if not member_result.scalar_one_or_none():
-        raise HTTPException(status_code=403, detail="Not a member of this room")
+        if not member_result.scalar_one_or_none():
+            raise HTTPException(status_code=403, detail="Not a member of this room")
 
     room_result = await db.execute(
         select(ChatRoom)

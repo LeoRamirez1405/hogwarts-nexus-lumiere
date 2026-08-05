@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { api, ChatRoomBrief, User, Page } from "@/lib/api";
+import { api, ChatRoomBrief, ChatRoomMemberResponse, User, Page } from "@/lib/api";
 import { toastError } from "@/lib/toastStore";
 
 export function useMembersModal({
@@ -25,6 +25,7 @@ export function useMembersModal({
 }) {
   const [memberSearch, setMemberSearch] = useState("");
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [roomMembers, setRoomMembers] = useState<ChatRoomMemberResponse[]>([]);
   const [showMembers, setShowMembers] = useState<string | null>(null);
 
   const loadUsers = useCallback(
@@ -85,12 +86,16 @@ export function useMembersModal({
   const openMembers = useCallback(
     async (room: ChatRoomBrief) => {
       setShowMembers(room.id);
+      setRoomMembers([]);
       try {
         const fullRoom = await api.getRoom(room.id);
-        setSelectedMembers(fullRoom.members.map((m) => m.user_id));
+        const members = fullRoom.members || [];
+        setRoomMembers(members);
+        setSelectedMembers(members.map((m) => m.user_id));
       } catch (e) {
         toastError("No se pudo cargar la informacion del grupo", e);
         setSelectedMembers([]);
+        setRoomMembers([]);
       }
     },
     []
@@ -98,23 +103,43 @@ export function useMembersModal({
 
   const handleAddMembers = useCallback(
     async (roomId: string) => {
-      if (selectedMembers.length === 0) return;
+      // Only send users that are not already members — the batch endpoint
+      // rejects the whole request if ANY id already exists.
+      const existingIds = new Set(roomMembers.map((m) => m.user_id));
+      const newIds = selectedMembers.filter((id) => !existingIds.has(id));
+      if (newIds.length === 0) return;
       try {
-        await api.addRoomMembersBatch(roomId, selectedMembers);
+        await api.addRoomMembersBatch(roomId, newIds);
         setShowMembers(null);
         setSelectedMembers([]);
+        setRoomMembers([]);
         setMemberSearch("");
         await refreshRooms();
       } catch (e) {
         toastError("No se pudieron agregar los miembros", e);
       }
     },
-    [selectedMembers, refreshRooms]
+    [selectedMembers, roomMembers, refreshRooms]
+  );
+
+  const handleRemoveMember = useCallback(
+    async (roomId: string, memberId: string) => {
+      try {
+        await api.removeRoomMember(roomId, memberId);
+        setSelectedMembers((prev) => prev.filter((id) => id !== memberId));
+        setRoomMembers((prev) => prev.filter((m) => m.user_id !== memberId));
+        await refreshRooms();
+      } catch (e) {
+        toastError("No se pudo quitar el miembro", e);
+      }
+    },
+    [refreshRooms]
   );
 
   const closeMembers = useCallback(() => {
     setShowMembers(null);
     setSelectedMembers([]);
+    setRoomMembers([]);
     setMemberSearch("");
   }, []);
 
@@ -123,6 +148,7 @@ export function useMembersModal({
     setMemberSearch,
     selectedMembers,
     setSelectedMembers,
+    roomMembers,
     showMembers,
     setShowMembers,
     filteredUsers,
@@ -133,6 +159,7 @@ export function useMembersModal({
     toggleMemberInCreate,
     openMembers,
     handleAddMembers,
+    handleRemoveMember,
     closeMembers,
   };
 }

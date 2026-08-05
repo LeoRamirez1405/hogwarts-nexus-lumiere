@@ -49,7 +49,6 @@ export default function AdminGroupsPage() {
     search,
     setSearch,
     allUsers,
-    allUsersMap,
     usersPage,
     usersLoadingMore,
     setUsersPage,
@@ -66,6 +65,7 @@ export default function AdminGroupsPage() {
     setMemberSearch,
     selectedMembers,
     setSelectedMembers,
+    roomMembers,
     showMembers,
     availableUsers,
     usersLoadingMore: membersLoadingMore,
@@ -73,6 +73,7 @@ export default function AdminGroupsPage() {
     toggleMemberInCreate,
     openMembers,
     handleAddMembers: handleAddMembersModal,
+    handleRemoveMember,
     closeMembers,
   } = useMembersModal({
     allUsers,
@@ -205,8 +206,8 @@ export default function AdminGroupsPage() {
           usersLoadingMore={membersLoadingMore}
           loadMoreUsers={loadMoreUsers}
           onAddMembers={handleAddMembersModal}
-          currentMembers={selectedMembers.map((id) => allUsersMap[id]).filter((m): m is NonNullable<typeof m> => Boolean(m))}
-          onRemoveMember={(memberId) => setSelectedMembers((prev) => prev.filter((id) => id !== memberId))}
+          roomMembers={roomMembers}
+          onRemoveMember={handleRemoveMember}
           usersPage={usersPage}
         />
      </div>
