@@ -7,7 +7,7 @@
 // was happening after `await caches.open()`, by which time the page had
 // already consumed the response body) and stops intercepting Next.js RSC
 // fetches. v2 purged the v1 HTML cache; we still never cache HTML pages.
-const CACHE_NAME = 'nexus-lumiere-v4';
+const CACHE_NAME = 'nexus-lumiere-v5';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/offline.html',
@@ -137,7 +137,11 @@ async function networkFirst(request) {
         return offlineResponse;
       }
     }
-    throw error;
+    // Nothing to serve: hand back a proper network-error Response. Throwing here
+    // rejects respondWith() and logs "resulted in a network error response: the
+    // promise was rejected"; Response.error() yields the same network error to
+    // the caller without the noisy uncaught rejection.
+    return Response.error();
   }
 }
 
@@ -163,14 +167,30 @@ async function cacheFirst(request) {
 async function staleWhileRevalidate(request) {
   const cachedResponse = await caches.match(request);
 
-  const fetchPromise = fetch(request).then((networkResponse) => {
+  if (cachedResponse) {
+    // Serve from cache and refresh it in the background.
+    fetch(request)
+      .then((networkResponse) => {
+        if (networkResponse.ok) {
+          cachePutSafe(request, networkResponse);
+        }
+      })
+      .catch(() => {});
+    return cachedResponse;
+  }
+
+  // Nothing cached: go to the network. Always resolve to a real Response --
+  // returning undefined here is what triggered "Failed to convert value to
+  // 'Response'" and broke the request.
+  try {
+    const networkResponse = await fetch(request);
     if (networkResponse.ok) {
       cachePutSafe(request, networkResponse);
     }
     return networkResponse;
-  }).catch(() => cachedResponse);
-
-  return cachedResponse || fetchPromise;
+  } catch {
+    return Response.error();
+  }
 }
 
 // Push Notifications
