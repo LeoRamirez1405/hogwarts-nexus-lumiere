@@ -81,10 +81,21 @@ export default function Modal({
     disabled: !swipeToDismiss,
   });
 
+  // Keep the latest keydown handler in a ref so the setup effect below can
+  // depend only on `open`. Depending on `handleKeyDown` directly made this
+  // effect re-run on every parent render (onClose is usually an inline arrow),
+  // which re-ran the focus() call on each keystroke — stealing focus and
+  // closing the mobile keyboard, and triggering releasePointerCapture errors.
+  const handleKeyDownRef = useRef(handleKeyDown);
+  useEffect(() => {
+    handleKeyDownRef.current = handleKeyDown;
+  }, [handleKeyDown]);
+
   useEffect(() => {
     if (!open) return;
     previouslyFocused.current = document.activeElement as HTMLElement | null;
-    document.addEventListener("keydown", handleKeyDown);
+    const onKeyDown = (e: KeyboardEvent) => handleKeyDownRef.current(e);
+    document.addEventListener("keydown", onKeyDown);
     document.body.style.overflow = "hidden";
     const t = window.setTimeout(() => {
       const dialog = dialogRef.current;
@@ -96,11 +107,11 @@ export default function Modal({
     }, 0);
     return () => {
       window.clearTimeout(t);
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = "";
       previouslyFocused.current?.focus?.();
     };
-  }, [open, handleKeyDown]);
+  }, [open]);
 
   if (!open) return null;
   if (typeof window === "undefined") return null;
