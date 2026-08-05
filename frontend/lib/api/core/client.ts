@@ -1,10 +1,15 @@
 import { ApiError } from "./errors";
 
+// In the browser we ALWAYS go through the same-origin `/api` proxy (rewritten
+// to the backend by next.config). This keeps the auth cookies first-party on
+// the frontend domain — a direct cross-site call to the backend makes them
+// third-party, which Brave, mobile Chrome and incognito block, silently
+// breaking login. NEXT_PUBLIC_API_URL is only used for server-side rendering
+// (no window, so no cookie concern).
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== "undefined"
+  typeof window !== "undefined"
     ? `${window.location.origin}/api`
-    : "http://localhost:8000");
+    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export async function attemptRefresh(): Promise<boolean> {
   if (typeof window === "undefined") return false;
