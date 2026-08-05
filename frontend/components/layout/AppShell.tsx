@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import BottomNav from "./BottomNav";
@@ -13,6 +14,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isKeyboardOpen, keyboardHeight } = useVisualViewport();
   const isBorgin = useBorginZone();
+  const pathname = usePathname();
+  const isFullHeight = pathname === "/messages";
 
   // Dark page-level scrollbar while inside the Borgin & Burkes dark zone.
   useEffect(() => {
@@ -23,7 +26,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const keyboardPadding = isKeyboardOpen ? keyboardHeight : 0;
 
   return (
-    <div className={`min-h-screen ${isBorgin ? "bg-[#1c1b1b] dark-scrollbar" : "bg-surface"}`}>
+    <div className={`${isFullHeight ? "h-dvh overflow-hidden" : "min-h-screen"} ${isBorgin ? "bg-[#1c1b1b] dark-scrollbar" : "bg-surface"}`}>
       <TopBar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -46,12 +49,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           always clears the top bar and (on mobile) the bottom nav. */}
       <main
         id="main-content"
-        className="lg:pl-72 min-h-screen pt-(--topbar-h)"
-        style={{
-          paddingBottom: `calc(var(--bottomnav-h) + ${keyboardPadding}px)`,
-        }}
+        className={`lg:pl-72 pt-(--topbar-h) ${isFullHeight ? "overflow-hidden" : "min-h-screen"}`}
+        style={
+          isFullHeight
+            ? { height: `calc(100dvh - var(--bottomnav-h) - ${keyboardPadding}px)` }
+            : { paddingBottom: `calc(var(--bottomnav-h) + ${keyboardPadding}px)` }
+        }
       >
-        <div className="max-w-[1280px] mx-auto px-4 md:px-10 py-6 md:py-8">
+        <div className={isFullHeight ? "h-full" : "max-w-[1280px] mx-auto px-4 md:px-10 py-6 md:py-8"}>
           {children}
         </div>
       </main>

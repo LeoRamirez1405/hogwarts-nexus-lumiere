@@ -25,7 +25,7 @@ interface NavItem {
 const mainNavItems: NavItem[] = [
   { icon: "home", label: "Inicio", href: "/dashboard" },
   { icon: "person", label: "Perfil", href: "/profile" },
-  { icon: "mail", label: "Bandeja de Entrada", href: "/messages" },
+  { icon: "mail", label: "La Lechuza", href: "/messages" },
   { icon: "account_balance", label: "Cámara del Tesoro", href: "/treasury" },
   { icon: "newspaper", label: "El Quisquilloso", href: "/news" },
   {
