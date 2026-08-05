@@ -33,6 +33,7 @@ export default function ChatPanel(props: ChatPanelProps) {
     showBack,
     onRefresh,
     roomMembers,
+    membersLoading,
     onHideConversation,
     onLeaveRoom,
     hasMore,
@@ -342,6 +343,7 @@ export default function ChatPanel(props: ChatPanelProps) {
       {showMembers && roomMembers && selectedConv && (
         <MembersPanel
           members={roomMembers}
+          membersLoading={membersLoading}
           roomId={selectedConv.id}
           currentUserId={currentUserId ?? ""}
           isAdmin={isGlobalAdmin}

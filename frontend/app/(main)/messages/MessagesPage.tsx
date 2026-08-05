@@ -312,6 +312,7 @@ export default function MessagesPage() {
                 onBack={() => { setSelectedId(null); setSelectedType(null); messagesHook.setRoomMembers([]); }}
                 showBack
                 roomMembers={selectedType === "room" ? messagesHook.roomMembers : undefined}
+                membersLoading={messagesHook.membersLoading}
                 onHideConversation={handleHideConv}
                 onLeaveRoom={handleLeaveRoom}
                 onRefresh={messagesHook.handleRefresh}

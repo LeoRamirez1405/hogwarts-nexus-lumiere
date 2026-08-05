@@ -113,10 +113,12 @@ async def get_room_messages(
     rows = rows[:eff_limit]
 
     # Advance this member's last-read marker on the initial load.
+    changed = False
     if not before and rows:
         newest = max(m.created_at for m in rows)
         if member.last_read_at is None or newest > member.last_read_at:
             member.last_read_at = newest
+            changed = True
         # Mirror the read position into the denormalized unread counter and
         # drop the cached conversation list so badges are accurate on reload.
         room_pref = (
@@ -132,13 +134,15 @@ async def get_room_messages(
         ).scalar_one_or_none()
         if room_pref and room_pref.unread_count != 0:
             room_pref.unread_count = 0
-        await _invalidate_conversations_cache(current_user.id)
-    await db.commit()
+            changed = True
 
-    # The commit expired every loaded row; re-select so eager loads repopulate
-    # sender/receiver/reactions/reply_to and serialization below does not
-    # lazy-load them one query per message.
-    rows = (await db.execute(query)).scalars().all()[:eff_limit]
+    if changed:
+        await _invalidate_conversations_cache(current_user.id)
+        await db.commit()
+        # The commit expired every loaded row; re-select so eager loads
+        # repopulate sender/receiver/reactions/reply_to and serialization
+        # below does not lazy-load them one query per message.
+        rows = (await db.execute(query)).scalars().all()[:eff_limit]
 
     out = [
         await serialize_message(

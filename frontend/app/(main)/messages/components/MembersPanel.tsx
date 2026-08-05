@@ -9,6 +9,7 @@ import { toastError, toastSuccess } from "@/lib/toastStore";
 
 interface MembersPanelProps {
   members: ChatRoomMemberResponse[];
+  membersLoading?: boolean;
   roomId: string;
   currentUserId: string;
   isAdmin: boolean;
@@ -18,6 +19,7 @@ interface MembersPanelProps {
 
 export default function MembersPanel({
   members,
+  membersLoading,
   roomId,
   currentUserId,
   isAdmin,
@@ -56,6 +58,12 @@ export default function MembersPanel({
           </button>
         </div>
         <div className="divide-y divide-outline-variant/10">
+          {membersLoading && confirmedMembers.length === 0 && pendingMembers.length === 0 && (
+            <div className="flex items-center justify-center gap-2 px-4 py-4 text-on-surface-variant">
+              <MaterialIcon name="progress_activity" className="text-lg animate-spin" />
+              <span className="text-label-sm">Cargando miembros...</span>
+            </div>
+          )}
           {pendingMembers.length > 0 && (
             <>
               <div className="px-4 py-2 text-label-sm font-medium text-on-surface-variant bg-primary-container/20">

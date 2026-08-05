@@ -24,6 +24,7 @@ export function useMessages({ selectedId, selectedType, wsClient }: UseMessagesO
   const [unreadCount, setUnreadCount] = useState(0);
   const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
   const [roomMembers, setRoomMembers] = useState<ChatRoomMemberResponse[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
   const [targetMessageId, setTargetMessageId] = useState<string | null>(null);
 
   const messagesRef = useRef(messages);
@@ -42,6 +43,39 @@ export function useMessages({ selectedId, selectedType, wsClient }: UseMessagesO
   useEffect(() => {
     if (!selectedId || !selectedType) return;
     let cancelled = false;
+    const id = selectedId;
+    const type = selectedType;
+
+    // Members and pinned messages load in PARALLEL with the message page so
+    // the members panel doesn't wait on the heavier message fetch.
+    const fetchPins = async () => {
+      try {
+        const pins = type === "room"
+          ? await api.getRoomPinned(id)
+          : await api.getDmPinned(id);
+        if (!cancelled) setPinnedMessages(pins);
+      } catch {
+        if (!cancelled) setPinnedMessages([]);
+      }
+    };
+    const fetchMembers = async () => {
+      if (type !== "room") {
+        if (!cancelled) setRoomMembers([]);
+        return;
+      }
+      setMembersLoading(true);
+      try {
+        const room = await api.getRoom(id);
+        if (!cancelled) setRoomMembers(room.members || []);
+      } catch {
+        if (!cancelled) setRoomMembers([]);
+      } finally {
+        if (!cancelled) setMembersLoading(false);
+      }
+    };
+    fetchPins();
+    fetchMembers();
+
     (async () => {
       if (cachedMessagesRef.current.length > 0) setMessages(cachedMessagesRef.current);
       setHasMore(false);
@@ -49,9 +83,9 @@ export function useMessages({ selectedId, selectedType, wsClient }: UseMessagesO
       setUnreadCount(0);
       setLoadingOlder(false);
       try {
-        const page = selectedType === "room"
-          ? await api.getRoomMessages(selectedId, PAGE_SIZE)
-          : await api.getMessages(selectedId, PAGE_SIZE);
+        const page = type === "room"
+          ? await api.getRoomMessages(id, PAGE_SIZE)
+          : await api.getMessages(id, PAGE_SIZE);
         if (cancelled) return;
         setMessages(page.messages);
         saveMessagesToDBRef.current(page.messages);
@@ -60,28 +94,10 @@ export function useMessages({ selectedId, selectedType, wsClient }: UseMessagesO
         setUnreadCount(page.unread_count);
         const newest = page.messages[page.messages.length - 1];
         if (newest && wsClient.isConnected()) {
-          wsClient.markRead(selectedId, newest.id);
+          wsClient.markRead(id, newest.id);
         }
       } catch {
         if (!cancelled && cachedMessagesRef.current.length === 0) setMessages([]);
-      }
-      try {
-        const pins = selectedType === "room"
-          ? await api.getRoomPinned(selectedId)
-          : await api.getDmPinned(selectedId);
-        if (!cancelled) setPinnedMessages(pins);
-      } catch {
-        if (!cancelled) setPinnedMessages([]);
-      }
-      if (selectedType === "room") {
-        try {
-          const room = await api.getRoom(selectedId);
-          if (!cancelled) setRoomMembers(room.members || []);
-        } catch {
-          if (!cancelled) setRoomMembers([]);
-        }
-      } else {
-        if (!cancelled) setRoomMembers([]);
       }
     })();
     return () => { cancelled = true; };
@@ -152,11 +168,14 @@ export function useMessages({ selectedId, selectedType, wsClient }: UseMessagesO
         return incoming.length > 0 ? [...merged, ...incoming].sort(byCreatedAsc) : merged;
       });
       if (type === "room") {
+        setMembersLoading(true);
         try {
           const room = await api.getRoom(id);
           setRoomMembers(room.members || []);
         } catch {
           // keep current members on failure
+        } finally {
+          setMembersLoading(false);
         }
       }
     }
@@ -196,6 +215,7 @@ export function useMessages({ selectedId, selectedType, wsClient }: UseMessagesO
     setPinnedMessages,
     roomMembers,
     setRoomMembers,
+    membersLoading,
     targetMessageId,
     setTargetMessageId,
     loadOlder,

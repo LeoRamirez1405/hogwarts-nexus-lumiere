@@ -20,6 +20,7 @@ export interface ChatPanelProps {
   onBack: () => void;
   showBack: boolean;
   roomMembers?: ChatRoomMemberResponse[];
+  membersLoading?: boolean;
   onHideConversation: (convType: "dm" | "room", convId: string) => Promise<void>;
   onLeaveRoom: (roomId: string) => Promise<void>;
   onRefresh: () => Promise<void>;
