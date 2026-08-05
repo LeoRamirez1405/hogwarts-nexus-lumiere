@@ -330,6 +330,7 @@ async def init_db():
 
     # Locate alembic.ini relative to this project root (backend/).
     import os
+    import traceback
     alembic_path = os.path.join(os.path.dirname(__file__), "..", "alembic.ini")
     cfg = Config(alembic_path)
 
@@ -345,20 +346,41 @@ async def init_db():
 
         has_version, has_schema = await conn.run_sync(_probe)
 
-    if has_schema and not has_version:
-        # Existing schema, never stamped -> adopt it. Mark it at head so Alembic
-        # won't recreate existing tables, then add any table/column the models
-        # gained since this DB was last synced (idempotent, keeps existing data).
-        command.stamp(cfg, "head")
-        async with engine.begin() as conn:
-            await conn.run_sync(
-                lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True)
-            )
-            await conn.run_sync(_sync_missing_columns)
-    else:
-        # Fresh DB (build from base) or already-adopted DB (apply pending revs).
-        command.upgrade(cfg, "head")
+    print(f"[init_db] has_alembic_version={has_version} has_schema={has_schema}", flush=True)
 
-    async with engine.begin() as conn:
-        await conn.run_sync(_ensure_indexes)
-        await conn.run_sync(_ensure_fts)
+    try:
+        if has_schema and not has_version:
+            # Existing schema, never stamped -> adopt it. Mark it at head so
+            # Alembic won't recreate existing tables, then add any table/column
+            # the models gained since this DB was last synced (idempotent, keeps
+            # existing data).
+            command.stamp(cfg, "head")
+            async with engine.begin() as conn:
+                await conn.run_sync(
+                    lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True)
+                )
+                await conn.run_sync(_sync_missing_columns)
+        else:
+            # Fresh DB (build from base) or already-adopted DB (apply pending revs).
+            command.upgrade(cfg, "head")
+    except Exception:
+        # On an already-populated DB the schema is already correct, so a failure
+        # here must not take the whole app down -- log it and keep booting.
+        # A genuinely empty DB, however, cannot run without its tables.
+        print("[init_db] alembic / adoption step failed:", flush=True)
+        traceback.print_exc()
+        if not has_schema:
+            raise
+
+    # Index / FTS creation are best-effort performance backfills. They must never
+    # block startup: if a statement errors (e.g. a column that isn't present yet)
+    # the app can still serve -- the feature just degrades until fixed.
+    for label, step in (("indexes", _ensure_indexes), ("fts", _ensure_fts)):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(step)
+        except Exception:
+            print(f"[init_db] _ensure_{label} failed (continuing):", flush=True)
+            traceback.print_exc()
+
+    print("[init_db] done", flush=True)
