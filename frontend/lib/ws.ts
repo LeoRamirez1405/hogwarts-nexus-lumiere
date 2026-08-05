@@ -126,9 +126,10 @@ class WSClient {
     } else {
       this.fetchWSToken().then(doConnect).catch((err) => {
         if ((err as { status?: number }).status !== 401) {
-          console.error("Failed to fetch WS token:", err);
+          console.warn("Failed to fetch WS token:", (err as Error).message);
         }
         this.emit("error", err);
+        this.scheduleReconnect();
       });
     }
   }
@@ -188,7 +189,7 @@ class WSClient {
         this.connect(newToken);
       } catch (err) {
         if ((err as { status?: number }).status !== 401) {
-          console.error("Failed to fetch WS token for reconnect:", err);
+          console.warn("Failed to fetch WS token for reconnect:", (err as Error).message);
         }
         this.scheduleReconnect();
       }

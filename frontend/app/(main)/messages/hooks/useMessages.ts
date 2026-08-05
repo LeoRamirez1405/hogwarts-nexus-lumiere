@@ -151,7 +151,38 @@ export function useMessages({ selectedId, selectedType, wsClient }: UseMessagesO
         const incoming = page.messages.filter((m: Message) => !existing.has(m.id));
         return incoming.length > 0 ? [...merged, ...incoming].sort(byCreatedAsc) : merged;
       });
+      if (type === "room") {
+        try {
+          const room = await api.getRoom(id);
+          setRoomMembers(room.members || []);
+        } catch {
+          // keep current members on failure
+        }
+      }
     }
+  }, [selectedId, selectedType]);
+
+  // Re-fetch room members when the tab regains focus so changes made
+  // elsewhere (e.g. an admin adding members from another tab/route)
+  // show up without having to reselect the conversation.
+  useEffect(() => {
+    const refreshMembers = () => {
+      if (selectedId && selectedType === "room") {
+        api
+          .getRoom(selectedId)
+          .then((room) => setRoomMembers(room.members || []))
+          .catch(() => {});
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refreshMembers();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onVisibility);
+    };
   }, [selectedId, selectedType]);
 
   return {

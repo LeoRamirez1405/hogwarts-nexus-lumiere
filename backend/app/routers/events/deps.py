@@ -59,7 +59,7 @@ async def get_event_with_access(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    if require_membership:
+    if require_membership and current_user.role != "admin":
         is_member = await check_room_member(db, event.room_id, current_user.id)
         if not is_member:
             raise HTTPException(status_code=403, detail="Not a member of this room")
@@ -75,7 +75,9 @@ async def get_event_for_modification(
     """Get event and verify user can modify it (creator or admin/mod)."""
     event = await get_event_with_access(event_id, current_user, db)
     is_creator = event.created_by == current_user.id
-    is_admin_mod = await check_room_admin_or_mod(db, event.room_id, current_user.id)
+    is_admin_mod = current_user.role == "admin" or await check_room_admin_or_mod(
+        db, event.room_id, current_user.id
+    )
     if not (is_creator or is_admin_mod):
         raise HTTPException(
             status_code=403,
@@ -102,6 +104,8 @@ async def require_room_admin_or_mod(
     db: AsyncSession = Depends(get_db),
 ) -> bool:
     """Require user to be admin or moderator of the room."""
+    if current_user.role == "admin":
+        return True
     is_admin_mod = await check_room_admin_or_mod(db, room_id, current_user.id)
     if not is_admin_mod:
         raise HTTPException(status_code=403, detail="Admin or moderator access required")
@@ -114,6 +118,8 @@ async def require_room_member(
     db: AsyncSession = Depends(get_db),
 ) -> bool:
     """Require user to be a member of the room."""
+    if current_user.role == "admin":
+        return True
     is_member = await check_room_member(db, room_id, current_user.id)
     if not is_member:
         raise HTTPException(status_code=403, detail="Not a member of this room")

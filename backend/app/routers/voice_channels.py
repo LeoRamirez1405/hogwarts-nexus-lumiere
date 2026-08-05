@@ -37,12 +37,17 @@ from ..ws_manager import manager
 # Helpers
 # ---------------------------------------------------------------------------
 
-async def _is_room_member(db: AsyncSession, room_id: str, user_id: str) -> bool:
+async def _is_room_member(
+    db: AsyncSession, room_id: str, current_user: User
+) -> bool:
+    # Global admins can manage any room (see get_chat_room).
+    if current_user.role == "admin":
+        return True
     r = await db.execute(
         select(ChatRoomMember).where(
             ChatRoomMember.room_id == room_id,
-            ChatRoomMember.user_id == user_id,
-            not ChatRoomMember.pending,
+            ChatRoomMember.user_id == current_user.id,
+            ChatRoomMember.pending.is_(False),
         )
     )
     return r.scalar_one_or_none() is not None
@@ -102,7 +107,7 @@ async def list_voice_channels(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if not await _is_room_member(db, room_id, current_user.id):
+    if not await _is_room_member(db, room_id, current_user):
         raise HTTPException(status_code=403, detail="Not a member of this room")
 
     result = await db.execute(
@@ -143,7 +148,7 @@ async def create_voice_channel(
             status_code=403,
             detail="Only admins can start a voice channel",
         )
-    if not await _is_room_member(db, room_id, current_user.id):
+    if not await _is_room_member(db, room_id, current_user):
         raise HTTPException(status_code=403, detail="Not a member of this room")
 
     # Check max channels per room (arbitrary reasonable limit)
@@ -188,7 +193,7 @@ async def get_voice_channel(
     if not channel:
         raise HTTPException(status_code=404, detail="Voice channel not found")
 
-    if not await _is_room_member(db, channel.room_id, current_user.id):
+    if not await _is_room_member(db, channel.room_id, current_user):
         raise HTTPException(status_code=403, detail="Not a member of this room")
 
     return await _serialize_channel(channel)
@@ -267,7 +272,7 @@ async def join_voice_channel(
     if not channel:
         raise HTTPException(status_code=404, detail="Voice channel not found")
 
-    if not await _is_room_member(db, channel.room_id, current_user.id):
+    if not await _is_room_member(db, channel.room_id, current_user):
         raise HTTPException(status_code=403, detail="Not a member of this room")
 
     existing = await db.execute(
