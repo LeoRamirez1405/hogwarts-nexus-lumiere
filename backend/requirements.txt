@@ -16,5 +16,5 @@ pydub==0.25.1
 httpx==0.27.2
 cloudinary==1.41.0
 redis==5.0.1
-brotli-asgi==1.0.1
+brotli-asgi==1.1.0
 webpush==1.1.1
