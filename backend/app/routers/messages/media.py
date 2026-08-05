@@ -25,8 +25,14 @@ async def transcribe_audio(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
 ):
-    import speech_recognition as sr
-    from pydub import AudioSegment
+    try:
+        import speech_recognition as sr
+        from pydub import AudioSegment
+    except ImportError:
+        raise HTTPException(
+            status_code=503,
+            detail="Audio transcription not available. Install SpeechRecognition and pydub with ffmpeg."
+        )
 
     content = await file.read()
     if len(content) == 0:
