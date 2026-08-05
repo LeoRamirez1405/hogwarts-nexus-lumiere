@@ -141,7 +141,7 @@ export default function ChatInputDesktop({
           disabled={uploading}
         />
 
-        <div className="relative">
+        <div className="relative flex-1 flex items-center gap-2">
           <button
             type="button"
             onClick={() => setShowToolbar(!showToolbar)}
@@ -249,7 +249,7 @@ export default function ChatInputDesktop({
             </div>
           )}
 
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-0">
             <textarea
               ref={inputRef}
               value={input}
