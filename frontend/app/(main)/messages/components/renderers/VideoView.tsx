@@ -61,7 +61,7 @@ export const VideoView = ({ message, isOwn, dataSaver, shouldLoad, onLoadClick }
     return (
       <button
         onClick={onLoadClick}
-        className="w-full max-w-64 aspect-square rounded-xl bg-surface-container-high flex flex-col items-center justify-center gap-2 p-4 text-center border border-outline-variant/30 hover:border-primary/50 transition-colors"
+        className="w-full max-w-sm aspect-video rounded-xl bg-surface-container-high flex flex-col items-center justify-center gap-2 p-4 text-center border border-outline-variant/30 hover:border-primary/50 transition-colors"
         title="Tocar para cargar (modo ahorro de datos activado)"
       >
         <MaterialIcon name="videocam" className="text-4xl text-on-surface-variant" />
@@ -86,7 +86,7 @@ export const VideoView = ({ message, isOwn, dataSaver, shouldLoad, onLoadClick }
   const progress = displayDuration > 0 ? currentTime / displayDuration * 100 : 0;
 
   return (
-    <div className="relative inline-block rounded-2xl overflow-hidden bg-surface-container-highest border border-outline-variant/20 shadow-md w-full max-w-64 aspect-square">
+    <div className="relative inline-block rounded-2xl overflow-hidden bg-surface-container-highest border border-outline-variant/20 shadow-xs w-72 sm:w-96 max-w-full aspect-square">
       <video
         ref={videoRef}
         src={url}
