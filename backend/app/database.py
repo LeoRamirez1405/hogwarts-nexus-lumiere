@@ -313,14 +313,17 @@ def _sync_missing_columns(sync_conn):
 async def init_db():
     """Apply Alembic migrations and ensure performance indexes.
 
-    Schema changes are versioned via Alembic. The ``create_all`` call has been
-    removed -- all DDL MUST go through ``alembic revision --autogenerate``.
+    Schema changes are versioned via Alembic. This also transparently *adopts*
+    a pre-Alembic database: a DB whose schema was created by the old
+    ``create_all`` path already has every table but was never stamped with a
+    revision. Running the baseline migration against it would try to
+    ``CREATE TABLE`` over existing tables and crash startup with
+    ``relation "..." already exists``. When that state is detected we stamp the
+    DB at ``head`` instead and reconcile any missing tables/columns, so an
+    existing production database is upgraded in place without data loss.
 
     ``_ensure_indexes`` and ``_ensure_fts`` remain as idempotent backfills for
     developer-added indexes that are not (yet) reflected in the model metadata.
-    This is a deliberate compromise: hand-maintained indexes on hot paths
-    are faster than compiling every DROP/CREATE into model declarations.
-    Once Alembic has run, apply those indexes on top.
     """
     from alembic.config import Config
     from alembic import command
@@ -330,13 +333,32 @@ async def init_db():
     alembic_path = os.path.join(os.path.dirname(__file__), "..", "alembic.ini")
     cfg = Config(alembic_path)
 
-    # Run pending migrations (upgrade to head)
+    # Probe the current DB state to choose between a normal upgrade and adopting
+    # an existing, never-stamped schema.
     async with engine.begin() as conn:
 
-        def _do_upgrade(sync_conn):
-            cfg.attributes["connection"] = sync_conn
-            command.upgrade(cfg, "head")
+        def _probe(sync_conn):
+            from sqlalchemy import inspect
 
-        await conn.run_sync(_do_upgrade)
+            tables = set(inspect(sync_conn).get_table_names())
+            return ("alembic_version" in tables), ("users" in tables)
+
+        has_version, has_schema = await conn.run_sync(_probe)
+
+    if has_schema and not has_version:
+        # Existing schema, never stamped -> adopt it. Mark it at head so Alembic
+        # won't recreate existing tables, then add any table/column the models
+        # gained since this DB was last synced (idempotent, keeps existing data).
+        command.stamp(cfg, "head")
+        async with engine.begin() as conn:
+            await conn.run_sync(
+                lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True)
+            )
+            await conn.run_sync(_sync_missing_columns)
+    else:
+        # Fresh DB (build from base) or already-adopted DB (apply pending revs).
+        command.upgrade(cfg, "head")
+
+    async with engine.begin() as conn:
         await conn.run_sync(_ensure_indexes)
         await conn.run_sync(_ensure_fts)
