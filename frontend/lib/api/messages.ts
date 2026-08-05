@@ -93,11 +93,16 @@ export const messagesApi = {
     roomId: string,
     userIds: string[],
     role?: string
-  ) =>
-    request<ChatRoomMemberResponse[]>(
-      `/messages/rooms/${roomId}/members/batch${role ? `?role=${role}` : ""}`,
-      { method: "POST", body: JSON.stringify(userIds) }
-    ),
+  ) => {
+    const params = new URLSearchParams();
+    userIds.forEach((id) => params.append("user_id", id));
+    if (role) params.append("role", role);
+    const qs = params.toString();
+    return request<ChatRoomMemberResponse[]>(
+      `/messages/rooms/${roomId}/members/batch${qs ? `?${qs}` : ""}`,
+      { method: "POST" }
+    );
+  },
 
   removeRoomMember: (roomId: string, userId: string) =>
     request<void>(`/messages/rooms/${roomId}/members/${userId}`, {
