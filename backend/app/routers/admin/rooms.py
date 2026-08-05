@@ -1,5 +1,9 @@
-"""Room membership management endpoints (admin-only): add, batch-add, remove,
-change role, approve/reject pending join requests."""
+"""Admin-only chat room routes (prefix /admin/rooms).
+
+Room create/delete/toggle-close plus member management. The room edit
+endpoint (``PUT /messages/rooms/{room_id}``) intentionally stays in the
+public catalog because room admins use it from the chat UI.
+"""
 
 from datetime import datetime
 from typing import List
@@ -9,15 +13,22 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ....database import get_db
-from ....middleware.roles import require_role
-from ....models.chat_room import ChatRoom, ChatRoomMember
-from ....models.user import User
-from ....notifications_service import N, notify
-from ....schemas.message import ChatRoomMemberResponse, PendingMemberAction, RoleUpdateRequest
-from ...audit_logs import log_audit
+from ...database import get_db
+from ...middleware.roles import require_role
+from ...models.chat_room import ChatRoom, ChatRoomMember
+from ...models.user import User
+from ...notifications_service import N, notify
+from ...schemas.message import (
+    ChatRoomCreate,
+    ChatRoomMemberResponse,
+    ChatRoomResponse,
+    PendingMemberAction,
+    RoleUpdateRequest,
+)
+from ..audit_logs import log_audit
+from ..messages.serializers import serialize_room
 
-router = APIRouter()
+router = APIRouter(prefix="/admin/rooms", tags=["admin-rooms"])
 
 
 def _room_admin_or_global_admin(
@@ -37,7 +48,129 @@ def _room_admin_or_global_admin(
 
 
 @router.post(
-    "/rooms/{room_id}/members",
+    "/", response_model=ChatRoomResponse, status_code=status.HTTP_201_CREATED
+)
+async def create_chat_room(
+    room_data: ChatRoomCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+    request: Request = None,
+):
+    room = ChatRoom(
+        name=room_data.name,
+        description=room_data.description,
+        avatar_url=room_data.avatar_url,
+        type=room_data.type,
+        created_by=current_user.id,
+    )
+    db.add(room)
+    await db.flush()
+
+    owner_member = ChatRoomMember(
+        room_id=room.id,
+        user_id=current_user.id,
+        role="admin",
+    )
+    db.add(owner_member)
+
+    for member_id in room_data.member_ids:
+        if member_id == current_user.id:
+            continue
+        user_result = await db.execute(select(User).where(User.id == member_id))
+        user = user_result.scalar_one_or_none()
+        if user:
+            member = ChatRoomMember(room_id=room.id, user_id=member_id, role="member")
+            db.add(member)
+
+    await db.commit()
+    await db.refresh(room)
+
+    await log_audit(
+        db,
+        actor=current_user,
+        action="create",
+        entity_type="ChatRoom",
+        entity_id=room.id,
+        details={"name": room.name, "type": room.type, "initial_member_count": len(room_data.member_ids) + 1},
+        request=request,
+    )
+
+    member_result = await db.execute(
+        select(ChatRoomMember)
+        .where(ChatRoomMember.room_id == room.id)
+        .options(selectinload(ChatRoomMember.user))
+    )
+    room.members = member_result.scalars().all()
+
+    return serialize_room(room, current_user.id)
+
+
+@router.delete("/{room_id}", status_code=204)
+async def delete_chat_room(
+    room_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+    request: Request = None,
+):
+    result = await db.execute(select(ChatRoom).where(ChatRoom.id == room_id))
+    room = result.scalar_one_or_none()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    room_name = room.name
+
+    await db.delete(room)
+    await db.commit()
+
+    await log_audit(
+        db,
+        actor=current_user,
+        action="delete",
+        entity_type="ChatRoom",
+        entity_id=room_id,
+        details={"room_name": room_name},
+        request=request,
+    )
+
+
+@router.put("/{room_id}/toggle-close", response_model=ChatRoomResponse)
+async def toggle_room_closed(
+    room_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+    request: Request = None,
+):
+    result = await db.execute(select(ChatRoom).where(ChatRoom.id == room_id))
+    room = result.scalar_one_or_none()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    old_closed = room.closed
+    room.closed = not room.closed
+    await db.commit()
+    await db.refresh(room)
+
+    await log_audit(
+        db,
+        actor=current_user,
+        action="update",
+        entity_type="ChatRoom",
+        entity_id=room.id,
+        details={"field": "closed", "old": old_closed, "new": room.closed},
+        request=request,
+    )
+
+    member_result = await db.execute(
+        select(ChatRoomMember)
+        .where(ChatRoomMember.room_id == room.id)
+        .options(selectinload(ChatRoomMember.user))
+    )
+    room.members = member_result.scalars().all()
+    return serialize_room(room, current_user.id)
+
+
+@router.post(
+    "/{room_id}/members",
     response_model=ChatRoomMemberResponse,
     status_code=status.HTTP_201_CREATED,
 )
@@ -99,7 +232,7 @@ async def add_room_member(
 
 
 @router.post(
-    "/rooms/{room_id}/members/batch",
+    "/{room_id}/members/batch",
     response_model=List[ChatRoomMemberResponse],
     status_code=status.HTTP_201_CREATED,
 )
@@ -186,7 +319,7 @@ async def add_room_members_batch(
     return [ChatRoomMemberResponse.model_validate(m) for m in added]
 
 
-@router.delete("/rooms/{room_id}/members/{member_id}", status_code=204)
+@router.delete("/{room_id}/members/{member_id}", status_code=204)
 async def remove_room_member(
     room_id: str,
     member_id: str,
@@ -224,7 +357,7 @@ async def remove_room_member(
 
 
 @router.put(
-    "/rooms/{room_id}/members/{member_id}/role",
+    "/{room_id}/members/{member_id}/role",
     response_model=ChatRoomMemberResponse,
 )
 async def change_member_role(
@@ -284,7 +417,7 @@ async def change_member_role(
 
 
 @router.post(
-    "/rooms/{room_id}/members/approve",
+    "/{room_id}/members/approve",
     response_model=ChatRoomMemberResponse,
 )
 async def approve_or_reject_pending_member(
@@ -396,7 +529,7 @@ async def approve_or_reject_pending_member(
         return {"ok": True, "rejected": True}
 
 
-@router.get("/rooms/{room_id}/members/pending", response_model=List[ChatRoomMemberResponse])
+@router.get("/{room_id}/members/pending", response_model=List[ChatRoomMemberResponse])
 async def list_pending_members(
     room_id: str,
     db: AsyncSession = Depends(get_db),

@@ -1,7 +1,7 @@
 """Events RSVP router."""
 
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,9 +16,10 @@ from ...services.events import (
     delete_rsvp,
     get_rsvps_list,
     get_rsvp_counts,
+    mark_event_seen,
 )
 from ...services.events.notification_service import notify_rsvp_update, notify_rsvp_to_creator
-from ..events.deps import require_event_visibility, get_event_with_access, get_event_for_modification
+from ..events.deps import require_event_visibility, get_event_with_access
 
 router = APIRouter()
 
@@ -35,6 +36,16 @@ class RSVPResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class RSVPListItem(BaseModel):
+    """RSVP entry with attendee info, for the census/attendee list."""
+    user_id: str
+    status: RSVPStatus
+    responded_at: datetime
+    name: str
+    avatar_url: Optional[str] = None
+    house: Optional[str] = None
 
 
 @router.post("/rsvp", response_model=RSVPResponse)
@@ -75,26 +86,46 @@ async def create_or_update_rsvp(
     )
 
 
-@router.get("/rsvps", response_model=List[RSVPResponse])
+@router.get("/rsvps", response_model=List[RSVPListItem])
 async def list_rsvps(
     event_id: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     _visibility: bool = Depends(require_event_visibility),
-    event: Event = Depends(get_event_for_modification),
+    event: Event = Depends(get_event_with_access),
 ):
-    """List all RSVPs for an event (creator or admin/mod)."""
+    """List all RSVPs for an event with attendee info (any room member)."""
     rsvps = await get_rsvps_list(db, event_id)
 
     return [
-        RSVPResponse(
-            event_id=r.event_id,
+        RSVPListItem(
             user_id=r.user_id,
             status=r.status,
             responded_at=r.responded_at,
+            name=r.user.name if r.user else "Usuario",
+            avatar_url=r.user.avatar_url if r.user else None,
+            house=r.user.house if r.user else None,
         )
         for r in rsvps
     ]
+
+
+class SeenResponse(BaseModel):
+    first_time: bool
+
+
+@router.post("/seen", response_model=SeenResponse)
+async def mark_seen(
+    event_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    _visibility: bool = Depends(require_event_visibility),
+    event: Event = Depends(get_event_with_access),
+):
+    """Mark the welcome animation as seen. Returns first_time=True only on the
+    very first view, so the client plays the animation exactly once per event."""
+    first_time = await mark_event_seen(db, event_id, current_user.id)
+    return SeenResponse(first_time=first_time)
 
 
 @router.delete("/rsvp", status_code=status.HTTP_204_NO_CONTENT)

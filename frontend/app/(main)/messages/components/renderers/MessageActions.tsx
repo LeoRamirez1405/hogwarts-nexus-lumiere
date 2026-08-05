@@ -71,7 +71,7 @@ export const MessageActions = ({
         </button>
       )}
       <ReactionPicker messageId={message.id} onReacted={onReactionChange} />
-      {isOwn && onEdit && message.kind === "text" && !message.edited && (
+      {isOwn && onEdit && message.kind === "text" && (
         <button
           type="button"
           onClick={() => runAction(() => onEdit(message))}

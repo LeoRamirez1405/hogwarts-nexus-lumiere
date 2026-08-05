@@ -37,6 +37,13 @@ class AdminCreateUser(BaseModel):
     role: str = "user"
 
 
+class AdminUpdateUser(BaseModel):
+    name: Optional[str] = None
+    house: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = None
+
+
 class AdminTitleUpdate(BaseModel):
     official_title: Optional[str] = None
 

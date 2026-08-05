@@ -14,7 +14,7 @@ from ...models.user import User
 from ...notifications_service import notify, resolve_mentions, N
 from ...schemas.message import ForwardMessageRequest, MessageCreate
 from ...routers.messages.deps import _PIN_OPTS
-from .conversation_prefs import _update_conversation_preferences
+from .conversation_prefs import _update_conversation_preferences, is_conversation_muted
 
 
 async def create_mention_notifications(
@@ -26,6 +26,8 @@ async def create_mention_notifications(
     message_id: str,
 ):
     for mentioned_user in await resolve_mentions(db, body):
+        if await is_conversation_muted(db, mentioned_user.id, "room", room_id):
+            continue
         await notify(
             db,
             user_id=mentioned_user.id,
@@ -162,15 +164,16 @@ async def send_notifications_after_send(
         preview = (message.body or "").strip()
         if not preview:
             preview = "Te envió un adjunto" if message.attachment_url else "Nuevo mensaje"
-        await notify(
-            db,
-            user_id=message.receiver_id,
-            type=N.DM_MESSAGE,
-            title=f"Nuevo mensaje de {sender.name}",
-            body=preview[:200],
-            related_id=sender.id,
-            actor_id=sender.id,
-        )
+        if not await is_conversation_muted(db, message.receiver_id, "dm", sender.id):
+            await notify(
+                db,
+                user_id=message.receiver_id,
+                type=N.DM_MESSAGE,
+                title=f"Nuevo mensaje de {sender.name}",
+                body=preview[:200],
+                related_id=sender.id,
+                actor_id=sender.id,
+            )
         notified = True
 
     if notified:

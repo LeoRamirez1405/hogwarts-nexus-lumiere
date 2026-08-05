@@ -21,6 +21,7 @@ from ...services.events import (
     cancel_event,
     get_events_list,
     get_event_with_counts,
+    get_live_event,
 )
 from ...notifications_service import notify, N
 from ..events.deps import require_event_visibility, require_room_member
@@ -35,7 +36,7 @@ class EventCreate(BaseModel):
     title: str = Field(min_length=1, max_length=100)
     description: Optional[str] = None
     starts_at: datetime
-    ends_at: Optional[datetime] = None
+    ends_at: datetime
     location_type: EventLocationType = EventLocationType.TEXT_ONLY
     location_name: Optional[str] = None
     location_url: Optional[str] = None
@@ -100,6 +101,7 @@ class EventResponse(BaseModel):
     rsvp_counts: dict = Field(default_factory=dict)
     my_rsvp: Optional[RSVPStatus] = None
     reminder_time: Optional[ReminderTime] = None
+    in_progress: bool = False
 
     class Config:
         from_attributes = True
@@ -112,6 +114,12 @@ class EventListResponse(BaseModel):
 
 def _event_to_response(event: Event, user_id: str) -> EventResponse:
     """Convert Event model to response schema."""
+    now = datetime.utcnow()
+    in_progress = (
+        event.status == EventStatus.PUBLISHED
+        and event.starts_at <= now
+        and (event.ends_at is None or now < event.ends_at)
+    )
     return EventResponse(
         id=event.id,
         room_id=event.room_id,
@@ -139,6 +147,7 @@ def _event_to_response(event: Event, user_id: str) -> EventResponse:
         rsvp_counts=getattr(event, "_rsvp_counts", {}),
         my_rsvp=getattr(event, "_my_rsvp", None),
         reminder_time=getattr(event, "_reminder_time", None),
+        in_progress=in_progress,
     )
 
 
@@ -155,22 +164,28 @@ async def create_event_endpoint(
         raise HTTPException(status_code=403, detail="Only admins and moderators can create events")
 
     # Create event
-    event = await create_event(
-        db=db,
-        room_id=event_data.room_id,
-        created_by=current_user.id,
-        title=event_data.title,
-        description=event_data.description,
-        starts_at=event_data.starts_at,
-        ends_at=event_data.ends_at,
-        location_type=event_data.location_type,
-        location_name=event_data.location_name,
-        location_url=event_data.location_url,
-        create_voice_channel=event_data.create_voice_channel,
-        voice_channel_name=event_data.voice_channel_name,
-        max_attendees=event_data.max_attendees,
-        require_approval=event_data.require_approval,
-    )
+    try:
+        event = await create_event(
+            db=db,
+            room_id=event_data.room_id,
+            created_by=current_user.id,
+            title=event_data.title,
+            description=event_data.description,
+            starts_at=event_data.starts_at,
+            ends_at=event_data.ends_at,
+            location_type=event_data.location_type,
+            location_name=event_data.location_name,
+            location_url=event_data.location_url,
+            create_voice_channel=event_data.create_voice_channel,
+            voice_channel_name=event_data.voice_channel_name,
+            max_attendees=event_data.max_attendees,
+            require_approval=event_data.require_approval,
+        )
+    except ValueError as e:
+        # "ya tiene un evento activo" is a conflict; the rest are bad input.
+        detail = str(e)
+        code = 409 if "evento activo" in detail else 400
+        raise HTTPException(status_code=code, detail=detail)
 
     # Get room for notification
     room_result = await db.execute(select(ChatRoom).where(ChatRoom.id == event_data.room_id))
@@ -210,6 +225,25 @@ async def list_events(
         events=[_event_to_response(e, current_user.id) for e in events],
         has_more=has_more,
     )
+
+
+@router.get("/current", response_model=Optional[EventResponse])
+async def get_current_event(
+    room_id: str = Query(..., description="Room ID"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    _visibility: bool = Depends(require_event_visibility),
+    _member: bool = Depends(require_room_member),  # checks room_id from query
+):
+    """Get the room's single live event (upcoming or in progress), or null.
+
+    Defined before ``/{event_id}`` so the literal path wins the route match.
+    """
+    live = await get_live_event(db, room_id)
+    if not live:
+        return None
+    event = await get_event_with_counts(db, live.id, current_user.id)
+    return _event_to_response(event, current_user.id)
 
 
 @router.get("/{event_id}", response_model=EventResponse)

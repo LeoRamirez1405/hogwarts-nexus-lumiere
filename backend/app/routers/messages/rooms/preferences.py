@@ -100,10 +100,12 @@ async def mute_room(
         member.muted_until = datetime.utcnow() + timedelta(hours=8)
     elif duration == "24h":
         member.muted_until = datetime.utcnow() + timedelta(hours=24)
+    elif duration == "7d":
+        member.muted_until = datetime.utcnow() + timedelta(days=7)
     elif duration == "forever":
         member.muted_until = datetime(2099, 12, 31, 23, 59, 59)
     else:
-        raise HTTPException(status_code=400, detail="Invalid duration. Use: 8h, 24h, forever, off")
+        raise HTTPException(status_code=400, detail="Invalid duration. Use: 8h, 24h, 7d, forever, off")
 
     await db.commit()
     return {"ok": True, "muted_until": member.muted_until.isoformat() if member.muted_until else None}

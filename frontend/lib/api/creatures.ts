@@ -107,24 +107,24 @@ export interface UserPetItem {
 
 export const creaturesApi = {
   getCreatures: (pagination?: PaginationParams) =>
-    request<Page<Creature>>("/creatures/" + buildQuery(pagination ?? {})),
+    request<Page<Creature>>("/admin/creatures/" + buildQuery(pagination ?? {})),
 
   getCreature: (id: string) => request<Creature>(`/creatures/${id}`),
 
   createCreature: (data: Partial<Creature>) =>
-    request<Creature>("/creatures/", {
+    request<Creature>("/admin/creatures/", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
   updateCreature: (id: string, data: Partial<Creature>) =>
-    request<Creature>(`/creatures/${id}`, {
+    request<Creature>(`/admin/creatures/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
 
   deleteCreature: (id: string) =>
-    request<void>(`/creatures/${id}`, { method: "DELETE" }),
+    request<void>(`/admin/creatures/${id}`, { method: "DELETE" }),
 
   adoptCreature: (id: string, petName?: string) =>
     request<UserCreature>(`/creatures/${id}/adopt`, {
@@ -198,7 +198,7 @@ export const petItemsApi = {
     pagination?: PaginationParams
   ) =>
     request<Page<PetItem>>(
-      `/pet-items/${buildQuery({ ...(params ?? {}), ...(pagination ?? {}) })}`
+      `/admin/pet-items/${buildQuery({ ...(params ?? {}), ...(pagination ?? {}) })}`
     ),
 
   getPetInventory: () => request<UserPetItem[]>("/pet-items/inventory"),
@@ -210,17 +210,17 @@ export const petItemsApi = {
     ),
 
   createPetItem: (data: Partial<PetItem>) =>
-    request<PetItem>("/pet-items/", {
+    request<PetItem>("/admin/pet-items/", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
   updatePetItem: (id: string, data: Partial<PetItem>) =>
-    request<PetItem>(`/pet-items/${id}`, {
+    request<PetItem>(`/admin/pet-items/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
 
   deletePetItem: (id: string) =>
-    request<void>(`/pet-items/${id}`, { method: "DELETE" }),
+    request<void>(`/admin/pet-items/${id}`, { method: "DELETE" }),
 };

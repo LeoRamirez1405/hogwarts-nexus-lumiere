@@ -2,13 +2,15 @@
 
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ...models.chat_room import ChatRoom, ChatRoomMember
 from ...models.event import (
     Event,
+    EventAnimationSeen,
     EventLocationType,
     EventRSVP,
     EventReminder,
@@ -16,7 +18,8 @@ from ...models.event import (
     EventVisibilitySettings,
     RSVPStatus,
 )
-from ...models.voice_channel import VoiceChannel
+from ...models.voice_channel import VoiceChannel, VoiceChannelParticipant
+from ...schemas.voice_channel import VoiceChannelResponse
 
 
 async def check_event_visibility(db: AsyncSession) -> bool:
@@ -96,6 +99,30 @@ async def get_event_with_counts(
     return event
 
 
+async def get_live_event(db: AsyncSession, room_id: str) -> Optional[Event]:
+    """Return the room's single live event (upcoming or in progress), if any.
+
+    A live event is one that is PUBLISHED and has not yet ended. This backs the
+    "one event at a time per room" rule: while a live event exists, no other can
+    be created. Cancelled/completed events free the slot.
+    """
+    now = datetime.utcnow()
+    result = await db.execute(
+        select(Event)
+        .options(selectinload(Event.creator), selectinload(Event.voice_channel))
+        .where(
+            and_(
+                Event.room_id == room_id,
+                Event.status == EventStatus.PUBLISHED,
+                or_(Event.ends_at.is_(None), Event.ends_at > now),
+            )
+        )
+        .order_by(Event.starts_at.asc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
 async def create_event(
     db: AsyncSession,
     room_id: str,
@@ -118,7 +145,15 @@ async def create_event(
     if not room:
         raise ValueError("Room not found")
 
-    if ends_at and ends_at <= starts_at:
+    # One live event per room: block creation while another is still alive.
+    existing = await get_live_event(db, room_id)
+    if existing:
+        raise ValueError("Este grupo ya tiene un evento activo")
+
+    if not ends_at:
+        raise ValueError("End time is required")
+
+    if ends_at <= starts_at:
         raise ValueError("End time must be after start time")
 
     if starts_at < datetime.utcnow():
@@ -206,8 +241,12 @@ async def get_events_list(
     elif upcoming_only:
         query = query.where(Event.starts_at >= datetime.utcnow())
 
-    if status_filter != EventStatus.CANCELLED:
-        query = query.where(Event.status != EventStatus.CANCELLED)
+    # Cancelled and completed events disappear from listings (no history UI):
+    # unless a caller explicitly filters by that status, hide them.
+    if status_filter is None:
+        query = query.where(
+            Event.status.notin_([EventStatus.CANCELLED, EventStatus.COMPLETED])
+        )
 
     query = query.order_by(Event.starts_at.asc()).offset(offset).limit(limit + 1)
 
@@ -252,6 +291,32 @@ async def get_events_list(
     return events, has_more
 
 
+async def mark_event_seen(db: AsyncSession, event_id: str, user_id: str) -> bool:
+    """Record that a user saw the event's welcome animation.
+
+    Returns True if this is the first time (a row was inserted), False if the
+    user had already seen it. Used to play the animation only once per event.
+    """
+    existing = await db.execute(
+        select(EventAnimationSeen).where(
+            and_(
+                EventAnimationSeen.event_id == event_id,
+                EventAnimationSeen.user_id == user_id,
+            )
+        )
+    )
+    if existing.scalar_one_or_none() is not None:
+        return False
+    db.add(EventAnimationSeen(event_id=event_id, user_id=user_id))
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Concurrent first-view from another tab/device: treat as already seen.
+        await db.rollback()
+        return False
+    return True
+
+
 async def get_attending_users(db: AsyncSession, event_id: str) -> List[str]:
     """Get list of user IDs attending an event (GOING RSVP)."""
     result = await db.execute(
@@ -286,6 +351,65 @@ async def unlink_voice_channel(db: AsyncSession, event: Event) -> Event:
     await db.commit()
     await db.refresh(event, ["creator", "voice_channel"])
     return event
+
+
+async def close_event_voice_channel(
+    db: AsyncSession,
+    event: Event,
+    manager,
+) -> None:
+    """Close and delete the voice channel associated with an event.
+
+    - Notifies all participants via WS (cross-worker) to leave cleanly
+    - Broadcasts channel state update to room (ActiveVoiceBar disappears)
+    - Deletes channel + participants (cascade)
+    - Clears event.voice_channel_id
+    """
+    if not event.voice_channel_id:
+        return
+
+    # Load channel with participants
+    result = await db.execute(
+        select(VoiceChannel)
+        .options(selectinload(VoiceChannel.participants).selectinload(VoiceChannelParticipant.user))
+        .where(VoiceChannel.id == event.voice_channel_id)
+    )
+    channel = result.scalar_one_or_none()
+    if not channel:
+        event.voice_channel_id = None
+        return
+
+    participant_user_ids = [p.user_id for p in channel.participants]
+
+    # 1) Notify each participant to leave (voice_channel_closed)
+    for uid in participant_user_ids:
+        await manager.send_to_user(uid, {
+            "t": "voice_channel_closed",
+            "channel_id": channel.id,
+            "reason": "event_ended",
+        })
+
+    # 2) Broadcast empty state to room (for ActiveVoiceBar poller/WS listeners)
+    empty_state = VoiceChannelResponse(
+        id=channel.id,
+        room_id=channel.room_id,
+        name=channel.name,
+        description=channel.description,
+        created_by=channel.created_by,
+        created_at=channel.created_at,
+        participants=[],
+    )
+    await manager.broadcast_to_room(
+        channel.room_id,
+        {"t": "voice_channel_state", "channel_id": channel.id, "data": empty_state.model_dump(mode="json")},
+    )
+
+    # 3) Delete channel (cascade deletes participants)
+    await db.delete(channel)
+
+    # 4) Clear FK on event
+    event.voice_channel_id = None
+    event.updated_at = datetime.utcnow()
 
 
 async def get_or_create_visibility_settings(db: AsyncSession, enabled: bool = True, updated_by: str = None) -> EventVisibilitySettings:

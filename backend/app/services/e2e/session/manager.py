@@ -69,7 +69,7 @@ class SessionManager:
                     SessionModel.user_id == self.user_id,
                     SessionModel.remote_user_id == remote_user_id,
                     SessionModel.established,
-                    not SessionModel.archived,
+                    SessionModel.archived.is_(False),
                 )
             )
         ).scalar_one_or_none()

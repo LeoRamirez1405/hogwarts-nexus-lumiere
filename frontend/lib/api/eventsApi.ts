@@ -8,6 +8,7 @@ import type {
   EventUpdate,
   RSVPStatus,
   RSVPResponse,
+  RSVPListItem,
   ReminderTime,
   ReminderSettingsResponse,
   VisibilitySettingsResponse,
@@ -33,7 +34,11 @@ export const eventsApi = {
     offset?: number;
   }) =>
     request<EventListResponse>(
-      `${EVENTS_BASE}${buildQuery({
+      // Trailing slash BEFORE the query: the backend route is `@router.get("/")`
+      // (path `/events/`). Calling `/events?...` makes FastAPI 307-redirect to the
+      // absolute http:// backend URL, which the https page blocks as mixed content
+      // ("Failed to fetch"). Hitting `/events/?...` directly avoids the redirect.
+      `${EVENTS_BASE}/${buildQuery({
         ...params,
         upcoming_only: params.upcoming_only === true ? "true" : params.upcoming_only === false ? "false" : undefined,
       })}`
@@ -41,8 +46,14 @@ export const eventsApi = {
 
   get: (eventId: string) => request<Event>(`${EVENTS_BASE}/${eventId}`),
 
+  // The room's single live event (upcoming or in progress), or null.
+  // Trailing-slash note in `list` does not apply: this is a literal sub-path.
+  getCurrent: (roomId: string) =>
+    request<Event | null>(`${EVENTS_BASE}/current${buildQuery({ room_id: roomId })}`),
+
   create: (data: EventCreate) =>
-    request<Event>(EVENTS_BASE, {
+    // Trailing slash: backend route is `@router.post("/")`. See note in `list`.
+    request<Event>(`${EVENTS_BASE}/`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -63,10 +74,14 @@ export const eventsApi = {
       body: JSON.stringify({ status }),
     }),
 
-  listRsvps: (eventId: string) => request<RSVPResponse[]>(`${EVENTS_BASE}/${eventId}/rsvps`),
+  listRsvps: (eventId: string) => request<RSVPListItem[]>(`${EVENTS_BASE}/${eventId}/rsvps`),
 
   removeRsvp: (eventId: string) =>
     request<void>(`${EVENTS_BASE}/${eventId}/rsvp`, { method: "DELETE" }),
+
+  // Marks the welcome animation as seen; first_time=true only on the first view.
+  markSeen: (eventId: string) =>
+    request<{ first_time: boolean }>(`${EVENTS_BASE}/${eventId}/seen`, { method: "POST" }),
 
   // Reminders
   getReminder: (eventId: string) =>

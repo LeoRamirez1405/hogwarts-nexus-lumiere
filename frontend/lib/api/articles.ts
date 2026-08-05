@@ -76,19 +76,19 @@ export const articlesApi = {
   getArticle: (id: string) => request<Article>(`/articles/${id}`),
 
   createArticle: (data: Partial<Article>) =>
-    request<Article>("/articles/", {
+    request<Article>("/admin/articles/", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
   updateArticle: (id: string, data: Partial<Article>) =>
-    request<Article>(`/articles/${id}`, {
+    request<Article>(`/admin/articles/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
 
   deleteArticle: (id: string) =>
-    request<void>(`/articles/${id}`, { method: "DELETE" }),
+    request<void>(`/admin/articles/${id}`, { method: "DELETE" }),
 
   subscribeArticle: (id: string) =>
     request<ArticleSubscription>(`/articles/${id}/subscribe`, {
@@ -140,19 +140,19 @@ export const articlesApi = {
     ),
 
   createAnnouncement: (data: Partial<Announcement>) =>
-    request<Announcement>("/announcements/", {
+    request<Announcement>("/admin/announcements/", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
   updateAnnouncement: (id: string, data: Partial<Announcement>) =>
-    request<Announcement>(`/announcements/${id}`, {
+    request<Announcement>(`/admin/announcements/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
 
   deleteAnnouncement: (id: string) =>
-    request<void>(`/announcements/${id}`, { method: "DELETE" }),
+    request<void>(`/admin/announcements/${id}`, { method: "DELETE" }),
 
   getClassifieds: (pagination?: PaginationParams) =>
     request<Page<Classified>>(
@@ -160,17 +160,17 @@ export const articlesApi = {
     ),
 
   createClassified: (data: Partial<Classified>) =>
-    request<Classified>("/classifieds/", {
+    request<Classified>("/admin/classifieds/", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
   updateClassified: (id: string, data: Partial<Classified>) =>
-    request<Classified>(`/classifieds/${id}`, {
+    request<Classified>(`/admin/classifieds/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
 
   deleteClassified: (id: string) =>
-    request<void>(`/classifieds/${id}`, { method: "DELETE" }),
+    request<void>(`/admin/classifieds/${id}`, { method: "DELETE" }),
 };

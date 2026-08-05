@@ -44,7 +44,7 @@ async def get_messages_service(
         unread_filters = [
             Message.receiver_id == current_user.id,
             Message.sender_id == user_id,
-            not Message.read,
+            Message.read.is_(False),
         ]
         first_unread_id = (
             await db.execute(
@@ -95,7 +95,7 @@ async def get_messages_service(
                 and_(
                     Message.receiver_id == current_user.id,
                     Message.sender_id == user_id,
-                    not Message.read,
+                    Message.read.is_(False),
                 )
             )
             .values(read=True)

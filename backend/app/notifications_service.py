@@ -24,6 +24,7 @@ from .models.article_subscription import Notification
 from .models.user import User
 from .models.post import PostLike
 from .models.friend_request import FriendRequest
+from .services.push_service import notification_url, send_webpush_to_user
 from .ws_manager import manager
 
 
@@ -119,6 +120,17 @@ async def notify(
     # Materialize id/created_at so the realtime WS push carries a full row.
     await db.flush()
     await _push_notification(n)
+    # Browser push (best-effort) so the user is alerted even with the app closed.
+    try:
+        await send_webpush_to_user(
+            db,
+            user_id=user_id,
+            title=title,
+            body=body,
+            url=notification_url(type, related_id, actor_id),
+        )
+    except Exception:
+        pass
     return n
 
 
@@ -150,7 +162,7 @@ async def notify_like(db: AsyncSession, post, actor: User) -> Optional[Notificat
                 Notification.user_id == post.author_id,
                 Notification.type == N.POST_LIKE,
                 Notification.related_id == post.id,
-                not Notification.read,
+                Notification.read.is_(False),
             )
         )
     ).scalar_one_or_none()
@@ -164,6 +176,17 @@ async def notify_like(db: AsyncSession, post, actor: User) -> Optional[Notificat
         existing.created_at = datetime.utcnow()
         await db.flush()
         await _push_notification(existing)
+        # Browser push for the aggregated like (best-effort).
+        try:
+            await send_webpush_to_user(
+                db,
+                user_id=post.author_id,
+                title=existing.title,
+                body=existing.body,
+                url=notification_url(N.POST_LIKE, post.id, actor.id),
+            )
+        except Exception:
+            pass
         return existing
 
     return await notify(
@@ -315,5 +338,16 @@ async def notify_friends_of_post(
         db.add(n)
         await db.flush()
         await _push_notification(n)
+        # Browser push for the friend's new post (best-effort).
+        try:
+            await send_webpush_to_user(
+                db,
+                user_id=fid,
+                title=f"{actor.name} publicó algo nuevo",
+                body=body,
+                url=notification_url(N.FRIEND_POST, post.id, actor.id),
+            )
+        except Exception:
+            pass
         count += 1
     return count

@@ -94,6 +94,12 @@ const META: Record<string, NotificationMeta> = {
     category: "messages",
     route: (n) => (n.related_id ? `/messages?room=${n.related_id}` : "/messages"),
   },
+  group_join_request: {
+    icon: "person_add",
+    chip: "bg-secondary/10 text-secondary",
+    category: "messages",
+    route: (n) => (n.related_id ? `/messages?room=${n.related_id}` : "/messages"),
+  },
   group_event: {
     icon: "event",
     chip: "bg-tertiary/10 text-tertiary",
@@ -148,6 +154,18 @@ const META: Record<string, NotificationMeta> = {
   // Pets
   pet_needs_attention: {
     icon: "pets",
+    chip: "bg-error/10 text-error",
+    category: "pets",
+    route: () => "/pets",
+  },
+  pet_escape_warning: {
+    icon: "warning",
+    chip: "bg-secondary/10 text-secondary",
+    category: "pets",
+    route: () => "/pets",
+  },
+  pet_escaped: {
+    icon: "directions_run",
     chip: "bg-error/10 text-error",
     category: "pets",
     route: () => "/pets",

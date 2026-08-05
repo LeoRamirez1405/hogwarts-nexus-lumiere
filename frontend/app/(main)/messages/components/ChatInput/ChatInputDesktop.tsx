@@ -21,7 +21,7 @@ interface ChatInputDesktopProps {
   onDisappearChange?: (value: string | undefined) => void;
   scheduleAt?: string;
   onScheduleChange?: (value: string | undefined) => void;
-  inputRef: React.RefObject<HTMLInputElement | null>;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onInputChange: (value: string) => void;
   onTypingStop: () => void;
@@ -179,16 +179,16 @@ export default function ChatInputDesktop({
         />
 
         <div className="relative flex-1">
-          <input
+          <textarea
             ref={inputRef}
-            type="text"
             value={input}
             onChange={handleInputChange}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             placeholder={replyingTo ? "Escribe tu respuesta..." : "Escribe un mensaje..."}
-            className="w-full bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50"
+            className="w-full bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50 resize-none min-h-[2.5rem] max-h-[8rem]"
             disabled={uploading}
+            rows={1}
           />
           {mentionResults.length > 0 && <MentionDropdown results={mentionResults} onSelect={onSelectMention} anchorRef={inputRef} />}
         </div>

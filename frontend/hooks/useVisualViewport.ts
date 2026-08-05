@@ -7,6 +7,7 @@ export interface VisualViewportState {
   isKeyboardOpen: boolean;
   viewportHeight: number;
   viewportWidth: number;
+  offsetTop: number;
 }
 
 export function useVisualViewport(): VisualViewportState {
@@ -15,6 +16,7 @@ export function useVisualViewport(): VisualViewportState {
     isKeyboardOpen: false,
     viewportHeight: typeof window !== "undefined" ? window.visualViewport?.height ?? window.innerHeight : 0,
     viewportWidth: typeof window !== "undefined" ? window.visualViewport?.width ?? window.innerWidth : 0,
+    offsetTop: 0,
   });
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -48,6 +50,7 @@ export function useVisualViewport(): VisualViewportState {
         isKeyboardOpen,
         viewportHeight,
         viewportWidth,
+        offsetTop: visualViewport.offsetTop,
       });
     };
 

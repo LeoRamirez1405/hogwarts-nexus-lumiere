@@ -40,9 +40,9 @@ export const auditLogsApi = {
       searchParams.set("skip", String(params.pagination.skip));
     if (params?.pagination?.limit)
       searchParams.set("limit", String(params.pagination.limit));
-    return request<AuditLogPage>(`/audit-logs?${searchParams.toString()}`);
+    return request<AuditLogPage>(`/admin/audit-logs?${searchParams.toString()}`);
   },
 
   getAuditLog: (id: string) =>
-    request<AuditLogResponse>(`/audit-logs/${id}`),
+    request<AuditLogResponse>(`/admin/audit-logs/${id}`),
 };

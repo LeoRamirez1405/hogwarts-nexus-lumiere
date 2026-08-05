@@ -1,11 +1,7 @@
-import json
-from io import BytesIO
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-
-from webpush import WebPush, WebPushException
 
 from ..config import settings
 from ..database import get_db
@@ -13,18 +9,9 @@ from ..models.user import User
 from ..models.push_subscription import PushSubscription
 from ..schemas.push_subscription import PushSubscriptionCreate, PushSubscriptionResponse, PushSubscriptionDelete
 from ..middleware.auth import get_current_user
+from ..services.push_service import _parse_subscription, send_webpush_to_user
 
 router = APIRouter(prefix="/push", tags=["push"])
-
-
-def get_webpush() -> WebPush | None:
-    if settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY:
-        return WebPush(
-            private_key=BytesIO(settings.VAPID_PRIVATE_KEY.encode()),
-            public_key=BytesIO(settings.VAPID_PUBLIC_KEY.encode()),
-            subscriber=settings.VAPID_SUBJECT,
-        )
-    return None
 
 
 @router.get("/vapid-public-key")
@@ -83,7 +70,7 @@ async def unsubscribe_from_push(
 
     for sub in subscriptions:
         try:
-            sub_data = eval(sub.subscription_json) if isinstance(sub.subscription_json, str) else sub.subscription_json
+            sub_data = _parse_subscription(sub.subscription_json)
             if sub_data.get("endpoint") == payload.endpoint:
                 await db.delete(sub)
                 await db.commit()
@@ -114,34 +101,16 @@ async def send_test_notification(
             detail="No push subscriptions found for user",
         )
 
-    wp = get_webpush()
-    if not wp:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Push notifications not configured on server",
-        )
-
-    sent_count = 0
-    for sub in subscriptions:
-        try:
-            sub_data = eval(sub.subscription_json) if isinstance(sub.subscription_json, str) else sub.subscription_json
-            wp.send(
-                subscription=sub_data,
-                data=json.dumps({
-                    "title": "Notificación de prueba",
-                    "body": "Las notificaciones push funcionan correctamente! 💎",
-                    "icon": "/icons/icon-192.svg",
-                }),
-            )
-            sent_count += 1
-        except WebPushException as e:
-            # If subscription expired, delete it
-            await db.delete(sub)
-            print(f"Push send failed: {e}")
-
+    sent = await send_webpush_to_user(
+        db,
+        user_id=current_user.id,
+        title="Notificación de prueba",
+        body="Las notificaciones push funcionan correctamente! 💎",
+        url="/",
+    )
     await db.commit()
 
-    return {"success": True, "sent": sent_count, "total": len(subscriptions)}
+    return {"success": True, "sent": sent, "total": len(subscriptions)}
 
 
 @router.get("/subscriptions", response_model=List[PushSubscriptionResponse])

@@ -33,7 +33,7 @@ async def purge_old_messages(days: int) -> dict:
                 .where(
                     and_(
                         Message.created_at < cutoff,
-                        not Message.pinned,
+                        Message.pinned.is_(False),
                     )
                 )
                 .options(

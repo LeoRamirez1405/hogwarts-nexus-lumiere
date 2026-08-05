@@ -30,7 +30,7 @@ export function useChatComposer({
   const [scheduleAt, setScheduleAt] = useState<string | undefined>(undefined);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const voice = useVoiceRecorder();
   const video = useVideoRecorder();
 

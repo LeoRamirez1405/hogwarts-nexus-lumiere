@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useAuthStore } from "@/lib/authStore";
 import { voiceChannelsApi, VoiceChannelParticipant, VoiceChannelResponse } from "@/lib/api/voice_channels";
 
@@ -22,9 +22,6 @@ interface VoiceChannelState {
   roomId: string | null;
   isJoined: boolean;
   isMuted: boolean;
-  isDeafened: boolean;
-  isVideoEnabled: boolean;
-  isScreenSharing: boolean;
   participants: VoiceChannelParticipant[];
   peers: PeerConnection[];
 }
@@ -34,9 +31,6 @@ const initialVoiceState: VoiceChannelState = {
   roomId: null,
   isJoined: false,
   isMuted: false,
-  isDeafened: false,
-  isVideoEnabled: false,
-  isScreenSharing: false,
   participants: [],
   peers: [],
 };
@@ -46,6 +40,7 @@ export function useVoiceChannel() {
   const wsRef = useRef<WebSocket | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const peerMapRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const leaveChannelRef = useRef<() => Promise<void>>(async () => {});
   const { accessToken } = useAuthStore();
 
   const getWsUrl = useCallback(() => {
@@ -144,6 +139,32 @@ export function useVoiceChannel() {
     }
   }, []);
 
+  const leaveChannel = useCallback(async () => {
+    if (!state.channelId) return;
+
+    disconnectAllPeers();
+    stopLocalStream();
+
+    if (wsRef.current) {
+      wsRef.current.send(JSON.stringify({ op: "leave_channel", channel_id: state.channelId }));
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    try {
+      await voiceChannelsApi.leave(state.channelId);
+    } catch (err) {
+      console.error("Voice channel leave failed", err);
+    }
+
+    setState(initialVoiceState);
+  }, [state, disconnectAllPeers, stopLocalStream]);
+
+  // Keep ref in sync for use in handleSignalMessage (avoids stale closure / dep issues)
+  useEffect(() => {
+    leaveChannelRef.current = leaveChannel;
+  }, [leaveChannel]);
+
   const handleSignalMessage = useCallback(
     async (msg: Record<string, unknown>) => {
       const t = msg.t as string;
@@ -220,6 +241,14 @@ export function useVoiceChannel() {
           participants: data.participants,
         }));
       }
+
+      if (t === "voice_channel_closed") {
+        const closedChannelId = msg.channel_id as string;
+        if (state.channelId === closedChannelId) {
+          leaveChannelRef.current();
+        }
+        return;
+      }
     },
     [accessToken, createPeerConnection, disconnectFromPeer, sendSignal, state.channelId]
   );
@@ -273,9 +302,6 @@ export function useVoiceChannel() {
           roomId,
           isJoined: true,
           isMuted: false,
-          isDeafened: false,
-          isVideoEnabled: false,
-          isScreenSharing: false,
           participants: channel.participants,
           peers: [],
         });
@@ -288,27 +314,6 @@ export function useVoiceChannel() {
     },
     [connectSignaling]
   );
-
-  const leaveChannel = useCallback(async () => {
-    if (!state.channelId) return;
-
-    disconnectAllPeers();
-    stopLocalStream();
-
-    if (wsRef.current) {
-      wsRef.current.send(JSON.stringify({ op: "leave_channel", channel_id: state.channelId }));
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-
-    try {
-      await voiceChannelsApi.leave(state.channelId);
-    } catch (err) {
-      console.error("Voice channel leave failed", err);
-    }
-
-    setState(initialVoiceState);
-  }, [state, disconnectAllPeers, stopLocalStream]);
 
   const toggleMute = useCallback(async () => {
     const { channelId, isMuted } = state;
@@ -327,53 +332,6 @@ export function useVoiceChannel() {
     }
   }, [state]);
 
-  const toggleDeafen = useCallback(async () => {
-    const { channelId, isDeafened } = state;
-    if (!channelId) return;
-
-    const newDeafened = !isDeafened;
-    if (newDeafened) {
-      localStreamRef.current?.getAudioTracks().forEach((t) => (t.enabled = false));
-    } else {
-      localStreamRef.current?.getAudioTracks().forEach((t) => (t.enabled = true));
-    }
-
-    setState((prev) => ({ ...prev, isDeafened: newDeafened, isMuted: newDeafened }));
-
-    try {
-      await voiceChannelsApi.updateMe(channelId, { deafened: newDeafened, muted: newDeafened });
-    } catch (err) {
-      console.error("Failed to update deafen state", err);
-      localStreamRef.current?.getAudioTracks().forEach((t) => (t.enabled = true));
-      setState((prev) => ({ ...prev, isDeafened: false, isMuted: false }));
-    }
-  }, [state]);
-
-  const toggleVideo = useCallback(async () => {
-    const { channelId, isVideoEnabled } = state;
-    if (!channelId) return;
-
-    const newVideo = !isVideoEnabled;
-    if (newVideo) {
-      try {
-        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        videoStream.getVideoTracks().forEach((track) => localStreamRef.current?.addTrack(track));
-        setState((prev) => ({ ...prev, isVideoEnabled: true }));
-        await voiceChannelsApi.updateMe(channelId, { video_enabled: true });
-      } catch (error) {
-        console.warn('Camera access denied:', error);
-      }
-    } else {
-      localStreamRef.current?.getVideoTracks().forEach((t) => t.stop());
-      setState((prev) => ({ ...prev, isVideoEnabled: false }));
-      try {
-        await voiceChannelsApi.updateMe(channelId, { video_enabled: false });
-      } catch (error) {
-        console.error('Failed to update video state:', error);
-      }
-    }
-  }, [state]);
-
   const listChannels = useCallback(async (roomId: string) => {
     return voiceChannelsApi.listForRoom(roomId);
   }, []);
@@ -389,15 +347,22 @@ export function useVoiceChannel() {
     await voiceChannelsApi.delete(channelId);
   }, []);
 
+  const toggleChannel = useCallback(async (roomId: string) => {
+    if (state.channelId) {
+      await voiceChannelsApi.delete(state.channelId);
+    } else {
+      await voiceChannelsApi.create(roomId, { name: "Chat de voz" });
+    }
+  }, [state.channelId]);
+
   return {
     ...state,
     joinChannel,
     leaveChannel,
     toggleMute,
-    toggleDeafen,
-    toggleVideo,
     listChannels,
     createChannel,
     deleteChannel,
+    toggleChannel,
   };
 }

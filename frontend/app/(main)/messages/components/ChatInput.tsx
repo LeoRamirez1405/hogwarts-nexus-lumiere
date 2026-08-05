@@ -24,7 +24,7 @@ interface ChatInputProps {
   showMentionDropdown: boolean;
   voice: VoiceRecorderState;
   video: VideoRecorderState;
-  inputRef: React.RefObject<HTMLInputElement | null>;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onInputChange: (value: string) => void;
   onTypingStop: () => void;

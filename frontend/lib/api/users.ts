@@ -43,7 +43,7 @@ export interface UserSearchResult {
 
 export const usersApi = {
   getUsers: (pagination?: PaginationParams) =>
-    request<Page<User>>("/users/" + buildQuery(pagination ?? {})),
+    request<Page<User>>("/admin/users/" + buildQuery(pagination ?? {})),
 
   searchUsersServer: (q: string, pagination?: PaginationParams) =>
     request<Page<User>>(
@@ -58,11 +58,17 @@ export const usersApi = {
       body: JSON.stringify(data),
     }),
 
+  adminUpdateUser: (id: string, data: Partial<User>) =>
+    request<User>(`/admin/users/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
   deleteUser: (id: string) =>
-    request<void>(`/users/${id}`, { method: "DELETE" }),
+    request<void>(`/admin/users/${id}`, { method: "DELETE" }),
 
   setUserTitle: (id: string, title: string | null) =>
-    request<User>(`/users/${id}/title`, {
+    request<User>(`/admin/users/${id}/title`, {
       method: "PUT",
       body: JSON.stringify({ official_title: title }),
     }),
@@ -80,19 +86,19 @@ export const usersApi = {
     house?: string;
     role?: string;
   }) =>
-    request<User>("/users/", {
+    request<User>("/admin/users/", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
   adjustHousePoints: (userId: string, points: number, reason?: string) =>
-    request<User>(`/users/${userId}/house-points`, {
+    request<User>(`/admin/users/${userId}/house-points`, {
       method: "POST",
       body: JSON.stringify({ points, reason }),
     }),
 
   adminResetPassword: (userId: string, newPassword: string) =>
-    request<User>(`/users/${userId}/reset-password`, {
+    request<User>(`/admin/users/${userId}/reset-password`, {
       method: "POST",
       body: JSON.stringify({ new_password: newPassword }),
     }),

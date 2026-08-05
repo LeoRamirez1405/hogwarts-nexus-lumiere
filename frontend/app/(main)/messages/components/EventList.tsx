@@ -6,8 +6,19 @@ import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import { eventsApi } from "@/lib/api/eventsApi";
 import type { Event, EventCreate, EventUpdate, EventStatus, ReminderTime, RSVPStatus } from "@/lib/api/events";
+import { wsClient, type WSMessage } from "@/lib/ws";
 import EventCard from "./EventCard";
 import EventModal from "./EventModal";
+
+// Event WS message types that should reload the list for this room.
+const EVENT_WS_TYPES = [
+  "event_created",
+  "event_updated",
+  "event_started",
+  "event_ended",
+  "event_cancelled",
+  "event_rsvp_updated",
+];
 
 interface EventListProps {
   roomId: string;
@@ -36,6 +47,12 @@ export default function EventList({
   const [statusFilter, setStatusFilter] = useState<EventStatus | "upcoming">("upcoming");
 
   const LIMIT = 20;
+
+  // One live event per group: a live event is PUBLISHED and not yet ended.
+  // While one exists, creating another is blocked (backend returns 409).
+  const hasLiveEvent = events.some(
+    (e) => e.status === "published" && (!e.ends_at || new Date(e.ends_at) > new Date())
+  );
 
   const loadEvents = useCallback(async (append = false) => {
     if (!isVisible) return;
@@ -79,6 +96,17 @@ export default function EventList({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadEvents(false);
   }, [loadEvents]);
+
+  // Live-refresh the list when events change in this room (start/end/RSVP/etc.).
+  useEffect(() => {
+    if (!isVisible) return;
+    const handler = (msg: WSMessage) => {
+      if (msg.c && msg.c !== roomId) return;
+      loadEvents(false);
+    };
+    const unsubs = EVENT_WS_TYPES.map((t) => wsClient.on(t, handler));
+    return () => unsubs.forEach((u) => u());
+  }, [roomId, isVisible, loadEvents]);
 
   const handleCreate = async (data: EventCreate) => {
     setModalLoading(true);
@@ -217,7 +245,14 @@ export default function EventList({
           </select>
 
           {isAdminOrMod && (
-            <Button variant="primary" icon="add" onClick={openCreateModal} size="md">
+            <Button
+              variant="primary"
+              icon="add"
+              onClick={openCreateModal}
+              size="md"
+              disabled={hasLiveEvent}
+              title={hasLiveEvent ? "Ya hay un evento activo en este grupo" : undefined}
+            >
               Crear evento
             </Button>
           )}

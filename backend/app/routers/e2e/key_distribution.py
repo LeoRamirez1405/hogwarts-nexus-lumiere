@@ -88,7 +88,7 @@ async def get_user_prekeys(
         await db.execute(
             select(UserPreKey).where(
                 UserPreKey.identity_id == identity.id,
-                not UserPreKey.used,
+                UserPreKey.used.is_(False),
             ).limit(count)
         )
     ).scalars().all()

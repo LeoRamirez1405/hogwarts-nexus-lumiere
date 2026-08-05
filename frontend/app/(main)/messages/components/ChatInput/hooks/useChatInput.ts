@@ -22,14 +22,14 @@ export function useChatInput({
   onDismissMentions,
 }: UseChatInputOptions) {
   const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       onInputChange(e.target.value);
     },
     [onInputChange]
   );
 
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         if (!showMentionDropdown) onSend();

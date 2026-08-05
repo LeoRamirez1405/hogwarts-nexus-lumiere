@@ -17,6 +17,39 @@ from ...models.user import User
 from ...routers.messages.deps import _invalidate_conversations_caches
 
 
+async def is_conversation_muted(
+    db: AsyncSession,
+    user_id: str,
+    conversation_type: str,
+    conversation_id: str,
+) -> bool:
+    """True when the user has an active mute on this conversation."""
+    now = datetime.utcnow()
+    if conversation_type == "dm":
+        result = await db.execute(
+            select(UserConversationPreference).where(
+                and_(
+                    UserConversationPreference.user_id == user_id,
+                    UserConversationPreference.conversation_type == "dm",
+                    UserConversationPreference.conversation_id == conversation_id,
+                )
+            )
+        )
+        pref = result.scalar_one_or_none()
+        return bool(pref and pref.muted_until and pref.muted_until > now)
+
+    result = await db.execute(
+        select(ChatRoomMember).where(
+            and_(
+                ChatRoomMember.room_id == conversation_id,
+                ChatRoomMember.user_id == user_id,
+            )
+        )
+    )
+    member = result.scalar_one_or_none()
+    return bool(member and member.muted_until and member.muted_until > now)
+
+
 async def _update_conversation_preferences(
     db: AsyncSession, message: Message, sender: User
 ):

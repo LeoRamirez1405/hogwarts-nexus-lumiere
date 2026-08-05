@@ -15,6 +15,7 @@ import { AudioView } from "./AudioView";
 import { MentionText } from "./MentionText";
 import { ReactionBar } from "./ReactionBar";
 import { MessageActions } from "./MessageActions";
+import { EditMessageForm } from "./EditMessageForm";
 import { LinkPreviewView } from "./LinkPreviewView";
 import { detectMessageEffect, MessageEffectBurst } from "@/components/ui/MessageEffects";
 import type { MessageBubbleProps } from "./types";
@@ -50,6 +51,9 @@ export const MessageBubble = memo(
     onPollVote,
     members,
     isReplyTarget,
+    editing,
+    onSaveEdit,
+    onCancelEdit,
   }: MessageBubbleProps) => {
   const [dataSaver] = useState(() => {
     if (typeof window !== "undefined") {
@@ -103,7 +107,7 @@ export const MessageBubble = memo(
   const swipeDir = isOwn ? -1 : 1;
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (message.optimistic) return;
+    if (message.optimistic || editing) return;
     touchStartRef.current = {
       x: e.touches[0].clientX,
       y: e.touches[0].clientY,
@@ -207,7 +211,7 @@ return (
       )}
 
       <div className={`relative flex flex-col ${kind.startsWith("video") ? "max-w-[80%]" : "max-w-[70%]"}`}>
-        {!message.optimistic && (
+        {!message.optimistic && !editing && (
           <MessageActions
             message={message}
             isOwn={isOwn}
@@ -269,7 +273,14 @@ return (
           {kind === "voice" && message.attachment_url && <VoiceView message={message} isOwn={isOwn} />}
           {kind === "document" && message.attachment_url && <DocumentView message={message} isOwn={isOwn} />}
 
-          {(kind === "text" || kind === "image" || kind === "video" || kind === "audio") && message.body && (
+          {editing && kind === "text" ? (
+            <EditMessageForm
+              body={message.body || ""}
+              isOwn={isOwn}
+              onSave={(body) => onSaveEdit?.(message.id, body)}
+              onCancel={onCancelEdit ?? (() => {})}
+            />
+          ) : (kind === "text" || kind === "image" || kind === "video" || kind === "audio") && message.body && (
             <div className="text-body-md wrap-break-word">
               <MentionText text={message.body} isOwn={isOwn} members={members} />
             </div>
@@ -334,6 +345,18 @@ return (
                 <span>Enviando...</span>
               </span>
             )}
+            {message.edited && !message.optimistic && (
+              <span
+                className="text-[10px]"
+                title={
+                  message.edited_at
+                    ? `Editado ${new Date(message.edited_at).toLocaleString()}`
+                    : "Editado"
+                }
+              >
+                Editado
+              </span>
+            )}
             {message.optimistic && message.failed && (
               <span className="flex items-center gap-0.5 text-[10px]" title="Error de envío, se reintentará automáticamente">
                 <MaterialIcon name="error" className="text-[10px]" />
@@ -379,7 +402,8 @@ return (
     prev.message === next.message &&
     prev.isOwn === next.isOwn &&
     prev.isReplyTarget === next.isReplyTarget &&
-    prev.members === next.members
+    prev.members === next.members &&
+    prev.editing === next.editing
 );
 
 MessageBubble.displayName = "MessageBubble";

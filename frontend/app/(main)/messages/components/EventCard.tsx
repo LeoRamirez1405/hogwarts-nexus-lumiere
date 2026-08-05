@@ -8,6 +8,7 @@ import { AdminCrudModal, FormField, SelectField } from "@/components/ui/AdminCru
 import Button from "@/components/ui/Button";
 import type { Event, RSVPStatus, ReminderTime } from "@/lib/api/events";
 import { RSVP_LABELS, REMINDER_LABELS, LOCATION_LABELS } from "@/lib/api/events";
+import EventCensusModal from "./EventCensusModal";
 
 interface EventCardProps {
   event: Event;
@@ -34,6 +35,7 @@ export default function EventCard({
 }: EventCardProps) {
   const [showRsvpMenu, setShowRsvpMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCensus, setShowCensus] = useState(false);
 
   const isPast = new Date(event.starts_at) < new Date();
   const isCancelled = event.status === "cancelled";
@@ -104,12 +106,21 @@ export default function EventCard({
               Cancelado
             </span>
           )}
-          {isPast && !isCancelled && (
+          {!isCancelled && event.in_progress && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-label-xs font-medium bg-primary text-on-primary">
+              <span className="relative flex h-1.5 w-1.5" aria-hidden>
+                <span className="absolute inline-flex h-full w-full rounded-full bg-on-primary/70 opacity-75 animate-ping" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-on-primary" />
+              </span>
+              En curso
+            </span>
+          )}
+          {!isCancelled && !event.in_progress && isPast && (
             <span className="px-2 py-0.5 rounded-full text-label-xs font-medium bg-surface-container-high text-on-surface-variant">
               Finalizado
             </span>
           )}
-          {!isPast && !isCancelled && (
+          {!isCancelled && !event.in_progress && !isPast && (
             <span className="px-2 py-0.5 rounded-full text-label-xs font-medium bg-emerald-container text-on-emerald-container">
               Próximo
             </span>
@@ -174,8 +185,12 @@ export default function EventCard({
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="flex items-center gap-4 text-label-sm text-on-surface-variant shrink-0">
+        {/* Stats — tap to open the attendee census */}
+        <button
+          onClick={() => setShowCensus(true)}
+          title="Ver asistentes"
+          className="flex items-center gap-4 text-label-sm text-on-surface-variant shrink-0 rounded-full px-2 py-1 -mx-2 hover:bg-surface-container-high transition-colors"
+        >
           {event.max_attendees && (
             <span className="flex items-center gap-1">
               <MaterialIcon name="groups" className="text-[1em]" />
@@ -190,7 +205,7 @@ export default function EventCard({
             <MaterialIcon name={RSVP_LABELS.maybe.icon} className="text-[1em] text-amber-600" />
             {maybeCount}
           </span>
-        </div>
+        </button>
       </div>
 
       {/* Reminder setting */}
@@ -212,8 +227,8 @@ export default function EventCard({
         </div>
       </div>
 
-      {/* Voice channel join / Actions */}
-      {(event.voice_channel_id || event.location_type === "voice_channel") && !isCancelled && !isPast && (
+      {/* Voice channel join — available while upcoming and (crucially) in progress */}
+      {(event.voice_channel_id || event.location_type === "voice_channel") && !isCancelled && (event.in_progress || !isPast) && (
         <div className="px-4 py-3 border-t border-outline-variant/10">
           <Button
             variant="primary"
@@ -265,6 +280,13 @@ export default function EventCard({
           onClick={() => setShowRsvpMenu(false)}
         />
       )}
+
+      <EventCensusModal
+        eventId={event.id}
+        eventTitle={event.title}
+        open={showCensus}
+        onClose={() => setShowCensus(false)}
+      />
     </div>
   );
 }

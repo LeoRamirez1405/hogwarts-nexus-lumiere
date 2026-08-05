@@ -120,10 +120,12 @@ async def mute_conversation(
             muted_until = datetime.utcnow() + timedelta(hours=8)
         elif duration == "24h":
             muted_until = datetime.utcnow() + timedelta(hours=24)
+        elif duration == "7d":
+            muted_until = datetime.utcnow() + timedelta(days=7)
         elif duration == "forever":
             muted_until = datetime(2099, 12, 31, 23, 59, 59)
         else:
-            raise HTTPException(status_code=400, detail="Invalid duration. Use: 8h, 24h, forever, off")
+            raise HTTPException(status_code=400, detail="Invalid duration. Use: 8h, 24h, 7d, forever, off")
     else:
         raise HTTPException(status_code=400, detail="duration is required")
 

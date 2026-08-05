@@ -29,6 +29,8 @@ export interface Event {
   rsvp_counts: Record<RSVPStatus, number>;
   my_rsvp: RSVPStatus | null;
   reminder_time: ReminderTime | null;
+  /** Server-computed: event is published and currently between start and end. */
+  in_progress: boolean;
 }
 
 export interface EventListResponse {
@@ -73,6 +75,16 @@ export interface RSVPResponse {
   user_id: string;
   status: RSVPStatus;
   responded_at: string;
+}
+
+/** Attendee entry for the census/attendee list (GET /events/{id}/rsvps). */
+export interface RSVPListItem {
+  user_id: string;
+  status: RSVPStatus;
+  responded_at: string;
+  name: string;
+  avatar_url: string | null;
+  house: string | null;
 }
 
 export interface ReminderSettingsRequest {

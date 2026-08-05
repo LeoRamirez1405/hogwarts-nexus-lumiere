@@ -46,7 +46,7 @@ export const transactionsApi = {
     }
   ) =>
     request<Page<Transaction>>(
-      "/transactions/admin/all" +
+      "/admin/transactions/" +
         buildQuery({
           type: filters?.type,
           user_id: filters?.userId,

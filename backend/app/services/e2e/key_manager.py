@@ -143,7 +143,7 @@ class KeyManager:
                 select(UserPreKey)
                 .where(
                     UserPreKey.identity_id == identity_db.id,
-                    not UserPreKey.used,
+                    UserPreKey.used.is_(False),
                 )
                 .limit(count)
             )

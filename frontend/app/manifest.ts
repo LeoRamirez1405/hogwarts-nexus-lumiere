@@ -13,19 +13,19 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     icons: [
       {
-        src: "/icons/icon-192.svg",
+        src: "/icons/icon-192-owl-outline.svg",
         sizes: "192x192",
         type: "image/svg+xml",
         purpose: "any",
       },
       {
-        src: "/icons/icon-512.svg",
+        src: "/icons/icon-512-owl-outline.svg",
         sizes: "512x512",
         type: "image/svg+xml",
         purpose: "any",
       },
       {
-        src: "/icons/maskable-512.svg",
+        src: "/icons/maskable-512-owl-outline.svg",
         sizes: "512x512",
         type: "image/svg+xml",
         purpose: "maskable",
@@ -53,21 +53,21 @@ export default function manifest(): MetadataRoute.Manifest {
         short_name: "Tesoro",
         description: "Ver tu saldo y transferir Zerines",
         url: "/treasury",
-        icons: [{ src: "/icons/icon-192.svg", sizes: "192x192" }],
+        icons: [{ src: "/icons/icon-192-owl-outline.svg", sizes: "192x192" }],
       },
       {
         name: "Mensajes",
         short_name: "Mensajes",
         description: "Abrir bandeja de entrada",
         url: "/messages",
-        icons: [{ src: "/icons/icon-192.svg", sizes: "192x192" }],
+        icons: [{ src: "/icons/icon-192-owl-outline.svg", sizes: "192x192" }],
       },
       {
         name: "Mercado",
         short_name: "Mercado",
         description: "Explorar Borgin & Burkes y Flourish & Blotts",
         url: "/marketplace/borgin-burkes",
-        icons: [{ src: "/icons/icon-192.svg", sizes: "192x192" }],
+        icons: [{ src: "/icons/icon-192-owl-outline.svg", sizes: "192x192" }],
       },
     ],
   };

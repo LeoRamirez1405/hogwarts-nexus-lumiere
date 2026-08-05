@@ -20,7 +20,6 @@ from .core import router as core_router
 from .interactions import router as interactions_router
 from .media import router as media_router
 from .search import router as search_router
-from .admin import router as admin_router
 from .scheduled import router as scheduled_router
 from .export import router as export_router
 from .link_preview import router as link_preview_router
@@ -31,7 +30,6 @@ router.include_router(rooms_router)
 router.include_router(interactions_router)
 router.include_router(media_router)
 router.include_router(search_router)
-router.include_router(admin_router)
 router.include_router(scheduled_router)
 router.include_router(export_router)
 router.include_router(link_preview_router)

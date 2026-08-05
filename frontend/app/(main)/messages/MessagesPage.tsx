@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, Suspense, useRef, useEffect } from "react";
+import { useState, useCallback, Suspense, useRef, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useAuthStore } from "@/lib/authStore";
 import { useNotificationStore } from "@/lib/notificationStore";
@@ -80,12 +80,25 @@ export default function MessagesPage() {
     selectedTypeRef.current = selectedType;
   }, [selectedId, selectedType]);
 
+  // Stable no-op WS stub. MUST be memoized: these hooks put wsClient in effect
+  // dep arrays, so a fresh inline object each render retriggers those effects,
+  // which setState → re-render → new object → infinite loop ("Maximum update
+  // depth exceeded"). The real socket is handled by useWebSocket internally.
+  const wsClientStub = useMemo(
+    () => ({
+      isConnected: () => false,
+      sendMessage: () => {},
+      markRead: () => {},
+    }),
+    []
+  );
+
   // Hooks
   const { conversations, setConversations, allUsers, loading } = useConversations(authUser);
   const messagesHook = useMessages({
     selectedId,
     selectedType,
-    wsClient: { isConnected: () => false, markRead: () => {} },
+    wsClient: wsClientStub,
   });
   const { outboxMessages, processOutbox, addMessage: addToOutbox } = useOutbox();
 
@@ -96,7 +109,7 @@ export default function MessagesPage() {
     messagesRef,
     selectedIdRef,
     selectedTypeRef,
-    wsClient: { isConnected: () => false, sendMessage: () => {}, markRead: () => {} },
+    wsClient: wsClientStub,
     setMessages: messagesHook.setMessages,
     setConversations,
     setTypingUsers,
@@ -129,7 +142,7 @@ export default function MessagesPage() {
     selectedId,
     selectedType,
     messagesRef,
-    wsClient: { isConnected: () => false, sendMessage: () => {}, markRead: () => {} },
+    wsClient: wsClientStub,
     e2e,
     setMessages: messagesHook.setMessages,
     setConversations,

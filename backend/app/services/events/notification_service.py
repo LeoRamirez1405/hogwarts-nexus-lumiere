@@ -84,6 +84,35 @@ async def notify_event_cancelled(
     await manager.broadcast_to_room(event.room_id, payload)
 
 
+async def notify_event_started(
+    db: AsyncSession,
+    event: Event,
+) -> None:
+    """Notify GOING attendees that the event has started + broadcast to room."""
+    rsvp_result = await db.execute(
+        select(EventRSVP.user_id).where(
+            and_(EventRSVP.event_id == event.id, EventRSVP.status == RSVPStatus.GOING)
+        )
+    )
+    for (attendee_id,) in rsvp_result.all():
+        await notify(
+            db,
+            user_id=attendee_id,
+            type=N.GROUP_EVENT,
+            title=f"¡«{event.title}» empezó!",
+            body="El evento al que vas está comenzando ahora",
+            related_id=f"event:{event.id}",
+            actor_id=attendee_id,
+        )
+
+    payload = {
+        "t": "event_started",
+        "c": event.room_id,
+        "e": {"id": event.id, "status": "in_progress"},
+    }
+    await manager.broadcast_to_room(event.room_id, payload)
+
+
 async def notify_rsvp_update(
     db: AsyncSession,
     event: Event,

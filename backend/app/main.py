@@ -12,12 +12,27 @@ from brotli_asgi import BrotliMiddleware
 from .config import settings
 from .rate_limit import limiter
 from .database import init_db
-from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, audit_logs, ws_messages, push, voice_channels, e2e_encryption, events
+from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, ws_messages, push, voice_channels, e2e_encryption, events
+from .routers.admin import users as admin_users
+from .routers.admin import products as admin_products
+from .routers.admin import creatures as admin_creatures
+from .routers.admin import articles as admin_articles
+from .routers.admin import announcements as admin_announcements
+from .routers.admin import classifieds as admin_classifieds
+from .routers.admin import pet_items as admin_pet_items
+from .routers.admin import transactions as admin_transactions
+from .routers.admin import rooms as admin_rooms
+from .routers.admin import messages as admin_messages
+from .routers.admin import enums as admin_enums
+from .routers.admin import feature_flags as admin_feature_flags
+from .routers.admin import audit_logs as admin_audit_logs
+from .routers.admin import notifications as admin_notifications
 from .models import friend_request  # noqa: F401
 from .retention import retention_loop, disappearing_loop
 from .pet_care import pet_care_loop
 from .scheduled_messages import scheduled_messages_loop
 from .event_reminders import event_reminders_loop
+from .mute_cleanup import mute_cleanup_loop
 
 
 @asynccontextmanager
@@ -29,6 +44,7 @@ async def lifespan(app: FastAPI):
     pet_care_task = asyncio.create_task(pet_care_loop())
     scheduled_task = asyncio.create_task(scheduled_messages_loop())
     event_reminders_task = asyncio.create_task(event_reminders_loop())
+    mute_cleanup_task = asyncio.create_task(mute_cleanup_loop())
     # Redis pub/sub bus so WebSocket delivery works across uvicorn workers.
     from .ws_manager import manager
     await manager.start()
@@ -40,6 +56,7 @@ async def lifespan(app: FastAPI):
         pet_care_task.cancel()
         scheduled_task.cancel()
         event_reminders_task.cancel()
+        mute_cleanup_task.cancel()
         await manager.shutdown()
 
 
@@ -95,7 +112,20 @@ app.include_router(classifieds.router, prefix="/classifieds", tags=["classifieds
 app.include_router(forum.router, prefix="/forum", tags=["forum"])
 app.include_router(enum_types.router, prefix="/enum-types", tags=["enum-types"])
 app.include_router(feature_flags.router, prefix="/feature-flags", tags=["feature-flags"])
-app.include_router(audit_logs.router, prefix="/audit-logs", tags=["audit-logs"])
+app.include_router(admin_users.router, tags=["admin-users"])
+app.include_router(admin_products.router, tags=["admin-products"])
+app.include_router(admin_creatures.router, tags=["admin-creatures"])
+app.include_router(admin_articles.router, tags=["admin-articles"])
+app.include_router(admin_announcements.router, tags=["admin-announcements"])
+app.include_router(admin_classifieds.router, tags=["admin-classifieds"])
+app.include_router(admin_pet_items.router, tags=["admin-pet-items"])
+app.include_router(admin_transactions.router, tags=["admin-transactions"])
+app.include_router(admin_rooms.router, tags=["admin-rooms"])
+app.include_router(admin_messages.router, tags=["admin-messages"])
+app.include_router(admin_enums.router, tags=["admin-enums"])
+app.include_router(admin_feature_flags.router, tags=["admin-feature-flags"])
+app.include_router(admin_audit_logs.router, tags=["admin-audit-logs"])
+app.include_router(admin_notifications.router, tags=["admin-notifications"])
 app.include_router(push.router, tags=["push"])
 app.include_router(voice_channels.rest_router, prefix="/messages/voice", tags=["voice"])
 app.include_router(events.router, prefix="/events", tags=["events"])

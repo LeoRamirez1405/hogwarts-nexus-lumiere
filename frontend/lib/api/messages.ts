@@ -69,7 +69,7 @@ export const messagesApi = {
     }),
 
   createRoom: (data: CreateRoomData) =>
-    request<ChatRoomResponse>("/messages/rooms", {
+    request<ChatRoomResponse>("/admin/rooms", {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -81,11 +81,11 @@ export const messagesApi = {
     }),
 
   deleteRoom: (roomId: string) =>
-    request<void>(`/messages/rooms/${roomId}`, { method: "DELETE" }),
+    request<void>(`/admin/rooms/${roomId}`, { method: "DELETE" }),
 
   addRoomMember: (roomId: string, userId: string, role?: string) =>
     request<ChatRoomMemberResponse>(
-      `/messages/rooms/${roomId}/members?user_id=${userId}${role ? `&role=${role}` : ""}`,
+      `/admin/rooms/${roomId}/members?user_id=${userId}${role ? `&role=${role}` : ""}`,
       { method: "POST" }
     ),
 
@@ -99,13 +99,13 @@ export const messagesApi = {
     if (role) params.append("role", role);
     const qs = params.toString();
     return request<ChatRoomMemberResponse[]>(
-      `/messages/rooms/${roomId}/members/batch${qs ? `?${qs}` : ""}`,
+      `/admin/rooms/${roomId}/members/batch${qs ? `?${qs}` : ""}`,
       { method: "POST" }
     );
   },
 
   removeRoomMember: (roomId: string, userId: string) =>
-    request<void>(`/messages/rooms/${roomId}/members/${userId}`, {
+    request<void>(`/admin/rooms/${roomId}/members/${userId}`, {
       method: "DELETE",
     }),
 
@@ -144,7 +144,7 @@ export const messagesApi = {
 
   toggleRoomClosed: (roomId: string) =>
     request<ChatRoomResponse>(
-      `/messages/rooms/${roomId}/toggle-close`,
+      `/admin/rooms/${roomId}/toggle-close`,
       { method: "PUT" }
     ),
 
@@ -336,18 +336,18 @@ export const messagesApi = {
   // Member role & approval
   changeMemberRole: (roomId: string, memberId: string, role: "admin" | "member") =>
     request<ChatRoomMemberResponse>(
-      `/messages/rooms/${roomId}/members/${memberId}/role`,
+      `/admin/rooms/${roomId}/members/${memberId}/role`,
       { method: "PUT", body: JSON.stringify({ role }) }
     ),
 
   approvePendingMember: (roomId: string, userId: string, action: "approve" | "reject") =>
     request<ChatRoomMemberResponse | { ok: boolean; rejected: boolean }>(
-      `/messages/rooms/${roomId}/members/approve`,
+      `/admin/rooms/${roomId}/members/approve`,
       { method: "POST", body: JSON.stringify({ user_id: userId, action }) }
     ),
 
   getPendingMembers: (roomId: string) =>
-    request<ChatRoomMemberResponse[]>(`/messages/rooms/${roomId}/members/pending`),
+    request<ChatRoomMemberResponse[]>(`/admin/rooms/${roomId}/members/pending`),
 
   // Link preview
   getLinkPreview: (url: string) =>

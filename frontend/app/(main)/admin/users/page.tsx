@@ -45,7 +45,7 @@ export default function AdminUsersPage() {
     queryKey: ["admin-users"],
     fetcher: (p) => api.getUsers(p),
     createFn: (data) => api.createUser(data),
-    updateFn: (id, data) => api.updateUser(id, data),
+    updateFn: (id, data) => api.adminUpdateUser(id, data),
     deleteFn: (id) => api.deleteUser(id),
     getDisplayName: (u) => u.name,
     getId: (u) => u.id,

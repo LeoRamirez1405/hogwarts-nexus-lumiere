@@ -151,17 +151,17 @@ async def create_voice_channel(
     if not await _is_room_member(db, room_id, current_user):
         raise HTTPException(status_code=403, detail="Not a member of this room")
 
-    # Check max channels per room (arbitrary reasonable limit)
+    # Limit to 1 voice channel per room
     existing = await db.execute(
         select(VoiceChannel).where(VoiceChannel.room_id == room_id)
     )
-    if len(existing.scalars().all()) >= 5:
-        raise HTTPException(status_code=400, detail="Max 5 voice channels per room")
+    if existing.scalars().first():
+        raise HTTPException(status_code=400, detail="Voice channel already exists for this room")
 
     channel = VoiceChannel(
         room_id=room_id,
-        name=data.name,
-        description=data.description,
+        name="Chat de voz",
+        description=None,
         created_by=current_user.id,
     )
     db.add(channel)
@@ -175,7 +175,9 @@ async def create_voice_channel(
         .where(VoiceChannel.id == channel.id)
     )
     channel = result.scalar_one()
-    return await _serialize_channel(channel)
+    serialized = await _serialize_channel(channel)
+    await _broadcast_channel_state(channel.id, serialized)
+    return serialized
 
 
 @rest_router.get("/channels/{channel_id}", response_model=VoiceChannelResponse)
@@ -240,7 +242,9 @@ async def delete_voice_channel(
     current_user: User = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(VoiceChannel).where(VoiceChannel.id == channel_id)
+        select(VoiceChannel)
+        .options(selectinload(VoiceChannel.participants).selectinload(VoiceChannelParticipant.user))
+        .where(VoiceChannel.id == channel_id)
     )
     channel = result.scalar_one_or_none()
     if not channel:
@@ -249,6 +253,32 @@ async def delete_voice_channel(
     if current_user.role != "admin" and channel.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    room_id = channel.room_id
+    participant_user_ids = [p.user_id for p in channel.participants]
+
+    # 1) Notify each participant to leave (voice_channel_closed)
+    for uid in participant_user_ids:
+        await manager.send_to_user(uid, {
+            "t": "voice_channel_closed",
+            "channel_id": channel.id,
+        })
+
+    # 2) Broadcast empty state to room (for ActiveVoiceBar)
+    empty_state = VoiceChannelResponse(
+        id=channel.id,
+        room_id=channel.room_id,
+        name=channel.name,
+        description=channel.description,
+        created_by=channel.created_by,
+        created_at=channel.created_at,
+        participants=[],
+    )
+    await manager.broadcast_to_room(
+        room_id,
+        {"t": "voice_channel_state", "channel_id": channel.id, "data": empty_state.model_dump(mode="json")},
+    )
+
+    # 3) Delete the channel (cascade deletes participants)
     await db.delete(channel)
     await db.commit()
 

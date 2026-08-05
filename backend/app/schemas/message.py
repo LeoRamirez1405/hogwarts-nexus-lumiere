@@ -282,7 +282,7 @@ class ConversationResponse(BaseModel):
 
 
 class MuteRequest(BaseModel):
-    duration: str  # "8h" | "24h" | "forever" | "off"
+    duration: str  # "8h" | "24h" | "7d" | "forever" | "off"
 
 
 # WebSocket message types

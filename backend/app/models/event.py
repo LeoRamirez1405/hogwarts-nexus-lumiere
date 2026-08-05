@@ -62,6 +62,10 @@ class Event(Base):
     max_attendees = Column(Integer, nullable=True)         # None = unlimited
     require_approval = Column(Boolean, default=False, nullable=False)  # For RSVP
 
+    # Lifecycle: set once when starts_at is crossed and attendees are notified,
+    # so the "event started" notification/broadcast fires exactly once.
+    started_notified = Column(Boolean, default=False, nullable=False, server_default="0")
+
     # Metadata
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -86,6 +90,11 @@ class EventRSVP(Base):
     status = Column(SQLEnum(RSVPStatus), default=RSVPStatus.MAYBE, nullable=False)
     responded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Automatic reminders for attendees (GOING/MAYBE): fired once each, 1h and
+    # 5min before the event starts. Independent of the user's custom reminder.
+    reminded_1h = Column(Boolean, default=False, nullable=False, server_default="0")
+    reminded_5m = Column(Boolean, default=False, nullable=False, server_default="0")
 
     # Relationships
     event = relationship("Event", back_populates="rsvps", lazy="selectin")
@@ -113,6 +122,22 @@ class EventReminder(Base):
 
     __table_args__ = (
         UniqueConstraint("event_id", "user_id", "reminder_time", name="uq_event_user_reminder"),
+    )
+
+
+class EventAnimationSeen(Base):
+    """Tracks which users have already seen the "event in progress" welcome
+    animation for a given event, so it plays only the first time each user
+    enters the group while the event is live."""
+    __tablename__ = "event_animation_seen"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    event_id = Column(String, ForeignKey("events.id"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    seen_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("event_id", "user_id", name="uq_event_user_seen"),
     )
 
 

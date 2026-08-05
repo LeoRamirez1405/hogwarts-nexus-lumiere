@@ -27,7 +27,7 @@ export default function BottomSheet({
   const titleId = useId();
   const [visible, setVisible] = useState(false);
   const [animOut, setAnimOut] = useState(false);
-  const { keyboardHeight, isKeyboardOpen } = useVisualViewport();
+  const { isKeyboardOpen, viewportHeight, offsetTop } = useVisualViewport();
   const hapticLight = useHapticLight();
 
   const swipeHandlers = useSwipeable({
@@ -83,20 +83,48 @@ export default function BottomSheet({
     return () => document.removeEventListener("keydown", handleKey);
   }, [open, handleClose]);
 
+  // When a field inside the sheet is focused, make sure it is scrolled into the
+  // visible area above the keyboard. The sheet itself is sized to the visual
+  // viewport (see below), so a plain scrollIntoView within the scroll area is
+  // enough — we don't fight the browser with transforms.
+  useEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target || !panel.contains(target)) return;
+      // Wait for the keyboard/viewport to settle before scrolling.
+      window.setTimeout(() => {
+        target.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 300);
+    };
+    panel.addEventListener("focusin", handleFocusIn);
+    return () => panel.removeEventListener("focusin", handleFocusIn);
+  }, [open]);
+
   if (!visible && !open) return null;
   if (typeof window === "undefined") return null;
 
-  const translateY = isKeyboardOpen ? `-${keyboardHeight}px` : "0px";
+  // Instead of translating the whole sheet up (which breaks native scroll-into
+  // -view and position:fixed on mobile), we shrink the overlay to the visual
+  // viewport box. The panel stays anchored to the bottom of that box, landing
+  // exactly on top of the keyboard, and its inner scroll area handles overflow.
+  const overlayStyle: React.CSSProperties =
+    isKeyboardOpen && viewportHeight > 0
+      ? { top: `${offsetTop}px`, height: `${viewportHeight}px`, bottom: "auto" }
+      : {};
+  const maxHeight = isKeyboardOpen && viewportHeight > 0 ? "100%" : "85dvh";
 
   return createPortal(
     <div
       className={`fixed inset-0 z-[60] transition-opacity duration-200 ${
         open && !animOut ? "opacity-100" : "opacity-0"
       }`}
-      style={{ pointerEvents: open && !animOut ? "auto" : "none" }}
+      style={{ pointerEvents: open && !animOut ? "auto" : "none", ...overlayStyle }}
     >
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-md"
+        className="fixed inset-0 bg-black/50 backdrop-blur-md"
         onClick={handleClose}
       />
       <div
@@ -106,13 +134,12 @@ export default function BottomSheet({
         aria-labelledby={title ? titleId : undefined}
         aria-label={!title ? ariaLabel : undefined}
         tabIndex={-1}
-        className={`absolute bottom-0 left-0 right-0 bg-surface-container-lowest rounded-t-2xl shadow-2xl max-h-[85dvh] flex flex-col outline-none transition-transform duration-200 ease-out ${
+        className={`absolute bottom-0 left-0 right-0 bg-surface-container-lowest rounded-t-2xl shadow-2xl flex flex-col outline-none transition-transform duration-200 ease-out ${
           open && !animOut ? "translate-y-0" : "translate-y-full"
         }`}
         style={{
-          transform: open && !animOut
-            ? `translateY(${translateY})`
-            : "translateY(100%)",
+          maxHeight,
+          transform: open && !animOut ? "translateY(0)" : "translateY(100%)",
         }}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={swipeHandlers.onTouchStart}

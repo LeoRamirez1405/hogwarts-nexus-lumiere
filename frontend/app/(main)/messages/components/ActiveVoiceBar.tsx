@@ -9,8 +9,12 @@ interface ActiveVoiceBarProps {
   isJoined: boolean;
   /** Join the active channel (acquires mic + connects). */
   onJoin: () => void;
-  /** Open the full voice-channel panel (controls / leave). */
-  onOpenPanel: () => void;
+  /** Toggle mute state for current user. */
+  onToggleMute: () => void;
+  /** Leave the voice channel. */
+  onLeave: () => void;
+  /** Whether the current user is muted. */
+  isMuted: boolean;
 }
 
 /**
@@ -21,7 +25,9 @@ export default function ActiveVoiceBar({
   channel,
   isJoined,
   onJoin,
-  onOpenPanel,
+  onToggleMute,
+  onLeave,
+  isMuted,
 }: ActiveVoiceBarProps) {
   return (
     <div className="w-full flex items-center gap-3 px-4 py-2 bg-primary-container/90 backdrop-blur-sm border-b border-primary/20">
@@ -39,12 +45,22 @@ export default function ActiveVoiceBar({
         </p>
       </div>
       {isJoined ? (
-        <button
-          onClick={onOpenPanel}
-          className="px-4 py-1.5 rounded-full bg-surface-container-high text-on-surface text-label-md font-medium hover:bg-surface-container-highest transition-colors shrink-0"
-        >
-          Conectado
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={onToggleMute}
+            className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition-colors"
+            title={isMuted ? "Activar micrófono" : "Silenciar micrófono"}
+          >
+            <MaterialIcon name={isMuted ? "mic_off" : "mic"} className="text-base" />
+          </button>
+          <button
+            onClick={onLeave}
+            className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-error text-on-error hover:bg-error/80 transition-colors"
+            title="Salir del chat de voz"
+          >
+            <MaterialIcon name="call_end" className="text-base" />
+          </button>
+        </div>
       ) : (
         <button
           onClick={onJoin}

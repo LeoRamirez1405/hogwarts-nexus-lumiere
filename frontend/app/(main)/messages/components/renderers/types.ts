@@ -106,4 +106,7 @@ export interface MessageBubbleProps {
   onDelete?: (msg: Message) => void;
   onPollVote?: (messageId: string, updatedPoll: NonNullable<Message["poll"]>) => void;
   members?: ChatRoomMemberResponse[];
+  editing?: boolean;
+  onSaveEdit?: (messageId: string, body: string) => void;
+  onCancelEdit?: () => void;
 }

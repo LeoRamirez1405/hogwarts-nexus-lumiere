@@ -70,17 +70,17 @@ export const productsApi = {
     ),
 
   createProduct: (data: Partial<Product>) =>
-    request<Product>("/products/", {
+    request<Product>("/admin/products/", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
   updateProduct: (id: string, data: Partial<Product>) =>
-    request<Product>(`/products/${id}`, {
+    request<Product>(`/admin/products/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
 
   deleteProduct: (id: string) =>
-    request<void>(`/products/${id}`, { method: "DELETE" }),
+    request<void>(`/admin/products/${id}`, { method: "DELETE" }),
 };

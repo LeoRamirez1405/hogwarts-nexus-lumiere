@@ -13,11 +13,16 @@ import ChatMessages from "./components/ChatMessages";
 import ChatInput from "./components/ChatInput";
 import ChatMenu from "./components/ChatMenu";
 import EventList from "./components/EventList";
-import VoiceChannelPanel from "./components/VoiceChannelPanel";
+import EventLiveBanner from "./components/EventLiveBanner";
+import EventCensusModal from "./components/EventCensusModal";
+import EventLiveWelcome from "./components/EventLiveWelcome";
+import VoiceChannelToggle from "./components/VoiceChannelToggle";
 import ActiveVoiceBar from "./components/ActiveVoiceBar";
 import { EditRoomModal } from "./components/EditRoomModal";
 import { useVoiceChannel } from "./hooks/useVoiceChannel";
 import { useActiveVoiceChannel } from "./hooks/useActiveVoiceChannel";
+import { useRoomLiveEvent } from "./hooks/useRoomLiveEvent";
+import { eventsApi } from "@/lib/api/eventsApi";
 import { useFeatureFlag } from "@/lib/featureFlagStore";
 import type { ChatPanelProps, ConvType, MuteDuration } from "./types";
 import { toApiConvType } from "./types";
@@ -78,6 +83,7 @@ export default function ChatPanel(props: ChatPanelProps) {
   const [showEvents, setShowEvents] = useState(false);
   const [showVoiceChannels, setShowVoiceChannels] = useState(false);
   const [showEditRoom, setShowEditRoom] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const eventsEnabled = useFeatureFlag("events.enabled");
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -139,13 +145,63 @@ export default function ChatPanel(props: ChatPanelProps) {
     }
   }, [activeVoice, selectedConv, voice, refreshActiveVoice]);
 
-  const handleEdit = useCallback(
-    (message: Message) => {
-      // TODO: Implement edit modal/inline edit
-      const newBody = prompt("Editar mensaje:", message.body || "");
-      if (newBody !== null && newBody !== message.body && newBody.trim() && onEditMessage) {
-        onEditMessage(message.id, selectedConv?.id || "", newBody.trim());
+  // Live event (single per room): drives the banner, census, and the one-shot
+  // welcome animation shown the first time the user is here while it runs.
+  const { liveEvent } = useRoomLiveEvent(
+    isRoom ? selectedConv?.id : undefined,
+    eventsEnabled && isRoom
+  );
+  const [showCensus, setShowCensus] = useState(false);
+  const [welcomeTitle, setWelcomeTitle] = useState<string | null>(null);
+  const seenCheckedRef = useRef<string | null>(null);
+
+  const handleJoinEventVoice = useCallback(
+    async (channelId: string) => {
+      if (!selectedConv) return;
+      try {
+        await voice.joinChannel(channelId, selectedConv.id);
+        setShowVoiceChannels(true);
+      } catch {
+        // useVoiceChannel already logs; surface nothing extra here.
       }
+    },
+    [selectedConv, voice]
+  );
+
+  // Ask the backend (atomically) whether this is the first time the user sees
+  // this in-progress event; play the animation only then.
+  useEffect(() => {
+    if (!liveEvent || !liveEvent.in_progress) return;
+    if (seenCheckedRef.current === liveEvent.id) return;
+    seenCheckedRef.current = liveEvent.id;
+    let cancelled = false;
+    eventsApi
+      .markSeen(liveEvent.id)
+      .then((r) => {
+        if (!cancelled && r.first_time) setWelcomeTitle(liveEvent.title);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [liveEvent]);
+
+  const handleEdit = useCallback((message: Message) => {
+    setEditingId(message.id);
+  }, []);
+
+  const lastConvIdRef = useRef<string | undefined>(undefined);
+  if (lastConvIdRef.current !== selectedConv?.id) {
+    lastConvIdRef.current = selectedConv?.id;
+    setEditingId(null);
+  }
+
+  const handleSaveEdit = useCallback(
+    (messageId: string, body: string) => {
+      setEditingId(null);
+      const trimmed = body.trim();
+      if (!trimmed || !onEditMessage) return;
+      onEditMessage(messageId, selectedConv?.id || "", trimmed);
     },
     [onEditMessage, selectedConv?.id]
   );
@@ -375,19 +431,11 @@ export default function ChatPanel(props: ChatPanelProps) {
       )}
 
       {showVoiceChannels && isRoom && selectedConv && (
-        <VoiceChannelPanel
+        <VoiceChannelToggle
           roomId={selectedConv.id}
+          isActive={!!voice.channelId}
           isAdmin={isGlobalAdmin}
-          activeChannelId={voice.channelId}
-          isMuted={voice.isMuted}
-          isDeafened={voice.isDeafened}
-          isVideoEnabled={voice.isVideoEnabled}
-          onJoin={(channelId) => voice.joinChannel(channelId, selectedConv.id)}
-          onLeave={voice.leaveChannel}
-          onToggleMute={voice.toggleMute}
-          onToggleDeafen={voice.toggleDeafen}
-          onToggleVideo={voice.toggleVideo}
-          onClose={() => setShowVoiceChannels(false)}
+          onToggle={voice.toggleChannel}
         />
       )}
 
@@ -404,8 +452,15 @@ export default function ChatPanel(props: ChatPanelProps) {
       )}
 
       <div className="relative flex-1 min-h-0">
-        {((pinnedMessages && pinnedMessages.length > 0) || (isRoom && activeVoice)) && (
+        {((pinnedMessages && pinnedMessages.length > 0) || (isRoom && activeVoice) || (isRoom && liveEvent?.in_progress)) && (
           <div className="absolute top-0 left-0 right-0 z-20">
+            {isRoom && liveEvent?.in_progress && (
+              <EventLiveBanner
+                event={liveEvent}
+                onOpenCensus={() => setShowCensus(true)}
+                onJoinVoice={handleJoinEventVoice}
+              />
+            )}
             {pinnedMessages && pinnedMessages.length > 0 && (
               <PinnedMessagesBar
                 pinnedMessages={pinnedMessages}
@@ -420,7 +475,9 @@ export default function ChatPanel(props: ChatPanelProps) {
                 channel={activeVoice}
                 isJoined={voice.channelId === activeVoice.id}
                 onJoin={handleJoinActiveVoice}
-                onOpenPanel={() => setShowVoiceChannels(true)}
+                onToggleMute={voice.toggleMute}
+                onLeave={voice.leaveChannel}
+                isMuted={voice.isMuted}
               />
             )}
           </div>
@@ -452,6 +509,9 @@ export default function ChatPanel(props: ChatPanelProps) {
           onDelete={handleDelete}
           onForward={handleForward}
           onPollVote={onPollVote}
+          editingId={editingId}
+          onSaveEdit={handleSaveEdit}
+          onCancelEdit={() => setEditingId(null)}
         />
       </div>
 
@@ -496,6 +556,21 @@ export default function ChatPanel(props: ChatPanelProps) {
         onDisappearChange={composer.onDisappearChange}
         scheduleAt={composer.scheduleAt}
         onScheduleChange={composer.onScheduleChange}
+      />
+
+      {liveEvent && (
+        <EventCensusModal
+          eventId={liveEvent.id}
+          eventTitle={liveEvent.title}
+          open={showCensus}
+          onClose={() => setShowCensus(false)}
+        />
+      )}
+
+      <EventLiveWelcome
+        title={welcomeTitle}
+        onDone={() => setWelcomeTitle(null)}
+        onOpen={() => setShowCensus(true)}
       />
 
       <ChatMenu

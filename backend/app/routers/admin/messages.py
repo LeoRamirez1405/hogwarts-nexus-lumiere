@@ -1,4 +1,4 @@
-"""Admin utilities for messages (retention sweep)."""
+"""Admin-only message routes (prefix /admin/messages)."""
 
 from typing import Optional
 
@@ -8,10 +8,10 @@ from ...config import settings
 from ...middleware.roles import require_role
 from ...models.user import User
 
-router = APIRouter()
+router = APIRouter(prefix="/admin/messages", tags=["admin-messages"])
 
 
-@router.post("/admin/purge")
+@router.post("/purge")
 async def admin_purge_messages(
     days: Optional[int] = Query(None, ge=0),
     current_user: User = Depends(require_role("admin")),
