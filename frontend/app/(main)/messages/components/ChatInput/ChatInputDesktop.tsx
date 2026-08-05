@@ -154,7 +154,7 @@ export default function ChatInputDesktop({
 
           {showToolbar && (
             <div
-              className="absolute bottom-full right-0 mb-2 w-64 bg-surface-container-highest rounded-2xl shadow-xl border border-surface-variant p-3 animate-fade-in"
+              className="absolute bottom-full left-0 mb-2 w-64 bg-surface-container-highest rounded-2xl shadow-xl border border-surface-variant p-3 animate-fade-in z-50"
               role="menu"
             >
               <div className="grid grid-cols-2 gap-2 mb-3">

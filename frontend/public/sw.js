@@ -125,7 +125,7 @@ async function networkFirst(request) {
       cachePutSafe(request, networkResponse);
     }
     return networkResponse;
-  } catch (error) {
+  } catch {
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       return cachedResponse;
@@ -286,7 +286,7 @@ async function syncMutations() {
           credentials: 'include',
         });
         await deleteMutation(db, mutation.id);
-      } catch (error) {
+} catch (error){
         console.error('[SW] Failed to sync mutation:', error);
       }
     }
