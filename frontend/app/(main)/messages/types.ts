@@ -43,6 +43,7 @@ export interface ChatPanelProps {
   onE2EClick?: () => void;
   isPinned: boolean;
   isArchived: boolean;
+  onMuteConversation: (convType: "dm" | "room", convId: string, duration: MuteDuration) => Promise<void>;
   onPinConversation: (convType: "dm" | "room", convId: string) => Promise<void>;
   onUnpinConversation: (convType: "dm" | "room", convId: string) => Promise<void>;
   onArchiveRoom: (roomId: string) => Promise<void>;
@@ -50,6 +51,7 @@ export interface ChatPanelProps {
   onArchiveConversation: (convType: "dm" | "room", convId: string) => Promise<void>;
   onUnarchiveConversation: (convType: "dm" | "room", convId: string) => Promise<void>;
   onExportChat: (convType: "dm" | "room", convId: string, convName: string) => Promise<void>;
+  onPollVote: (messageId: string, updatedPoll: NonNullable<Message["poll"]>) => void;
 }
 
 export interface ThirdPaneProps {
