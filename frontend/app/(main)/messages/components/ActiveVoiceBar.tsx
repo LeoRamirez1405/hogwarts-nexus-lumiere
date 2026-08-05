@@ -7,12 +7,16 @@ interface ActiveVoiceBarProps {
   channel: VoiceChannelBrief;
   /** True when the current user is already connected to this channel. */
   isJoined: boolean;
+  /** Whether the current user is a global admin. */
+  isAdmin: boolean;
   /** Join the active channel (acquires mic + connects). */
   onJoin: () => void;
   /** Toggle mute state for current user. */
   onToggleMute: () => void;
   /** Leave the voice channel. */
   onLeave: () => void;
+  /** Close the voice channel (admin only). */
+  onCloseChannel: () => void;
   /** Whether the current user is muted. */
   isMuted: boolean;
 }
@@ -24,9 +28,11 @@ interface ActiveVoiceBarProps {
 export default function ActiveVoiceBar({
   channel,
   isJoined,
+  isAdmin,
   onJoin,
   onToggleMute,
   onLeave,
+  onCloseChannel,
   isMuted,
 }: ActiveVoiceBarProps) {
   return (
@@ -44,32 +50,79 @@ export default function ActiveVoiceBar({
           {channel.participant_count} participante{channel.participant_count !== 1 ? "s" : ""}
         </p>
       </div>
-      {isJoined ? (
+      {isAdmin ? (
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={onToggleMute}
-            className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition-colors"
-            title={isMuted ? "Activar micrófono" : "Silenciar micrófono"}
-          >
-            <MaterialIcon name={isMuted ? "mic_off" : "mic"} className="text-base" />
-          </button>
-          <button
-            onClick={onLeave}
-            className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-error text-on-error hover:bg-error/80 transition-colors"
-            title="Salir del chat de voz"
-          >
-            <MaterialIcon name="call_end" className="text-base" />
-          </button>
+          {isJoined ? (
+            <>
+              <button
+                onClick={onToggleMute}
+                className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition-colors"
+                title={isMuted ? "Activar micrófono" : "Silenciar micrófono"}
+              >
+                <MaterialIcon name={isMuted ? "mic_off" : "mic"} className="text-base" />
+              </button>
+              <button
+                onClick={onLeave}
+                className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-error text-on-error hover:bg-error/80 transition-colors"
+                title="Salir del chat de voz"
+              >
+                <MaterialIcon name="call_end" className="text-base" />
+              </button>
+              <button
+                onClick={onCloseChannel}
+                className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-error-container text-on-error-container hover:bg-error-container/80 transition-colors"
+                title="Cerrar canal de voz"
+              >
+                <MaterialIcon name="delete" className="text-base" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={onJoin}
+                className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-primary text-on-primary hover:bg-primary/90 transition-colors"
+                title="Conectarme al chat de voz"
+              >
+                <MaterialIcon name="call" className="text-base" />
+              </button>
+              <button
+                onClick={onCloseChannel}
+                className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-error-container text-on-error-container hover:bg-error-container/80 transition-colors"
+                title="Cerrar canal de voz"
+              >
+                <MaterialIcon name="delete" className="text-base" />
+              </button>
+            </>
+          )}
         </div>
       ) : (
-        <button
-          onClick={onJoin}
-          className="px-4 py-1.5 rounded-full bg-primary text-on-primary text-label-md font-medium hover:bg-primary/90 transition-colors shrink-0 inline-flex items-center gap-1.5"
-        >
-          <MaterialIcon name="call" className="text-base" />
-          Unirse
-        </button>
-      )}
+          isJoined ? (
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={onToggleMute}
+                className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition-colors"
+                title={isMuted ? "Activar micrófono" : "Silenciar micrófono"}
+              >
+                <MaterialIcon name={isMuted ? "mic_off" : "mic"} className="text-base" />
+              </button>
+              <button
+                onClick={onLeave}
+                className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-error text-on-error hover:bg-error/80 transition-colors"
+                title="Salir del chat de voz"
+              >
+                <MaterialIcon name="call_end" className="text-base" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onJoin}
+              className="px-4 py-1.5 rounded-full bg-primary text-on-primary text-label-md font-medium hover:bg-primary/90 transition-colors shrink-0 inline-flex items-center gap-1.5"
+            >
+              <MaterialIcon name="call" className="text-base" />
+              Unirse
+            </button>
+          )
+        )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ interface VoiceChannelToggleProps {
   isActive: boolean;
   isAdmin: boolean;
   onToggle: (roomId: string) => void;
+  onRefresh: () => void;
 }
 
 export default function VoiceChannelToggle({
@@ -15,6 +16,7 @@ export default function VoiceChannelToggle({
   isActive,
   isAdmin,
   onToggle,
+  onRefresh,
 }: VoiceChannelToggleProps) {
   const [loading, setLoading] = useState(false);
 
@@ -25,6 +27,7 @@ export default function VoiceChannelToggle({
     setLoading(true);
     try {
       await onToggle(roomId);
+      onRefresh();
     } finally {
       setLoading(false);
     }

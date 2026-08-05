@@ -171,12 +171,14 @@ export default function ChatInputDesktop({
           </div>
         )}
 
-        <ScheduleMenu
-          selectedValue={scheduleAt}
-          onChange={onScheduleChange ?? (() => {})}
-          onCustomClick={() => {}} // Will be handled by parent modal
-          className="flex-shrink-0"
-        />
+        {!scheduleAt && (
+          <ScheduleMenu
+            selectedValue={scheduleAt}
+            onChange={onScheduleChange ?? (() => {})}
+            onCustomClick={() => {}}
+            className="flex-shrink-0"
+          />
+        )}
 
         <div className="relative flex-1">
           <textarea

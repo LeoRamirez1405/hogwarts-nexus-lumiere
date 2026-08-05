@@ -83,6 +83,10 @@ const nextConfig: NextConfig = {
         destination: `${target}/:path`,
       },
       {
+        source: "/messages/:path(.*)",
+        destination: `${target}/messages/:path`,
+      },
+      {
         source: "/uploads/:path(.*)",
         destination: `${target}/uploads/:path`,
       },

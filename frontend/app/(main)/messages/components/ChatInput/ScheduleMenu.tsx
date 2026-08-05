@@ -76,7 +76,11 @@ export default function ScheduleMenu({
   };
 
   const getSelectedLabel = () => {
-    return scheduleOptions.find((o) => String(o.value) === String(selectedValue))?.label ?? "Desactivado";
+    if (selectedValue === undefined || selectedValue === "") return "Desactivado";
+    if (selectedValue === "custom") return "Personalizada";
+    // ISO string programado: no buscar match en el array dinamico (los timestamps cambian en cada render).
+    // En su lugar, delegamos al chip externo "Programado: ..." y aqui mostramos "Programado".
+    return "Programado";
   };
 
   return (

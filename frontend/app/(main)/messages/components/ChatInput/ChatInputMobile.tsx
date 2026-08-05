@@ -154,7 +154,9 @@ export default function ChatInputMobile({
             <DisappearMenu selectedValue={disappearAt} onChange={onDisappearChange ?? (() => {})} mobile />
 
             <p className="text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider mt-4">Programar mensaje</p>
-            <ScheduleMenu selectedValue={scheduleAt} onChange={onScheduleChange ?? (() => {})} onCustomClick={onCustomScheduleClick} mobile />
+            {!scheduleAt && (
+              <ScheduleMenu selectedValue={scheduleAt} onChange={onScheduleChange ?? (() => {})} onCustomClick={onCustomScheduleClick} mobile />
+            )}
 
             {scheduleAt && (
               <div className="mt-4 flex items-center gap-2 bg-primary/10 text-primary px-4 py-3 rounded-xl text-body-md font-medium animate-pulse-subtle">

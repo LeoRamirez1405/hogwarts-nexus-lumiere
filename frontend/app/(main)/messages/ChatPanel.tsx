@@ -16,7 +16,6 @@ import EventList from "./components/EventList";
 import EventLiveBanner from "./components/EventLiveBanner";
 import EventCensusModal from "./components/EventCensusModal";
 import EventLiveWelcome from "./components/EventLiveWelcome";
-import VoiceChannelToggle from "./components/VoiceChannelToggle";
 import ActiveVoiceBar from "./components/ActiveVoiceBar";
 import { EditRoomModal } from "./components/EditRoomModal";
 import { useVoiceChannel } from "./hooks/useVoiceChannel";
@@ -81,7 +80,6 @@ export default function ChatPanel(props: ChatPanelProps) {
   const [inChatSearchResults, setInChatSearchResults] = useState<Message[]>([]);
   const [showInChatSearch, setShowInChatSearch] = useState(false);
   const [showEvents, setShowEvents] = useState(false);
-  const [showVoiceChannels, setShowVoiceChannels] = useState(false);
   const [showEditRoom, setShowEditRoom] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const eventsEnabled = useFeatureFlag("events.enabled");
@@ -138,7 +136,6 @@ export default function ChatPanel(props: ChatPanelProps) {
     if (!activeVoice || !selectedConv) return;
     try {
       await voice.joinChannel(activeVoice.id, selectedConv.id);
-      setShowVoiceChannels(true);
       refreshActiveVoice();
     } catch {
       // useVoiceChannel already logs; surface nothing extra here.
@@ -160,7 +157,6 @@ export default function ChatPanel(props: ChatPanelProps) {
       if (!selectedConv) return;
       try {
         await voice.joinChannel(channelId, selectedConv.id);
-        setShowVoiceChannels(true);
       } catch {
         // useVoiceChannel already logs; surface nothing extra here.
       }
@@ -344,7 +340,10 @@ export default function ChatPanel(props: ChatPanelProps) {
   };
 
   const handleShowVoiceChannels = () => {
-    setShowVoiceChannels(true);
+    if (selectedConv) {
+      voice.toggleChannel(selectedConv.id);
+      refreshActiveVoice();
+    }
     setShowMenu(false);
   };
 
@@ -430,15 +429,6 @@ export default function ChatPanel(props: ChatPanelProps) {
         </div>
       )}
 
-      {showVoiceChannels && isRoom && selectedConv && (
-        <VoiceChannelToggle
-          roomId={selectedConv.id}
-          isActive={!!voice.channelId}
-          isAdmin={isGlobalAdmin}
-          onToggle={voice.toggleChannel}
-        />
-      )}
-
       {showEditRoom && selectedConv && (
         <EditRoomModal
           roomId={selectedConv.id}
@@ -474,9 +464,11 @@ export default function ChatPanel(props: ChatPanelProps) {
               <ActiveVoiceBar
                 channel={activeVoice}
                 isJoined={voice.channelId === activeVoice.id}
+                isAdmin={isGlobalAdmin}
                 onJoin={handleJoinActiveVoice}
                 onToggleMute={voice.toggleMute}
                 onLeave={voice.leaveChannel}
+                onCloseChannel={() => voice.toggleChannel(selectedConv!.id)}
                 isMuted={voice.isMuted}
               />
             )}

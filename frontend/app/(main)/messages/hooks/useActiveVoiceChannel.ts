@@ -8,8 +8,8 @@ const POLL_INTERVAL_MS = 15000;
 
 /**
  * Lightweight poller that surfaces the "active" voice channel of a room — the
- * one members can jump into quickly. A channel counts as active when it has at
- * least one participant. Returns the busiest active channel (or null).
+ * one members can jump into quickly. With single voice channel per room,
+ * a channel counts as active when it exists. Returns the active channel (or null).
  *
  * Used to render the sticky voice-chat bar below the pinned messages so every
  * member sees, and can join, a voice chat an admin started.
@@ -34,10 +34,8 @@ export function useActiveVoiceChannel(roomId: string | null | undefined, enabled
     if (!roomId || !enabled) return;
     try {
       const list = await voiceChannelsApi.listForRoom(roomId);
-      const busiest = list
-        .filter((c) => c.participant_count > 0)
-        .sort((a, b) => b.participant_count - a.participant_count)[0];
-      setActive(busiest ?? null);
+      const activeChannel = list[0] ?? null;
+      setActive(activeChannel);
     } catch (err) {
       // The user is no longer a member of this room (or was never one, e.g. a
       // global admin inspecting a room created by someone else before the
