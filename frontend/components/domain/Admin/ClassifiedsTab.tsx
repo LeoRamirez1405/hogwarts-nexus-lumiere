@@ -30,7 +30,12 @@ export function ClassifiedsTab() {
 
   const handleSave = async () => {
     if (!form.title.trim() || !form.price.trim()) return;
-    await crud.handleSave(crud.editItem!.id, { title: form.title.trim(), price: form.price.trim() });
+    const data = { title: form.title.trim(), price: form.price.trim() };
+    if (crud.showCreate) {
+      await crud.handleCreate(data);
+    } else if (crud.editItem) {
+      await crud.handleSave(crud.editItem.id, data);
+    }
     setForm({ title: "", price: "" });
   };
 

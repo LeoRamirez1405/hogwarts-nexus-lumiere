@@ -29,7 +29,11 @@ export function AnnouncementsTab() {
 
   const handleSave = async () => {
     if (!form.body.trim()) return;
-    await crud.handleSave(crud.editItem!.id, { body: form.body.trim() });
+    if (crud.showCreate) {
+      await crud.handleCreate({ body: form.body.trim() });
+    } else if (crud.editItem) {
+      await crud.handleSave(crud.editItem.id, { body: form.body.trim() });
+    }
     setForm({ body: "" });
   };
 
