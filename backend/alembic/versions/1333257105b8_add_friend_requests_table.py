@@ -19,6 +19,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if 'friend_requests' in inspector.get_table_names():
+        return
     op.create_table('friend_requests',
     sa.Column('id', sa.String(), nullable=False),
     sa.Column('sender_id', sa.String(), nullable=False),
@@ -29,7 +33,6 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['sender_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('sender_id', 'receiver_id', name='unique_friend_request'),
-    if_not_exists=True,
     )
 
 
