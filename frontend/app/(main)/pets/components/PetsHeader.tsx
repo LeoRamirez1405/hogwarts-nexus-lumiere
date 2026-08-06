@@ -14,7 +14,7 @@ export const PetsHeader = ({ stats, user }: PetsHeaderProps) => {
             <span className="text-primary text-label-sm uppercase tracking-[0.2em]">Hogwarts</span>
           </div>
           <h1 className="font-display text-headline-lg md:text-display-lg text-primary mb-2">
-            La Menajeria Susurrante
+            Pet Sanctuary
           </h1>
           <p className="text-on-surface-variant text-body-md mb-6 max-w-xl">
             Cuida a tus compañeros: con el tiempo tendrán hambre y necesitarán cariño. Sube su nivel, haz crecer tu santuario y comercia mascotas.

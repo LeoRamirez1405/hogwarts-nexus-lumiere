@@ -38,7 +38,7 @@ const mainNavItems: NavItem[] = [
     label: "Borgin & Burkes",
     href: "/marketplace/borgin-burkes",
   },
-  { icon: "pets", label: "Santuario de Mascotas", href: "/pets" },
+  { icon: "pets", label: "Pet Sanctuary", href: "/pets" },
 ];
 
 const adminNavItems: NavItem[] = [
