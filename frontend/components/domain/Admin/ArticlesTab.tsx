@@ -81,14 +81,19 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
   };
 
   const handleSave = async () => {
-    await crud.handleSave(crud.editItem!.id, {
+    const data = {
       title: form.title,
       body: form.body,
       category: form.category,
       image_url: form.image_url || undefined,
       featured: form.featured,
       pinned: form.pinned,
-    });
+    };
+    if (crud.showCreate) {
+      await crud.handleCreate(data);
+    } else if (crud.editItem) {
+      await crud.handleSave(crud.editItem.id, data);
+    }
     setForm({
       title: "",
       body: "",
