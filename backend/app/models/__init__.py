@@ -33,6 +33,7 @@ from .e2e_encryption import (
     EncryptedMessage,
 )
 from .forum import ForumThread, ForumThreadVote, ForumComment, ForumSubscription
+from .friend_request import FriendRequest
 from .enum_type import EnumCategory, EnumValue
 from .feature_flag import FeatureFlag
 from .audit_log import AuditLog, AuditAction
@@ -85,6 +86,7 @@ __all__ = [
     "ForumThreadVote",
     "ForumComment",
     "ForumSubscription",
+    "FriendRequest",
     "EnumCategory",
     "EnumValue",
     "FeatureFlag",

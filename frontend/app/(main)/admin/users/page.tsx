@@ -10,7 +10,6 @@ import ListFooter from "@/components/ui/ListFooter";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { MaterialIcon, Skeleton } from "@/components/ui";
-import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import PullToRefresh from "@/components/ui/PullToRefresh";
 
@@ -130,16 +129,6 @@ export default function AdminUsersPage() {
     setResetting(false);
   };
 
-  const handleDelete = (id: string) => {
-    confirmDialog({
-      title: "Eliminar usuario?",
-      message: "Esta acción no se puede deshacer.",
-      variant: "danger",
-      icon: "delete",
-      onConfirm: () => crud.handleDelete(id),
-    });
-  };
-
   if (user?.role !== "admin") return null;
 
   const filtered = crud.filteredItems.filter(
@@ -250,7 +239,7 @@ return (
                         <MaterialIcon name="lock_reset" className="text-lg" />
                       </button>
                       <button
-                        onClick={() => handleDelete(u.id)}
+                        onClick={() => crud.handleDelete(u.id)}
                         className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
                       >
                         <MaterialIcon name="delete" className="text-lg" />
@@ -323,7 +312,7 @@ return (
                             <button onClick={() => { setResetUser(u); setResetPass(""); setResetConfirm(""); }} className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-secondary transition-colors" title="Restablecer contraseña">
                               <MaterialIcon name="lock_reset" className="text-lg" />
                             </button>
-                            <button onClick={() => handleDelete(u.id)} className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors" title="Eliminar">
+                            <button onClick={() => crud.handleDelete(u.id)} className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors" title="Eliminar">
                               <MaterialIcon name="delete" className="text-lg" />
                             </button>
                           </div>

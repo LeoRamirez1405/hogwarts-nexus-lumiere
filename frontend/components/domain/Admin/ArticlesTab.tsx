@@ -9,7 +9,6 @@ import ListFooter from "@/components/ui/ListFooter";
 import Switch from "@/components/ui/Switch";
 import Button from "@/components/ui/Button";
 import { toastError, toastSuccess } from "@/lib/toastStore";
-import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 
 interface ArticlesTabProps {
@@ -115,16 +114,6 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
     e.target.value = "";
   };
 
-  const handleDelete = (id: string) => {
-    confirmDialog({
-      title: "Eliminar artículo?",
-      message: "Esta acción no se puede deshacer.",
-      variant: "danger",
-      icon: "delete",
-      onConfirm: () => crud.handleDelete(id),
-    });
-  };
-
   return (
     <>
       <div className="flex flex-col sm:flex-row gap-3 justify-end">
@@ -184,7 +173,7 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
                     <MaterialIcon name="edit" className="text-lg" />
                   </button>
                   <button
-                    onClick={() => handleDelete(a.id)}
+                    onClick={() => crud.handleDelete(a.id)}
                     className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
                     title="Eliminar"
                   >

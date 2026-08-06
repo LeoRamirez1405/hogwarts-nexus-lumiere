@@ -5,7 +5,6 @@ import { api, Announcement } from "@/lib/api";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
 import { AdminCrudModal, FormField, TextareaField } from "@/components/ui/AdminCrudModal";
 import ListFooter from "@/components/ui/ListFooter";
-import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 
 export function AnnouncementsTab() {
@@ -32,16 +31,6 @@ export function AnnouncementsTab() {
     if (!form.body.trim()) return;
     await crud.handleSave(crud.editItem!.id, { body: form.body.trim() });
     setForm({ body: "" });
-  };
-
-  const handleDelete = (id: string) => {
-    confirmDialog({
-      title: "Eliminar anuncio?",
-      message: "Esta acción no se puede deshacer.",
-      variant: "danger",
-      icon: "delete",
-      onConfirm: () => crud.handleDelete(id),
-    });
   };
 
   const openCreate = () => {
@@ -91,7 +80,7 @@ export function AnnouncementsTab() {
                     <MaterialIcon name="edit" className="text-lg" />
                   </button>
                   <button
-                    onClick={() => handleDelete(a.id)}
+                    onClick={() => crud.handleDelete(a.id)}
                     className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
                   >
                     <MaterialIcon name="delete" className="text-lg" />

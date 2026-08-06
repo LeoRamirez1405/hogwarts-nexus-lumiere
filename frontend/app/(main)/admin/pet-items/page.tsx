@@ -10,7 +10,6 @@ import ListFooter from "@/components/ui/ListFooter";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { MaterialIcon, Skeleton } from "@/components/ui";
-import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import PullToRefresh from "@/components/ui/PullToRefresh";
 
@@ -145,16 +144,6 @@ export default function AdminPetItemsPage() {
     e.target.value = "";
   };
 
-  const handleDelete = (id: string) => {
-    confirmDialog({
-      title: "Eliminar objeto?",
-      message: "Esta acción no se puede deshacer.",
-      variant: "danger",
-      icon: "delete",
-      onConfirm: () => crud.handleDelete(id),
-    });
-  };
-
   if (user?.role !== "admin") return null;
 
   const getDisplayCount = () => crud.totalCount;
@@ -238,7 +227,7 @@ export default function AdminPetItemsPage() {
                           <MaterialIcon name="edit" className="text-lg" />
                         </button>
                         <button
-                          onClick={() => handleDelete(it.id)}
+                          onClick={() => crud.handleDelete(it.id)}
                           className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
                         >
                           <MaterialIcon name="delete" className="text-lg" />

@@ -6,7 +6,6 @@ import { useAdminCrud } from "@/hooks/useAdminCrud";
 import { AdminCrudModal, FormField, InputField } from "@/components/ui/AdminCrudModal";
 import ListFooter from "@/components/ui/ListFooter";
 import Badge from "@/components/ui/Badge";
-import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 
 export function ClassifiedsTab() {
@@ -33,16 +32,6 @@ export function ClassifiedsTab() {
     if (!form.title.trim() || !form.price.trim()) return;
     await crud.handleSave(crud.editItem!.id, { title: form.title.trim(), price: form.price.trim() });
     setForm({ title: "", price: "" });
-  };
-
-  const handleDelete = (id: string) => {
-    confirmDialog({
-      title: "Eliminar clasificado?",
-      message: "Esta acción no se puede deshacer.",
-      variant: "danger",
-      icon: "delete",
-      onConfirm: () => crud.handleDelete(id),
-    });
   };
 
   const openCreate = () => {
@@ -93,7 +82,7 @@ export function ClassifiedsTab() {
                     <MaterialIcon name="edit" className="text-lg" />
                   </button>
                   <button
-                    onClick={() => handleDelete(c.id)}
+                    onClick={() => crud.handleDelete(c.id)}
                     className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
                   >
                     <MaterialIcon name="delete" className="text-lg" />

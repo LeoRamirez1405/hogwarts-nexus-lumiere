@@ -9,16 +9,34 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.article import Article, ArticleComment
 from ..models.article_subscription import ArticleSubscription, Notification
-from ..models.chat_room import ChatRoom, ChatRoomMember, UserConversationPreference
+from ..models.audit_log import AuditLog
+from ..models.chat_room import ChatRoom, ChatRoomMember, RoomInvite, UserConversationPreference
+from ..models.e2e_encryption import (
+    EncryptedMessage,
+    SafetyNumber,
+    Session,
+    UserIdentityKey,
+    UserPreKey,
+    UserSignedPreKey,
+)
+from ..models.event import (
+    Event,
+    EventAnimationSeen,
+    EventReminder,
+    EventRSVP,
+    EventVisibilitySettings,
+)
 from ..models.forum import ForumThread, ForumThreadVote, ForumComment, ForumSubscription
 from ..models.friend_request import FriendRequest
 from ..models.message import Message, Poll, PollOption, PollVote, MessageReaction
 from ..models.post import Post, PostLike, PostRepost, PostComment
+from ..models.push_subscription import PushSubscription
 from ..models.transaction import Transaction
 from ..models.user import User
 from ..models.user_creature import UserCreature
 from ..models.user_pet_item import UserPetItem
 from ..models.user_product import UserProduct
+from ..models.voice_channel import VoiceChannel, VoiceChannelParticipant
 from .magic_level import get_magic_level, get_magic_levels
 
 
@@ -72,6 +90,11 @@ async def delete_user_relations(db: AsyncSession, user_id: str) -> None:
     await db.execute(
         update(Message).where(Message.reply_to_id.in_(involved_messages)).values(reply_to_id=None)
     )
+    await db.execute(delete(EncryptedMessage).where(or_(
+        EncryptedMessage.sender_id == user_id,
+        EncryptedMessage.recipient_id == user_id,
+        EncryptedMessage.message_id.in_(involved_messages),
+    )))
     await db.execute(delete(Message).where(Message.id.in_(involved_messages)))
 
     # Notifications the user received or triggered.
@@ -138,9 +161,65 @@ async def delete_user_relations(db: AsyncSession, user_id: str) -> None:
 
     # Chat rooms the user created (memberships + members are cleaned too),
     # plus their plain memberships and conversation preferences.
+    # Invites must go first: they reference both the user and the rooms.
+    await db.execute(delete(RoomInvite).where(or_(
+        RoomInvite.created_by == user_id,
+        RoomInvite.room_id.in_(rooms_created),
+    )))
     await db.execute(delete(ChatRoomMember).where(or_(
         ChatRoomMember.user_id == user_id,
         ChatRoomMember.room_id.in_(rooms_created),
     )))
     await db.execute(delete(UserConversationPreference).where(UserConversationPreference.user_id == user_id))
     await db.execute(delete(ChatRoom).where(ChatRoom.created_by == user_id))
+
+    # Voice channels the user created (participants too) and their memberships.
+    user_voice_channels = select(VoiceChannel.id).where(VoiceChannel.created_by == user_id)
+    await db.execute(delete(VoiceChannelParticipant).where(or_(
+        VoiceChannelParticipant.user_id == user_id,
+        VoiceChannelParticipant.channel_id.in_(user_voice_channels),
+    )))
+    await db.execute(delete(VoiceChannel).where(VoiceChannel.id.in_(user_voice_channels)))
+
+    # Events the user created/cancelled plus their RSVPs, reminders and
+    # animation tracking. Events are attached to chat rooms the user created,
+    # so they must be removed here too.
+    user_events = select(Event.id).where(or_(
+        Event.created_by == user_id,
+        Event.cancelled_by == user_id,
+    ))
+    await db.execute(delete(EventRSVP).where(or_(
+        EventRSVP.user_id == user_id,
+        EventRSVP.event_id.in_(user_events),
+    )))
+    await db.execute(delete(EventReminder).where(or_(
+        EventReminder.user_id == user_id,
+        EventReminder.event_id.in_(user_events),
+    )))
+    await db.execute(delete(EventAnimationSeen).where(or_(
+        EventAnimationSeen.user_id == user_id,
+        EventAnimationSeen.event_id.in_(user_events),
+    )))
+    await db.execute(delete(EventVisibilitySettings).where(EventVisibilitySettings.updated_by == user_id))
+    await db.execute(delete(Event).where(Event.id.in_(user_events)))
+
+    # Push subscriptions (Web Push API).
+    await db.execute(delete(PushSubscription).where(PushSubscription.user_id == user_id))
+
+    # E2E encryption keys and sessions. Sessions reference prekeys, so delete
+    # them before the keys they point to.
+    user_identity = select(UserIdentityKey.id).where(UserIdentityKey.user_id == user_id)
+    await db.execute(delete(Session).where(or_(
+        Session.user_id == user_id,
+        Session.remote_user_id == user_id,
+    )))
+    await db.execute(delete(SafetyNumber).where(or_(
+        SafetyNumber.user_id == user_id,
+        SafetyNumber.remote_user_id == user_id,
+    )))
+    await db.execute(delete(UserPreKey).where(UserPreKey.identity_id.in_(user_identity)))
+    await db.execute(delete(UserSignedPreKey).where(UserSignedPreKey.identity_id.in_(user_identity)))
+    await db.execute(delete(UserIdentityKey).where(UserIdentityKey.user_id == user_id))
+
+    # Audit logs (actor is always an admin, but keep the FK graph consistent).
+    await db.execute(delete(AuditLog).where(AuditLog.actor_id == user_id))
