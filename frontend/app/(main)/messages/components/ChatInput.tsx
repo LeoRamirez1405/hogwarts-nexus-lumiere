@@ -21,7 +21,11 @@ interface ChatInputProps {
   stickerTab: string;
   showPoll: boolean;
   mentionResults: UserSearchResult[];
-  showMentionDropdown: boolean;
+  mentionOpen: boolean;
+  mentionActiveIndex: number;
+  onMentionHover: (index: number) => void;
+  onMentionMove: (delta: number) => void;
+  onMentionConfirm: () => void;
   voice: VoiceRecorderState;
   video: VideoRecorderState;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -64,7 +68,11 @@ export default function ChatInput({
   stickerTab,
   showPoll,
   mentionResults,
-  showMentionDropdown,
+  mentionOpen,
+  mentionActiveIndex,
+  onMentionHover,
+  onMentionMove,
+  onMentionConfirm,
   voice,
   video,
   inputRef,
@@ -105,7 +113,11 @@ export default function ChatInput({
     attachment,
     uploading,
     mentionResults,
-    showMentionDropdown,
+    mentionOpen,
+    mentionActiveIndex,
+    onMentionHover,
+    onMentionMove,
+    onMentionConfirm,
     disappearAt,
     onDisappearChange,
     scheduleAt,

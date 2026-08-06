@@ -1,22 +1,27 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { MaterialIcon } from "../../helpers";
 import DisappearMenu from "./DisappearMenu";
 import ScheduleMenu from "./ScheduleMenu";
 import { formatScheduleTime } from "./utils/formatScheduleTime";
 import { useChatInput } from "./hooks/useChatInput";
+import { useAutoResizeTextarea } from "./hooks/useAutoResizeTextarea";
 import MentionDropdown from "@/app/(main)/messages/components/MentionDropdown";
 import type { AttachmentPreview } from "../../types";
-import type { Message } from "@/lib/api";
+import type { Message, UserSearchResult } from "@/lib/api";
 
 interface ChatInputDesktopProps {
   input: string;
   replyingTo: Message | null;
   attachment: AttachmentPreview | null;
   uploading: boolean;
-  mentionResults: { id: string; name: string }[];
-  showMentionDropdown: boolean;
+  mentionResults: UserSearchResult[];
+  mentionOpen: boolean;
+  mentionActiveIndex: number;
+  onMentionHover: (index: number) => void;
+  onMentionMove: (delta: number) => void;
+  onMentionConfirm: () => void;
   disappearAt?: string;
   onDisappearChange?: (value: string | undefined) => void;
   scheduleAt?: string;
@@ -43,7 +48,11 @@ export default function ChatInputDesktop({
   attachment,
   uploading,
   mentionResults,
-  showMentionDropdown,
+  mentionOpen,
+  mentionActiveIndex,
+  onMentionHover,
+  onMentionMove,
+  onMentionConfirm,
   disappearAt,
   onDisappearChange,
   scheduleAt,
@@ -66,6 +75,17 @@ export default function ChatInputDesktop({
   const [showToolbar, setShowToolbar] = useState(false);
   const canSend = Boolean(input.trim() || attachment) && !uploading;
 
+  // Auto-crecimiento del campo. Fusionamos el ref local (para medir/redimensionar)
+  // con el inputRef compartido (foco / posición del caret).
+  const { ref: autoResizeRef } = useAutoResizeTextarea(input);
+  const setTextareaRef = useCallback(
+    (node: HTMLTextAreaElement | null) => {
+      autoResizeRef.current = node;
+      inputRef.current = node;
+    },
+    [autoResizeRef, inputRef]
+  );
+
   const {
     handleInputChange,
     handleKeyDown,
@@ -78,7 +98,9 @@ export default function ChatInputDesktop({
     onTypingStop,
     onSend,
     onFileSelect,
-    showMentionDropdown,
+    mentionOpen,
+    onMentionMove,
+    onMentionConfirm,
     onDismissMentions,
   });
 
@@ -142,6 +164,14 @@ export default function ChatInputDesktop({
         />
 
         <div className="relative flex-1 flex items-center gap-2">
+          {mentionOpen && (
+            <MentionDropdown
+              results={mentionResults}
+              activeIndex={mentionActiveIndex}
+              onSelect={onSelectMention}
+              onHover={onMentionHover}
+            />
+          )}
           <button
             type="button"
             onClick={() => setShowToolbar(!showToolbar)}
@@ -251,17 +281,16 @@ export default function ChatInputDesktop({
 
           <div className="relative flex-1 min-w-0">
             <textarea
-              ref={inputRef}
+              ref={setTextareaRef}
               value={input}
               onChange={handleInputChange}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               placeholder={replyingTo ? "Escribe tu respuesta..." : "Escribe un mensaje..."}
-              className="w-full bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50 resize-none min-h-[2.5rem] max-h-[8rem]"
+              className="block w-full bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50 resize-none min-h-[2.5rem] max-h-[8rem] leading-6 py-2"
               disabled={uploading}
               rows={1}
             />
-            {mentionResults.length > 0 && <MentionDropdown results={mentionResults} onSelect={onSelectMention} anchorRef={inputRef} />}
           </div>
 
           <button

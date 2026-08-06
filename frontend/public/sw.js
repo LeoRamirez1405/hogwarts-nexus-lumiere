@@ -7,7 +7,7 @@
 // was happening after `await caches.open()`, by which time the page had
 // already consumed the response body) and stops intercepting Next.js RSC
 // fetches. v2 purged the v1 HTML cache; we still never cache HTML pages.
-const CACHE_NAME = 'nexus-lumiere-v5';
+const CACHE_NAME = 'nexus-lumiere-v6';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/offline.html',

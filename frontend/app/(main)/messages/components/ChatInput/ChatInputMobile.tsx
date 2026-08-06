@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { MaterialIcon } from "../../helpers";
 import ToolbarButton from "./ToolbarButton";
 import DisappearMenu from "./DisappearMenu";
@@ -8,17 +8,22 @@ import ScheduleMenu from "./ScheduleMenu";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { formatScheduleTime } from "./utils/formatScheduleTime";
 import { useChatInput } from "./hooks/useChatInput";
+import { useAutoResizeTextarea } from "./hooks/useAutoResizeTextarea";
 import MentionDropdown from "@/app/(main)/messages/components/MentionDropdown";
 import type { AttachmentPreview } from "../../types";
-import type { Message } from "@/lib/api";
+import type { Message, UserSearchResult } from "@/lib/api";
 
 interface ChatInputMobileProps {
   input: string;
   replyingTo: Message | null;
   attachment: AttachmentPreview | null;
   uploading: boolean;
-  mentionResults: { id: string; name: string }[];
-  showMentionDropdown: boolean;
+  mentionResults: UserSearchResult[];
+  mentionOpen: boolean;
+  mentionActiveIndex: number;
+  onMentionHover: (index: number) => void;
+  onMentionMove: (delta: number) => void;
+  onMentionConfirm: () => void;
   disappearAt?: string;
   onDisappearChange?: (value: string | undefined) => void;
   scheduleAt?: string;
@@ -46,7 +51,11 @@ export default function ChatInputMobile({
   attachment,
   uploading,
   mentionResults,
-  showMentionDropdown,
+  mentionOpen,
+  mentionActiveIndex,
+  onMentionHover,
+  onMentionMove,
+  onMentionConfirm,
   disappearAt,
   onDisappearChange,
   scheduleAt,
@@ -70,6 +79,17 @@ export default function ChatInputMobile({
   const [showMobileToolbar, setShowMobileToolbar] = useState(false);
   const canSend = Boolean(input.trim() || attachment) && !uploading;
 
+  // Auto-crecimiento del campo (ver ChatInputDesktop). Fusiona el ref local con
+  // el inputRef compartido.
+  const { ref: autoResizeRef } = useAutoResizeTextarea(input);
+  const setTextareaRef = useCallback(
+    (node: HTMLTextAreaElement | null) => {
+      autoResizeRef.current = node;
+      inputRef.current = node;
+    },
+    [autoResizeRef, inputRef]
+  );
+
   const {
     handleInputChange,
     handleKeyDown,
@@ -82,7 +102,9 @@ export default function ChatInputMobile({
     onTypingStop,
     onSend,
     onFileSelect,
-    showMentionDropdown,
+    mentionOpen,
+    onMentionMove,
+    onMentionConfirm,
     onDismissMentions,
   });
 
@@ -114,7 +136,15 @@ export default function ChatInputMobile({
         </div>
       )}
 
-      <div className="md:hidden flex items-center gap-2 bg-surface-container-low rounded-full px-3 py-2">
+      <div className="md:hidden relative flex items-center gap-2 bg-surface-container-low rounded-full px-3 py-2">
+        {mentionOpen && (
+          <MentionDropdown
+            results={mentionResults}
+            activeIndex={mentionActiveIndex}
+            onSelect={onSelectMention}
+            onHover={onMentionHover}
+          />
+        )}
         <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt" className="absolute opacity-0 w-0 h-0 pointer-events-none" onChange={handleFileChange} disabled={uploading} />
 
         <button type="button" onClick={() => setShowMobileToolbar(true)} className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary transition-colors" aria-label="Herramientas de mensaje">
@@ -123,17 +153,16 @@ export default function ChatInputMobile({
 
         <div className="relative flex-1">
           <textarea
-            ref={inputRef}
+            ref={setTextareaRef}
             value={input}
             onChange={handleInputChange}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             placeholder={replyingTo ? "Escribe tu respuesta..." : "Escribe un mensaje..."}
-            className="w-full bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50 resize-none min-h-[2.5rem] max-h-[8rem]"
+            className="block w-full bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50 resize-none min-h-[2.5rem] max-h-[8rem] leading-6 py-2"
             disabled={uploading}
             rows={1}
           />
-          {mentionResults.length > 0 && <MentionDropdown results={mentionResults} onSelect={onSelectMention} anchorRef={inputRef} />}
         </div>
 
         <button type="button" onClick={onSend} disabled={!canSend} className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full transition-all hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none" aria-label="Enviar mensaje">

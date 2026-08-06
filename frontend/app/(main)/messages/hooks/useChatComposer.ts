@@ -26,6 +26,7 @@ export function useChatComposer({
   const [mentionSearch, setMentionSearch] = useState("");
   const [mentionResults, setMentionResults] = useState<UserSearchResult[]>([]);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+  const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
   const [disappearAt, setDisappearAt] = useState<string | undefined>(undefined);
   const [scheduleAt, setScheduleAt] = useState<string | undefined>(undefined);
 
@@ -164,6 +165,7 @@ const handleSend = () => {
         if (!cancelled) {
           setMentionResults(results);
           setShowMentionDropdown(results.length > 0);
+          setMentionActiveIndex(0);
         }
       } catch (error) {
         console.error('Failed to search users for mentions:', error);
@@ -185,7 +187,26 @@ const handleSend = () => {
     setShowMentionDropdown(false);
     setMentionSearch("");
     setMentionResults([]);
+    setMentionActiveIndex(0);
     inputRef.current?.focus();
+  };
+
+  // El dropdown está abierto de verdad solo cuando hay resultados que mostrar.
+  const mentionOpen = showMentionDropdown && mentionResults.length > 0;
+
+  // Navegación con flechas (cíclica).
+  const handleMentionMove = (delta: number) => {
+    setMentionActiveIndex((i) => {
+      const n = mentionResults.length;
+      if (n === 0) return 0;
+      return (i + delta + n) % n;
+    });
+  };
+
+  // Confirmar la sugerencia resaltada (Enter / Tab).
+  const handleMentionConfirm = () => {
+    const picked = mentionResults[mentionActiveIndex];
+    if (picked) handleSelectMention(picked.name);
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -327,6 +348,11 @@ const handleSend = () => {
     replyingTo,
     mentionResults,
     showMentionDropdown,
+    mentionOpen,
+    mentionActiveIndex,
+    onMentionHover: setMentionActiveIndex,
+    onMentionMove: handleMentionMove,
+    onMentionConfirm: handleMentionConfirm,
     voice,
     video,
     inputRef,

@@ -8,7 +8,9 @@ interface UseChatInputOptions {
   onTypingStop: () => void;
   onSend: () => void;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  showMentionDropdown: boolean;
+  mentionOpen: boolean;
+  onMentionMove: (delta: number) => void;
+  onMentionConfirm: () => void;
   onDismissMentions: () => void;
 }
 
@@ -18,7 +20,9 @@ export function useChatInput({
   onTypingStop,
   onSend,
   onFileSelect,
-  showMentionDropdown,
+  mentionOpen,
+  onMentionMove,
+  onMentionConfirm,
   onDismissMentions,
 }: UseChatInputOptions) {
   const handleInputChange = useCallback(
@@ -30,14 +34,37 @@ export function useChatInput({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Cuando la lista de menciones está abierta, las flechas / Enter / Tab
+      // navegan y confirman la sugerencia en lugar de enviar el mensaje.
+      if (mentionOpen) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          onMentionMove(1);
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          onMentionMove(-1);
+          return;
+        }
+        if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
+          e.preventDefault();
+          onMentionConfirm();
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onDismissMentions();
+          return;
+        }
+      }
+
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        if (!showMentionDropdown) onSend();
-      } else if (e.key === "Escape") {
-        onDismissMentions();
+        onSend();
       }
     },
-    [showMentionDropdown, onSend, onDismissMentions]
+    [mentionOpen, onMentionMove, onMentionConfirm, onSend, onDismissMentions]
   );
 
   const handleBlur = useCallback(() => {

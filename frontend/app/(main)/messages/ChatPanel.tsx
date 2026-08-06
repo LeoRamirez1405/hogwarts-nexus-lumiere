@@ -614,7 +614,11 @@ export default function ChatPanel(props: ChatPanelProps) {
         stickerTab={composer.stickerTab}
         showPoll={composer.showPoll}
         mentionResults={composer.mentionResults}
-        showMentionDropdown={composer.showMentionDropdown}
+        mentionOpen={composer.mentionOpen}
+        mentionActiveIndex={composer.mentionActiveIndex}
+        onMentionHover={composer.onMentionHover}
+        onMentionMove={composer.onMentionMove}
+        onMentionConfirm={composer.onMentionConfirm}
         voice={composer.voice}
         video={composer.video}
         inputRef={composer.inputRef}
