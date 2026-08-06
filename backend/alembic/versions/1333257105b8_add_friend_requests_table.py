@@ -28,7 +28,8 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['receiver_id'], ['users.id'], ),
     sa.ForeignKeyConstraint(['sender_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('sender_id', 'receiver_id', name='unique_friend_request')
+    sa.UniqueConstraint('sender_id', 'receiver_id', name='unique_friend_request'),
+    if_not_exists=True,
     )
 
 
