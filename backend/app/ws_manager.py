@@ -13,6 +13,11 @@ from .config import settings
 STREAM_KEY = "nexus:ws:stream"
 CONSUMER_GROUP = "ws_workers"
 CONSUMER_NAME_PREFIX = "worker"
+# Cap the stream length. XACK removes entries from the pending list but NOT from
+# the stream itself, so without trimming the stream grows forever and, on a small
+# Redis with an `allkeys-lru` policy, eventually triggers eviction of the stream /
+# consumer group and breaks delivery. Approximate trimming (~) is O(1)-ish.
+STREAM_MAXLEN = 2000
 
 
 class ConnectionManager:
@@ -194,7 +199,10 @@ class ConnectionManager:
             await self._local_send(user_id, data)
             return
         try:
-            await self._redis.xadd(STREAM_KEY, {"payload": json.dumps(payload)})
+            await self._redis.xadd(
+                STREAM_KEY, {"payload": json.dumps(payload)},
+                maxlen=STREAM_MAXLEN, approximate=True,
+            )
         except Exception:
             # Redis down → fall back to in-memory
             await self._local_send(user_id, data)
@@ -213,7 +221,10 @@ class ConnectionManager:
                     await self._local_send(uid, data)
             return
         try:
-            await self._redis.xadd(STREAM_KEY, {"payload": json.dumps(payload)})
+            await self._redis.xadd(
+                STREAM_KEY, {"payload": json.dumps(payload)},
+                maxlen=STREAM_MAXLEN, approximate=True,
+            )
         except Exception:
             # Redis down → fall back to in-memory
             for uid in list(self.room_users.get(room_id, set())):

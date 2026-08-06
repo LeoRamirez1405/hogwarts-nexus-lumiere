@@ -11,6 +11,10 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
