@@ -188,8 +188,15 @@ async def delete_user_relations(db: AsyncSession, user_id: str) -> None:
     )))
     await db.execute(delete(UserConversationPreference).where(UserConversationPreference.user_id == user_id))
 
-    # Voice channels the user created (participants too) and their memberships.
-    user_voice_channels = select(VoiceChannel.id).where(VoiceChannel.created_by == user_id)
+    # Voice channels the user created OR that live in a chat room the user
+    # created. Those rooms are about to be deleted and voice_channels.room_id
+    # is nullable=False without ON DELETE CASCADE, so every channel pointing
+    # at them must be removed first (deletes run before the chat-room delete
+    # below). Channel participants are removed as part of the same pass.
+    user_voice_channels = select(VoiceChannel.id).where(or_(
+        VoiceChannel.created_by == user_id,
+        VoiceChannel.room_id.in_(rooms_created),
+    ))
 
     # Events the user created/cancelled OR that live in a chat room / voice
     # channel the user created. Those rooms/channels are about to be deleted,
@@ -218,12 +225,15 @@ async def delete_user_relations(db: AsyncSession, user_id: str) -> None:
     await db.execute(delete(EventVisibilitySettings).where(EventVisibilitySettings.updated_by == user_id))
     await db.execute(delete(Event).where(Event.id.in_(user_events)))
 
-    await db.execute(delete(ChatRoom).where(ChatRoom.created_by == user_id))
+    # Voice channels (and their participants) must go before the chat rooms
+    # they reference.
     await db.execute(delete(VoiceChannelParticipant).where(or_(
         VoiceChannelParticipant.user_id == user_id,
         VoiceChannelParticipant.channel_id.in_(user_voice_channels),
     )))
     await db.execute(delete(VoiceChannel).where(VoiceChannel.id.in_(user_voice_channels)))
+
+    await db.execute(delete(ChatRoom).where(ChatRoom.created_by == user_id))
 
     # Push subscriptions (Web Push API).
     await db.execute(delete(PushSubscription).where(PushSubscription.user_id == user_id))
