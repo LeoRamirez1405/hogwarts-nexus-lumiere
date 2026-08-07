@@ -315,7 +315,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                   className={`flex items-start gap-3 px-4 py-3 hover:bg-surface-container-high transition-colors w-full text-left ${!n.read ? "bg-primary/5" : ""}`}
                 >
                   <button
-                    onClick={() => { hapticLight(); handleNotificationClick(n); }}
+                    onClick={() => handleNotificationClick(n)}
                     className="flex items-start gap-3 flex-1 min-w-0 text-left"
                   >
                     <div
