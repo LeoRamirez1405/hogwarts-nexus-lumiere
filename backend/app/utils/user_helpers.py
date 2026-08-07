@@ -187,22 +187,21 @@ async def delete_user_relations(db: AsyncSession, user_id: str) -> None:
         ChatRoomMember.room_id.in_(rooms_created),
     )))
     await db.execute(delete(UserConversationPreference).where(UserConversationPreference.user_id == user_id))
-    await db.execute(delete(ChatRoom).where(ChatRoom.created_by == user_id))
 
     # Voice channels the user created (participants too) and their memberships.
     user_voice_channels = select(VoiceChannel.id).where(VoiceChannel.created_by == user_id)
-    await db.execute(delete(VoiceChannelParticipant).where(or_(
-        VoiceChannelParticipant.user_id == user_id,
-        VoiceChannelParticipant.channel_id.in_(user_voice_channels),
-    )))
-    await db.execute(delete(VoiceChannel).where(VoiceChannel.id.in_(user_voice_channels)))
 
-    # Events the user created/cancelled plus their RSVPs, reminders and
-    # animation tracking. Events are attached to chat rooms the user created,
-    # so they must be removed here too.
+    # Events the user created/cancelled OR that live in a chat room / voice
+    # channel the user created. Those rooms/channels are about to be deleted,
+    # so every event pointing at them must be removed first (events are
+    # nullable=False on room_id), along with their RSVPs / reminders / animation
+    # tracking. This block must run BEFORE the chat-room / voice-channel deletes
+    # below because events reference them via nullable=False / nullable=True FKs.
     user_events = select(Event.id).where(or_(
         Event.created_by == user_id,
         Event.cancelled_by == user_id,
+        Event.room_id.in_(rooms_created),
+        Event.voice_channel_id.in_(user_voice_channels),
     ))
     await db.execute(delete(EventRSVP).where(or_(
         EventRSVP.user_id == user_id,
@@ -218,6 +217,13 @@ async def delete_user_relations(db: AsyncSession, user_id: str) -> None:
     )))
     await db.execute(delete(EventVisibilitySettings).where(EventVisibilitySettings.updated_by == user_id))
     await db.execute(delete(Event).where(Event.id.in_(user_events)))
+
+    await db.execute(delete(ChatRoom).where(ChatRoom.created_by == user_id))
+    await db.execute(delete(VoiceChannelParticipant).where(or_(
+        VoiceChannelParticipant.user_id == user_id,
+        VoiceChannelParticipant.channel_id.in_(user_voice_channels),
+    )))
+    await db.execute(delete(VoiceChannel).where(VoiceChannel.id.in_(user_voice_channels)))
 
     # Push subscriptions (Web Push API).
     await db.execute(delete(PushSubscription).where(PushSubscription.user_id == user_id))

@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db
@@ -220,9 +221,19 @@ async def delete_user(
 
     deleted_user_name = user.name
 
-    await delete_user_relations(db, user_id)
-    await db.delete(user)
-    await db.commit()
+    try:
+        await delete_user_relations(db, user_id)
+        await db.delete(user)
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        # Surface the offending constraint so the actual missing FK cleanup
+        # is identifiable instead of a generic 500.
+        detail = str(exc.orig) if exc.orig is not None else str(exc)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User cannot be deleted (foreign key violation): {detail}",
+        )
 
     await log_audit(
         db,
