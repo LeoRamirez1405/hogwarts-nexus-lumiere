@@ -103,6 +103,9 @@ async def delete_user_relations(db: AsyncSession, user_id: str) -> None:
     await db.execute(
         update(Message).where(Message.reply_to_id.in_(involved_messages)).values(reply_to_id=None)
     )
+    await db.execute(
+        update(Message).where(Message.forwarded_from_id.in_(involved_messages)).values(forwarded_from_id=None)
+    )
     await db.execute(delete(EncryptedMessage).where(or_(
         EncryptedMessage.sender_id == user_id,
         EncryptedMessage.recipient_id == user_id,
