@@ -9,10 +9,10 @@ from ..models.article import Article, ArticleComment
 from ..models.announcement import Announcement
 from ..models.classified import Classified
 from ..models.user import User
-from ..models.article_subscription import ArticleSubscription, Notification
+from ..models.article_subscription import ArticleSubscription
 from ..schemas.article import (
     ArticleResponse, ArticleSubscriptionResponse,
-    NotificationResponse, ArticleCommentCreate, ArticleCommentResponse,
+    ArticleCommentCreate, ArticleCommentResponse,
     NewsFullStateResponse,
 )
 from ..schemas.user import UserResponse
@@ -249,72 +249,6 @@ async def create_article_comment(
     resp = ArticleCommentResponse.model_validate(comment)
     resp.author = UserResponse.model_validate(current_user)
     return resp
-
-
-@router.get("/notifications", response_model=List[NotificationResponse])
-async def get_notifications(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    result = await db.execute(
-        select(Notification)
-        .where(Notification.user_id == current_user.id)
-        .order_by(Notification.created_at.desc())
-        .limit(50)
-    )
-    notifications = result.scalars().all()
-
-    for n in notifications:
-        n.read = n.read == "true"
-
-    return notifications
-
-
-@router.post("/notifications/{notification_id}/read", response_model=NotificationResponse)
-async def mark_notification_read(
-    notification_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    result = await db.execute(
-        select(Notification).where(
-            and_(
-                Notification.id == notification_id,
-                Notification.user_id == current_user.id,
-            )
-        )
-    )
-    notification = result.scalar_one_or_none()
-    if not notification:
-        raise HTTPException(status_code=404, detail="Notification not found")
-
-    notification.read = "true"
-    await db.commit()
-    await db.refresh(notification)
-    notification.read = True
-    return notification
-
-
-@router.post("/notifications/read-all")
-async def mark_all_notifications_read(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    result = await db.execute(
-        select(Notification).where(
-            and_(
-                Notification.user_id == current_user.id,
-                Notification.read.is_(False),
-            )
-        )
-    )
-    notifications = result.scalars().all()
-
-    for n in notifications:
-        n.read = True
-
-    await db.commit()
-    return {"marked": len(notifications)}
 
 
 @router.get("/full-state", response_model=NewsFullStateResponse)
