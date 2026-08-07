@@ -66,7 +66,7 @@ export default function AdminUsersPage() {
     filterFn: (u, search) =>
       !search ||
       u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()),
+      (u.email).toLowerCase().includes(search.toLowerCase()),
   });
 
   useEffect(() => {
