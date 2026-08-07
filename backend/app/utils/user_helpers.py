@@ -39,9 +39,22 @@ from ..models.user_product import UserProduct
 from ..models.voice_channel import VoiceChannel, VoiceChannelParticipant
 from .magic_level import get_magic_level, get_magic_levels
 
+# Never serialize credential material, even in internal dicts. The response
+# schemas already drop it, but keeping it out of the dicts avoids leaking it
+# if a route ever returns a user without a strict response_model.
+_ALWAYS_EXCLUDED = {"password_hash"}
+
+
+def _user_columns(user: User) -> dict:
+    return {
+        c.name: getattr(user, c.name)
+        for c in user.__table__.columns
+        if c.name not in _ALWAYS_EXCLUDED
+    }
+
 
 async def enrich_user(db: AsyncSession, user: User, level_data: dict | None = None) -> dict:
-    data = {c.name: getattr(user, c.name) for c in user.__table__.columns}
+    data = _user_columns(user)
     data["magic_level"] = level_data or await get_magic_level(db, user)
     return data
 
@@ -50,7 +63,7 @@ async def enrich_users(db: AsyncSession, users: List[User]) -> List[dict]:
     """Enrich a page of users computing every magic level with ~5 GROUP BY queries."""
     levels = await get_magic_levels(db, users)
     return [
-        {**{c.name: getattr(u, c.name) for c in u.__table__.columns}, "magic_level": levels.get(u.id)}
+        {**_user_columns(u), "magic_level": levels.get(u.id)}
         for u in users
     ]
 
