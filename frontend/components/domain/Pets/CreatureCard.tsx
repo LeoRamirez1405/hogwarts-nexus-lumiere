@@ -6,6 +6,7 @@ import { MaterialIcon, ZerineDisplay, Button } from "@/components/ui";
 import { Creature, SanctuaryStats } from "@/lib/api";
 import { getFallbackForCreature } from "@/lib/fallbacks";
 import { useTheme } from "@/lib/useTheme";
+import { useFeatureFlag } from "@/lib/featureFlagStore";
 
 const RARITY_LABELS: Record<string, string> = {
   common: "Comun",
@@ -51,6 +52,7 @@ export function CreatureCard({
   userZerines,
 }: CreatureCardProps) {
   const theme = useTheme();
+  const hideRequirements = useFeatureFlag("pets.hide_creature_requirements");
   const [imageError, setImageError] = useState(false);
   const reqUser = creature.required_user_level || 1;
   const reqSanct = creature.required_sanctuary_level || 0;
@@ -69,9 +71,11 @@ export function CreatureCard({
           unoptimized={creature.image_url?.startsWith("http://localhost:8000/uploads/") || creature.image_url?.startsWith("/fallbacks/")}
           onError={() => !imageError && setImageError(true)}
         />
-        <span className={`absolute top-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-label-sm font-bold shadow-sm ${RARITY_COLORS[creature.rarity] || "text-outline"}`}>
-          {RARITY_LABELS[creature.rarity] || creature.rarity}
-        </span>
+        {!hideRequirements && (
+          <span className={`absolute top-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-label-sm font-bold shadow-sm ${RARITY_COLORS[creature.rarity] || "text-outline"}`}>
+            {RARITY_LABELS[creature.rarity] || creature.rarity}
+          </span>
+        )}
         <span className="absolute top-4 left-4 bg-on-surface/70 text-white backdrop-blur-md px-3 py-1 rounded-full text-label-sm font-medium">
           {creature.pet_type}
         </span>
@@ -88,7 +92,7 @@ export function CreatureCard({
           <p className="text-label-sm text-on-surface-variant leading-snug">{creature.ability}</p>
         </div>
       )}
-      {(reqUser > 1 || reqSanct > 0) && (
+      {!hideRequirements && (reqUser > 1 || reqSanct > 0) && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           {reqUser > 1 && (
             <span className={`text-label-sm px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${stats && stats.user_level >= reqUser ? "bg-success/10 text-success" : "bg-error/10 text-error"}`}>

@@ -13,6 +13,7 @@ import { MaterialIcon, Skeleton } from "@/components/ui";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import PullToRefresh from "@/components/ui/PullToRefresh";
 import { EnumMissingNotice } from "@/components/ui/EnumMissingNotice";
+import { useFeatureFlag } from "@/lib/featureFlagStore";
 
 const RARITY_LABELS: Record<string, string> = {
   common: "Comun",
@@ -59,6 +60,7 @@ export default function AdminCreaturesPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [petTypes, setPetTypes] = useState<EnumValue[]>([]);
+  const hideRequirements = useFeatureFlag("pets.hide_creature_requirements");
 
   useEffect(() => {
     api.getEnumCategoryByCode("pet_type").then((cat) => {
@@ -85,7 +87,7 @@ export default function AdminCreaturesPage() {
     filterFn: (c, search) =>
       !search ||
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.rarity.toLowerCase().includes(search.toLowerCase()),
+      (!hideRequirements && c.rarity.toLowerCase().includes(search.toLowerCase())),
   });
 
   const openNew = () => {
@@ -122,12 +124,12 @@ export default function AdminCreaturesPage() {
     const data: Partial<Creature> = {
       name: form.name,
       description: form.description,
-      rarity: form.rarity,
+      rarity: hideRequirements ? "common" : form.rarity,
       pet_type: form.pet_type,
       price: parseInt(form.price) || 0,
       image_url: form.image_url || undefined,
-      required_user_level: Math.max(1, parseInt(form.required_user_level) || 1),
-      required_sanctuary_level: Math.max(0, parseInt(form.required_sanctuary_level) || 0),
+      required_user_level: hideRequirements ? 1 : Math.max(1, parseInt(form.required_user_level) || 1),
+      required_sanctuary_level: hideRequirements ? 0 : Math.max(0, parseInt(form.required_sanctuary_level) || 0),
       ability: form.ability.trim() || undefined,
     };
     if (showCreate) {
@@ -206,9 +208,11 @@ return (
                 <div key={c.id} className="glass-card rounded-xl overflow-hidden hover:bg-surface-container-high transition-colors">
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-3">
-                      <Badge variant="rarity" color={RARITY_COLORS[c.rarity] as "default" | "secondary" | "primary" | "error" | "success"}>
-                        {RARITY_LABELS[c.rarity] || c.rarity}
-                      </Badge>
+                      {!hideRequirements && (
+                        <Badge variant="rarity" color={RARITY_COLORS[c.rarity] as "default" | "secondary" | "primary" | "error" | "success"}>
+                          {RARITY_LABELS[c.rarity] || c.rarity}
+                        </Badge>
+                      )}
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => openEdit(c)}
@@ -234,9 +238,11 @@ return (
                       <p className="font-display text-title-md text-secondary">
                         <MaterialIcon name="diamond" className="text-[1em] text-secondary" filled inline /> {c.price.toLocaleString()}
                       </p>
-                      <p className="text-label-sm text-on-surface-variant capitalize">
-                        {RARITY_LABELS[c.rarity] || c.rarity}
-                      </p>
+                      {!hideRequirements && (
+                        <p className="text-label-sm text-on-surface-variant capitalize">
+                          {RARITY_LABELS[c.rarity] || c.rarity}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -306,20 +312,22 @@ return (
                       placeholder="0"
                     />
                   </FormField>
-                  <FormField label="Rareza" required>
-                    <SelectField
-                      value={form.rarity}
-                      onChange={(v: string) => setForm((p) => ({ ...p, rarity: v as Creature["rarity"] }))}
-                      options={[
-                        { value: "common", label: "Comun" },
-                        { value: "uncommon", label: "Poco Comun" },
-                        { value: "rare", label: "Raro" },
-                        { value: "legendary", label: "Legendario" },
-                        { value: "ethereal", label: "Etereo" },
-                      ]}
-                      placeholder="Seleccionar..."
-                    />
-                  </FormField>
+                  {!hideRequirements && (
+                    <FormField label="Rareza" required>
+                      <SelectField
+                        value={form.rarity}
+                        onChange={(v: string) => setForm((p) => ({ ...p, rarity: v as Creature["rarity"] }))}
+                        options={[
+                          { value: "common", label: "Comun" },
+                          { value: "uncommon", label: "Poco Comun" },
+                          { value: "rare", label: "Raro" },
+                          { value: "legendary", label: "Legendario" },
+                          { value: "ethereal", label: "Etereo" },
+                        ]}
+                        placeholder="Seleccionar..."
+                      />
+                    </FormField>
+                  )}
                 </div>
                 <FormField label="Tipo de mascota" required>
                   <SelectField
@@ -330,26 +338,28 @@ return (
                   />
                 </FormField>
                 <p className="text-label-sm text-on-surface-variant mt-1">Determina que comida y juguetes acepta.</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField label="Nivel mágico req.">
-                    <InputField
-                      type="number"
-                      min={1}
-                      value={form.required_user_level}
-                      onChange={(v: string) => setForm((p) => ({ ...p, required_user_level: v }))}
-                      placeholder="1 = sin requisito"
-                    />
-                  </FormField>
-                  <FormField label="Nivel santuario req.">
-                    <InputField
-                      type="number"
-                      min={0}
-                      value={form.required_sanctuary_level}
-                      onChange={(v: string) => setForm((p) => ({ ...p, required_sanctuary_level: v }))}
-                      placeholder="0 = sin requisito"
-                    />
-                  </FormField>
-                </div>
+                {!hideRequirements && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Nivel mágico req.">
+                      <InputField
+                        type="number"
+                        min={1}
+                        value={form.required_user_level}
+                        onChange={(v: string) => setForm((p) => ({ ...p, required_user_level: v }))}
+                        placeholder="1 = sin requisito"
+                      />
+                    </FormField>
+                    <FormField label="Nivel santuario req.">
+                      <InputField
+                        type="number"
+                        min={0}
+                        value={form.required_sanctuary_level}
+                        onChange={(v: string) => setForm((p) => ({ ...p, required_sanctuary_level: v }))}
+                        placeholder="0 = sin requisito"
+                      />
+                    </FormField>
+                  </div>
+                )}
                 <FormField label="Habilidad especial">
                   <InputField
                     value={form.ability}

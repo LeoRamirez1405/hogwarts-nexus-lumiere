@@ -655,6 +655,13 @@ async def seed_feature_flags():
             "category": "pets",
         },
         {
+            "key": "pets.hide_creature_requirements",
+            "name": "Ocultar Rareza y Niveles de Criaturas",
+            "description": "Oculta los campos Rareza, Nivel Magico Req. y Nivel Santuario Req. en La Menajeria y en el panel de administracion. Al crear/editar se envian valores por defecto (Comun, Nv 1, Nv 0).",
+            "enabled": True,
+            "category": "pets",
+        },
+        {
             "key": "events.enabled",
             "name": "Eventos en Grupos",
             "description": "Habilita la creación y gestión de eventos en las salas de chat. Los administradores y moderadores pueden crear eventos con RSVP, recordatorios y canales de voz.",
