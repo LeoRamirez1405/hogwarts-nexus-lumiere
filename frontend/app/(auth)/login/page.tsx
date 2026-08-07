@@ -111,22 +111,6 @@ export default function LoginPage() {
               {loading ? "Entrando..." : "Entrar"}
             </button>
           </form>
-
-          <div className="mt-6 p-4 bg-surface-container-low rounded-xl">
-            <p className="font-mono text-label-sm text-on-surface-variant uppercase tracking-wider mb-2">
-              Cuentas de prueba
-            </p>
-            <div className="space-y-1 text-body-md">
-              <p>
-                <span className="font-semibold text-primary">Admin:</span>{" "}
-                admin@nexus.com / admin123
-              </p>
-              <p>
-                <span className="font-semibold text-secondary">Usuario:</span>{" "}
-                hermione@nexus.com / user123
-              </p>
-            </div>
-          </div>
         </div>
       </div>
     </div>

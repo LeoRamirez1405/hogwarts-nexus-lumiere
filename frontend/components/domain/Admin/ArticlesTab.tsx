@@ -10,6 +10,7 @@ import Switch from "@/components/ui/Switch";
 import Button from "@/components/ui/Button";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
+import { EnumMissingNotice } from "@/components/ui/EnumMissingNotice";
 
 interface ArticlesTabProps {
   search: string;
@@ -212,8 +213,17 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
           title={crud.showCreate ? "Nuevo Artículo" : "Editar Artículo"}
           size="lg"
           saving={crud.saving || crud.creating}
+          saveDisabled={articleCategories.length === 0}
           onSave={handleSave}
         >
+          {articleCategories.length === 0 && (
+            <EnumMissingNotice
+              enumCode="article_category"
+              displayName="El Quisquilloso"
+              itemName="un artículo de El Quisquilloso"
+            />
+          )}
+          {articleCategories.length > 0 && (
           <div className="space-y-4">
               <FormField label="Titulo" required>
                 <InputField
@@ -310,6 +320,7 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
                 Principal: solo uno a la vez, se muestra en grande en El Quisquilloso. Destacado: aparece en la pestaña &ldquo;Destacadas&rdquo;, puede haber varios.
               </p>
             </div>
+          )}
         </AdminCrudModal>
       )}
     </>

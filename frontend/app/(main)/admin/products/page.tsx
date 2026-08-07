@@ -14,6 +14,7 @@ import { MaterialIcon, Skeleton } from "@/components/ui";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
 import { AdminCrudModal, FormField, InputField, TextareaField, SelectField, ToggleButtonGroup } from "@/components/ui/AdminCrudModal";
+import { EnumMissingNotice } from "@/components/ui/EnumMissingNotice";
 import { useUnsavedChangesGuard, useFormDirtyState } from "@/hooks/useUnsavedChangesGuard";
 import PullToRefresh from "@/components/ui/PullToRefresh";
 
@@ -293,8 +294,30 @@ export default function AdminProductsPage() {
             title={crud.showCreate ? "Nuevo Producto" : "Editar Producto"}
             size="md"
             saving={crud.saving || crud.creating}
+            saveDisabled={
+              (form.shop === "borgin" && borginCategories.length === 0) ||
+              (form.shop === "flourish" && flourishCategories.length === 0)
+            }
             onSave={handleSave}
           >
+            {form.shop === "borgin" && borginCategories.length === 0 && (
+              <EnumMissingNotice
+                enumCode="borgin_category"
+                displayName="Borgin & Burkes"
+                itemName="un producto de Borgin & Burkes"
+              />
+            )}
+            {form.shop === "flourish" && flourishCategories.length === 0 && (
+              <EnumMissingNotice
+                enumCode="book_category"
+                displayName="Flourish & Blotts"
+                itemName="un producto de Flourish & Blotts"
+              />
+            )}
+            {!(
+              (form.shop === "borgin" && borginCategories.length === 0) ||
+              (form.shop === "flourish" && flourishCategories.length === 0)
+            ) && (
             <div className="space-y-4">
               <FormField label="Nombre" required>
                 <InputField
@@ -395,6 +418,7 @@ export default function AdminProductsPage() {
                 </div>
               </FormField>
             </div>
+            )}
           </AdminCrudModal>
         )}
       </div>

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { api, PetItem, PetType, PetItemKind } from "@/lib/api";
+import { api, PetItem, PetType, PetItemKind, EnumValue } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
 import { AdminCrudModal, FormField, InputField, TextareaField, SelectField, ToggleButtonGroup } from "@/components/ui/AdminCrudModal";
+import { EnumMissingNotice } from "@/components/ui/EnumMissingNotice";
 import ListFooter from "@/components/ui/ListFooter";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -47,6 +48,13 @@ export default function AdminPetItemsPage() {
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [petTypes, setPetTypes] = useState<EnumValue[]>([]);
+
+  useEffect(() => {
+    api.getEnumCategoryByCode("pet_type").then((cat) => {
+      if (cat) setPetTypes(cat.values);
+    }).catch((e) => toastError("No se pudieron cargar los tipos de mascota", e));
+  }, []);
 
   const crud = useAdminCrud<PetItem, Partial<PetItem>, Partial<PetItem>>({
     queryKey: ["admin-pet-items"],
@@ -284,8 +292,17 @@ export default function AdminPetItemsPage() {
             title={showCreate ? "Nuevo Objeto" : "Editar Objeto"}
             size="md"
             saving={crud.saving || crud.creating}
+            saveDisabled={petTypes.length === 0}
             onSave={handleSave}
           >
+            {petTypes.length === 0 && (
+              <EnumMissingNotice
+                enumCode="pet_type"
+                displayName="Tipos de Mascota"
+                itemName="comida o juguetes de mascota"
+              />
+            )}
+            {petTypes.length > 0 && (
             <div className="space-y-4">
                 <FormField label="Nombre" required>
                   <InputField
@@ -326,11 +343,7 @@ export default function AdminPetItemsPage() {
                     <SelectField
                       value={form.pet_type}
                       onChange={(v: string) => setForm((p) => ({ ...p, pet_type: v as PetType }))}
-                      options={[
-                        { value: "Aves", label: "Aves" },
-                        { value: "Bestias", label: "Bestias" },
-                        { value: "Criaturas pequeñas", label: "Criaturas pequeñas" },
-                      ]}
+                      options={petTypes.map((pt) => ({ value: pt.label, label: pt.label }))}
                       placeholder="Seleccionar..."
                     />
                   </FormField>
@@ -399,6 +412,7 @@ export default function AdminPetItemsPage() {
                   </div>
                 </FormField>
               </div>
+            )}
           </AdminCrudModal>
         )}
       </div>

@@ -12,6 +12,7 @@ import Button from "@/components/ui/Button";
 import { MaterialIcon, Skeleton } from "@/components/ui";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import PullToRefresh from "@/components/ui/PullToRefresh";
+import { EnumMissingNotice } from "@/components/ui/EnumMissingNotice";
 
 const RARITY_LABELS: Record<string, string> = {
   common: "Comun",
@@ -270,8 +271,17 @@ return (
             title={showCreate ? "Nueva Criatura" : "Editar Criatura"}
             size="md"
             saving={crud.saving || crud.creating}
+            saveDisabled={petTypes.length === 0}
             onSave={handleSave}
           >
+            {petTypes.length === 0 && (
+              <EnumMissingNotice
+                enumCode="pet_type"
+                displayName="Tipos de Mascota"
+                itemName="una criatura"
+              />
+            )}
+            {petTypes.length > 0 && (
             <div className="space-y-4">
                 <FormField label="Nombre" required>
                   <InputField
@@ -391,6 +401,7 @@ return (
                   </div>
                 </FormField>
               </div>
+            )}
           </AdminCrudModal>
         )}
       </div>
