@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { api, User, HousePoints } from "@/lib/api";
+import { useState } from "react";
+import { api, User } from "@/lib/api";
 import { GlassCard, ProgressBar, MaterialIcon } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
 
@@ -106,14 +106,6 @@ export default function ProfileDetails({
   const level = profile.magic_level;
   const [titleDraft, setTitleDraft] = useState(profile.official_title || "");
   const [editingTitle, setEditingTitle] = useState(false);
-  const [housePoints, setHousePoints] = useState<HousePoints | null>(null);
-
-  useEffect(() => {
-    if (profile.house && !housePoints) {
-      api.getHousePoints(profile.house).then(setHousePoints).catch(() => {});
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile.house]);
 
   const handleUpdate = async (field: string, value: string | null) => {
     try {
@@ -205,15 +197,13 @@ export default function ProfileDetails({
           </li>
         )}
 
-        {/* House Points - Auto loaded */}
+        {/* House */}
         {profile.house && (
           <li className="flex items-center gap-3 border-l-4 border-secondary pl-3">
             <MaterialIcon name="workspace_premium" className="text-lg text-secondary" />
             <div className="flex items-center gap-2">
               <div className={`w-2.5 h-2.5 rounded-full ${HOUSE_COLORS[profile.house] || "bg-gray-400"}`} />
-              <span className="text-body-md text-on-surface-variant">
-                {profile.house} · {housePoints ? `${housePoints.points.toLocaleString()} pts` : "cargando..."}
-              </span>
+              <span className="text-body-md text-on-surface-variant">{profile.house}</span>
             </div>
           </li>
         )}
