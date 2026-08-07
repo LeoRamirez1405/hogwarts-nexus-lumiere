@@ -220,6 +220,12 @@ return (
                         >
                           <MaterialIcon name="edit" className="text-lg" />
                         </button>
+                        <button
+                          onClick={() => crud.handleDelete(c.id)}
+                          className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
+                        >
+                          <MaterialIcon name="delete" className="text-lg" />
+                        </button>
                       </div>
                     </div>
                     <h3 className="font-display text-title-md text-on-surface mb-1">
