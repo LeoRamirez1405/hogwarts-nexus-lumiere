@@ -38,6 +38,7 @@ export interface MyPetsTabProps {
   onGoToShop: () => void;
   onLoadMore: () => void;
   setSellPrice: (price: string) => void;
+  onViewDetails?: (uc: UserCreature) => void;
 }
 
 export interface AdoptTabProps {
@@ -49,6 +50,7 @@ export interface AdoptTabProps {
   adopting: string | null;
   userZerines: number;
   onAdopt: (creature: Creature) => void;
+  onViewDetails?: (creature: Creature) => void;
   onRetry: () => void;
 }
 
@@ -61,6 +63,7 @@ export interface MarketTabProps {
   userZerines: number;
   stats: SanctuaryStats | null;
   onBuy: (m: MarketCreature) => void;
+  onViewDetails?: (market: MarketCreature) => void;
   onLoadMore: () => void;
 }
 
@@ -73,6 +76,7 @@ export interface ShopTabProps {
   petTypeValues: EnumValue[];
   onShopTypeChange: (type: PetType | "all") => void;
   onBuy: (item: PetItem) => void;
+  onViewDetails?: (item: PetItem) => void;
 }
 
 export interface AdoptModalProps {

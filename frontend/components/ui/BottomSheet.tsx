@@ -13,6 +13,8 @@ interface BottomSheetProps {
   title?: string;
   children: React.ReactNode;
   ariaLabel?: string;
+  className?: string;
+  showTitle?: boolean;
 }
 
 export default function BottomSheet({
@@ -21,6 +23,8 @@ export default function BottomSheet({
   title,
   children,
   ariaLabel,
+  className = "",
+  showTitle = true,
 }: BottomSheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -134,7 +138,7 @@ export default function BottomSheet({
         aria-labelledby={title ? titleId : undefined}
         aria-label={!title ? ariaLabel : undefined}
         tabIndex={-1}
-        className={`absolute bottom-0 left-0 right-0 bg-surface-container-lowest rounded-t-2xl shadow-2xl flex flex-col outline-none transition-transform duration-200 ease-out ${
+        className={`absolute bottom-0 left-0 right-0 rounded-t-2xl shadow-2xl flex flex-col outline-none transition-transform duration-200 ease-out ${className} ${
           open && !animOut ? "translate-y-0" : "translate-y-full"
         }`}
         style={{
@@ -157,7 +161,7 @@ export default function BottomSheet({
           <div className="w-10 h-1.5 rounded-full bg-outline-variant" />
         </div>
 
-        {title && (
+        {showTitle && title && (
           <div className="flex items-center justify-between px-6 pb-3 shrink-0">
             <h2 id={titleId} className="text-title-md font-medium text-on-surface">
               {title}

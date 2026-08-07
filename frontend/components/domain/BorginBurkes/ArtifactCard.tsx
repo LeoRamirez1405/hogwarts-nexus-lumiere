@@ -10,11 +10,13 @@ import { useTheme } from "@/lib/useTheme";
 interface ArtifactCardProps {
   product: Product;
   onAddToCart: (product: Product) => void;
+  onViewDetails?: (product: Product) => void;
 }
 
 export const ArtifactCard = memo(function ArtifactCard({
   product,
   onAddToCart,
+  onViewDetails,
 }: ArtifactCardProps) {
   const theme = useTheme();
   const fallbackSrc = getFallbackImageByContext("artifact", theme);
@@ -27,7 +29,10 @@ export const ArtifactCard = memo(function ArtifactCard({
   };
 
   return (
-    <div className="group cursor-pointer hover:-translate-y-2 transition-all duration-300 bg-[#2a2828] border border-secondary/20 rounded-3xl p-6">
+    <div
+      className="group cursor-pointer hover:-translate-y-2 transition-all duration-300 bg-[#2a2828] border border-secondary/20 rounded-3xl p-6"
+      onClick={() => onViewDetails?.(product)}
+    >
       <div className="relative h-64 rounded-2xl overflow-hidden mb-4">
         <Image
           src={src}
@@ -55,7 +60,10 @@ export const ArtifactCard = memo(function ArtifactCard({
       <div className="flex items-center justify-between">
         <ZerineDisplay amount={product.price} iconStyle="icon" variant="price" />
         <button
-          onClick={() => onAddToCart(product)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddToCart(product);
+          }}
           className="border border-secondary text-secondary rounded-full px-6 py-2 text-label-sm font-bold hover:bg-secondary hover:text-on-secondary-fixed transition-all active:scale-95"
         >
           Añadir a la Cesta

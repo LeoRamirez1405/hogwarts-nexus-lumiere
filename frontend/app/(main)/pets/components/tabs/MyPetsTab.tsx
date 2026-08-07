@@ -27,6 +27,7 @@ export const MyPetsTab = ({
   onGoToShop,
   onLoadMore,
   setSellPrice,
+  onViewDetails,
 }: MyPetsTabProps) => {
   if (loading) {
     return (
@@ -88,6 +89,7 @@ export const MyPetsTab = ({
               setSellPrice={setSellPrice}
               using={using}
               showMarket={showMarket}
+              onViewDetails={onViewDetails}
             />
           );
         })}

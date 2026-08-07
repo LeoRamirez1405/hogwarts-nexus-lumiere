@@ -30,6 +30,7 @@ interface PetCardProps {
   setSellPrice: (price: string) => void;
   using: string | null;
   showMarket?: boolean;
+  onViewDetails?: (uc: UserCreature) => void;
 }
 
 export function PetCard({
@@ -52,6 +53,7 @@ export function PetCard({
   setSellPrice,
   using,
   showMarket = true,
+  onViewDetails,
 }: PetCardProps) {
 
   const displayName = uc.pet_name || uc.creature?.name || "Sin nombre";
@@ -60,7 +62,10 @@ export function PetCard({
   const isCritical = uc.is_critical === true;
 
   return (
-    <div className={`bg-white border border-outline-variant/30 rounded-3xl p-6 ${isCritical ? 'animate-pulse-critical' : ''}`}>
+    <div
+      className={`bg-white border border-outline-variant/30 rounded-3xl p-6 ${isCritical ? 'animate-pulse-critical' : ''}`}
+      onClick={() => onViewDetails?.(uc)}
+    >
       {/* Header */}
       <div className="flex items-center gap-4 mb-4">
         <Avatar
@@ -107,7 +112,10 @@ export function PetCard({
       {/* Actions */}
       <div className="flex gap-3">
         <button
-          onClick={onToggleFeed}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFeed();
+          }}
           className={`flex-1 flex items-center justify-center gap-2 border rounded-xl py-2 text-label-sm font-bold transition-all active:scale-95 ${
             isFeedOpen ? "bg-success text-on-success border-success" : "border-success text-success hover:bg-success hover:text-on-success"
           }`}
@@ -116,7 +124,10 @@ export function PetCard({
           Alimentar
         </button>
         <button
-          onClick={onTogglePlay}
+          onClick={(e) => {
+            e.stopPropagation();
+            onTogglePlay();
+          }}
           className={`flex-1 flex items-center justify-center gap-2 border rounded-xl py-2 text-label-sm font-bold transition-all active:scale-95 ${
             isPlayOpen ? "bg-primary text-on-primary border-primary" : "border-primary text-primary hover:bg-primary hover:text-on-primary"
           }`}
@@ -138,7 +149,10 @@ export function PetCard({
                 No tienes {isFeedOpen ? "comida" : "juguetes"} para este tipo.
               </p>
               <button
-                onClick={onGoToShop}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onGoToShop();
+                }}
                 className="text-primary text-label-sm font-bold hover:underline"
               >
                 Ir a la Tienda
@@ -149,7 +163,10 @@ export function PetCard({
               {(isFeedOpen ? foods : toys).map((row) => (
                 <button
                   key={row.id}
-                  onClick={() => onUse(uc, row)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUse(uc, row);
+                  }}
                   disabled={using === row.id}
                   className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container-high transition-colors text-left disabled:opacity-50"
                 >
@@ -177,7 +194,13 @@ export function PetCard({
                 <MaterialIcon name="sell" className="text-[1.1em]" filled />
                 En venta por {uc.sale_price?.toLocaleString()} zerines
               </span>
-              <button onClick={() => onUnlist(uc.id)} className="text-label-sm text-error font-bold hover:underline">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUnlist(uc.id);
+                }}
+                className="text-label-sm text-error font-bold hover:underline"
+              >
                 Retirar
               </button>
             </div>
@@ -187,20 +210,40 @@ export function PetCard({
                 type="number"
                 autoFocus
                 value={sellPrice}
-                onChange={(e) => setSellPrice(e.target.value)}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setSellPrice(e.target.value);
+                }}
                 placeholder="Precio en zerines"
                 className="flex-1 px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant/20 text-body-sm outline-none focus:border-primary"
               />
-              <button onClick={() => onListForSale(uc.id, parseInt(sellPrice) || 0)} disabled={!(parseInt(sellPrice) > 0)} className="px-3 py-1.5 rounded-lg bg-primary text-on-primary text-label-sm font-bold disabled:opacity-40">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onListForSale(uc.id, parseInt(sellPrice) || 0);
+                }}
+                disabled={!(parseInt(sellPrice) > 0)}
+                className="px-3 py-1.5 rounded-lg bg-primary text-on-primary text-label-sm font-bold disabled:opacity-40"
+              >
                 Publicar
               </button>
-              <button onClick={() => { onToggleSale(uc.id); setSellPrice(""); }} className="text-label-sm text-on-surface-variant hover:text-error transition-colors">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleSale(uc.id);
+                  setSellPrice("");
+                }}
+                className="text-label-sm text-on-surface-variant hover:text-error transition-colors"
+              >
                 Cancelar
               </button>
             </div>
           ) : (
             <button
-              onClick={() => onToggleSale(uc.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSale(uc.id);
+              }}
               className="w-full flex items-center justify-center gap-2 text-label-sm text-on-surface-variant hover:text-secondary transition-colors py-1"
             >
               <MaterialIcon name="sell" className="text-[1.1em]" />

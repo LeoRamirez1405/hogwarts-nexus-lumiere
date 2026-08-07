@@ -10,6 +10,7 @@ interface ShopSectionProps {
   inventory: UserPetItem[];
   buying: string | null;
   onBuy: (item: PetItem) => void;
+  onViewDetails?: (item: PetItem) => void;
   statLabel: string;
 }
 
@@ -20,6 +21,7 @@ export function ShopSection({
   inventory,
   buying,
   onBuy,
+  onViewDetails,
   statLabel,
 }: ShopSectionProps) {
   if (items.length === 0) return null;
@@ -34,7 +36,11 @@ export function ShopSection({
         {items.map((item) => {
           const owned = ownedQty(item.id);
           return (
-            <div key={item.id} className="glass-card rounded-2xl p-5 flex flex-col">
+            <div
+              key={item.id}
+              className="glass-card rounded-2xl p-5 flex flex-col cursor-pointer hover:-translate-y-1 transition-transform duration-200"
+              onClick={() => onViewDetails?.(item)}
+            >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-1.5">
                   <Badge variant="tag" color="secondary">
@@ -62,7 +68,10 @@ export function ShopSection({
               <div className="flex items-center justify-between">
                 <ZerineDisplay amount={item.price} iconStyle="icon" variant="price" />
                 <Button
-                  onClick={() => onBuy(item)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onBuy(item);
+                  }}
                   disabled={buying === item.id}
                   className="hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
                 >

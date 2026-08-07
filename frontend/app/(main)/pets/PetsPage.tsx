@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { TabGroup } from "@/components/ui";
+import { TabGroup, DetailModal } from "@/components/ui";
 import { LevelUpCelebration } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
 import { useFeatureFlag } from "@/lib/featureFlagStore";
-import type { Creature, MarketCreature } from "@/lib/api";
+import type { Creature, MarketCreature, PetItem, UserCreature } from "@/lib/api";
 import { usePetsData } from "./hooks/usePetsData";
 import { usePetActions } from "./hooks/usePetActions";
 import { usePetCelebrations } from "./hooks/usePetCelebrations";
@@ -20,6 +20,11 @@ import {
   BuyMarketModal,
   type Picker,
 } from "./components";
+import {
+  CreatureDetailContent,
+  PetItemDetailContent,
+  MyPetDetailContent,
+} from "@/components/domain/Pets";
 
 export default function PetsPage() {
   const { user, setUser } = useAuthStore();
@@ -34,6 +39,11 @@ export default function PetsPage() {
   const [adoptPetName, setAdoptPetName] = useState("");
   // Modal de confirmación para comprar en el mercado
   const [buyMarketModal, setBuyMarketModal] = useState<MarketCreature | null>(null);
+  // Detail modals
+  const [detailCreature, setDetailCreature] = useState<Creature | null>(null);
+  const [detailMarketCreature, setDetailMarketCreature] = useState<MarketCreature | null>(null);
+  const [detailPetItem, setDetailPetItem] = useState<PetItem | null>(null);
+  const [detailMyPet, setDetailMyPet] = useState<UserCreature | null>(null);
 
   const petsData = usePetsData();
   const celebrations = usePetCelebrations();
@@ -105,6 +115,7 @@ export default function PetsPage() {
               setAdoptModal(creature);
               setAdoptPetName("");
             }}
+            onViewDetails={setDetailCreature}
             onRetry={() => {
               petsData.setLoadError(null);
               petsData.setLoading(true);
@@ -135,6 +146,7 @@ export default function PetsPage() {
             onGoToShop={() => setActiveTab("shop")}
             onLoadMore={petsData.loadMoreMyCreatures}
             setSellPrice={setSellPrice}
+            onViewDetails={setDetailMyPet}
           />
         )}
 
@@ -148,6 +160,7 @@ export default function PetsPage() {
             userZerines={user?.zerines ?? 0}
             stats={petsData.stats}
             onBuy={(m) => setBuyMarketModal(m)}
+            onViewDetails={setDetailMarketCreature}
             onLoadMore={petsData.loadMoreMarket}
           />
         )}
@@ -162,6 +175,7 @@ export default function PetsPage() {
             petTypeValues={petsData.petTypeValues}
             onShopTypeChange={shopFilter.setShopType}
             onBuy={petActions.handleBuy}
+            onViewDetails={setDetailPetItem}
           />
         )}
       </div>
@@ -187,6 +201,91 @@ export default function PetsPage() {
         onClose={() => setBuyMarketModal(null)}
         onConfirm={() => petActions.handleBuyMarket(buyMarketModal!)}
       />
+
+      {/* Creature Detail Modal (Adopt tab) */}
+      <DetailModal
+        open={!!detailCreature}
+        onClose={() => setDetailCreature(null)}
+        title={detailCreature?.name}
+        theme="light"
+        size="md"
+      >
+        {detailCreature && (
+          <CreatureDetailContent
+            creature={detailCreature}
+            stats={petsData.stats}
+            onAdopt={() => {
+              setAdoptModal(detailCreature);
+              setAdoptPetName("");
+            }}
+            userZerines={user?.zerines ?? 0}
+          />
+        )}
+      </DetailModal>
+
+      {/* Market Creature Detail Modal (Market tab) */}
+      <DetailModal
+        open={!!detailMarketCreature}
+        onClose={() => setDetailMarketCreature(null)}
+        title={detailMarketCreature?.creature?.name ?? "Detalle"}
+        theme="light"
+        size="md"
+      >
+        {detailMarketCreature && (
+          <CreatureDetailContent
+            creature={detailMarketCreature.creature!}
+            market={detailMarketCreature}
+            stats={petsData.stats}
+            meetsRequirements={
+              !!(
+                petsData.stats &&
+                detailMarketCreature.creature &&
+                petsData.stats.user_level >= (detailMarketCreature.creature.required_user_level || 1) &&
+                petsData.stats.sanctuary_level >= (detailMarketCreature.creature.required_sanctuary_level || 0)
+              )
+            }
+            onBuy={() => setBuyMarketModal(detailMarketCreature)}
+            userZerines={user?.zerines ?? 0}
+          />
+        )}
+      </DetailModal>
+
+      {/* Pet Item Detail Modal (Shop tab) */}
+      <DetailModal
+        open={!!detailPetItem}
+        onClose={() => setDetailPetItem(null)}
+        title={detailPetItem?.name}
+        theme="light"
+        size="md"
+      >
+        {detailPetItem && (
+          <PetItemDetailContent
+            item={detailPetItem}
+            inventoryQuantity={petsData.inventory.find((r) => r.pet_item_id === detailPetItem.id)?.quantity ?? 0}
+            onBuy={petActions.handleBuy}
+            statLabel={detailPetItem.kind === "food" ? "hambre" : "felicidad"}
+          />
+        )}
+      </DetailModal>
+
+      {/* My Pet Detail Modal (My Pets tab) */}
+      <DetailModal
+        open={!!detailMyPet}
+        onClose={() => setDetailMyPet(null)}
+        title={detailMyPet?.pet_name ?? detailMyPet?.creature?.name ?? "Detalle"}
+        theme="light"
+        size="lg"
+      >
+        {detailMyPet && (
+          <MyPetDetailContent
+            userCreature={detailMyPet}
+            petType={detailMyPet.creature?.pet_type ?? "Desconocido"}
+            onFeed={() => setPicker({ ucId: detailMyPet.id, mode: "feed" })}
+            onPlay={() => setPicker({ ucId: detailMyPet.id, mode: "play" })}
+            onGoToShop={() => setActiveTab("shop")}
+          />
+        )}
+      </DetailModal>
     </div>
   );
 }

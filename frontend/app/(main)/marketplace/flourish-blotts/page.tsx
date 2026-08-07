@@ -6,8 +6,8 @@ import Image from "next/image";
 import { api, Product, EnumValue } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
-import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary, Skeleton } from "@/components/ui";
-import { BookCard, HeroCarousel, CartSidebar } from "@/components/domain/FlourishBlotts";
+import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary, Skeleton, DetailModal } from "@/components/ui";
+import { BookCard, HeroCarousel, CartSidebar, ProductDetailContent } from "@/components/domain/FlourishBlotts";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { useDebounce } from "@/hooks/useDebounce";
 import { toastError, toastSuccess } from "@/lib/toastStore";
@@ -31,6 +31,7 @@ export default function FlourishBlottsPage() {
   const [isUserInteracting, setIsUserInteracting] = useState(false);
   const [activeTab, setActiveTab] = useState("catalog");
   const [bookCategories, setBookCategories] = useState<EnumValue[]>([]);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
 
   const dynamicFilters = ["Todos", ...bookCategories.map((c) => c.label)];
   const trackRef = useRef<HTMLDivElement>(null);
@@ -120,6 +121,10 @@ export default function FlourishBlottsPage() {
   const handleAddToCart = (product: Product) => {
     addItem(product);
     toastSuccess("Añadido al Caldero", `${product.name} está en tu caldero`);
+  };
+
+  const handleViewDetails = (product: Product) => {
+    setDetailProduct(product);
   };
 
   const scrollToCatalog = () => {
@@ -318,6 +323,7 @@ export default function FlourishBlottsPage() {
                       key={product.id}
                       product={product}
                       onAddToCart={handleAddToCart}
+                      onViewDetails={handleViewDetails}
                     />
                   ))}
                 </div>
@@ -373,7 +379,11 @@ export default function FlourishBlottsPage() {
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {visiblePurchases.map((up) => (
-                    <div key={up.id} className="glass-card rounded-3xl overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+                    <div
+                      key={up.id}
+                      className="glass-card rounded-3xl overflow-hidden group hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+                      onClick={() => up.product && handleViewDetails(up.product)}
+                    >
                       <div className="relative h-48 overflow-hidden">
                         {up.product?.image_url
                           ? <Image src={up.product.image_url} alt={up.product?.name ?? "Libro"} fill className="object-cover group-hover:scale-105 transition-transform duration-500" unoptimized={up.product.image_url.startsWith("http://localhost:8000/uploads/")} />
@@ -445,6 +455,22 @@ export default function FlourishBlottsPage() {
 
         {/* Success Modal */}
         <SuccessModal isOpen={showSuccess} onClose={() => setShowSuccess(false)} />
+
+        {/* Product Detail Modal */}
+        <DetailModal
+          open={!!detailProduct}
+          onClose={() => setDetailProduct(null)}
+          title={detailProduct?.name}
+          theme="light"
+          size="md"
+        >
+          {detailProduct && (
+            <ProductDetailContent
+              product={detailProduct}
+              onAddToCart={handleAddToCart}
+            />
+          )}
+        </DetailModal>
 
         <style jsx global>{`
           @keyframes slide-down {

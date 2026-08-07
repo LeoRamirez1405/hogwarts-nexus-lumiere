@@ -7,6 +7,7 @@ export { default as ProgressBar } from "./ProgressBar";
 export { default as SearchBar } from "./SearchBar";
 export { default as Modal } from "./Modal";
 export { default as BottomSheet } from "./BottomSheet";
+export { default as DetailModal, type DetailModalProps } from "./DetailModal";
 export { default as TabGroup } from "./TabGroup";
 export { default as FAB } from "./FAB";
 export { default as LanguageSelector } from "./LanguageSelector";

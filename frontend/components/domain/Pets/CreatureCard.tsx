@@ -40,6 +40,7 @@ interface CreatureCardProps {
   onAdopt: () => void;
   adopting: boolean;
   userZerines: number;
+  onViewDetails?: (creature: Creature) => void;
 }
 
 export function CreatureCard({
@@ -50,6 +51,7 @@ export function CreatureCard({
   onAdopt,
   adopting,
   userZerines,
+  onViewDetails,
 }: CreatureCardProps) {
   const theme = useTheme();
   const hideRequirements = useFeatureFlag("pets.hide_creature_requirements");
@@ -61,7 +63,10 @@ export function CreatureCard({
   const fallbackSrc = getFallbackForCreature(theme);
 
   return (
-    <div className={`glass-card rounded-3xl p-6 group transition-all duration-300 ${meetsRequirements ? "hover:-translate-y-2" : "opacity-80"} ${RARITY_BG[creature.rarity] || ""}`}>
+    <div
+      className={`glass-card rounded-3xl p-6 group transition-all duration-300 ${meetsRequirements ? "hover:-translate-y-2" : "opacity-80"} ${RARITY_BG[creature.rarity] || ""}`}
+      onClick={() => onViewDetails?.(creature)}
+    >
       <div className="relative h-56 rounded-2xl overflow-hidden mb-4">
         <Image
           src={creature.image_url || fallbackSrc}
@@ -117,7 +122,10 @@ export function CreatureCard({
           </span>
         ) : (
           <Button
-            onClick={onAdopt}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdopt();
+            }}
             disabled={adopting || !meetsRequirements || insufficientZerines}
             title={
               !meetsRequirements

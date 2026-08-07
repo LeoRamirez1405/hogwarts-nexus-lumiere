@@ -16,6 +16,7 @@ export const AdoptTab = ({
   adopting,
   userZerines,
   onAdopt,
+  onViewDetails,
   onRetry,
 }: AdoptTabProps) => {
   if (loadError && !loading) {
@@ -57,6 +58,7 @@ export const AdoptTab = ({
               onAdopt={() => onAdopt(creature)}
               adopting={adopting === creature.id}
               userZerines={userZerines}
+              onViewDetails={onViewDetails}
             />
           );
         })}

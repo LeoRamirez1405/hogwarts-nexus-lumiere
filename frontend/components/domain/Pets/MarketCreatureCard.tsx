@@ -16,6 +16,7 @@ interface MarketCreatureCardProps {
   onBuy: () => void;
   buying: boolean;
   userZerines: number;
+  onViewDetails?: (market: MarketCreature) => void;
 }
 
 export function MarketCreatureCard({
@@ -24,11 +25,15 @@ export function MarketCreatureCard({
   onBuy,
   buying,
   userZerines,
+  onViewDetails,
 }: MarketCreatureCardProps) {
   const displayName = market.pet_name || market.creature?.name || "Sin nombre";
 
   return (
-    <div className="glass-card rounded-3xl p-6">
+    <div
+      className="glass-card rounded-3xl p-6"
+      onClick={() => onViewDetails?.(market)}
+    >
       <div className="flex items-center gap-4 mb-4">
         <Avatar src={market.creature?.image_url} alt={displayName} size="lg" borderColor="secondary" initials={displayName.charAt(0)} />
         <div className="flex-1 min-w-0">
@@ -43,7 +48,10 @@ export function MarketCreatureCard({
       <div className="flex items-center justify-between">
         <ZerineDisplay amount={market.sale_price} iconStyle="icon" variant="price" />
         <Button
-          onClick={onBuy}
+          onClick={(e) => {
+            e.stopPropagation();
+            onBuy();
+          }}
           disabled={buying || !meetsRequirements || userZerines < market.sale_price}
           title={meetsRequirements ? "" : "No cumples el nivel requerido"}
           variant="secondary"

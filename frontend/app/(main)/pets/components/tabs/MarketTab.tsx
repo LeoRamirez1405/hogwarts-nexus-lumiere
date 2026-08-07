@@ -15,6 +15,7 @@ export const MarketTab = ({
   userZerines,
   stats,
   onBuy,
+  onViewDetails,
   onLoadMore,
 }: MarketTabProps) => {
   if (loading) {
@@ -50,6 +51,7 @@ export const MarketTab = ({
               onBuy={() => onBuy(m)}
               buying={buyingPet === m.id}
               userZerines={userZerines}
+              onViewDetails={onViewDetails}
             />
           );
         })}

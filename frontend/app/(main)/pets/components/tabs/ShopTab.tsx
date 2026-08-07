@@ -13,6 +13,7 @@ export const ShopTab = ({
   petTypeValues,
   onShopTypeChange,
   onBuy,
+  onViewDetails,
 }: ShopTabProps) => {
   const shopItems = shopType === "all" ? petItems : petItems.filter((i) => i.pet_type === shopType);
   const shopFoods = shopItems.filter((i) => i.kind === "food");
@@ -56,6 +57,7 @@ export const ShopTab = ({
             inventory={inventory}
             buying={buying}
             onBuy={onBuy}
+            onViewDetails={onViewDetails}
             statLabel="hambre"
           />
           <ShopSection
@@ -65,6 +67,7 @@ export const ShopTab = ({
             inventory={inventory}
             buying={buying}
             onBuy={onBuy}
+            onViewDetails={onViewDetails}
             statLabel="felicidad"
           />
         </div>

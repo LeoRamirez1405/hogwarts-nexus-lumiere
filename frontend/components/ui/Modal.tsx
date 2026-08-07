@@ -14,6 +14,8 @@ interface ModalProps {
   size?: "sm" | "md" | "lg";
   ariaLabel?: string;
   swipeToDismiss?: boolean;
+  className?: string;
+  showTitle?: boolean;
 }
 
 const sizeClasses: Record<NonNullable<ModalProps["size"]>, string> = {
@@ -33,6 +35,8 @@ export default function Modal({
   size = "md",
   ariaLabel,
   swipeToDismiss = false,
+  className = "",
+  showTitle = true,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -132,7 +136,7 @@ export default function Modal({
         aria-labelledby={title ? titleId : undefined}
         aria-label={!title ? ariaLabel : undefined}
         tabIndex={-1}
-        className={`w-full ${sizeClasses[size]} bg-surface-container-lowest rounded-2xl shadow-2xl overflow-y-auto outline-none`}
+        className={`w-full ${sizeClasses[size]} rounded-2xl shadow-2xl overflow-y-auto outline-none ${className}`}
         style={{ maxHeight }}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={swipeHandlers.onTouchStart}
@@ -143,7 +147,7 @@ export default function Modal({
         onMouseUp={swipeHandlers.onMouseUp}
         onMouseLeave={swipeHandlers.onMouseLeave}
       >
-        {title && (
+        {showTitle && title && (
           <div className="flex items-center justify-between px-6 pt-6 pb-4">
             <h2
               id={titleId}
@@ -160,7 +164,7 @@ export default function Modal({
             </button>
           </div>
         )}
-        <div className="px-6 pb-6">{children}</div>
+        <div className={`px-6 pb-6 ${!showTitle || !title ? "pt-6" : ""}`}>{children}</div>
       </div>
     </div>,
     document.body

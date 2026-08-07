@@ -10,11 +10,13 @@ import { ZerineDisplay } from "@/components/ui";
 interface BookCardProps {
   product: Product;
   onAddToCart: (product: Product) => void;
+  onViewDetails?: (product: Product) => void;
 }
 
 export const BookCard = memo(function BookCard({
   product,
   onAddToCart,
+  onViewDetails,
 }: BookCardProps) {
   const theme = useTheme();
   const fallbackSrc = getFallbackForProduct("flourish", theme);
@@ -27,7 +29,10 @@ export const BookCard = memo(function BookCard({
   };
 
   return (
-    <div className="glass-card rounded-3xl p-6 group cursor-pointer hover:-translate-y-2 transition-all duration-300">
+    <div
+      className="glass-card rounded-3xl p-6 group cursor-pointer hover:-translate-y-2 transition-all duration-300"
+      onClick={() => onViewDetails?.(product)}
+    >
       <div className="relative h-64 rounded-2xl overflow-hidden mb-4">
         <Image
           src={src}
@@ -50,7 +55,10 @@ export const BookCard = memo(function BookCard({
       <div className="flex items-center justify-between">
         <ZerineDisplay amount={product.price} variant="price" iconStyle="icon" />
         <button
-          onClick={() => onAddToCart(product)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddToCart(product);
+          }}
           className="border border-primary text-primary rounded-full px-6 py-2 text-label-sm font-bold hover:bg-primary hover:text-on-primary transition-all active:scale-95"
         >
           Añadir al Caldero
