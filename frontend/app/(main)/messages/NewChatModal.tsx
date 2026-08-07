@@ -146,7 +146,7 @@ export default function NewChatModal({
                    </p>
                     <p className="text-label-sm text-on-surface-variant truncate">
                       {u.email}
-                   </p>
+                    </p>
                  </div>
                   {u.house && (
                     <Badge variant="tag" color="secondary">
