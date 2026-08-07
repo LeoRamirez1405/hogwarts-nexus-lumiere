@@ -6,9 +6,9 @@ with a single query instead of scanning messages.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Iterable, Optional
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models.chat_room import ChatRoomMember, UserConversationPreference
@@ -170,3 +170,132 @@ async def _upsert_conversation_pref(
             unread_count=unread_increment,
         )
         db.add(pref)
+
+
+async def _conversation_latest_message(
+    db: AsyncSession,
+    conversation_type: str,
+    conversation_id: str,
+    partner_id: str,
+) -> Optional[Message]:
+    """Newest surviving message of a conversation (None when empty)."""
+    if conversation_type == "dm":
+        result = await db.execute(
+            select(Message)
+            .where(
+                Message.room_id.is_(None),
+                or_(
+                    and_(
+                        Message.sender_id == partner_id,
+                        Message.receiver_id == conversation_id,
+                    ),
+                    and_(
+                        Message.sender_id == conversation_id,
+                        Message.receiver_id == partner_id,
+                    ),
+                ),
+            )
+            .order_by(Message.created_at.desc(), Message.id.desc())
+            .limit(1)
+        )
+    else:
+        result = await db.execute(
+            select(Message)
+            .where(Message.room_id == conversation_id)
+            .order_by(Message.created_at.desc(), Message.id.desc())
+            .limit(1)
+        )
+    return result.scalar_one_or_none()
+
+
+async def _apply_preview(pref: UserConversationPreference, latest: Optional[Message]) -> None:
+    """Point a preference row at ``latest`` (or clear it when None)."""
+    if latest and latest.id != pref.last_message_id:
+        body_preview = (latest.body or "")[:200] if latest.body else ""
+        if not body_preview and latest.attachment_url:
+            body_preview = "📎 Adjunto"
+        pref.last_message_id = latest.id
+        pref.last_message_body = body_preview
+        pref.last_message_at = latest.created_at
+        pref.last_message_sender_id = latest.sender_id
+        pref.last_message_kind = latest.kind or "text"
+        pref.last_message_attachment_url = latest.attachment_url
+        pref.last_message_attachment_type = latest.attachment_type
+        pref.last_message_attachment_name = latest.attachment_name
+    elif not latest and pref.last_message_id:
+        pref.last_message_id = None
+        pref.last_message_body = None
+        pref.last_message_at = None
+        pref.last_message_sender_id = None
+        pref.last_message_kind = None
+        pref.last_message_attachment_url = None
+        pref.last_message_attachment_type = None
+        pref.last_message_attachment_name = None
+
+
+async def update_conversation_preferences_after_delete(
+    db: AsyncSession,
+    conversation_type: str,
+    conversation_id: str,
+    partner_id: Optional[str] = None,
+    affected_user_ids: Optional[Iterable[str]] = None,
+) -> None:
+    """Re-point ``last_message_*`` after a message was deleted.
+
+    Called whenever a message disappears from a conversation (manual delete,
+    WS delete, retention/expiry sweeps) so the conversation list never shows a
+    deleted message as its preview. Clears the preview when no messages remain.
+
+    For DMs, ``conversation_id``/``partner_id`` are the two user ids of the
+    pair; preference rows are matched in both orientations.
+    """
+    if conversation_type == "dm":
+        if not partner_id:
+            raise ValueError("partner_id is required for dm conversations")
+        latest = await _conversation_latest_message(
+            db, conversation_type, conversation_id, partner_id
+        )
+        if affected_user_ids is None:
+            affected_user_ids = {conversation_id, partner_id}
+        for user_id in affected_user_ids:
+            other = partner_id if user_id == conversation_id else conversation_id
+            pref_result = await db.execute(
+                select(UserConversationPreference).where(
+                    and_(
+                        UserConversationPreference.user_id == user_id,
+                        UserConversationPreference.conversation_type == "dm",
+                        UserConversationPreference.conversation_id == other,
+                    )
+                )
+            )
+            pref = pref_result.scalar_one_or_none()
+            if pref:
+                await _apply_preview(pref, latest)
+    else:
+        if affected_user_ids is None:
+            member_result = await db.execute(
+                select(ChatRoomMember.user_id).where(
+                    ChatRoomMember.room_id == conversation_id
+                )
+            )
+            affected_user_ids = [row[0] for row in member_result.all()]
+        latest = await _conversation_latest_message(
+            db, conversation_type, conversation_id, ""
+        )
+        for user_id in affected_user_ids:
+            pref_result = await db.execute(
+                select(UserConversationPreference).where(
+                    and_(
+                        UserConversationPreference.user_id == user_id,
+                        UserConversationPreference.conversation_type == "room",
+                        UserConversationPreference.conversation_id == conversation_id,
+                    )
+                )
+            )
+            pref = pref_result.scalar_one_or_none()
+            if pref:
+                await _apply_preview(pref, latest)
+
+    await db.commit()
+
+    await _invalidate_conversations_caches(list(affected_user_ids))

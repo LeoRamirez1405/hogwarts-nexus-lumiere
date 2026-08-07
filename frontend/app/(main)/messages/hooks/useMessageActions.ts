@@ -3,6 +3,7 @@
 import { useCallback, useRef } from "react";
 import { api, Message, MessageSendData } from "@/lib/api";
 import { toastSuccess, toastError } from "@/lib/toastStore";
+import { markMessageDeleting, healConversationPreview } from "../utils/messageLifecycle";
 import type { Conversation, SelectedConvType, MuteDuration } from "../types";
 
 interface WsClient {
@@ -153,13 +154,17 @@ export function useMessageActions({
   }, [setMessages]);
 
   const handleDeleteMessage = useCallback(async (messageId: string) => {
+    const cancelDelete = markMessageDeleting(setMessages, messageId);
     try {
       await api.deleteMessage(messageId);
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      if (selectedId) {
+        healConversationPreview(setConversations, selectedId, messageId, messagesRef);
+      }
     } catch (error) {
+      cancelDelete();
       console.error("Failed to delete message:", error);
     }
-  }, [setMessages]);
+  }, [setMessages, setConversations, selectedId, messagesRef]);
 
   const handleForwardMessage = useCallback(async (message: Message, targetId: string, targetType: "dm" | "room") => {
     try {

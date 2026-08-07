@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, update
+from sqlalchemy import select, and_, or_, update
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
@@ -14,7 +14,9 @@ from ..models.user import User
 from ..models.e2e_encryption import EncryptedMessage
 from ..middleware.auth import get_current_user_ws
 from ..ws_manager import manager
+from ..services.messages.conversation_prefs import update_conversation_preferences_after_delete
 from .messages import serialize_message
+from .messages.serializers.message import _preview_message
 
 
 router = APIRouter()
@@ -214,21 +216,75 @@ async def handle_delete_message(user_id: str, data: dict, db: AsyncSession):
     if message.sender_id != user_id:
         return
 
+    room_id = message.room_id
+    receiver_id = message.receiver_id
     await db.delete(message)
     await db.commit()
+
+    # Re-point the denormalized last_message_* for everyone in the conversation
+    # so the conversation list never shows a deleted message as its preview.
+    new_last_preview = None
+    if room_id:
+        member_result = await db.execute(
+            select(ChatRoomMember.user_id).where(ChatRoomMember.room_id == room_id)
+        )
+        affected = [row[0] for row in member_result.all()]
+        await update_conversation_preferences_after_delete(
+            db,
+            conversation_type="room",
+            conversation_id=room_id,
+            affected_user_ids=affected,
+        )
+        latest = (
+            await db.execute(
+                select(Message)
+                .options(selectinload(Message.sender))
+                .where(Message.room_id == room_id)
+                .order_by(Message.created_at.desc(), Message.id.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if latest:
+            new_last_preview = _preview_message(latest, latest.sender)
+    elif receiver_id:
+        await update_conversation_preferences_after_delete(
+            db,
+            conversation_type="dm",
+            conversation_id=receiver_id,
+            partner_id=user_id,
+            affected_user_ids={user_id, receiver_id},
+        )
+        latest = (
+            await db.execute(
+                select(Message)
+                .options(selectinload(Message.sender))
+                .where(
+                    Message.room_id.is_(None),
+                    or_(
+                        and_(Message.sender_id == user_id, Message.receiver_id == receiver_id),
+                        and_(Message.sender_id == receiver_id, Message.receiver_id == user_id),
+                    ),
+                )
+                .order_by(Message.created_at.desc(), Message.id.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if latest:
+            new_last_preview = _preview_message(latest, latest.sender)
 
     # Broadcast deletion
     payload = {
         "t": "delete",
         "c": conversation_id,
         "m": message_id,
+        "lm": new_last_preview.model_dump(mode="json") if new_last_preview else None,
         "ts": int(datetime.utcnow().timestamp() * 1000),
     }
 
-    if message.room_id:
-        await manager.broadcast_to_room(message.room_id, payload)
-    elif message.receiver_id:
-        await manager.send_to_user(message.receiver_id, payload)
+    if room_id:
+        await manager.broadcast_to_room(room_id, payload)
+    elif receiver_id:
+        await manager.send_to_user(receiver_id, payload)
         await manager.send_to_user(user_id, payload)  # Echo back to sender
 
 
@@ -236,6 +292,18 @@ async def handle_send_message(user_id: str, data: dict, db: AsyncSession):
     conversation_id = data.get("c")
     message_data = data.get("m", {})
     is_e2e = data.get("e2e", False)
+
+    # The client sends disappear_at as an ISO timestamp; store it so the
+    # retention loop can actually purge the message later.
+    disappear_at = None
+    disappear_raw = message_data.get("disappear_at")
+    if disappear_raw:
+        try:
+            disappear_at = datetime.fromisoformat(
+                str(disappear_raw).replace("Z", "+00:00")
+            )
+        except (ValueError, TypeError):
+            disappear_at = None
 
     # Create message in database
     message = Message(
@@ -249,6 +317,7 @@ async def handle_send_message(user_id: str, data: dict, db: AsyncSession):
         attachment_type=message_data.get("attachment_type"),
         attachment_name=message_data.get("attachment_name"),
         metadata_json=json.dumps(message_data.get("metadata")) if message_data.get("metadata") else None,
+        disappear_at=disappear_at,
         # E2E fields on the message itself
         e2e_encrypted=is_e2e,
     )

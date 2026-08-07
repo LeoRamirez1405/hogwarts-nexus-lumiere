@@ -2,7 +2,7 @@
 
 export { MaterialIcon } from "@/components/ui";
 
-function parseUtc(dateStr: string): Date {
+export function parseUtc(dateStr: string): Date {
   return new Date(dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr + "Z");
 }
 

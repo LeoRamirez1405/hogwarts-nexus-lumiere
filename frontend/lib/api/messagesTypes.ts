@@ -52,6 +52,7 @@ export interface Message {
   optimistic?: boolean;
   sending?: boolean;
   failed?: boolean;
+  deleting?: boolean;
 }
 
 export interface MessagePage {

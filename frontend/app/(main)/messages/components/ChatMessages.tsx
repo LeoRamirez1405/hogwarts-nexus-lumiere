@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { MaterialIcon } from "../helpers";
+import { MaterialIcon, parseUtc } from "../helpers";
 import { MessageBubble } from "../MessageRenderers";
 import type { Message, ChatRoomMemberResponse } from "@/lib/api";
 
@@ -78,8 +78,10 @@ export default function ChatMessages({
   const visibleMessages = useMemo(
     () =>
       messages.filter((m) => {
+        // Messages mid-delete animation stay rendered until removed.
+        if (m.deleting) return true;
         if (!m.disappear_at) return true;
-        return new Date(m.disappear_at).getTime() > now;
+        return parseUtc(m.disappear_at).getTime() > now;
       }),
     [messages, now]
   );

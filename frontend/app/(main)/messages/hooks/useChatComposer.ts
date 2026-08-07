@@ -54,7 +54,13 @@ export function useChatComposer({
       receiver_id: isRoom ? undefined : selectedConv?.id,
       room_id: isRoom ? selectedConv?.id : undefined,
       ...(replyingTo ? { reply_to_id: replyingTo.id } : {}),
-      ...(disappearAt ? { disappear_at: disappearAt } : {}),
+      ...(disappearAt
+        ? {
+            disappear_at: new Date(
+              Date.now() + Number(disappearAt) * 1000
+            ).toISOString(),
+          }
+        : {}),
       ...(scheduleAt ? { scheduled_at: scheduleAt } : {}),
       ...extra,
     }),

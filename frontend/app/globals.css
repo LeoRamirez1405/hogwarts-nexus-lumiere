@@ -511,6 +511,49 @@ button:focus-visible,
     animation: fade-in 0.2s ease-out forwards;
   }
 
+  /* ===== MESSAGE DELETE ANIMATION (Telegram style) ===== */
+  @keyframes message-delete-out {
+    0% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    60% {
+      opacity: 0.5;
+      transform: scale(0.96);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.85);
+    }
+  }
+
+  .message-deleting {
+    animation: message-delete-out 250ms ease-in forwards;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .message-deleting {
+      animation: none;
+    }
+  }
+
+  /* ===== DISAPPEARING MESSAGE BADGE ===== */
+  @keyframes disappear-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .animate-disappear-pulse {
+    animation: disappear-pulse 1s ease-in-out infinite;
+  }
+
   /* ===== LEVEL-UP CELEBRATION ===== */
   @keyframes lvlup-backdrop { from { opacity: 0 } to { opacity: 1 } }
 

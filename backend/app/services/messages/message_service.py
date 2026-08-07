@@ -14,7 +14,11 @@ from ...models.user import User
 from ...notifications_service import notify, resolve_mentions, N
 from ...schemas.message import ForwardMessageRequest, MessageCreate
 from ...routers.messages.deps import _PIN_OPTS
-from .conversation_prefs import _update_conversation_preferences, is_conversation_muted
+from .conversation_prefs import (
+    _update_conversation_preferences,
+    is_conversation_muted,
+    update_conversation_preferences_after_delete,
+)
 
 
 async def create_mention_notifications(
@@ -229,6 +233,27 @@ async def delete_message_service(
     receiver_id = message.receiver_id
     await db.delete(message)
     await db.commit()
+
+    if room_id:
+        member_result = await db.execute(
+            select(ChatRoomMember.user_id).where(ChatRoomMember.room_id == room_id)
+        )
+        affected = [row[0] for row in member_result.all()]
+        await update_conversation_preferences_after_delete(
+            db,
+            conversation_type="room",
+            conversation_id=room_id,
+            affected_user_ids=affected,
+        )
+    elif receiver_id:
+        await update_conversation_preferences_after_delete(
+            db,
+            conversation_type="dm",
+            conversation_id=receiver_id,
+            partner_id=current_user.id,
+            affected_user_ids={current_user.id, receiver_id},
+        )
+
     return room_id, receiver_id
 
 

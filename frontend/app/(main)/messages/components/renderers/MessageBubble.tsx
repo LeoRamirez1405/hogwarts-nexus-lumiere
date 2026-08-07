@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, memo } from "react";
 import { MaterialIcon } from "@/components/ui";
-import { formatMessageTime } from "@/app/(main)/messages/helpers";
+import { formatMessageTime, parseUtc } from "@/app/(main)/messages/helpers";
 import { ReplyPreview } from "./ReplyPreview";
 import { PollView } from "./PollView";
 import { PostShareView } from "./PostShareView";
@@ -21,13 +21,16 @@ import { detectMessageEffect, MessageEffectBurst } from "@/components/ui/Message
 import type { MessageBubbleProps } from "./types";
 
 const formatDisappearTime = (disappearAt: string) => {
-  const diff = new Date(disappearAt).getTime() - Date.now();
+  const diff = parseUtc(disappearAt).getTime() - Date.now();
   if (diff <= 0) return "Expirado";
-  const seconds = Math.ceil(diff / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.ceil(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.ceil(minutes / 60);
+  const totalSeconds = Math.max(1, Math.ceil(diff / 1000));
+  // Cuenta atras estilo Telegram: mm:ss cuando queda menos de una hora.
+  if (totalSeconds < 3600) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  }
+  const hours = Math.ceil(totalSeconds / 3600);
   if (hours < 24) return `${hours}h`;
   const days = Math.ceil(hours / 24);
   return `${days}d`;
@@ -106,8 +109,16 @@ export const MessageBubble = memo(
   // Mensajes ajenos (izquierda): swipe hacia la derecha (positivo)
   const swipeDir = isOwn ? -1 : 1;
 
+  // Urgencia del temporizador de desaparicion: rojo < 1 min, dorado < 5 min.
+  const disappearDiff = message.disappear_at
+    ? parseUtc(message.disappear_at).getTime() - Date.now()
+    : null;
+  const disappearUrgent = disappearDiff !== null && disappearDiff <= 60_000;
+  const disappearWarn =
+    disappearDiff !== null && !disappearUrgent && disappearDiff <= 300_000;
+
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (message.optimistic || editing) return;
+    if (message.optimistic || editing || message.deleting) return;
     touchStartRef.current = {
       x: e.touches[0].clientX,
       y: e.touches[0].clientY,
@@ -172,7 +183,9 @@ return (
       ref={anchorRef}
       className={`relative flex ${isOwn ? "justify-end" : "justify-start"} mb-3 gap-2 group ${
         message.optimistic ? "opacity-75" : ""
-      } ${dragging ? "select-none" : ""} transition-transform ${
+      } ${dragging ? "select-none" : ""} ${
+        message.deleting ? "message-deleting" : ""
+      } transition-transform ${
         dragging ? "" : "duration-200 ease-out"
       }`}
       style={{ transform: `translateX(${dragX}px)`, touchAction: "pan-y" }}
@@ -333,12 +346,6 @@ return (
 
           <div className={`flex items-center gap-1 mt-1 ${isOwn ? "text-white/60" : "text-on-secondary-container/70"}`}>
             {message.pinned && <MaterialIcon name="push_pin" className="text-[11px]" filled />}
-            {message.disappear_at && (
-              <span className="flex items-center gap-0.5 text-[10px]" title="Este mensaje desaparecerá">
-                <MaterialIcon name="timer" className="text-[10px]" />
-                <span>{disappearTime || "..."}</span>
-              </span>
-            )}
             {message.optimistic && message.sending && (
               <span className="flex items-center gap-0.5 text-[10px]" title="Enviando...">
                 <MaterialIcon name="progress_activity" className="text-[10px] animate-spin" />
@@ -373,7 +380,29 @@ return (
                 <MaterialIcon name="check" className="text-[12px]" />
               </span>
             )}
-            <p className="text-[10px]">{formatMessageTime(message.created_at)}</p>
+            {message.disappear_at && !message.deleting ? (
+              <span
+                className={`flex items-center gap-1 rounded-full px-1.5 py-[2px] backdrop-blur-sm select-none ${
+                  disappearUrgent ? "animate-disappear-pulse" : ""
+                }`}
+                style={{
+                  backgroundColor: "rgba(0, 0, 0, 0.55)",
+                  color: disappearUrgent
+                    ? "var(--color-error-container)"
+                    : disappearWarn
+                      ? "var(--color-secondary-fixed)"
+                      : "rgba(255, 255, 255, 0.92)",
+                }}
+                title={`Este mensaje desaparece ${parseUtc(
+                  message.disappear_at
+                ).toLocaleString()}`}
+              >
+                <MaterialIcon name="timer" className="text-[10px]" />
+                <span className="text-[10px] leading-none">{disappearTime || "..."}</span>
+              </span>
+            ) : (
+              <p className="text-[10px]">{formatMessageTime(message.created_at)}</p>
+            )}
           </div>
         </div>
 

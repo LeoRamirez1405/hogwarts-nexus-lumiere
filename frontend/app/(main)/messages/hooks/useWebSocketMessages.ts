@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { useWebSocket } from "./useWebSocket";
+import { markMessageDeleting, healConversationPreview } from "../utils/messageLifecycle";
 import type { Message, Conversation, SelectedConvType } from "../types";
 
 interface WsClient {
@@ -97,9 +98,21 @@ export function useWebSocketMessages({
     setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, reactions } : m));
   }, [setMessages]);
 
-  const handleWSDelete = useCallback((messageId: string) => {
-    setMessages((prev) => prev.filter((m) => m.id !== messageId));
-  }, [setMessages]);
+  const handleWSDelete = useCallback((conversationId: string, messageId: string, lastMessage: Message | null) => {
+    markMessageDeleting(setMessages, messageId);
+    if (!conversationId) return;
+    if (lastMessage) {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conversationId ? { ...c, last_message: lastMessage } : c))
+      );
+    } else if (selectedIdRef.current === conversationId) {
+      healConversationPreview(setConversations, conversationId, messageId, messagesRef);
+    } else {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conversationId ? { ...c, last_message: undefined } : c))
+      );
+    }
+  }, [setMessages, setConversations, messagesRef, selectedIdRef]);
 
   const handleWSEdit = useCallback((message: Message) => {
     setMessages((prev) => prev.map((m) => m.id === message.id ? { ...m, ...message } : m));

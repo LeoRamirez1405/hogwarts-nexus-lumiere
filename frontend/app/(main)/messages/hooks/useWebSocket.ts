@@ -13,7 +13,7 @@ interface UseWebSocketParams {
   onPresence: (userId: string, status: "online" | "offline") => void;
   onReadReceipt: (messageId: string) => void;
   onReactionUpdate: (messageId: string, reactions: Message["reactions"]) => void;
-  onDelete: (messageId: string) => void;
+  onDelete: (conversationId: string, messageId: string, lastMessage: Message | null) => void;
   onEdit: (message: Message) => void;
   onCatchUpRequested: () => void;
   setConversations?: (fn: (prev: unknown[]) => unknown[]) => void;
@@ -85,7 +85,7 @@ export function useWebSocket({
     });
 
     const unsubDelete = wsClient.on("delete", (msg: WSMessage) => {
-      onDelete(msg.m as string);
+      onDelete(msg.c as string, msg.m as string, (msg.lm as Message | null) ?? null);
     });
 
     const unsubEdit = wsClient.on("edit", (msg: WSMessage) => {

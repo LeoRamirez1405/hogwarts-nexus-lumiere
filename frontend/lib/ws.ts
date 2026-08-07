@@ -11,6 +11,7 @@ interface WSMessage {
   b?: string;
   n?: unknown;
   e?: unknown;
+  lm?: unknown;
 }
 
 interface WSTokenResponse {

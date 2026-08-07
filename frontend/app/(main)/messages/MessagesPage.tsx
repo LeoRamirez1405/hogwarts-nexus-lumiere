@@ -99,7 +99,17 @@ export default function MessagesPage() {
     selectedId,
     selectedType,
     wsClient: wsClientStub,
+    setConversations,
   });
+
+  // Keep the page-level ref in sync so healConversationPreview (used after
+  // delete/expiry) can compute the surviving newest message from real data.
+  // Without this the ref stays empty and the inbox preview is cleared even
+  // when other messages remain in the conversation.
+  useEffect(() => {
+    messagesRef.current = messagesHook.messages;
+  }, [messagesHook.messages]);
+
   const { outboxMessages, processOutbox, addMessage: addToOutbox } = useOutbox();
 
   // Use WebSocket messages hook

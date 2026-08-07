@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { api, Message } from "@/lib/api";
+import { markMessageDeleting, healConversationPreview } from "../utils/messageLifecycle";
+import { parseUtc } from "../helpers";
 import { PAGE_SIZE, byCreatedAsc } from "../types";
-import type { SelectedConvType, ChatRoomMemberResponse } from "../types";
+import type { SelectedConvType, ChatRoomMemberResponse, Conversation } from "../types";
 
 interface WsClient {
   isConnected: () => boolean;
@@ -14,9 +16,10 @@ interface UseMessagesOptions {
   selectedId: string | null;
   selectedType: SelectedConvType | null;
   wsClient: WsClient;
+  setConversations?: React.Dispatch<React.SetStateAction<Conversation[]>>;
 }
 
-export function useMessages({ selectedId, selectedType, wsClient }: UseMessagesOptions) {
+export function useMessages({ selectedId, selectedType, wsClient, setConversations }: UseMessagesOptions) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -38,6 +41,31 @@ export function useMessages({ selectedId, selectedType, wsClient }: UseMessagesO
     hasMoreRef.current = hasMore;
     loadingOlderRef.current = loadingOlder;
   }, [messages, hasMore, loadingOlder]);
+
+  // Messages with disappear_at that just passed get the Telegram-style exit
+  // animation instead of vanishing abruptly (markMessageDeleting also removes
+  // them from the list once the animation is over).
+  const checkExpiredMessages = useCallback(() => {
+    const nowTs = Date.now();
+    for (const m of messagesRef.current) {
+      if (
+        !m.deleting &&
+        m.disappear_at &&
+        parseUtc(m.disappear_at).getTime() <= nowTs
+      ) {
+        markMessageDeleting(setMessages, m.id);
+        if (selectedId && setConversations) {
+          healConversationPreview(setConversations, selectedId, m.id, messagesRef);
+        }
+      }
+    }
+  }, [setMessages, setConversations, selectedId]);
+
+  useEffect(() => {
+    checkExpiredMessages();
+    const interval = setInterval(checkExpiredMessages, 1000);
+    return () => clearInterval(interval);
+  }, [checkExpiredMessages]);
 
   // Load conversation
   useEffect(() => {

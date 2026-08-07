@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { MaterialIcon } from "../../helpers";
 import DisappearMenu from "./DisappearMenu";
 import ScheduleMenu from "./ScheduleMenu";
@@ -73,7 +73,28 @@ export default function ChatInputDesktop({
   onDismissMentions,
 }: ChatInputDesktopProps) {
   const [showToolbar, setShowToolbar] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
   const canSend = Boolean(input.trim() || attachment) && !uploading;
+
+  // Cierra el menú de herramientas al hacer clic fuera de él (o con Escape),
+  // en vez de obligar a pulsar de nuevo el botón (+) para contraerlo.
+  useEffect(() => {
+    if (!showToolbar) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
+        setShowToolbar(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowToolbar(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showToolbar]);
 
   // Auto-crecimiento del campo. Fusionamos el ref local (para medir/redimensionar)
   // con el inputRef compartido (foco / posición del caret).
@@ -163,7 +184,7 @@ export default function ChatInputDesktop({
           disabled={uploading}
         />
 
-        <div className="relative flex-1 flex items-center gap-2">
+        <div ref={toolbarRef} className="relative flex-1 flex items-center gap-2">
           {mentionOpen && (
             <MentionDropdown
               results={mentionResults}
