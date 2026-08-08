@@ -136,7 +136,7 @@ export default function Modal({
         aria-labelledby={title ? titleId : undefined}
         aria-label={!title ? ariaLabel : undefined}
         tabIndex={-1}
-        className={`w-full ${sizeClasses[size]} rounded-2xl shadow-2xl overflow-y-auto outline-none ${className}`}
+        className={`w-full glass-card glass-card--white ${sizeClasses[size]} rounded-2xl shadow-2xl overflow-y-auto outline-none ${className}`}
         style={{ maxHeight }}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={swipeHandlers.onTouchStart}

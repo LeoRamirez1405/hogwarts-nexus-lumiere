@@ -74,3 +74,6 @@ uploads/
 # Turso / libsql artifacts
 auth
 auth-wal
+
+#bot
+bunker_bot.zip

@@ -172,6 +172,7 @@ export function CartSidebar({
           onClose={onClose}
           title="Cesta Oscura"
           ariaLabel="Carrito de compras Borgin & Burkes"
+          className="glass-card--dark"
         >
           <div className="bg-[#2a2828] rounded-t-2xl flex flex-col -mx-6 -mb-6">
             <CartContents

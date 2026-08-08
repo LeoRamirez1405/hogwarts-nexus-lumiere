@@ -162,6 +162,10 @@
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
   }
 
+  .glass-card--white {
+    background: rgba(255, 255, 255, 0.9);
+  }
+
   .glass-card--tinted {
     border-color: rgba(119, 90, 25, 0.1);
   }

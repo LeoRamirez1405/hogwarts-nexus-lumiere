@@ -138,7 +138,7 @@ export default function BottomSheet({
         aria-labelledby={title ? titleId : undefined}
         aria-label={!title ? ariaLabel : undefined}
         tabIndex={-1}
-        className={`absolute bottom-0 left-0 right-0 rounded-t-2xl shadow-2xl flex flex-col outline-none transition-transform duration-200 ease-out ${className} ${
+        className={`absolute bottom-0 left-0 right-0 glass-card glass-card--white rounded-t-2xl shadow-2xl flex flex-col outline-none transition-transform duration-200 ease-out ${className} ${
           open && !animOut ? "translate-y-0" : "translate-y-full"
         }`}
         style={{
