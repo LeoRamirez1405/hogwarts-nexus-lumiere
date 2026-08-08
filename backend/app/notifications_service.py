@@ -50,6 +50,7 @@ class N:
     FORUM_MENTION = "forum_mention"
     # Economy
     ZERINES_RECEIVED = "zerines_received"
+    INVENTORY_CONSUMED = "inventory_consumed"
     # Social graph
     FRIEND_REQUEST = "friend_request"
     FRIEND_ACCEPTED = "friend_accepted"
@@ -102,10 +103,12 @@ async def notify(
     body: str,
     related_id: Optional[str] = None,
     actor_id: Optional[str] = None,
+    force: bool = False,
 ) -> Optional[Notification]:
     """Create a notification for ``user_id``. No-op (returns None) when the
-    recipient is also the actor — you never get notified about your own action."""
-    if actor_id is not None and actor_id == user_id:
+    recipient is also the actor — you never get notified about your own action.
+    Pass ``force=True`` to override (e.g., admin actions on own inventory)."""
+    if not force and actor_id is not None and actor_id == user_id:
         return None
     n = Notification(
         user_id=user_id,

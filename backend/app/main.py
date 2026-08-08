@@ -27,6 +27,7 @@ from .routers.admin import enums as admin_enums
 from .routers.admin import feature_flags as admin_feature_flags
 from .routers.admin import audit_logs as admin_audit_logs
 from .routers.admin import notifications as admin_notifications
+from .routers.admin import inventory as admin_inventory
 from .models import friend_request  # noqa: F401
 from .retention import retention_loop, disappearing_loop
 from .pet_care import pet_care_loop
@@ -126,6 +127,7 @@ app.include_router(admin_enums.router, tags=["admin-enums"])
 app.include_router(admin_feature_flags.router, tags=["admin-feature-flags"])
 app.include_router(admin_audit_logs.router, tags=["admin-audit-logs"])
 app.include_router(admin_notifications.router, tags=["admin-notifications"])
+app.include_router(admin_inventory.router, tags=["admin-inventory"])
 app.include_router(push.router, tags=["push"])
 app.include_router(voice_channels.rest_router, prefix="/messages/voice", tags=["voice"])
 app.include_router(events.router, prefix="/events", tags=["events"])

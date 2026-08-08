@@ -188,6 +188,12 @@ const META: Record<string, NotificationMeta> = {
     category: "pets",
     route: () => "/pets",
   },
+  inventory_consumed: {
+    icon: "restaurant",
+    chip: "bg-secondary/10 text-secondary",
+    category: "economy",
+    route: () => null,
+  },
 };
 
 export function notificationMeta(type: string): NotificationMeta {

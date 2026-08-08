@@ -15,6 +15,7 @@ import { toastError, toastSuccess } from "@/lib/toastStore";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
 import { AdminCrudModal, FormField, InputField, TextareaField, SelectField, ToggleButtonGroup } from "@/components/ui/AdminCrudModal";
 import { EnumMissingNotice } from "@/components/ui/EnumMissingNotice";
+import Switch from "@/components/ui/Switch";
 import { useUnsavedChangesGuard, useFormDirtyState } from "@/hooks/useUnsavedChangesGuard";
 import PullToRefresh from "@/components/ui/PullToRefresh";
 
@@ -30,6 +31,8 @@ export default function AdminProductsPage() {
     shop: "borgin" | "flourish";
     image_url: string;
     stock: string;
+    requires_specification: boolean;
+    specification_placeholder: string;
   }>({
     name: "",
     description: "",
@@ -38,6 +41,8 @@ export default function AdminProductsPage() {
     shop: "borgin",
     image_url: "",
     stock: "",
+    requires_specification: false,
+    specification_placeholder: "",
   });
 
   const initialFormState = useMemo(() => ({
@@ -48,6 +53,8 @@ export default function AdminProductsPage() {
     shop: "borgin" as "borgin" | "flourish",
     image_url: "",
     stock: "",
+    requires_specification: false,
+    specification_placeholder: "",
   }), []);
 
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -125,6 +132,10 @@ export default function AdminProductsPage() {
       shop: form.shop,
       image_url: form.image_url || undefined,
       stock: parseInt(form.stock) || 0,
+      requires_specification:
+        form.shop === "flourish" ? form.requires_specification : false,
+      specification_placeholder:
+        form.shop === "flourish" ? form.specification_placeholder.trim() || undefined : undefined,
     };
     if (crud.showCreate) {
       await crud.handleCreate(data);
@@ -144,6 +155,8 @@ export default function AdminProductsPage() {
       shop: "borgin",
       image_url: "",
       stock: "",
+      requires_specification: false,
+      specification_placeholder: "",
     });
     crud.setShowCreate(true);
   }, [crud]);
@@ -157,6 +170,8 @@ export default function AdminProductsPage() {
       shop: p.shop,
       image_url: p.image_url || "",
       stock: p.stock.toString(),
+      requires_specification: !!p.requires_specification,
+      specification_placeholder: p.specification_placeholder || "",
     });
     crud.setEditItem(p);
   }, [crud]);
@@ -296,7 +311,10 @@ export default function AdminProductsPage() {
             saving={crud.saving || crud.creating}
             saveDisabled={
               (form.shop === "borgin" && borginCategories.length === 0) ||
-              (form.shop === "flourish" && flourishCategories.length === 0)
+              (form.shop === "flourish" && flourishCategories.length === 0) ||
+              (form.shop === "flourish" &&
+                form.requires_specification &&
+                !form.specification_placeholder.trim())
             }
             onSave={handleSave}
           >
@@ -375,6 +393,49 @@ export default function AdminProductsPage() {
                   />
                 </FormField>
               </div>
+              {form.shop === "flourish" && (
+                <>
+                  <FormField label="¿Requiere especificacion del comprador?">
+                    <div className="rounded-xl bg-surface-container-low border border-outline-variant/20 px-4 py-3">
+                      <Switch
+                        checked={form.requires_specification}
+                        onChange={(checked) =>
+                          setForm((p) => ({ ...p, requires_specification: checked }))
+                        }
+                        label={
+                          form.requires_specification
+                            ? "El comprador debe indicar un detalle antes de comprar"
+                            : "Compra directa, sin especificacion"
+                        }
+                      />
+                    </div>
+                    <p className="text-label-sm text-on-surface-variant mt-2">
+                      Usado para compras personalizadas: canciones, fotos de catalogo, suscripciones
+                      con nombre, etc. La especificacion se pide al agregar al carrito y el
+                      administrador la ve en Consumicion.
+                    </p>
+                  </FormField>
+                  {form.requires_specification && (
+                    <FormField
+                      label="Texto guia para el comprador"
+                      required
+                      helpText={
+                        form.specification_placeholder.trim()
+                          ? `Se mostrara al comprador: "${form.specification_placeholder.trim()}"`
+                          : "Ej: 'Especifica el nombre de la cancion', 'Indica el numero de foto del catalogo', 'Escribe el nombre del alumno'"
+                      }
+                    >
+                      <InputField
+                        value={form.specification_placeholder}
+                        onChange={(v: string) =>
+                          setForm((p) => ({ ...p, specification_placeholder: v }))
+                        }
+                        placeholder="Especifica el nombre de la cancion"
+                      />
+                    </FormField>
+                  )}
+                </>
+              )}
               <FormField label="Imagen (opcional)">
                 <div className="flex items-center gap-3">
                   {form.image_url && (

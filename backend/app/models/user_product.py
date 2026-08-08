@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, Integer
+from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, Text
 from sqlalchemy.orm import relationship
 
 from ..database import Base
@@ -14,6 +14,7 @@ class UserProduct(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     product_id = Column(String, ForeignKey("products.id"), nullable=False)
     quantity = Column(Integer, default=1, nullable=False)
+    specification = Column(Text, nullable=True)
     purchased_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     user = relationship("User", lazy="selectin")

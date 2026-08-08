@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, Integer, DateTime, Text
+from sqlalchemy import Column, String, Integer, DateTime, Text, Boolean
 
 from ..database import Base
 
@@ -18,4 +18,6 @@ class Product(Base):
     image_url = Column(String, nullable=True)
     stock = Column(Integer, default=0, nullable=False)
     weekly_sales = Column(Integer, default=0, nullable=False)
+    requires_specification = Column(Boolean, default=False, server_default="0", nullable=False)
+    specification_placeholder = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

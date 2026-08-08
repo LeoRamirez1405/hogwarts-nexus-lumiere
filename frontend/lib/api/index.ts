@@ -19,6 +19,7 @@ import {
 } from "./admin/settings";
 import { auditLogsApi } from "./admin/auditLogs";
 import { dashboardApi } from "./admin/dashboard";
+import { consumicionApi } from "./consumicion";
 
 export const api = {
   ...authApi,
@@ -40,6 +41,7 @@ export const api = {
   ...featureFlagsApi,
   ...auditLogsApi,
   ...dashboardApi,
+  ...consumicionApi,
 };
 
 export { request, uploadFile };
@@ -59,3 +61,4 @@ export * from "./upload";
 export * from "./support";
 export * from "./e2e";
 export * from "./admin";
+export * from "./consumicion";

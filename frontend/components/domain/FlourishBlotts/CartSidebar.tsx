@@ -12,7 +12,7 @@ interface CartSidebarProps {
   onClose: () => void;
   items: CartItem[];
   getTotal: () => number;
-  onRemoveItem: (productId: string) => void;
+  onRemoveItem: (productId: string, specification?: string) => void;
   onPurchase: () => Promise<void>;
   submitting: boolean;
   userZerines: number;
@@ -29,7 +29,7 @@ function CartContents({
 }: {
   items: CartItem[];
   getTotal: () => number;
-  onRemoveItem: (productId: string) => void;
+  onRemoveItem: (productId: string, specification?: string) => void;
   onPurchase: () => Promise<void>;
   userZerines: number;
   submitting: boolean;
@@ -53,7 +53,7 @@ function CartContents({
         ) : (
           items.map((item) => (
             <div
-              key={item.product.id}
+              key={`${item.product.id}::${item.specification ?? ""}`}
               className="flex items-center gap-4 p-4 bg-surface-container rounded-xl"
             >
               <Image
@@ -68,6 +68,11 @@ function CartContents({
                 <h4 className="text-body-md font-medium text-on-surface truncate">
                   {item.product.name}
                 </h4>
+                {item.specification && (
+                  <p className="text-label-sm text-primary mt-0.5 truncate">
+                    <MaterialIcon name="edit_note" className="text-[1em] align-[-2px]" /> {item.specification}
+                  </p>
+                )}
                 <div className="flex items-center gap-2 mt-1">
                   <ZerineDisplay
                     amount={item.product.price}
@@ -79,7 +84,7 @@ function CartContents({
                 </div>
               </div>
               <button
-                onClick={() => onRemoveItem(item.product.id)}
+                onClick={() => onRemoveItem(item.product.id, item.specification)}
                 className="p-2 rounded-full hover:bg-error-container text-on-surface-variant hover:text-error transition-colors"
               >
                 <MaterialIcon name="delete" className="text-[1.1em]" />

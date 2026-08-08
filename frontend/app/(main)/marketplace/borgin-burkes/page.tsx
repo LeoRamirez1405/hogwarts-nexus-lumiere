@@ -1,19 +1,16 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import dynamic from "next/dynamic";
 import Image from "next/image";
 import { api, Product, EnumValue } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
-import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary, Skeleton, DetailModal } from "@/components/ui";
+import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary, Skeleton, DetailModal, PurchaseSuccessModal } from "@/components/ui";
 import { ArtifactCard, HeroCarousel, CartSidebar, ProductDetailContent } from "@/components/domain/BorginBurkes";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { useDebounce } from "@/hooks/useDebounce";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import PullToRefresh from "@/components/ui/PullToRefresh";
-
-const SuccessTicket = dynamic(() => import("@/components/domain/BorginBurkes").then((m) => m.SuccessTicket), { ssr: false });
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
 
@@ -24,7 +21,6 @@ export default function BorginBurkesPage() {
   const debouncedSearch = useDebounce(search, 300);
   const [activeFilter, setActiveFilter] = useState("Todos");
   const [showSuccess, setShowSuccess] = useState(false);
-  const [ticketId, setTicketId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(1);
   const [slides, setSlides] = useState<SlideType[]>([]);
@@ -168,7 +164,6 @@ export default function BorginBurkesPage() {
       );
       clearCart();
       toggleCart();
-      setTicketId(Date.now().toString(36).toUpperCase());
       setShowSuccess(true);
       await Promise.all([
         refreshPurchases(),
@@ -453,11 +448,10 @@ export default function BorginBurkesPage() {
           submitting={submitting}
         />
 
-        {/* Success Ticket Modal */}
-        <SuccessTicket
+        {/* Success Modal */}
+        <PurchaseSuccessModal
           isOpen={showSuccess}
           onClose={() => setShowSuccess(false)}
-          ticketId={ticketId}
         />
 
         {/* Product Detail Modal */}

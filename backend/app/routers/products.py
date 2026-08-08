@@ -14,6 +14,7 @@ from ..schemas.product import (
     BatchPurchaseRequest,
     BatchPurchaseResponse,
     BatchPurchaseResultItem,
+    SinglePurchaseRequest,
 )
 from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
@@ -73,11 +74,12 @@ async def get_popular_products(
 @router.post("/{product_id}/purchase", response_model=ProductResponse)
 async def purchase_product(
     product_id: str,
-    quantity: int = 1,
+    body: SinglePurchaseRequest = SinglePurchaseRequest(),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    quantity = quantity or 1
+    quantity = body.quantity or 1
+    specification = body.specification
     if quantity < 1:
         raise HTTPException(status_code=400, detail="Quantity must be positive")
 
@@ -85,6 +87,15 @@ async def purchase_product(
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    if product.requires_specification and not (specification or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Este producto requiere una especificacion: "
+                f"{product.specification_placeholder or 'especifica los detalles'}"
+            ),
+        )
 
     total = product.price * quantity
     if current_user.zerines < total:
@@ -113,6 +124,7 @@ async def purchase_product(
         user_id=current_user.id,
         product_id=product_id,
         quantity=quantity,
+        specification=(specification or "").strip() or None,
     )
     db.add(user_product)
 
@@ -162,6 +174,14 @@ async def batch_purchase(
             raise HTTPException(status_code=400, detail="Quantity must be positive")
         if not product:
             raise HTTPException(status_code=404, detail=f"Product {req_item.product_id} not found")
+        if product.requires_specification and not (req_item.specification or "").strip():
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"El producto {product.name} requiere una especificacion: "
+                    f"{product.specification_placeholder or 'especifica los detalles'}"
+                ),
+            )
         if product.stock < qty:
             raise HTTPException(
                 status_code=400,
@@ -201,7 +221,14 @@ async def batch_purchase(
             # Should not happen since we validated above, but guard anyway.
             raise HTTPException(status_code=400, detail=f"Insufficient stock for {product.name}")
 
-        db.add(UserProduct(user_id=current_user.id, product_id=product.id, quantity=qty))
+        db.add(
+            UserProduct(
+                user_id=current_user.id,
+                product_id=product.id,
+                quantity=qty,
+                specification=(req_item.specification or "").strip() or None,
+            )
+        )
         purchased.append(
             BatchPurchaseResultItem(
                 product_id=product.id,
@@ -213,12 +240,31 @@ async def batch_purchase(
         )
 
     current_user.zerines -= total
+    # Build descriptive transaction description
+    shop_names = {}
+    for item in purchased:
+        shop = products[item.product_id].shop
+        if shop not in shop_names:
+            shop_names[shop] = []
+        shop_names[shop].append(f"{item.name} x{item.quantity}")
+    
+    if len(shop_names) == 1:
+        shop = list(shop_names.keys())[0]
+        shop_label = "Flourish & Blotts" if shop == "flourish" else "Borgin & Burkes"
+        description = f"Compra en {shop_label}: {', '.join(shop_names[shop])}"
+    else:
+        parts = []
+        for shop, items in shop_names.items():
+            shop_label = "Flourish & Blotts" if shop == "flourish" else "Borgin & Burkes"
+            parts.append(f"{shop_label}: {', '.join(items)}")
+        description = f"Compra batch: {'; '.join(parts)}"
+    
     db.add(
         Transaction(
             sender_id=current_user.id,
             amount=total,
             type="purchase",
-            description=f"Compra batch: {len(purchased)} items",
+            description=description,
             status="confirmed",
         )
     )

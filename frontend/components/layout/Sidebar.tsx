@@ -53,6 +53,7 @@ const adminNavItems: NavItem[] = [
     label: "Transacciones",
     href: "/admin/transactions",
   },
+  { icon: "restaurant", label: "Consumición", href: "/admin/consumicion" },
   { icon: "settings", label: "Configuración", href: "/admin/settings" },
 ];
 

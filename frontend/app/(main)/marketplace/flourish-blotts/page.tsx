@@ -1,19 +1,17 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import dynamic from "next/dynamic";
 import Image from "next/image";
 import { api, Product, EnumValue } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
-import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary, Skeleton, DetailModal } from "@/components/ui";
+import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary, Skeleton, DetailModal, PurchaseSuccessModal } from "@/components/ui";
 import { BookCard, HeroCarousel, CartSidebar, ProductDetailContent } from "@/components/domain/FlourishBlotts";
+import { SpecificationModal } from "@/components/domain/SpecificationModal";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { useDebounce } from "@/hooks/useDebounce";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import PullToRefresh from "@/components/ui/PullToRefresh";
-
-const SuccessModal = dynamic(() => import("@/components/domain/FlourishBlotts").then((m) => m.SuccessModal), { ssr: false });
 
 type SlideType = { type: "product"; product: Product } | { type: "info" };
 
@@ -32,6 +30,7 @@ export default function FlourishBlottsPage() {
   const [activeTab, setActiveTab] = useState("catalog");
   const [bookCategories, setBookCategories] = useState<EnumValue[]>([]);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [specProduct, setSpecProduct] = useState<Product | null>(null);
 
   const dynamicFilters = ["Todos", ...bookCategories.map((c) => c.label)];
   const trackRef = useRef<HTMLDivElement>(null);
@@ -119,8 +118,19 @@ export default function FlourishBlottsPage() {
   };
 
   const handleAddToCart = (product: Product) => {
+    if (product.requires_specification) {
+      setSpecProduct(product);
+      return;
+    }
     addItem(product);
     toastSuccess("Añadido al Caldero", `${product.name} está en tu caldero`);
+  };
+
+  const handleSpecConfirm = (specification: string) => {
+    if (!specProduct) return;
+    addItem(specProduct, specification);
+    setSpecProduct(null);
+    toastSuccess("Añadido al Caldero", `${specProduct.name} está en tu caldero`);
   };
 
   const handleViewDetails = (product: Product) => {
@@ -135,7 +145,11 @@ export default function FlourishBlottsPage() {
     setSubmitting(true);
     try {
       const result = await api.batchPurchase(
-        items.map((i) => ({ product_id: i.product.id, quantity: i.quantity }))
+        items.map((i) => ({
+          product_id: i.product.id,
+          quantity: i.quantity,
+          specification: i.specification,
+        }))
       );
       clearCart();
       toggleCart();
@@ -408,6 +422,15 @@ export default function FlourishBlottsPage() {
                             {up.product.description}
                           </p>
                         )}
+                        {up.specification && (
+                          <div className="flex items-start gap-2 mb-3 rounded-xl bg-primary/5 border border-primary/15 px-3 py-2">
+                            <MaterialIcon name="edit_note" className="text-primary shrink-0 mt-0.5" />
+                            <p className="text-body-sm text-primary line-clamp-2">
+                              <span className="font-semibold">Especificacion: </span>
+                              {up.specification}
+                            </p>
+                          </div>
+                        )}
                         <div className="flex items-center justify-between text-label-sm text-on-surface-variant">
                           <span>
                             {up.quantity > 1 ? `x${up.quantity} ` : ""}
@@ -454,7 +477,10 @@ export default function FlourishBlottsPage() {
         />
 
         {/* Success Modal */}
-        <SuccessModal isOpen={showSuccess} onClose={() => setShowSuccess(false)} />
+        <PurchaseSuccessModal
+          isOpen={showSuccess}
+          onClose={() => setShowSuccess(false)}
+        />
 
         {/* Product Detail Modal */}
         <DetailModal
@@ -471,6 +497,14 @@ export default function FlourishBlottsPage() {
             />
           )}
         </DetailModal>
+
+        {/* Specification Modal */}
+        <SpecificationModal
+          open={!!specProduct}
+          product={specProduct}
+          onConfirm={handleSpecConfirm}
+          onCancel={() => setSpecProduct(null)}
+        />
 
         <style jsx global>{`
           @keyframes slide-down {

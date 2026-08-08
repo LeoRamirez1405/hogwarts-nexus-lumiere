@@ -597,6 +597,31 @@ button:focus-visible,
     100% { transform: rotate(0) scale(1) }
   }
 
+  /* ===== PURCHASE SUCCESS CELEBRATION ===== */
+  @keyframes success-pop {
+    0% { transform: scale(0.3) translateY(16px); opacity: 0 }
+    50% { transform: scale(1.15) translateY(-4px); opacity: 1 }
+    70% { transform: scale(0.92) translateY(0); opacity: 1 }
+    100% { transform: scale(1) translateY(0); opacity: 1 }
+  }
+
+  @keyframes success-ring {
+    0% { transform: scale(0.6); opacity: 0.8 }
+    100% { transform: scale(2.5); opacity: 0 }
+  }
+
+  @keyframes success-check {
+    0% { stroke-dashoffset: 48; opacity: 0 }
+    50% { opacity: 1 }
+    100% { stroke-dashoffset: 0; opacity: 1 }
+  }
+
+  @keyframes success-iconspin {
+    0% { transform: rotate(-12deg) scale(0.8) }
+    50% { transform: rotate(8deg) scale(1.1) }
+    100% { transform: rotate(0) scale(1) }
+  }
+
   .touch-target {
     min-width: var(--touch-target-min);
     min-height: var(--touch-target-min);

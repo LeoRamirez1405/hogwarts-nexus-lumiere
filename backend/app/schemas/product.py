@@ -12,6 +12,8 @@ class ProductCreate(BaseModel):
     image_url: Optional[str] = None
     stock: int = 0
     weekly_sales: int = 0
+    requires_specification: bool = False
+    specification_placeholder: Optional[str] = None
 
 
 class ProductUpdate(BaseModel):
@@ -23,6 +25,8 @@ class ProductUpdate(BaseModel):
     image_url: Optional[str] = None
     stock: Optional[int] = None
     weekly_sales: Optional[int] = None
+    requires_specification: Optional[bool] = None
+    specification_placeholder: Optional[str] = None
 
 
 class ProductResponse(BaseModel):
@@ -35,6 +39,8 @@ class ProductResponse(BaseModel):
     image_url: Optional[str] = None
     stock: int
     weekly_sales: int
+    requires_specification: bool = False
+    specification_placeholder: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -47,6 +53,7 @@ class UserProductResponse(BaseModel):
     product_id: str
     product: Optional[ProductResponse] = None
     quantity: int
+    specification: Optional[str] = None
     purchased_at: datetime
 
     class Config:
@@ -56,6 +63,12 @@ class UserProductResponse(BaseModel):
 class BatchPurchaseItem(BaseModel):
     product_id: str
     quantity: int = 1
+    specification: Optional[str] = None
+
+
+class SinglePurchaseRequest(BaseModel):
+    quantity: int = 1
+    specification: Optional[str] = None
 
 
 class BatchPurchaseRequest(BaseModel):

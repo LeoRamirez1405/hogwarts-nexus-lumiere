@@ -11,6 +11,8 @@ export interface Product {
   image_url?: string;
   stock: number;
   weekly_sales?: number;
+  requires_specification?: boolean;
+  specification_placeholder?: string;
   created_at: string;
 }
 
@@ -20,6 +22,7 @@ export interface UserProduct {
   product_id: string;
   product?: Product;
   quantity: number;
+  specification?: string;
   purchased_at: string;
 }
 
@@ -52,13 +55,18 @@ export const productsApi = {
       `/products/popular/${shop}${limit ? `?limit=${limit}` : ""}`
     ),
 
-  purchaseProduct: (id: string, quantity?: number) =>
+  purchaseProduct: (id: string, quantity?: number, specification?: string) =>
     request<Product>(`/products/${id}/purchase`, {
       method: "POST",
-      body: JSON.stringify({ quantity: quantity || 1 }),
+      body: JSON.stringify({
+        quantity: quantity || 1,
+        ...(specification ? { specification } : {}),
+      }),
     }),
 
-  batchPurchase: (items: { product_id: string; quantity: number }[]) =>
+  batchPurchase: (
+    items: { product_id: string; quantity: number; specification?: string }[]
+  ) =>
     request<BatchPurchaseResult>("/products/batch-purchase", {
       method: "POST",
       body: JSON.stringify({ items }),

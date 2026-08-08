@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Product } from "@/lib/api";
 import { getFallbackForProduct } from "@/lib/fallbacks";
 import { useTheme } from "@/lib/useTheme";
-import { ZerineDisplay } from "@/components/ui";
+import { ZerineDisplay, MaterialIcon } from "@/components/ui";
 
 interface BookCardProps {
   product: Product;
@@ -45,6 +45,12 @@ export const BookCard = memo(function BookCard({
         <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-primary font-bold text-label-sm shadow-sm">
           {product.category}
         </span>
+        {product.requires_specification && (
+          <span className="absolute top-4 right-4 bg-primary/90 backdrop-blur-md px-3 py-1 rounded-full text-on-primary font-bold text-label-sm shadow-sm flex items-center gap-1">
+            <MaterialIcon name="edit_note" className="text-[1em]" />
+            Requiere especificacion
+          </span>
+        )}
       </div>
       <h3 className="font-display text-headline-lg text-primary mb-1">
         {product.name}
