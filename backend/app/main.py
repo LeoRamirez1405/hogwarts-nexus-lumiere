@@ -12,7 +12,7 @@ from brotli_asgi import BrotliMiddleware
 from .config import settings
 from .rate_limit import limiter
 from .database import init_db
-from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, ws_messages, push, voice_channels, e2e_encryption, events
+from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, ws_messages, push, voice_channels, e2e_encryption, events, catalogs
 from .routers.admin import users as admin_users
 from .routers.admin import products as admin_products
 from .routers.admin import creatures as admin_creatures
@@ -28,6 +28,7 @@ from .routers.admin import feature_flags as admin_feature_flags
 from .routers.admin import audit_logs as admin_audit_logs
 from .routers.admin import notifications as admin_notifications
 from .routers.admin import inventory as admin_inventory
+from .routers.admin import catalogs as admin_catalogs
 from .models import friend_request  # noqa: F401
 from .retention import retention_loop, disappearing_loop
 from .pet_care import pet_care_loop
@@ -95,6 +96,7 @@ else:
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(products.router, prefix="/products", tags=["products"])
+app.include_router(catalogs.router, prefix="/catalogs", tags=["catalogs"])
 app.include_router(articles.router, prefix="/articles", tags=["articles"])
 app.include_router(creatures.router, prefix="/creatures", tags=["creatures"])
 app.include_router(pet_items.router, prefix="/pet-items", tags=["pet-items"])
@@ -115,6 +117,7 @@ app.include_router(enum_types.router, prefix="/enum-types", tags=["enum-types"])
 app.include_router(feature_flags.router, prefix="/feature-flags", tags=["feature-flags"])
 app.include_router(admin_users.router, tags=["admin-users"])
 app.include_router(admin_products.router, tags=["admin-products"])
+app.include_router(admin_catalogs.router, tags=["admin-catalogs"])
 app.include_router(admin_creatures.router, tags=["admin-creatures"])
 app.include_router(admin_articles.router, tags=["admin-articles"])
 app.include_router(admin_announcements.router, tags=["admin-announcements"])

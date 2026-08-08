@@ -35,6 +35,7 @@ from .creature import CreatureResponse, CreatureCreate, UserCreatureResponse
 from .article import ArticleResponse, ArticleCreate, ArticleUpdate, ArticleCommentResponse
 from .announcement import AnnouncementResponse, AnnouncementCreate, AnnouncementUpdate
 from .audit_log import AuditLogResponse, AuditLogPage
+from .catalog import CatalogResponse, CatalogCreate, CatalogUpdate, CatalogItemResponse
 
 __all__ = [
     "UserResponse", "UserCreate", "UserUpdate",
@@ -53,4 +54,5 @@ __all__ = [
     "ArticleResponse", "ArticleCreate", "ArticleUpdate", "ArticleCommentResponse",
     "AnnouncementResponse", "AnnouncementCreate", "AnnouncementUpdate",
     "AuditLogResponse", "AuditLogPage",
+    "CatalogResponse", "CatalogCreate", "CatalogUpdate", "CatalogItemResponse",
 ]

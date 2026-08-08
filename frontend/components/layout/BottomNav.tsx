@@ -16,6 +16,7 @@ interface TabItem {
 const tabs: TabItem[] = [
   { icon: "home", label: "Inicio", href: "/dashboard" },
   { icon: "account_balance", label: "Bóveda", href: "/treasury" },
+  { icon: "collections_bookmark", label: "Catálogos", href: "/catalogs" },
   { icon: "pets", label: "Mascotas", href: "/pets" },
   { icon: "newspaper", label: "Prensa", href: "/news" },
   { icon: "person", label: "Perfil", href: "/profile" },

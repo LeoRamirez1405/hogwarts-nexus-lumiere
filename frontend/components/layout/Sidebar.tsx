@@ -39,6 +39,7 @@ const mainNavItems: NavItem[] = [
     href: "/marketplace/borgin-burkes",
   },
   { icon: "pets", label: "Pet Sanctuary", href: "/pets" },
+  { icon: "collections_bookmark", label: "Catálogos", href: "/catalogs" },
 ];
 
 const adminNavItems: NavItem[] = [
@@ -54,6 +55,7 @@ const adminNavItems: NavItem[] = [
     href: "/admin/transactions",
   },
   { icon: "restaurant", label: "Consumición", href: "/admin/consumicion" },
+  { icon: "collections_bookmark", label: "Catálogos", href: "/admin/catalogs" },
   { icon: "settings", label: "Configuración", href: "/admin/settings" },
 ];
 
