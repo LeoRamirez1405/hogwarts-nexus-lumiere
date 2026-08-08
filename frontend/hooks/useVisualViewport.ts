@@ -22,6 +22,11 @@ export function useVisualViewport(): VisualViewportState {
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const DEBOUNCE_MS = 30;
 
+  // Track last "stable" (keyboard-closed) viewport height to detect keyboard
+  // when both innerHeight and visualViewport shrink together (resizes-content mode).
+  const lastStableHeightRef = useRef(state.viewportHeight);
+  const lastWidthRef = useRef(state.viewportWidth);
+
   const debouncedSetState = useCallback((newState: VisualViewportState) => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -43,7 +48,24 @@ export function useVisualViewport(): VisualViewportState {
       const viewportWidth = visualViewport.width;
       const windowHeight = window.innerHeight;
       const keyboardHeight = windowHeight - viewportHeight;
-      const isKeyboardOpen = keyboardHeight > 50;
+
+      // Classic detection: innerHeight stable, visualViewport shrinks (resizes-visual / iOS).
+      const classicOpen = keyboardHeight > 50;
+
+      // Heuristic for resizes-content: both shrink together; detect by drop below last stable height.
+      const widthChanged = Math.abs(viewportWidth - lastWidthRef.current) > 80;
+      let isKeyboardOpen = classicOpen;
+      if (!isKeyboardOpen && !widthChanged) {
+        isKeyboardOpen = viewportHeight < lastStableHeightRef.current - 100;
+      }
+
+      // Update baselines: stable height when keyboard clearly closed, width on rotation.
+      if (widthChanged) {
+        lastStableHeightRef.current = viewportHeight;
+        lastWidthRef.current = viewportWidth;
+      } else if (!isKeyboardOpen) {
+        lastStableHeightRef.current = viewportHeight;
+      }
 
       debouncedSetState({
         keyboardHeight,

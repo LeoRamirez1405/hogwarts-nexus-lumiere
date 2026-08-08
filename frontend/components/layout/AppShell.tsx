@@ -29,19 +29,42 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
-  // On /messages (full-height), reset document scroll when keyboard opens
-  // to undo any stale browser pan (Chrome resizes-visual behavior) while
-  // the layout height adjusts. Only needed during the transition.
+  // On /messages (full-height), lock the root scroller to prevent Chrome's
+  // focus-reveal pan from creating a stale document scroll offset while the
+  // keyboard animation is in flight.
   useEffect(() => {
-    if (isFullHeight && isKeyboardOpen) {
-      window.scrollTo(0, 0);
-    }
+    if (!isFullHeight) return;
+    const htmlStyle = document.documentElement.style;
+    const bodyStyle = document.body.style;
+    const prevHtmlOverflow = htmlStyle.overflow;
+    const prevBodyOverflow = bodyStyle.overflow;
+    htmlStyle.overflow = "hidden";
+    bodyStyle.overflow = "hidden";
+    return () => {
+      htmlStyle.overflow = prevHtmlOverflow;
+      bodyStyle.overflow = prevBodyOverflow;
+    };
+  }, [isFullHeight]);
+
+  // On /messages, pin the document scroll to top while the keyboard is open
+  // to undo any residual pan from Chrome's focus-reveal scroll that may have
+  // occurred before the layout height adjusted.
+  useEffect(() => {
+    if (!isFullHeight || !isKeyboardOpen) return;
+    const pin = () => {
+      if (window.scrollY > 0) window.scrollTo(0, 0);
+    };
+    pin();
+    window.addEventListener("scroll", pin, { passive: true });
+    return () => window.removeEventListener("scroll", pin);
   }, [isFullHeight, isKeyboardOpen]);
 
   const keyboardPadding = isKeyboardOpen ? keyboardHeight : 0;
 
   const fullHeightStyle = mounted
-    ? { height: `calc(${viewportHeight}px - var(--bottomnav-h))` }
+    ? {
+        height: `calc(${viewportHeight}px - ${isKeyboardOpen ? "0px" : "var(--bottomnav-h)"})`,
+      }
     : { height: "calc(100dvh - var(--bottomnav-h))" };
 
   return (
@@ -72,7 +95,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         style={
           isFullHeight
             ? fullHeightStyle
-            : { paddingBottom: `calc(var(--bottomnav-h) + ${keyboardPadding}px)` }
+            : {
+                paddingBottom: isKeyboardOpen
+                  ? `${keyboardPadding}px`
+                  : `calc(var(--bottomnav-h) + ${keyboardPadding}px)`,
+              }
         }
       >
         <div className={isFullHeight ? "h-full" : "max-w-[1280px] mx-auto px-4 md:px-10 py-6 md:py-8"}>
@@ -80,7 +107,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      <BottomNav />
+      {!isKeyboardOpen && <BottomNav />}
       <footer role="contentinfo" className="sr-only" aria-hidden="true" />
     </div>
   );
