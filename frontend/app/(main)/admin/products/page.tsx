@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Image from "next/image";
-import { api, Product, EnumValue } from "@/lib/api";
+import { api, Product, EnumValue, ProductInput } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
 import GlassCard from "@/components/ui/GlassCard";
@@ -65,7 +65,7 @@ export default function AdminProductsPage() {
   // Server-side filter reset key
   const resetKey = filter;
 
-  const crud = useAdminCrud<Product, Partial<Product>, Partial<Product>>({
+  const crud = useAdminCrud<Product, ProductInput, ProductInput>({
     queryKey: ["admin-products"],
     fetcher: (p) => api.getProducts(filter === "all" ? undefined : filter, p),
     createFn: (data) => api.createProduct(data),
@@ -126,16 +126,16 @@ export default function AdminProductsPage() {
   const handleSave = useCallback(async () => {
     const data = {
       name: form.name,
-      description: form.description,
+      description: form.description || null,
       price: parseInt(form.price) || 0,
       category: form.category,
       shop: form.shop,
-      image_url: form.image_url || undefined,
+      image_url: form.image_url || null,
       stock: parseInt(form.stock) || 0,
       requires_specification:
         form.shop === "flourish" ? form.requires_specification : false,
       specification_placeholder:
-        form.shop === "flourish" ? form.specification_placeholder.trim() || undefined : undefined,
+        form.shop === "flourish" ? form.specification_placeholder.trim() || null : undefined,
     };
     if (crud.showCreate) {
       await crud.handleCreate(data);

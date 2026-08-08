@@ -20,6 +20,17 @@ export interface CatalogItem {
   created_at: string;
 }
 
+export interface CatalogInput {
+  name?: string;
+  description?: string | null;
+  cover_image_url?: string | null;
+}
+
+export interface CatalogItemInput {
+  description?: string | null;
+  image_url?: string | null;
+}
+
 export const catalogsApi = {
   getCatalogs: (pagination?: PaginationParams) =>
     request<Page<Catalog>>("/catalogs/" + buildQuery(pagination ?? {})),
@@ -43,13 +54,13 @@ export const catalogsApi = {
       method: "POST",
     }),
 
-  createCatalog: (data: Partial<Catalog>) =>
+  createCatalog: (data: CatalogInput) =>
     request<Catalog>("/admin/catalogs/", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  updateCatalog: (id: string, data: Partial<Catalog>) =>
+  updateCatalog: (id: string, data: CatalogInput) =>
     request<Catalog>(`/admin/catalogs/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
@@ -63,19 +74,13 @@ export const catalogsApi = {
       `/admin/catalogs/${catalogId}/items${buildQuery(pagination ?? {})}`
     ),
 
-  createCatalogItem: (
-    catalogId: string,
-    data: Partial<Pick<CatalogItem, "description" | "image_url">>
-  ) =>
+  createCatalogItem: (catalogId: string, data: CatalogItemInput) =>
     request<CatalogItem>(`/admin/catalogs/${catalogId}/items`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  updateCatalogItem: (
-    itemId: string,
-    data: Partial<Pick<CatalogItem, "description" | "image_url">>
-  ) =>
+  updateCatalogItem: (itemId: string, data: CatalogItemInput) =>
     request<CatalogItem>(`/admin/catalogs/items/${itemId}`, {
       method: "PUT",
       body: JSON.stringify(data),

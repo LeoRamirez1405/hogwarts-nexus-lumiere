@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { api, Catalog } from "@/lib/api";
+import { api, Catalog, CatalogInput } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import GlassCard from "@/components/ui/GlassCard";
 import Button from "@/components/ui/Button";
@@ -34,7 +34,7 @@ export default function AdminCatalogsPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  const crud = useAdminCrud<Catalog, Partial<Catalog>, Partial<Catalog>>({
+  const crud = useAdminCrud<Catalog, CatalogInput, CatalogInput>({
     queryKey: ["admin-catalogs"],
     fetcher: (p) => api.getCatalogs(p),
     createFn: (data) => api.createCatalog(data),
@@ -81,8 +81,8 @@ export default function AdminCatalogsPage() {
   const handleSave = useCallback(async () => {
     const data = {
       name: form.name,
-      description: form.description || undefined,
-      cover_image_url: form.cover_image_url || undefined,
+      description: form.description || null,
+      cover_image_url: form.cover_image_url || null,
     };
     if (crud.showCreate) {
       await crud.handleCreate(data);

@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { api, CatalogItem } from "@/lib/api";
+import { api, CatalogItem, CatalogItemInput } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import GlassCard from "@/components/ui/GlassCard";
 import Button from "@/components/ui/Button";
@@ -41,7 +41,7 @@ export default function AdminCatalogItemsPage() {
     enabled: !!catalogId,
   });
 
-  const crud = useAdminCrud<CatalogItem, Partial<CatalogItem>, Partial<CatalogItem>>({
+  const crud = useAdminCrud<CatalogItem, CatalogItemInput, CatalogItemInput>({
     queryKey: ["admin-catalog-items", catalogId],
     fetcher: (p) => api.getCatalogItemsAdmin(catalogId, p),
     createFn: (data) => api.createCatalogItem(catalogId, data),
@@ -87,8 +87,8 @@ export default function AdminCatalogItemsPage() {
 
   const handleSave = useCallback(async () => {
     const data = {
-      description: form.description || undefined,
-      image_url: form.image_url || undefined,
+      description: form.description || null,
+      image_url: form.image_url || null,
     };
     if (crud.showCreate) {
       await crud.handleCreate(data);
@@ -166,8 +166,12 @@ export default function AdminCatalogItemsPage() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {crud.filteredItems.map((i) => (
-                <GlassCard key={i.id} className="overflow-hidden" hover>
-                  <div className="relative h-48">
+                <GlassCard
+                  key={i.id}
+                  className="overflow-hidden flex flex-col h-72"
+                  hover
+                >
+                  <div className="relative flex-1 min-h-48">
                     {i.image_url ? (
                       <Image
                         src={i.image_url}
@@ -199,20 +203,16 @@ export default function AdminCatalogItemsPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="p-4">
-                    <p className="text-label-sm text-secondary font-bold mb-1">
-                      N.º {i.numero}
-                    </p>
-                    {i.description ? (
+                  {i.description && (
+                    <div className="p-4">
+                      <p className="text-label-sm text-secondary font-bold mb-1">
+                        N.º {i.numero}
+                      </p>
                       <p className="text-body-md text-on-surface-variant line-clamp-2">
                         {i.description}
                       </p>
-                    ) : (
-                      <p className="text-body-md text-on-surface-variant/50 italic">
-                        Sin descripción
-                      </p>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </GlassCard>
               ))}
               {crud.filteredItems.length === 0 && (

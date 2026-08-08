@@ -28,10 +28,10 @@ export const CatalogItemCard = memo(function CatalogItemCard({
 
   return (
     <div
-      className="glass-card rounded-3xl overflow-hidden group hover:-translate-y-2 active:scale-[0.98] transition-all duration-300 cursor-pointer"
+      className="glass-card rounded-3xl overflow-hidden group hover:-translate-y-2 active:scale-[0.98] transition-all duration-300 cursor-pointer flex flex-col h-80"
       onClick={() => onSelect?.(item)}
     >
-      <div className="relative h-56">
+      <div className="relative flex-1 min-h-56">
         <Image
           src={src}
           alt={`Elemento #${item.numero}`}
@@ -64,20 +64,16 @@ export const CatalogItemCard = memo(function CatalogItemCard({
           />
         </button>
       </div>
-      <div className="p-4">
-        <p className="text-label-sm text-secondary font-bold mb-1">
-          N.º {item.numero}
-        </p>
-        {item.description ? (
+      {item.description && (
+        <div className="p-4">
+          <p className="text-label-sm text-secondary font-bold mb-1">
+            N.º {item.numero}
+          </p>
           <p className="text-body-md text-on-surface-variant line-clamp-2">
             {item.description}
           </p>
-        ) : (
-          <p className="text-body-md text-on-surface-variant/50 italic">
-            Sin descripción
-          </p>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 });

@@ -42,6 +42,19 @@ export interface BatchPurchaseResult {
   new_balance: number;
 }
 
+export interface ProductInput {
+  name?: string;
+  description?: string | null;
+  price?: number;
+  category?: string | null;
+  shop?: string;
+  image_url?: string | null;
+  stock?: number;
+  weekly_sales?: number;
+  requires_specification?: boolean;
+  specification_placeholder?: string | null;
+}
+
 export const productsApi = {
   getProducts: (shop?: string, pagination?: PaginationParams, category?: string) =>
     request<Page<Product>>(
@@ -77,13 +90,13 @@ export const productsApi = {
       "/products/my-purchases" + buildQuery(pagination ?? {})
     ),
 
-  createProduct: (data: Partial<Product>) =>
+  createProduct: (data: ProductInput) =>
     request<Product>("/admin/products/", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  updateProduct: (id: string, data: Partial<Product>) =>
+  updateProduct: (id: string, data: ProductInput) =>
     request<Product>(`/admin/products/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
