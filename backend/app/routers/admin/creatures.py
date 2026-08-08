@@ -1,7 +1,9 @@
 """Admin-only creature catalog routes (prefix /admin/creatures)."""
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db
@@ -19,11 +21,21 @@ router = APIRouter(prefix="/admin/creatures", tags=["admin-creatures"])
 async def list_creatures(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    search: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_role("admin")),
 ):
-    query = select(Creature).order_by(Creature.price).offset(skip).limit(limit + 1)
+    query = select(Creature)
     count_query = select(func.count(Creature.id))
+    if search:
+        search_term = f"%{search}%"
+        search_filter = or_(
+            Creature.name.ilike(search_term),
+            Creature.description.ilike(search_term),
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
+    query = query.order_by(Creature.price).offset(skip).limit(limit + 1)
     result = await db.execute(query)
     items = result.scalars().all()
     has_more = len(items) > limit

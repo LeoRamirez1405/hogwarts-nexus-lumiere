@@ -106,8 +106,10 @@ export interface UserPetItem {
 }
 
 export const creaturesApi = {
-  getCreatures: (pagination?: PaginationParams) =>
-    request<Page<Creature>>("/admin/creatures/" + buildQuery(pagination ?? {})),
+  getCreatures: (pagination?: PaginationParams, search?: string) =>
+    request<Page<Creature>>(
+      "/admin/creatures/" + buildQuery({ search, ...(pagination ?? {}) })
+    ),
 
   getCreature: (id: string) => request<Creature>(`/creatures/${id}`),
 
@@ -194,7 +196,7 @@ export const creaturesApi = {
 
 export const petItemsApi = {
   getPetItems: (
-    params?: { kind?: string; pet_type?: string },
+    params?: { kind?: string; pet_type?: string; search?: string },
     pagination?: PaginationParams
   ) =>
     request<Page<PetItem>>(

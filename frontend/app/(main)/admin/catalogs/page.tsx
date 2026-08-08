@@ -12,6 +12,7 @@ import ListFooter from "@/components/ui/ListFooter";
 import { MaterialIcon, Skeleton } from "@/components/ui";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
+import { useDebounce } from "@/hooks/useDebounce";
 import { AdminCrudModal, FormField, InputField, TextareaField } from "@/components/ui/AdminCrudModal";
 import { useUnsavedChangesGuard, useFormDirtyState } from "@/hooks/useUnsavedChangesGuard";
 import PullToRefresh from "@/components/ui/PullToRefresh";
@@ -33,10 +34,12 @@ export default function AdminCatalogsPage() {
 
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
 
   const crud = useAdminCrud<Catalog, CatalogInput, CatalogInput>({
     queryKey: ["admin-catalogs"],
-    fetcher: (p) => api.getCatalogs(p),
+    fetcher: (p) => api.getCatalogs(p, debouncedSearch || undefined),
     createFn: (data) => api.createCatalog(data),
     updateFn: (id, data) => api.updateCatalog(id, data),
     deleteFn: (id) => api.deleteCatalog(id),
@@ -44,15 +47,12 @@ export default function AdminCatalogsPage() {
     getId: (c) => c.id,
     pageSize: 12,
     enabled: user?.role === "admin",
+    resetKey: debouncedSearch,
     messages: {
       create: "Catálogo creado",
       update: "Catálogo actualizado",
       delete: "Catálogo eliminado",
     },
-    filterFn: (c, search) =>
-      !search ||
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      (c.description ?? "").toLowerCase().includes(search.toLowerCase()),
   });
 
   const modalOpen = crud.showCreate || !!crud.editItem;
@@ -130,8 +130,8 @@ export default function AdminCatalogsPage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <SearchBar
               placeholder="Buscar catálogos..."
-              value={crud.search}
-              onChange={crud.setSearch}
+              value={search}
+              onChange={setSearch}
               size="sm"
             />
             <Button variant="primary" icon="add" onClick={handleOpenNew}>

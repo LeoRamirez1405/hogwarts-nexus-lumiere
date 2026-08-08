@@ -23,6 +23,7 @@ export const transactionsApi = {
       userId?: string;
       dateFrom?: string;
       dateTo?: string;
+      search?: string;
     }
   ) =>
     request<Page<Transaction>>(
@@ -32,6 +33,7 @@ export const transactionsApi = {
           user_id: filters?.userId,
           date_from: filters?.dateFrom,
           date_to: filters?.dateTo,
+          search: filters?.search,
           ...(pagination ?? {}),
         })
     ),
@@ -43,6 +45,7 @@ export const transactionsApi = {
       userId?: string;
       dateFrom?: string;
       dateTo?: string;
+      search?: string;
     }
   ) =>
     request<Page<Transaction>>(
@@ -52,6 +55,7 @@ export const transactionsApi = {
           user_id: filters?.userId,
           date_from: filters?.dateFrom,
           date_to: filters?.dateTo,
+          search: filters?.search,
           ...(pagination ?? {}),
         })
     ),

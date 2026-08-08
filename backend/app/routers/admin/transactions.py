@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -24,6 +24,7 @@ async def list_all_transactions_admin(
     user_id: Optional[str] = Query(None),
     date_from: Optional[datetime] = Query(None),
     date_to: Optional[datetime] = Query(None),
+    search: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -53,6 +54,19 @@ async def list_all_transactions_admin(
     if date_to:
         query = query.where(Transaction.created_at <= date_to)
         count_query = count_query.where(Transaction.created_at <= date_to)
+    if search:
+        search_term = f"%{search}%"
+        user_filter = or_(
+            User.name.ilike(search_term),
+            User.email.ilike(search_term),
+        )
+        search_filter = or_(
+            Transaction.description.ilike(search_term),
+            Transaction.sender.has(user_filter),
+            Transaction.receiver.has(user_filter),
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
     query = (
         query.order_by(Transaction.created_at.desc())
         .offset(skip)

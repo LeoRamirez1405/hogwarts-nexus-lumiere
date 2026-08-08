@@ -37,10 +37,11 @@ export const messagesApi = {
       body: JSON.stringify(data),
     }),
 
-  getRooms: (all?: boolean, pagination?: PaginationParams) =>
+  getRooms: (all?: boolean, pagination?: PaginationParams, search?: string) =>
     request<Page<ChatRoomBrief>>(
       `/messages/rooms${buildQuery({
         all: all ? "true" : undefined,
+        search,
         ...(pagination ?? {}),
       })}`
     ),

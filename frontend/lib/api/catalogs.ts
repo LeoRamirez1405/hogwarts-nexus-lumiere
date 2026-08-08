@@ -32,8 +32,10 @@ export interface CatalogItemInput {
 }
 
 export const catalogsApi = {
-  getCatalogs: (pagination?: PaginationParams) =>
-    request<Page<Catalog>>("/catalogs/" + buildQuery(pagination ?? {})),
+  getCatalogs: (pagination?: PaginationParams, search?: string) =>
+    request<Page<Catalog>>(
+      "/catalogs/" + buildQuery({ search, ...(pagination ?? {}) })
+    ),
 
   getCatalog: (id: string) => request<Catalog>(`/catalogs/${id}`),
 
@@ -69,9 +71,16 @@ export const catalogsApi = {
   deleteCatalog: (id: string) =>
     request<void>(`/admin/catalogs/${id}`, { method: "DELETE" }),
 
-  getCatalogItemsAdmin: (catalogId: string, pagination?: PaginationParams) =>
+  getCatalogItemsAdmin: (
+    catalogId: string,
+    pagination?: PaginationParams,
+    search?: string
+  ) =>
     request<Page<CatalogItem>>(
-      `/admin/catalogs/${catalogId}/items${buildQuery(pagination ?? {})}`
+      `/admin/catalogs/${catalogId}/items${buildQuery({
+        search,
+        ...(pagination ?? {}),
+      })}`
     ),
 
   createCatalogItem: (catalogId: string, data: CatalogItemInput) =>

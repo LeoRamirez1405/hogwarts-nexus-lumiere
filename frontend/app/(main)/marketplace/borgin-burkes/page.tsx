@@ -42,11 +42,16 @@ export default function BorginBurkesPage() {
     refresh: refreshProducts,
   } = usePaginatedList({
     fetcher: (p) =>
-      api.getProducts("borgin", p, activeFilter === "Todos" ? undefined : activeFilter),
+      api.getProducts(
+        "borgin",
+        p,
+        activeFilter === "Todos" ? undefined : activeFilter,
+        debouncedSearch || undefined
+      ),
     pageSize: 12,
     enabled: true,
     queryKey: ["shop-products", "borgin"],
-    resetKey: activeFilter,
+    resetKey: [activeFilter, debouncedSearch],
   });
 
   const {
@@ -66,14 +71,7 @@ export default function BorginBurkesPage() {
 
   const BORGIN_FILTERS = ["Todos", ...borginCategories.map((c) => c.label)];
 
-  const filteredProducts = allShopItems.filter(
-    (p) =>
-      !debouncedSearch ||
-      p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      p.description.toLowerCase().includes(debouncedSearch.toLowerCase()),
-  );
-
-  const visibleProducts = filteredProducts;
+  const visibleProducts = allShopItems;
   const visiblePurchases = allPurchases;
 
   // Compute display slides with duplicates for infinite loop
@@ -302,7 +300,7 @@ export default function BorginBurkesPage() {
                     <Skeleton key={i} variant="product" />
                   ))}
                 </div>
-              ) : filteredProducts.length === 0 ? (
+              ) : allShopItems.length === 0 ? (
                 <div className="text-center py-20">
                   <MaterialIcon
                     name="storefront"

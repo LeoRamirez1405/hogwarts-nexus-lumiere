@@ -5,6 +5,7 @@ import { useAuthStore } from "@/lib/authStore";
 import { api, ChatRoomBrief, User, Page } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
+import { useDebounce } from "@/hooks/useDebounce";
 import { toastError } from "@/lib/toastStore";
 
 function formatDate(dateStr: string) {
@@ -35,6 +36,7 @@ export function useAdminGroups() {
   const { user } = useAuthStore();
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [allUsersMap, setAllUsersMap] = useState<Record<string, User>>({});
   const [usersPage, setUsersPage] = useState<Page<User> | null>(null);
@@ -42,7 +44,8 @@ export function useAdminGroups() {
 
   const crud = useAdminCrud<ChatRoomBrief, typeof defaultCreateForm, Partial<ChatRoomBrief>>({
     queryKey: ["admin-rooms"],
-    fetcher: (p) => api.getRooms(user?.role === "admin" ? true : undefined, p),
+    fetcher: (p) =>
+      api.getRooms(user?.role === "admin" ? true : undefined, p, debouncedSearch || undefined),
     createFn: async (data) => {
       const result = await api.createRoom(data);
       return result as unknown as ChatRoomBrief;
@@ -56,17 +59,13 @@ export function useAdminGroups() {
     getId: (r) => r.id,
     pageSize: 10,
     enabled: user?.role === "admin",
+    resetKey: debouncedSearch,
     defaultCreateForm,
     messages: {
       create: "Grupo creado",
       update: "Grupo actualizado",
       delete: "Grupo eliminado",
     },
-    filterFn: (r, search) =>
-      !search ||
-      r.name.toLowerCase().includes(search.toLowerCase()) ||
-      r.description?.toLowerCase().includes(search.toLowerCase()) ||
-      false,
   });
 
   const loadUsers = useCallback(async (q = "", page = 0) => {

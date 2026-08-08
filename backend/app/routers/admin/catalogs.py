@@ -1,7 +1,9 @@
 """Admin-only catalog + catalog item management routes (prefix /admin/catalogs)."""
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import String, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db
@@ -73,26 +75,31 @@ async def admin_list_catalog_items(
     catalog_id: str,
     skip: int = Query(0, ge=0),
     limit: int = Query(12, ge=1, le=100),
+    search: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
     await get_catalog_or_404(db, catalog_id)
-    query = (
-        select(CatalogItem)
-        .where(CatalogItem.catalog_id == catalog_id)
-        .order_by(CatalogItem.numero.asc())
-        .offset(skip)
-        .limit(limit + 1)
+    query = select(CatalogItem).where(CatalogItem.catalog_id == catalog_id)
+    count_query = select(func.count(CatalogItem.id)).where(
+        CatalogItem.catalog_id == catalog_id
     )
+    if search:
+        search_term = f"%{search}%"
+        search_filter = or_(
+            CatalogItem.description.ilike(search_term),
+            CatalogItem.numero.cast(String).ilike(search_term),
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
+    query = query.order_by(CatalogItem.numero.asc()).offset(skip).limit(limit + 1)
     result = await db.execute(query)
     items = result.scalars().all()
     has_more = len(items) > limit
     items = items[:limit]
     for item in items:
         item.is_favorite = False
-    total_result = await db.execute(
-        select(func.count(CatalogItem.id)).where(CatalogItem.catalog_id == catalog_id)
-    )
+    total_result = await db.execute(count_query)
     total = total_result.scalar_one()
     return Page(
         items=items,

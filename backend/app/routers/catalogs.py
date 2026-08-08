@@ -1,8 +1,10 @@
 """User-facing catalog browsing routes (prefix /catalogs)."""
 
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -30,16 +32,27 @@ router = APIRouter()
 async def list_catalogs(
     skip: int = Query(0, ge=0),
     limit: int = Query(12, ge=1, le=100),
+    search: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    query = select(Catalog)
+    count_query = select(func.count(Catalog.id))
+    if search:
+        search_term = f"%{search}%"
+        search_filter = or_(
+            Catalog.name.ilike(search_term),
+            Catalog.description.ilike(search_term),
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
     result = await db.execute(
-        select(Catalog).order_by(Catalog.created_at.desc()).offset(skip).limit(limit + 1)
+        query.order_by(Catalog.created_at.desc()).offset(skip).limit(limit + 1)
     )
     items = result.scalars().all()
     has_more = len(items) > limit
     items = items[:limit]
-    total_result = await db.execute(select(func.count(Catalog.id)))
+    total_result = await db.execute(count_query)
     total = total_result.scalar_one()
     items = [await catalog_response(c, db) for c in items]
     return Page(

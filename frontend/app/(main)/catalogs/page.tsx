@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { api, Catalog } from "@/lib/api";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
+import { useDebounce } from "@/hooks/useDebounce";
 import { getFallbackImageByContext } from "@/lib/fallbacks";
 import { useTheme } from "@/lib/useTheme";
 import GlassCard from "@/components/ui/GlassCard";
@@ -79,6 +80,7 @@ function CatalogCard({
 export default function CatalogsPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [detailCatalog, setDetailCatalog] = useState<Catalog | null>(null);
 
   const {
@@ -91,18 +93,14 @@ export default function CatalogsPage() {
     loadMore,
     refresh,
   } = usePaginatedList<Catalog>({
-    fetcher: (p) => api.getCatalogs(p),
+    fetcher: (p) => api.getCatalogs(p, debouncedSearch || undefined),
     pageSize: 12,
     enabled: true,
     queryKey: ["catalogs", "user"],
+    resetKey: debouncedSearch,
   });
 
-  const filtered =
-    search.trim().length > 0
-      ? catalogs.filter((c) =>
-          c.name.toLowerCase().includes(search.trim().toLowerCase())
-        )
-      : catalogs;
+  const filtered = catalogs;
 
   const handleExplore = (catalog: Catalog) => {
     setDetailCatalog(null);

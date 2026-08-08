@@ -5,6 +5,7 @@ import Image from "next/image";
 import { api, PetItem, PetType, PetItemKind, EnumValue } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
+import { useDebounce } from "@/hooks/useDebounce";
 import { AdminCrudModal, FormField, InputField, TextareaField, SelectField, ToggleButtonGroup } from "@/components/ui/AdminCrudModal";
 import { EnumMissingNotice } from "@/components/ui/EnumMissingNotice";
 import ListFooter from "@/components/ui/ListFooter";
@@ -49,6 +50,8 @@ export default function AdminPetItemsPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [petTypes, setPetTypes] = useState<EnumValue[]>([]);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
 
   useEffect(() => {
     api.getEnumCategoryByCode("pet_type").then((cat) => {
@@ -58,7 +61,14 @@ export default function AdminPetItemsPage() {
 
   const crud = useAdminCrud<PetItem, Partial<PetItem>, Partial<PetItem>>({
     queryKey: ["admin-pet-items"],
-    fetcher: (p) => api.getPetItems({ kind: filter === "all" ? undefined : filter }, p),
+    fetcher: (p) =>
+      api.getPetItems(
+        {
+          kind: filter === "all" ? undefined : filter,
+          search: debouncedSearch || undefined,
+        },
+        p
+      ),
     createFn: (data) => api.createPetItem(data),
     updateFn: (id, data) => api.updatePetItem(id, data),
     deleteFn: (id) => api.deletePetItem(id),
@@ -66,17 +76,13 @@ export default function AdminPetItemsPage() {
     getId: (it) => it.id,
     pageSize: 12,
     enabled: user?.role === "admin",
-    resetKey: filter,
+    resetKey: [filter, debouncedSearch],
     defaultCreateForm,
     messages: {
       create: "Objeto creado",
       update: "Objeto actualizado",
       delete: "Objeto eliminado",
     },
-    filterFn: (it, search) =>
-      !search ||
-      it.name.toLowerCase().includes(search.toLowerCase()) ||
-      it.pet_type.toLowerCase().includes(search.toLowerCase()),
   });
 
   const openNew = () => {
@@ -181,8 +187,8 @@ export default function AdminPetItemsPage() {
             <input
               type="text"
               placeholder="Buscar objetos..."
-              value={crud.search}
-              onChange={(e) => crud.setSearch(e.target.value)}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full sm:w-64 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
             />
             <Button variant="primary" icon="add" onClick={openNew}>

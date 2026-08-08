@@ -1,7 +1,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update
+from sqlalchemy import func, or_, select, update
 
 from ..database import get_db
 from ..models.product import Product
@@ -26,6 +26,7 @@ router = APIRouter()
 async def list_products(
     shop: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -39,6 +40,14 @@ async def list_products(
     if category:
         query = query.where(Product.category == category)
         count_query = count_query.where(Product.category == category)
+    if search:
+        search_term = f"%{search}%"
+        search_filter = or_(
+            Product.name.ilike(search_term),
+            Product.description.ilike(search_term),
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
     query = query.order_by(Product.created_at.desc()).offset(skip).limit(limit + 1)
     result = await db.execute(query)
     items = result.scalars().all()

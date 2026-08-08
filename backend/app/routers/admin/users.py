@@ -1,7 +1,9 @@
 """Admin-only user management routes (prefix /admin/users)."""
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,11 +30,29 @@ router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 async def list_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    role: Optional[str] = Query(None),
+    house: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
-    query = select(User).offset(skip).limit(limit + 1)
+    query = select(User)
     count_query = select(func.count(User.id))
+    if role:
+        query = query.where(User.role == role)
+        count_query = count_query.where(User.role == role)
+    if house:
+        query = query.where(User.house == house)
+        count_query = count_query.where(User.house == house)
+    if search:
+        search_term = f"%{search}%"
+        search_filter = or_(
+            User.name.ilike(search_term),
+            User.email.ilike(search_term),
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
+    query = query.offset(skip).limit(limit + 1)
     result = await db.execute(query)
     items = result.scalars().all()
     has_more = len(items) > limit

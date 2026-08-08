@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { api, User } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
+import { useDebounce } from "@/hooks/useDebounce";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
 import { AdminCrudModal, FormField, InputField, SelectField } from "@/components/ui/AdminCrudModal";
 import ListFooter from "@/components/ui/ListFooter";
@@ -28,6 +29,8 @@ export default function AdminUsersPage() {
   const router = useRouter();
   const [filter, setFilter] = useState<"all" | "admin" | "user">("all");
   const [houseFilter, setHouseFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -42,7 +45,12 @@ export default function AdminUsersPage() {
 
   const crud = useAdminCrud<User, CreateUserData, Partial<User>>({
     queryKey: ["admin-users"],
-    fetcher: (p) => api.getUsers(p),
+    fetcher: (p) =>
+      api.getUsers(p, {
+        role: filter === "all" ? undefined : filter,
+        house: houseFilter || undefined,
+        search: debouncedSearch || undefined,
+      }),
     createFn: (data) => api.createUser(data),
     updateFn: (id, data) => api.adminUpdateUser(id, data),
     deleteFn: (id) => api.deleteUser(id),
@@ -50,7 +58,7 @@ export default function AdminUsersPage() {
     getId: (u) => u.id,
     pageSize: 12,
     enabled: user?.role === "admin",
-    resetKey: [filter, houseFilter],
+    resetKey: [filter, houseFilter, debouncedSearch],
     defaultCreateForm: {
       name: "",
       email: "",
@@ -63,10 +71,6 @@ export default function AdminUsersPage() {
       update: "Usuario actualizado",
       delete: "Usuario eliminado",
     },
-    filterFn: (u, search) =>
-      !search ||
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      (u.email).toLowerCase().includes(search.toLowerCase()),
   });
 
   useEffect(() => {
@@ -131,10 +135,7 @@ export default function AdminUsersPage() {
 
   if (user?.role !== "admin") return null;
 
-  const filtered = crud.filteredItems.filter(
-    (u) => (!houseFilter || u.house === houseFilter) &&
-      (filter === "all" || u.role === filter)
-  );
+  const filtered = crud.filteredItems;
 
 return (
     <PullToRefresh onRefresh={crud.refresh}>
@@ -152,8 +153,8 @@ return (
             <input
               type="text"
               placeholder="Buscar por nombre o email..."
-              value={crud.search}
-              onChange={(e) => crud.setSearch(e.target.value)}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full sm:w-80 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
             />
             <select

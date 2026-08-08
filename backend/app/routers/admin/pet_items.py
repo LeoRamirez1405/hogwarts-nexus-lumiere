@@ -3,7 +3,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db
@@ -28,6 +28,7 @@ VALID_PET_TYPES = {"Aves", "Bestias", "Criaturas pequeñas"}
 async def list_pet_items(
     kind: Optional[str] = Query(None),
     pet_type: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -41,6 +42,14 @@ async def list_pet_items(
     if pet_type:
         query = query.where(PetItem.pet_type == pet_type)
         count_query = count_query.where(PetItem.pet_type == pet_type)
+    if search:
+        search_term = f"%{search}%"
+        search_filter = or_(
+            PetItem.name.ilike(search_term),
+            PetItem.description.ilike(search_term),
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
     query = (
         query.order_by(PetItem.pet_type, PetItem.kind, PetItem.price)
         .offset(skip)

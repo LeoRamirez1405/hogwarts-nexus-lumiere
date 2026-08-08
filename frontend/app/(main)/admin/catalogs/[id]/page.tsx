@@ -56,10 +56,6 @@ export default function AdminCatalogItemsPage() {
       update: "Elemento actualizado",
       delete: "Elemento eliminado",
     },
-    filterFn: (i, search) =>
-      !search ||
-      i.numero.toString().includes(search) ||
-      (i.description ?? "").toLowerCase().includes(search.toLowerCase()),
   });
 
   const modalOpen = crud.showCreate || !!crud.editItem;

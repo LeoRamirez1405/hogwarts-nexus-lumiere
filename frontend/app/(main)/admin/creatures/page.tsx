@@ -5,6 +5,7 @@ import Image from "next/image";
 import { api, Creature, EnumValue } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
+import { useDebounce } from "@/hooks/useDebounce";
 import { AdminCrudModal, FormField, InputField, TextareaField, SelectField } from "@/components/ui/AdminCrudModal";
 import ListFooter from "@/components/ui/ListFooter";
 import Badge from "@/components/ui/Badge";
@@ -61,6 +62,8 @@ export default function AdminCreaturesPage() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [petTypes, setPetTypes] = useState<EnumValue[]>([]);
   const hideRequirements = useFeatureFlag("pets.hide_creature_requirements");
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
 
   useEffect(() => {
     api.getEnumCategoryByCode("pet_type").then((cat) => {
@@ -70,7 +73,7 @@ export default function AdminCreaturesPage() {
 
   const crud = useAdminCrud<Creature, Partial<Creature>, Partial<Creature>>({
     queryKey: ["admin-creatures"],
-    fetcher: (p) => api.getCreatures(p),
+    fetcher: (p) => api.getCreatures(p, debouncedSearch || undefined),
     createFn: (data) => api.createCreature(data),
     updateFn: (id, data) => api.updateCreature(id, data),
     deleteFn: (id) => api.deleteCreature(id),
@@ -78,16 +81,13 @@ export default function AdminCreaturesPage() {
     getId: (c) => c.id,
     pageSize: 12,
     enabled: user?.role === "admin",
+    resetKey: debouncedSearch,
     defaultCreateForm,
     messages: {
       create: "Criatura creada",
       update: "Criatura actualizada",
       delete: "Criatura eliminada",
     },
-    filterFn: (c, search) =>
-      !search ||
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      (!hideRequirements && c.rarity.toLowerCase().includes(search.toLowerCase())),
   });
 
   const openNew = () => {
@@ -185,8 +185,8 @@ return (
             <input
               type="text"
               placeholder="Buscar criaturas..."
-              value={crud.search}
-              onChange={(e) => crud.setSearch(e.target.value)}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full sm:w-64 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors"
             />
             <Button variant="primary" icon="add" onClick={openNew}>

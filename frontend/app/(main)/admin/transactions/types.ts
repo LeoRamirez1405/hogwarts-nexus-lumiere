@@ -11,6 +11,7 @@ export interface TransactionFilters {
   userId: string | undefined;
   dateFrom: string | undefined;
   dateTo: string | undefined;
+  search?: string;
 }
 
 export interface ListFooterProps {

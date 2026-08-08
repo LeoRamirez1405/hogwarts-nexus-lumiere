@@ -42,8 +42,14 @@ export interface UserSearchResult {
 }
 
 export const usersApi = {
-  getUsers: (pagination?: PaginationParams) =>
-    request<Page<User>>("/admin/users/" + buildQuery(pagination ?? {})),
+  getUsers: (
+    pagination?: PaginationParams,
+    filters?: { role?: string; house?: string; search?: string }
+  ) =>
+    request<Page<User>>(
+      "/admin/users/" +
+        buildQuery({ role: filters?.role, house: filters?.house, search: filters?.search, ...(pagination ?? {}) })
+    ),
 
   searchUsersServer: (q: string, pagination?: PaginationParams) =>
     request<Page<User>>(

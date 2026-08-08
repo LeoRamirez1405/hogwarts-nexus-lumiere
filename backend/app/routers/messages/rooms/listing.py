@@ -1,7 +1,9 @@
 """Read-access endpoints for chat rooms: list rooms and fetch a single room."""
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -21,6 +23,7 @@ async def list_my_rooms(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     all: bool = Query(False),
+    search: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
 ):
@@ -39,6 +42,14 @@ async def list_my_rooms(
             .join(ChatRoomMember, ChatRoom.id == ChatRoomMember.room_id)
             .where(ChatRoomMember.user_id == current_user.id)
         )
+    if search:
+        search_term = f"%{search}%"
+        search_filter = or_(
+            ChatRoom.name.ilike(search_term),
+            ChatRoom.description.ilike(search_term),
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
     result = await db.execute(query.offset(skip).limit(limit + 1))
     rooms = result.scalars().all()
     has_more = len(rooms) > limit

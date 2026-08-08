@@ -46,11 +46,16 @@ export default function FlourishBlottsPage() {
     refresh: refreshBooks,
   } = usePaginatedList({
     fetcher: (p) =>
-      api.getProducts("flourish", p, activeFilter === "Todos" ? undefined : activeFilter),
+      api.getProducts(
+        "flourish",
+        p,
+        activeFilter === "Todos" ? undefined : activeFilter,
+        debouncedSearch || undefined
+      ),
     pageSize: 12,
     enabled: true,
     queryKey: ["shop-products", "flourish"],
-    resetKey: activeFilter,
+    resetKey: [activeFilter, debouncedSearch],
   });
 
   const {
@@ -222,14 +227,7 @@ export default function FlourishBlottsPage() {
     }
   };
 
-  const filtered = allShopItems.filter(
-    (p) =>
-      !debouncedSearch ||
-      p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      p.description.toLowerCase().includes(debouncedSearch.toLowerCase()),
-  );
-
-  const visibleBooks = filtered;
+  const visibleBooks = allShopItems;
   const visiblePurchases = allPurchases;
 
   return (
@@ -319,7 +317,7 @@ export default function FlourishBlottsPage() {
                     <Skeleton key={i} variant="product" />
                   ))}
                 </div>
-              ) : filtered.length === 0 ? (
+              ) : allShopItems.length === 0 ? (
                 <div className="text-center py-20">
                   <MaterialIcon
                     name="menu_book"

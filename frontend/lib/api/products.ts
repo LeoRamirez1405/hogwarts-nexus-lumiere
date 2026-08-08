@@ -56,9 +56,14 @@ export interface ProductInput {
 }
 
 export const productsApi = {
-  getProducts: (shop?: string, pagination?: PaginationParams, category?: string) =>
+  getProducts: (
+    shop?: string,
+    pagination?: PaginationParams,
+    category?: string,
+    search?: string
+  ) =>
     request<Page<Product>>(
-      `/products/${buildQuery({ shop, category, ...(pagination ?? {}) })}`
+      `/products/${buildQuery({ shop, category, search, ...(pagination ?? {}) })}`
     ),
 
   getProduct: (id: string) => request<Product>(`/products/${id}`),

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { Transaction } from "@/lib/api";
+import { useState, useEffect, useCallback } from "react";
 import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
 import SearchBar from "@/components/ui/SearchBar";
@@ -9,7 +8,6 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useTransactionFilters } from "./hooks/useTransactionFilters";
 import { useTransactions } from "./hooks/useTransactions";
 import { useTransactionStats } from "./hooks/useTransactionStats";
-import { getActorName } from "./utils";
 import TransactionStats from "./components/TransactionStats";
 import TransactionFilters from "./components/TransactionFilters";
 import TransactionCards from "./components/TransactionCards";
@@ -30,7 +28,10 @@ export default function AdminTransactionsPage() {
   }, [user, router]);
 
   const filters = useTransactionFilters();
-  const txFilters = filters.buildFilters();
+  const txFilters = {
+    ...filters.buildFilters(),
+    search: debouncedSearch || undefined,
+  };
   const { adminData, isLoading, active } = useTransactions(txFilters, filters.activeTab, user?.role);
   const stats = useTransactionStats(adminData.items);
 
@@ -42,20 +43,7 @@ export default function AdminTransactionsPage() {
     }
   }, [filters.activeTab, adminData]);
 
-  const visibleTx = useMemo(() => {
-    const items = active.items;
-    if (!search) return items;
-    const q = debouncedSearch.toLowerCase();
-    return items.filter((tx: Transaction) => {
-      const actor = getActorName(tx).toLowerCase();
-      return (
-        tx.description?.toLowerCase().includes(q) ||
-        actor.includes(q) ||
-        tx.sender?.email?.toLowerCase().includes(q) ||
-        tx.receiver?.email?.toLowerCase().includes(q)
-      );
-    });
-  }, [active.items, search, debouncedSearch]);
+  const visibleTx = active.items;
 
   if (user?.role !== "admin") return null;
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { api, Article, EnumValue } from "@/lib/api";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
+import { useDebounce } from "@/hooks/useDebounce";
 import { AdminCrudModal, FormField, InputField, TextareaField, SelectField } from "@/components/ui/AdminCrudModal";
 import ListFooter from "@/components/ui/ListFooter";
 import Switch from "@/components/ui/Switch";
@@ -36,9 +37,16 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
     }).catch((e) => toastError("No se pudo cargar las categorías", e));
   }, []);
 
+  const debouncedSearch = useDebounce(search, 300);
+
   const crud = useAdminCrud<Article, Partial<Article>, Partial<Article>>({
     queryKey: ["admin-articles"],
-    fetcher: (p) => api.getArticles({ offset: String(p.skip), limit: String(p.limit) }),
+    fetcher: (p) =>
+      api.getArticles({
+        offset: String(p.skip),
+        limit: String(p.limit),
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
+      }),
     createFn: (data) => api.createArticle(data),
     updateFn: (id, data) => api.updateArticle(id, data),
     deleteFn: (id) => api.deleteArticle(id),
@@ -46,10 +54,7 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
     getId: (a) => a.id,
     pageSize: 10,
     enabled: true,
-    filterFn: (a, searchTerm) =>
-      !searchTerm ||
-      a.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.category.toLowerCase().includes(searchTerm.toLowerCase()),
+    resetKey: debouncedSearch,
     messages: {
       create: "Artículo creado",
       update: "Artículo actualizado",

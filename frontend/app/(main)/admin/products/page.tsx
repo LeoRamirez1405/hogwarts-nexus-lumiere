@@ -13,6 +13,7 @@ import ListFooter from "@/components/ui/ListFooter";
 import { MaterialIcon, Skeleton } from "@/components/ui";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
+import { useDebounce } from "@/hooks/useDebounce";
 import { AdminCrudModal, FormField, InputField, TextareaField, SelectField, ToggleButtonGroup } from "@/components/ui/AdminCrudModal";
 import { EnumMissingNotice } from "@/components/ui/EnumMissingNotice";
 import Switch from "@/components/ui/Switch";
@@ -61,13 +62,21 @@ export default function AdminProductsPage() {
   const [borginCategories, setBorginCategories] = useState<EnumValue[]>([]);
   const [flourishCategories, setFlourishCategories] = useState<EnumValue[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
 
   // Server-side filter reset key
-  const resetKey = filter;
+  const resetKey = [filter, debouncedSearch];
 
   const crud = useAdminCrud<Product, ProductInput, ProductInput>({
     queryKey: ["admin-products"],
-    fetcher: (p) => api.getProducts(filter === "all" ? undefined : filter, p),
+    fetcher: (p) =>
+      api.getProducts(
+        filter === "all" ? undefined : filter,
+        p,
+        undefined,
+        debouncedSearch || undefined
+      ),
     createFn: (data) => api.createProduct(data),
     updateFn: (id, data) => api.updateProduct(id, data),
     deleteFn: (id) => api.deleteProduct(id),
@@ -81,10 +90,6 @@ export default function AdminProductsPage() {
       update: "Producto actualizado",
       delete: "Producto eliminado",
     },
-    filterFn: (p, search) =>
-      !search ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.category.toLowerCase().includes(search.toLowerCase()),
   });
 
   const modalOpen = crud.showCreate || !!crud.editItem;
@@ -205,8 +210,8 @@ export default function AdminProductsPage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <SearchBar
               placeholder="Buscar productos..."
-              value={crud.search}
-              onChange={crud.setSearch}
+              value={search}
+              onChange={setSearch}
               size="sm"
             />
             <Button variant="primary" icon="add" onClick={handleOpenNew}>
