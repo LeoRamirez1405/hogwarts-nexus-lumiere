@@ -12,7 +12,8 @@ import { SWUpdateNotifier } from "@/components/ui/SWUpdateNotifier";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { isKeyboardOpen, keyboardHeight } = useVisualViewport();
+  const [mounted, setMounted] = useState(false);
+  const { isKeyboardOpen, keyboardHeight, viewportHeight } = useVisualViewport();
   const isBorgin = useBorginZone();
   const pathname = usePathname();
   const isFullHeight = pathname === "/messages";
@@ -23,7 +24,25 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => document.documentElement.classList.remove("dark-scrollbar-html");
   }, [isBorgin]);
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  // On /messages (full-height), reset document scroll when keyboard opens
+  // to undo any stale browser pan (Chrome resizes-visual behavior) while
+  // the layout height adjusts. Only needed during the transition.
+  useEffect(() => {
+    if (isFullHeight && isKeyboardOpen) {
+      window.scrollTo(0, 0);
+    }
+  }, [isFullHeight, isKeyboardOpen]);
+
   const keyboardPadding = isKeyboardOpen ? keyboardHeight : 0;
+
+  const fullHeightStyle = mounted
+    ? { height: `calc(${viewportHeight}px - var(--bottomnav-h))` }
+    : { height: "calc(100dvh - var(--bottomnav-h))" };
 
   return (
     <div className={`${isFullHeight ? "h-dvh overflow-hidden" : "min-h-screen"} ${isBorgin ? "bg-[#1c1b1b] dark-scrollbar" : "bg-surface"}`}>
@@ -52,7 +71,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         className={`lg:pl-72 pt-(--topbar-h) ${isFullHeight ? "overflow-hidden" : "min-h-screen"}`}
         style={
           isFullHeight
-            ? { height: `calc(100dvh - var(--bottomnav-h) - ${keyboardPadding}px)` }
+            ? fullHeightStyle
             : { paddingBottom: `calc(var(--bottomnav-h) + ${keyboardPadding}px)` }
         }
       >

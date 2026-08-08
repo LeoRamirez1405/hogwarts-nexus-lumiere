@@ -71,17 +71,21 @@ async def _update_conversation_preferences(
         recipient_ids = [row[0] for row in member_result.all()]
     else:
         conversation_type = "dm"
-        conversation_id = message.receiver_id
         recipient_ids = [message.receiver_id] if message.receiver_id else []
 
     affected_user_ids = {sender.id}
     affected_user_ids.update(recipient_ids)
 
+    if message.room_id:
+        sender_conversation_id = conversation_id
+    else:
+        sender_conversation_id = message.receiver_id
+
     await _upsert_conversation_pref(
         db,
         user_id=sender.id,
         conversation_type=conversation_type,
-        conversation_id=conversation_id,
+        conversation_id=sender_conversation_id,
         last_message_id=message.id,
         last_message_body=body_preview,
         last_message_at=message.created_at,
@@ -96,11 +100,12 @@ async def _update_conversation_preferences(
     for recipient_id in recipient_ids:
         if recipient_id == sender.id:
             continue
+        recipient_conversation_id = message.room_id if message.room_id else sender.id
         await _upsert_conversation_pref(
             db,
             user_id=recipient_id,
             conversation_type=conversation_type,
-            conversation_id=conversation_id,
+            conversation_id=recipient_conversation_id,
             last_message_id=message.id,
             last_message_body=body_preview,
             last_message_at=message.created_at,

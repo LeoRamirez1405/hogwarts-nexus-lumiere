@@ -20,7 +20,7 @@ export function useVisualViewport(): VisualViewportState {
   });
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const DEBOUNCE_MS = 150;
+  const DEBOUNCE_MS = 30;
 
   const debouncedSetState = useCallback((newState: VisualViewportState) => {
     if (debounceTimerRef.current) {
