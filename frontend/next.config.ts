@@ -92,7 +92,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  allowedDevOrigins: ["10.0.0.47"],
+  allowedDevOrigins: ["10.0.0.47", "10-0-0-47.nip.io"],
   async headers() {
     return [
       {

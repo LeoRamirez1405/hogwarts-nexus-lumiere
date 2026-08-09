@@ -33,8 +33,8 @@ if __name__ == "__main__":
     # to wss://localhost:8443/messages/ws. Runs as a daemon thread; no-op if the
     # certs / `websockets` are missing (e.g. prod, where TLS is handled upstream).
     _here = os.path.dirname(os.path.abspath(__file__))
-    _cert = os.path.abspath(os.getenv("SSL_CERTFILE") or os.path.join(_here, "..", "frontend", "certs", "localhost+2.pem"))
-    _key = os.path.abspath(os.getenv("SSL_KEYFILE") or os.path.join(_here, "..", "frontend", "certs", "localhost+2-key.pem"))
+    _cert = os.path.abspath(os.getenv("SSL_CERTFILE") or os.path.join(_here, "..", "frontend", "certs", "nexus-dev.pem"))
+    _key = os.path.abspath(os.getenv("SSL_KEYFILE") or os.path.join(_here, "..", "frontend", "certs", "nexus-dev-key.pem"))
     ws_tls_bridge.start_in_thread(_cert, _key)
 
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

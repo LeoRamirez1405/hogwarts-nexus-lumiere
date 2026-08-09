@@ -134,15 +134,55 @@ export function usePushSubscription() {
   // subscribe-on-login flow, where a push-service failure (common on
   // localhost/dev, where the browser push service is unreachable) should not
   // spam the user with an error toast on every login.
+  const ensureRegistration = useCallback(async (silent: boolean): Promise<ServiceWorkerRegistration | null> => {
+    if (registration) return registration;
+    try {
+      return await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    } catch (error) {
+      const err = error as { name?: string; message?: string };
+      if (!silent) {
+        if (err.name === "SecurityError") {
+          toastError(
+            "Certificado no confiable",
+            new Error(
+              "Este dispositivo no confía en el certificado de desarrollo. Instala la CA raíz desde " +
+                `${window.location.origin}/rootCA.crt` +
+                " y reinicia el navegador."
+            )
+          );
+        } else {
+          toastError("No se pudo registrar el Service Worker", error as Error);
+        }
+      }
+      return null;
+    }
+  }, [registration]);
+
   const subscribe = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent ?? false;
-    if (!registration || !user) return;
+    if (!user) return;
+
+    // Web Push only works in secure contexts (HTTPS or localhost). Catching
+    // this early gives a human-readable message instead of the browser's
+    // cryptic "Registration failed - push service error".
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      if (!silent) {
+        toastError(
+          "Se necesita HTTPS",
+          new Error("Las notificaciones requieren HTTPS (https://...) o localhost")
+        );
+      }
+      return;
+    }
+
     if (!("PushManager" in window)) {
       if (!silent) toastError("Notificaciones push no soportadas", new Error("PushManager not available"));
       return;
     }
 
-    const swRegistration = registration;
+    const swRegistration = await ensureRegistration(silent);
+    if (!swRegistration) return;
+
     setLoading(true);
     try {
       const vapidKey = await fetchVapidKey();
@@ -176,16 +216,70 @@ export function usePushSubscription() {
       setIsSubscribed(true);
       toastInfo("Notificaciones activadas", "Recibirás notificaciones incluso con la app cerrada");
     } catch (error) {
+      const err = error as { name?: string; message?: string };
       if (silent) {
         console.warn("Auto push subscribe failed (silenced):", error);
+        return;
+      }
+      console.error("Subscribe error:", error);
+      // The browser refuses to register a subscription when the push service
+      // is unreachable (FCM blocked, corporate network, offline) or when the
+      // origin is not secure.
+      if (err.name === "AbortError" || /push service|registration failed/i.test(err.message || "")) {
+        // Chrome/FCM refuses push subscriptions for IP-address origins
+        // (e.g. https://192.168.x.x) — only hostnames and localhost work.
+        // A self-signed cert not trusted by this device has the same symptom.
+        // Brave additionally disables the Google push service by default.
+        const isBrave = typeof window !== "undefined" && (window as { brave?: unknown }).brave !== undefined;
+        if (isBrave) {
+          toastError(
+            "Brave bloquea el push",
+            new Error(
+              "Abre brave://settings/privacy y activa 'Use Google services for push messaging'. Luego reinicia Brave."
+            )
+          );
+          return;
+        }
+        const host = typeof window !== "undefined" ? window.location.hostname : "";
+        const isIpOrigin = /^\d{1,3}(\.\d{1,3}){3}$|^\[?[0-9a-fA-F:]+\]?$/.test(host) && host !== "localhost" && host !== "127.0.0.1" && host !== "::1";
+        if (isIpOrigin) {
+          toastError(
+            "Chrome no permite push por IP",
+            new Error(
+              "Usa https://localhost:3000 (o un dominio real) para activar notificaciones. Chrome bloquea push en direcciones IP."
+            )
+          );
+        } else {
+          toastError(
+            "El navegador bloqueó el push",
+            new Error(
+              window.isSecureContext
+                ? "Tu navegador no confía en este certificado o no alcanza el servicio push. Instala el certificado raíz (rootCA.crt) en este dispositivo."
+                : "Verifica que uses https:// y que tu red permita el push service del navegador"
+            )
+          );
+        }
+      } else if (err.name === "NotAllowedError") {
+        toastError("Permiso denegado", new Error("Habilita las notificaciones en los ajustes del navegador"));
+      } else if (err.name === "NotSupportedError" || /not supported/i.test(err.message || "")) {
+        const isIos = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isIos) {
+          toastError(
+            "Push solo desde la app instalada",
+            new Error(
+              "En iPhone: Compartir → Añadir a pantalla de inicio, abre la app desde ahí y activa las notificaciones."
+            )
+          );
+        } else {
+          toastError("Push no soportado en este navegador", error as Error);
+        }
       } else {
-        console.error("Subscribe error:", error);
         toastError("No se pudo activar push", error as Error);
       }
     } finally {
       setLoading(false);
     }
-  }, [registration, user, fetchVapidKey, urlBase64ToUint8Array]);
+  }, [user, fetchVapidKey, urlBase64ToUint8Array, ensureRegistration]);
 
   const unsubscribe = useCallback(async () => {
     if (!subscription || !registration) return;

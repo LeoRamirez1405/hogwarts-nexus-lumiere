@@ -13,6 +13,7 @@ import { getAccessTokenFromCookie } from "@/lib/cookies";
 import Avatar from "@/components/ui/Avatar";
 import { MaterialIcon } from "@/components/ui";
 import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
+import { usePushSubscription } from "@/hooks/usePWA";
 import { usePrefetchOnTouch } from "@/hooks/usePrefetchOnTouch";
 import { useHapticLight } from "@/hooks/useHapticFeedback";
 import { useBorginZone } from "@/hooks/useBorginZone";
@@ -54,6 +55,39 @@ function DesktopNavLink({ item, isActive, isDark }: { item: DesktopNavItem; isAc
     >
       {item.label}
     </Link>
+  );
+}
+
+function PushNotificationMenuItem() {
+  const { isSubscribed, loading, subscribe, unsubscribe } = usePushSubscription();
+  const hapticLight = useHapticLight();
+
+  const handleToggle = () => {
+    hapticLight();
+    if (isSubscribed) {
+      unsubscribe();
+    } else {
+      subscribe();
+    }
+  };
+
+  return (
+    <button
+      onClick={handleToggle}
+      disabled={loading}
+      className="w-full flex items-center gap-3 px-4 py-3 text-body-md hover:bg-surface-container-high transition-colors disabled:opacity-50"
+      style={{ color: "var(--color-on-surface)" }}
+    >
+      <MaterialIcon
+        name={isSubscribed ? "notifications_active" : "notifications_off"}
+        className="text-lg"
+        filled={isSubscribed}
+      />
+      <span className="flex-1 text-left">
+        {isSubscribed ? "Notificaciones activadas" : "Activar notificaciones"}
+      </span>
+      {loading && <span className="text-label-sm text-on-surface-variant">...</span>}
+    </button>
   );
 }
 
@@ -393,6 +427,9 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
           </Link>
           <div className="border-t border-outline-variant/20">
             <PWAInstallPrompt variant="row" />
+          </div>
+          <div className="border-t border-outline-variant/20">
+            <PushNotificationMenuItem />
           </div>
           <button
             onClick={() => { hapticLight(); handleLogout(); }}

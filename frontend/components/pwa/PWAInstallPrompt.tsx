@@ -131,7 +131,7 @@ export default function PWAInstallPrompt({ variant = "banner", className = "" }:
                 Instala Hogwarts Nexus
               </h3>
               <p className="text-body-sm text-on-surface-variant mt-1">
-                Añade la app a tu pantalla de inicio para acceso rápido y notificaciones push.
+                Añade la app a tu pantalla de inicio para acceso rápido y notificaciones.
               </p>
             </div>
             <button

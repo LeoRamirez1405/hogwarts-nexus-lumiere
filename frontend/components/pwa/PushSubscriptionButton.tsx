@@ -26,7 +26,7 @@ export default function PushSubscriptionButton({ variant = "button", className =
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-display text-title-md text-on-surface">
-              Notificaciones Push
+              Notificaciones
             </h3>
             <p className="text-body-sm text-on-surface-variant mt-1">
               {isSubscribed
@@ -66,7 +66,7 @@ export default function PushSubscriptionButton({ variant = "button", className =
           filled={isSubscribed}
         />
         <span className="text-body-md text-on-surface">
-          {isSubscribed ? "Notificaciones activadas" : "Activar notificaciones push"}
+          {isSubscribed ? "Notificaciones activadas" : "Activar notificaciones"}
         </span>
         <button
           onClick={() => (isSubscribed ? unsubscribe() : subscribe())}
@@ -93,8 +93,8 @@ export default function PushSubscriptionButton({ variant = "button", className =
           ? "bg-secondary/10 text-secondary"
           : "text-on-surface-variant hover:bg-surface-container-high"
       } disabled:opacity-50 ${className}`}
-      aria-label={isSubscribed ? "Desactivar notificaciones push" : "Activar notificaciones push"}
-      title={isSubscribed ? "Notificaciones activadas" : "Activar notificaciones push"}
+      aria-label={isSubscribed ? "Desactivar notificaciones" : "Activar notificaciones"}
+      title={isSubscribed ? "Notificaciones activadas" : "Activar notificaciones"}
     >
       <MaterialIcon
         name={isSubscribed ? "notifications_active" : "notifications"}

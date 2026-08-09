@@ -7,26 +7,71 @@ is always best-effort: if VAPID keys are missing (dev) or a push fails, the
 in-app notification still stands and the caller never sees an error.
 """
 
-import asyncio
 import json
+import base64
 from io import BytesIO
 from typing import List, Optional, Tuple
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from webpush import WebPush, WebPushException
+from webpush.types import WebPushKeys, WebPushSubscription
+
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization
 
 from ..config import settings
 from ..models.push_subscription import PushSubscription
 
+# HTTP client shared by all push deliveries (connection pooling).
+_HTTP = httpx.AsyncClient(timeout=10.0)
+
+
+def _b64url_decode(value: str) -> bytes:
+    """Decode a base64url string (no padding) into raw bytes."""
+    padding = "=" * ((4 - len(value) % 4) % 4)
+    return base64.urlsafe_b64decode(value + padding)
+
+
+def _vapid_to_pem(private_key: str, public_key: str) -> Tuple[bytes, bytes]:
+    """Convert raw base64url VAPID keys into PEM bytes.
+
+    The ``webpush`` library expects PEM files, but Web Push VAPID keys are
+    conventionally stored as base64url (raw P-256 private key, uncompressed
+    point public key). Deriving the PEM from the raw bytes avoids ever having
+    to manage separate PEM files.
+    """
+    priv_raw = _b64url_decode(private_key)
+    pub_raw = _b64url_decode(public_key)
+
+    priv_key = ec.derive_private_key(int.from_bytes(priv_raw, "big"), ec.SECP256R1())
+    pub_key = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), pub_raw)
+
+    priv_pem = priv_key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    )
+    pub_pem = pub_key.public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    return priv_pem, pub_pem
+
 
 def get_webpush() -> Optional[WebPush]:
     if settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY:
+        priv_pem, pub_pem = _vapid_to_pem(
+            settings.VAPID_PRIVATE_KEY, settings.VAPID_PUBLIC_KEY
+        )
+        # The library prepends "mailto:" itself; strip it if already present.
+        subject = settings.VAPID_SUBJECT.removeprefix("mailto:")
         return WebPush(
-            private_key=BytesIO(settings.VAPID_PRIVATE_KEY.encode()),
-            public_key=BytesIO(settings.VAPID_PUBLIC_KEY.encode()),
-            subscriber=settings.VAPID_SUBJECT,
+            private_key=BytesIO(priv_pem),
+            public_key=BytesIO(pub_pem),
+            subscriber=subject,
         )
     return None
 
@@ -75,14 +120,37 @@ def _parse_subscription(sub_json: object) -> dict:
     return sub_json
 
 
-def _deliver(wp: WebPush, pairs: List[Tuple[str, object]], payload: str) -> Tuple[int, List[str]]:
-    """Send the payload to every subscription. Returns (sent, expired ids)."""
+async def _deliver_async(
+    wp: WebPush, pairs: List[Tuple[str, object]], payload: str
+) -> Tuple[int, List[str]]:
+    """Async version of ``_deliver`` using the shared httpx client."""
     sent = 0
     expired: List[str] = []
     for sub_id, sub_json in pairs:
         try:
-            wp.send(subscription=_parse_subscription(sub_json), data=payload)
-            sent += 1
+            sub = _parse_subscription(sub_json)
+            endpoint = sub["endpoint"]
+            keys = sub.get("keys", {})
+            if not endpoint or not keys.get("p256dh") or not keys.get("auth"):
+                continue
+
+            message = wp.get(
+                message=payload,
+                subscription=WebPushSubscription(
+                    endpoint=endpoint,
+                    keys=WebPushKeys(p256dh=keys["p256dh"], auth=keys["auth"]),
+                ),
+            )
+
+            resp = await _HTTP.post(
+                endpoint,
+                content=message.encrypted,
+                headers=message.headers,
+            )
+            if resp.status_code in (200, 201, 202):
+                sent += 1
+            elif resp.status_code in (404, 410):
+                expired.append(sub_id)
         except WebPushException:
             expired.append(sub_id)
         except Exception:
@@ -118,14 +186,14 @@ async def send_webpush_to_user(
         {
             "title": title,
             "body": body,
-            "icon": "/icons/icon-192.svg",
-            "badge": "/icons/icon-192.svg",
+            "icon": "/icons/icon-192-owl-outline.svg",
+            "badge": "/icons/icon-192-owl-outline.svg",
             "tag": tag or "nexus-notification",
             "data": {"url": url or "/notifications"},
         }
     )
     pairs = [(sub.id, sub.subscription_json) for sub in subscriptions]
-    sent, expired_ids = await asyncio.to_thread(_deliver, wp, pairs, payload)
+    sent, expired_ids = await _deliver_async(wp, pairs, payload)
 
     for sub_id in expired_ids:
         sub = next((s for s in subscriptions if s.id == sub_id), None)
