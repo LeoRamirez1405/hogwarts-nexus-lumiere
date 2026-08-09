@@ -24,7 +24,6 @@ class ProductResponse(BaseModel):
     image_url: Optional[str] = None
     stock: int
     weekly_sales: int
-    requires_specification: bool = False
     specification_placeholder: Optional[str] = None
     created_at: datetime
 

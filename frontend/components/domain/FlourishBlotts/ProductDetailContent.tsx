@@ -4,7 +4,7 @@ import { memo } from "react";
 import Image from "next/image";
 import { Product } from "@/lib/api";
 import { getFallbackForProduct } from "@/lib/fallbacks";
-import { ZerineDisplay, Button, MaterialIcon } from "@/components/ui";
+import { ZerineDisplay, Button } from "@/components/ui";
 import { useTheme } from "@/lib/useTheme";
 
 interface ProductDetailContentProps {
@@ -72,19 +72,6 @@ export const ProductDetailContent = memo(function ProductDetailContent({
             Añadir al Caldero
           </Button>
         </div>
-
-        {product.requires_specification && (
-          <div className="flex items-start gap-2 rounded-xl bg-primary/10 border border-primary/20 px-4 py-3">
-            <MaterialIcon name="edit_note" className="text-primary shrink-0 mt-0.5" />
-            <p className="text-body-sm text-primary">
-              Este libro requiere especificacion:{" "}
-              <span className="font-semibold">
-                {product.specification_placeholder || "indica los detalles solicitados"}
-              </span>
-              . Se te pedira al agregarlo al Caldero.
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

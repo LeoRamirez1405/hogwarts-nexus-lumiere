@@ -12,7 +12,6 @@ class ProductCreate(BaseModel):
     image_url: Optional[str] = None
     stock: int = 0
     weekly_sales: int = 0
-    requires_specification: bool = False
     specification_placeholder: Optional[str] = None
 
 
@@ -25,7 +24,6 @@ class ProductUpdate(BaseModel):
     image_url: Optional[str] = None
     stock: Optional[int] = None
     weekly_sales: Optional[int] = None
-    requires_specification: Optional[bool] = None
     specification_placeholder: Optional[str] = None
 
 
@@ -39,7 +37,6 @@ class ProductResponse(BaseModel):
     image_url: Optional[str] = None
     stock: int
     weekly_sales: int
-    requires_specification: bool = False
     specification_placeholder: Optional[str] = None
     created_at: datetime
 

@@ -123,12 +123,7 @@ export default function FlourishBlottsPage() {
   };
 
   const handleAddToCart = (product: Product) => {
-    if (product.requires_specification) {
-      setSpecProduct(product);
-      return;
-    }
-    addItem(product);
-    toastSuccess("Añadido al Caldero", `${product.name} está en tu caldero`);
+    setSpecProduct(product);
   };
 
   const handleSpecConfirm = (specification: string) => {

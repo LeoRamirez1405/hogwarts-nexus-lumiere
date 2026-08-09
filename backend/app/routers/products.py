@@ -97,7 +97,7 @@ async def purchase_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    if product.requires_specification and not (specification or "").strip():
+    if product.shop == "flourish" and not (specification or "").strip():
         raise HTTPException(
             status_code=400,
             detail=(
@@ -183,7 +183,7 @@ async def batch_purchase(
             raise HTTPException(status_code=400, detail="Quantity must be positive")
         if not product:
             raise HTTPException(status_code=404, detail=f"Product {req_item.product_id} not found")
-        if product.requires_specification and not (req_item.specification or "").strip():
+        if product.shop == "flourish" and not (req_item.specification or "").strip():
             raise HTTPException(
                 status_code=400,
                 detail=(
