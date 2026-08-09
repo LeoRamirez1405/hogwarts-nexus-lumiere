@@ -144,14 +144,23 @@ export function useMessageActions({
     }
   }, [setMessages, setPinnedMessages]);
 
-  const handleEditMessage = useCallback(async (messageId: string, body: string) => {
+  const handleEditMessage = useCallback(async (messageId: string, _convId: string, body: string) => {
     try {
-      await api.editMessage(messageId, body);
-      setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, body, edited: true, edited_at: new Date().toISOString() } : m));
+      const updated = await api.editMessage(messageId, body);
+      // Usar la respuesta del servidor (no el body optimista): garantiza que el
+      // mensaje mostrado sea exactamente lo que queda persistido en el backend.
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, ...updated } : m)));
+      // Si el mensaje editado es el último de la conversación, actualizar también
+      // el preview de la bandeja de entrada para que refleje el nuevo texto.
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.last_message?.id === messageId ? { ...c, last_message: { ...c.last_message, ...updated } } : c
+        )
+      );
     } catch (error) {
       console.error("Failed to edit message:", error);
     }
-  }, [setMessages]);
+  }, [setMessages, setConversations]);
 
   const handleDeleteMessage = useCallback(async (messageId: string) => {
     const cancelDelete = markMessageDeleting(setMessages, messageId);
@@ -166,16 +175,19 @@ export function useMessageActions({
     }
   }, [setMessages, setConversations, selectedId, messagesRef]);
 
-  const handleForwardMessage = useCallback(async (message: Message, targetId: string, targetType: "dm" | "room") => {
+  const handleForwardMessage = useCallback(async (message: Message, targetId: string, targetType: "dm" | "room"): Promise<boolean> => {
     try {
       await api.forwardMessage(
         message.id,
         targetType === "dm" ? targetId : undefined,
         targetType === "room" ? targetId : undefined
       );
+      toastSuccess("Mensaje reenviado", "Se envió a la conversación elegida");
+      return true;
     } catch (e) {
       console.error("Failed to forward message:", e);
-      alert("Error al reenviar el mensaje");
+      toastError("Error al reenviar el mensaje", e);
+      return false;
     }
   }, []);
 

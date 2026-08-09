@@ -32,9 +32,6 @@ interface ChatMessagesProps {
   onDelete: (msg: Message) => void;
   onForward?: (msg: Message) => void;
   onPollVote?: (messageId: string, updatedPoll: NonNullable<Message["poll"]>) => void;
-  editingId?: string | null;
-  onSaveEdit?: (messageId: string, body: string) => void;
-  onCancelEdit?: () => void;
 }
 
 export default function ChatMessages({
@@ -63,9 +60,6 @@ export default function ChatMessages({
   onDelete,
   onForward,
   onPollVote,
-  editingId,
-  onSaveEdit,
-  onCancelEdit,
 }: ChatMessagesProps) {
   // Force re-evaluation every 5s so messages with disappear_at that just
   // passed get filtered out without waiting for a backend sweep.
@@ -191,9 +185,6 @@ export default function ChatMessages({
                 onDelete={onDelete}
                 onPollVote={onPollVote}
                 members={isRoom ? roomMembers : undefined}
-                editing={editingId === msg.id}
-                onSaveEdit={onSaveEdit}
-                onCancelEdit={onCancelEdit}
               />
             </div>
           )}

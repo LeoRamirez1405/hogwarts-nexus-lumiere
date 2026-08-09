@@ -16,6 +16,8 @@ import type { Message, UserSearchResult } from "@/lib/api";
 interface ChatInputMobileProps {
   input: string;
   replyingTo: Message | null;
+  editingMessage: Message | null;
+  onCancelEdit: () => void;
   attachment: AttachmentPreview | null;
   uploading: boolean;
   mentionResults: UserSearchResult[];
@@ -34,8 +36,6 @@ interface ChatInputMobileProps {
   onInputChange: (value: string) => void;
   onTypingStop: () => void;
   onSend: () => void;
-  onCancelReply: () => void;
-  onRemoveAttachment: () => void;
   onToggleStickers: () => void;
   onTogglePoll: () => void;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -48,6 +48,8 @@ interface ChatInputMobileProps {
 export default function ChatInputMobile({
   input,
   replyingTo,
+  editingMessage,
+  onCancelEdit,
   attachment,
   uploading,
   mentionResults,
@@ -66,8 +68,6 @@ export default function ChatInputMobile({
   onInputChange,
   onTypingStop,
   onSend,
-  onCancelReply,
-  onRemoveAttachment,
   onToggleStickers,
   onTogglePoll,
   onFileSelect,
@@ -106,36 +106,11 @@ export default function ChatInputMobile({
     onMentionMove,
     onMentionConfirm,
     onDismissMentions,
+    onCancelEdit: editingMessage ? onCancelEdit : undefined,
   });
 
   return (
     <>
-      {replyingTo && (
-        <div className="mb-2 flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
-          <MaterialIcon name="reply" className="text-primary text-lg shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-label-sm font-medium text-primary">Respondiendo a {replyingTo.sender?.name || "alguien"}</p>
-            <p className="text-label-sm text-on-surface-variant truncate">{replyingTo.body || (replyingTo.kind === "sticker" ? "Sticker" : replyingTo.kind === "poll" ? "Encuesta" : "...")}</p>
-          </div>
-          <button onClick={onCancelReply} className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant" aria-label="Cancelar respuesta">
-            <MaterialIcon name="close" className="text-lg" />
-          </button>
-        </div>
-      )}
-
-      {attachment && (
-        <div className="mb-2 flex items-center gap-2 bg-surface-container rounded-xl px-3 py-2">
-          <MaterialIcon
-            name={attachment.type.startsWith("image") ? "image" : attachment.type.startsWith("video") ? "videocam" : attachment.type.startsWith("audio") ? "music_note" : "attach_file"}
-            className="text-lg text-primary"
-          />
-          <span className="text-label-sm text-on-surface truncate flex-1">{attachment.name}</span>
-          <button onClick={onRemoveAttachment} className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant" aria-label="Quitar adjunto">
-            <MaterialIcon name="close" className="text-lg" />
-          </button>
-        </div>
-      )}
-
       <div className="md:hidden relative flex items-center gap-2 bg-surface-container-low rounded-full px-3 py-2">
         {mentionOpen && (
           <MentionDropdown
@@ -158,7 +133,7 @@ export default function ChatInputMobile({
             onChange={handleInputChange}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            placeholder={replyingTo ? "Escribe tu respuesta..." : "Escribe un mensaje..."}
+            placeholder={editingMessage ? "Edita tu mensaje..." : replyingTo ? "Escribe tu respuesta..." : "Escribe un mensaje..."}
             className="block w-full bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50 resize-none min-h-[2.5rem] max-h-[8rem] leading-6 py-2"
             disabled={uploading}
             rows={1}

@@ -6,6 +6,7 @@ import ChatVideoRecorder from "./ChatVideoRecorder";
 import DateTimePickerModal from "./DateTimePickerModal";
 import StickerPicker from "./StickerPicker";
 import PollCreator from "../PollCreator";
+import { MaterialIcon } from "../helpers";
 import type { Message, UserSearchResult } from "@/lib/api";
 import type { AttachmentPreview } from "../types";
 import type { VoiceRecorderState } from "../hooks/useVoiceRecorder";
@@ -15,6 +16,8 @@ import { ChatInputDesktop, ChatInputMobile } from "./ChatInput/index";
 interface ChatInputProps {
   input: string;
   replyingTo: Message | null;
+  editingMessage: Message | null;
+  onCancelEdit: () => void;
   attachment: AttachmentPreview | null;
   uploading: boolean;
   showStickers: boolean;
@@ -62,6 +65,8 @@ interface ChatInputProps {
 export default function ChatInput({
   input,
   replyingTo,
+  editingMessage,
+  onCancelEdit,
   attachment,
   uploading,
   showStickers,
@@ -110,6 +115,8 @@ export default function ChatInput({
   const commonProps = {
     input,
     replyingTo,
+    editingMessage,
+    onCancelEdit,
     attachment,
     uploading,
     mentionResults,
@@ -128,8 +135,6 @@ export default function ChatInput({
     onInputChange,
     onTypingStop,
     onSend,
-    onCancelReply,
-    onRemoveAttachment,
     onToggleStickers,
     onTogglePoll,
     onFileSelect,
@@ -173,6 +178,66 @@ export default function ChatInput({
           {showPoll && (
             <PollCreator onCreate={onPollCreate} onCancel={onCancelPoll} />
           )}
+
+          {replyingTo && (
+            <div className="mb-2 flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
+              <MaterialIcon name="reply" className="text-primary text-lg shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-label-sm font-medium text-primary">Respondiendo a {replyingTo.sender?.name || "alguien"}</p>
+                <p className="text-label-sm text-on-surface-variant truncate">{replyingTo.body || (replyingTo.kind === "sticker" ? "Sticker" : replyingTo.kind === "poll" ? "Encuesta" : "...")}</p>
+              </div>
+              <button
+                onClick={onCancelReply}
+                className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant"
+                aria-label="Cancelar respuesta"
+              >
+                <MaterialIcon name="close" className="text-lg" />
+              </button>
+            </div>
+          )}
+
+          {editingMessage && (
+            <div className="mb-2 flex items-center gap-2 bg-secondary-container/50 border border-secondary/30 rounded-xl px-3 py-2">
+              <MaterialIcon name="edit" className="text-secondary text-lg shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-label-sm font-medium text-secondary">Editando mensaje</p>
+                <p className="text-label-sm text-on-surface-variant truncate">&ldquo;{(editingMessage.body || "").slice(0, 40)}{(editingMessage.body || "").length > 40 ? "…" : ""}&rdquo;</p>
+              </div>
+              <button
+                onClick={onCancelEdit}
+                className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant"
+                aria-label="Cancelar edición"
+              >
+                <MaterialIcon name="close" className="text-lg" />
+              </button>
+            </div>
+          )}
+
+          {attachment && (
+            <div className="mb-2 flex items-center gap-2 bg-surface-container rounded-xl px-3 py-2">
+              <MaterialIcon
+                name={
+                  attachment.type.startsWith("image")
+                    ? "image"
+                    : attachment.type.startsWith("video")
+                    ? "videocam"
+                    : attachment.type.startsWith("audio")
+                    ? "music_note"
+                    : "attach_file"
+                }
+                className="text-lg text-primary"
+              />
+              <span className="text-label-sm text-on-surface truncate flex-1">{attachment.name}</span>
+              <button
+                onClick={onRemoveAttachment}
+                className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant"
+                aria-label="Quitar adjunto"
+              >
+                <MaterialIcon name="close" className="text-lg" />
+              </button>
+            </div>
+          )}
+
           <Suspense fallback={null}>
             <ChatInputDesktop {...commonProps} />
             <ChatInputMobile {...commonProps} />

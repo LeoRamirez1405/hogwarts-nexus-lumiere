@@ -12,9 +12,11 @@ import { hapticLight, hapticMedium } from "@/lib/haptics";
 export function useChatComposer({
   selectedConv,
   onSend,
+  onEditMessage,
 }: {
   selectedConv: SelectedConv | null;
   onSend: (data: MessageSendData) => void;
+  onEditMessage: (messageId: string, body: string) => void;
 }) {
   const [input, setInput] = useState("");
   const [attachment, setAttachment] = useState<{ url: string; type: string; name: string } | null>(null);
@@ -23,6 +25,7 @@ export function useChatComposer({
   const [stickerTab, setStickerTab] = useState("magicos");
   const [showPoll, setShowPoll] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [mentionSearch, setMentionSearch] = useState("");
   const [mentionResults, setMentionResults] = useState<UserSearchResult[]>([]);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
@@ -77,6 +80,36 @@ export function useChatComposer({
     setScheduleAt(undefined);
   }, []);
 
+  // Edición estilo WhatsApp/Telegram: el mensaje se copia al input principal
+  // y se confirma con el botón de enviar (o Enter).
+  const startEditMessage = useCallback((message: Message) => {
+    setInput(message.body || "");
+    setEditingMessage(message);
+    setReplyingTo(null);
+    setAttachment(null);
+    setShowStickers(false);
+    setShowPoll(false);
+    setDisappearAt(undefined);
+    setScheduleAt(undefined);
+    setMentionSearch("");
+    setShowMentionDropdown(false);
+    inputRef.current?.focus();
+  }, []);
+
+  const cancelEdit = useCallback(() => {
+    setEditingMessage(null);
+    setInput("");
+  }, []);
+
+  // Al cambiar de conversación se sale del modo edición.
+  const lastConvIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (lastConvIdRef.current !== selectedConv?.id) {
+      lastConvIdRef.current = selectedConv?.id;
+      setEditingMessage(null);
+    }
+  }, [selectedConv?.id]);
+
   const doSend = useCallback(
     (data: MessageSendData) => {
       onSend(data);
@@ -88,6 +121,15 @@ const handleSend = () => {
   const trimmed = input.trim();
   if (!trimmed && !attachment) return;
   hapticLight();
+
+  // Modo edición: el input reemplaza al mensaje existente en vez de crear uno nuevo.
+  if (editingMessage) {
+    const messageId = editingMessage.id;
+    setEditingMessage(null);
+    setInput("");
+    if (trimmed) onEditMessage(messageId, trimmed);
+    return;
+  }
 
   const data = buildBaseData({ body: trimmed || " " });
 
@@ -390,5 +432,8 @@ const handleSend = () => {
   onDisappearChange: setDisappearAt,
   scheduleAt,
   onScheduleChange: setScheduleAt,
+  editingMessage,
+  startEditMessage,
+  cancelEdit,
 };
 }

@@ -82,7 +82,6 @@ export default function ChatPanel(props: ChatPanelProps) {
   const [inChatSearchResults, setInChatSearchResults] = useState<Message[]>([]);
   const [showInChatSearch, setShowInChatSearch] = useState(false);
   const [showEditRoom, setShowEditRoom] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const eventsEnabled = useFeatureFlag("events.enabled");
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -115,6 +114,12 @@ export default function ChatPanel(props: ChatPanelProps) {
         onSend(data);
       },
       [onSend, snapToBottom]
+    ),
+    onEditMessage: useCallback(
+      (messageId: string, body: string) => {
+        if (onEditMessage) onEditMessage(messageId, selectedConv?.id || "", body);
+      },
+      [onEditMessage, selectedConv?.id]
     ),
   });
 
@@ -272,26 +277,6 @@ export default function ChatPanel(props: ChatPanelProps) {
       cancelled = true;
     };
   }, [liveEvent]);
-
-  const handleEdit = useCallback((message: Message) => {
-    setEditingId(message.id);
-  }, []);
-
-  const lastConvIdRef = useRef<string | undefined>(undefined);
-  if (lastConvIdRef.current !== selectedConv?.id) {
-    lastConvIdRef.current = selectedConv?.id;
-    setEditingId(null);
-  }
-
-  const handleSaveEdit = useCallback(
-    (messageId: string, body: string) => {
-      setEditingId(null);
-      const trimmed = body.trim();
-      if (!trimmed || !onEditMessage) return;
-      onEditMessage(messageId, selectedConv?.id || "", trimmed);
-    },
-    [onEditMessage, selectedConv?.id]
-  );
 
   const handleDelete = useCallback(
     (message: Message) => {
@@ -595,19 +580,18 @@ export default function ChatPanel(props: ChatPanelProps) {
           onScrollToMessage={scrollToMessage}
           onTogglePin={onTogglePin}
           onToggleStar={onToggleStar}
-          onEdit={handleEdit}
+          onEdit={composer.startEditMessage}
           onDelete={handleDelete}
           onForward={handleForward}
           onPollVote={onPollVote}
-          editingId={editingId}
-          onSaveEdit={handleSaveEdit}
-          onCancelEdit={() => setEditingId(null)}
         />
       </div>
 
       <ChatInput
         input={composer.input}
         replyingTo={composer.replyingTo}
+        editingMessage={composer.editingMessage}
+        onCancelEdit={composer.cancelEdit}
         attachment={composer.attachment}
         uploading={composer.uploading}
         showStickers={composer.showStickers}

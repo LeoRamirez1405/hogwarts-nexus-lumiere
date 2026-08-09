@@ -15,9 +15,9 @@ import { AudioView } from "./AudioView";
 import { MentionText } from "./MentionText";
 import { ReactionBar } from "./ReactionBar";
 import { MessageActions } from "./MessageActions";
-import { EditMessageForm } from "./EditMessageForm";
 import { LinkPreviewView } from "./LinkPreviewView";
 import { detectMessageEffect, MessageEffectBurst } from "@/components/ui/MessageEffects";
+import { hapticLight } from "@/lib/haptics";
 import type { MessageBubbleProps } from "./types";
 
 const formatDisappearTime = (disappearAt: string) => {
@@ -38,6 +38,10 @@ const formatDisappearTime = (disappearAt: string) => {
 
 const SWIPE_TRIGGER = 90;
 const SWIPE_MAX = 120;
+const LONG_PRESS_DELAY = 450;
+
+const INTERACTIVE_SELECTOR =
+  "a, button, [role='button'], input, textarea, select, label, video, audio";
 
 export const MessageBubble = memo(
   ({
@@ -54,9 +58,6 @@ export const MessageBubble = memo(
     onPollVote,
     members,
     isReplyTarget,
-    editing,
-    onSaveEdit,
-    onCancelEdit,
   }: MessageBubbleProps) => {
   const [dataSaver] = useState(() => {
     if (typeof window !== "undefined") {
@@ -74,6 +75,8 @@ export const MessageBubble = memo(
   const dragXRef = useRef(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const movedRef = useRef(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggeredRef = useRef(false);
   const anchorRef = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const kind = message.kind || "text";
@@ -117,12 +120,32 @@ export const MessageBubble = memo(
   const disappearWarn =
     disappearDiff !== null && !disappearUrgent && disappearDiff <= 300_000;
 
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (message.optimistic || editing || message.deleting) return;
+    if (message.optimistic || message.deleting) return;
     touchStartRef.current = {
       x: e.touches[0].clientX,
       y: e.touches[0].clientY,
     };
+    // Long-press: mantiene presionado sin moverse abre las acciones.
+    // Se cancela si el dedo se mueve (scroll/swipe) o si apuntó a un
+    // elemento interactivo (links, botones, medios...).
+    const target = e.target as HTMLElement;
+    if (target.closest(INTERACTIVE_SELECTOR)) return;
+    longPressTriggeredRef.current = false;
+    clearLongPressTimer();
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTimerRef.current = null;
+      longPressTriggeredRef.current = true;
+      hapticLight();
+      setActionsOpen(true);
+    }, LONG_PRESS_DELAY);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -132,6 +155,7 @@ export const MessageBubble = memo(
     // Solo horizontal dominante
     if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
       movedRef.current = true;
+      clearLongPressTimer();
       setDragging(true);
       const raw = swipeDir < 0 ? Math.min(0, dx) : Math.max(0, dx);
       const next = swipeDir < 0 ? Math.max(raw, -SWIPE_MAX) : Math.min(raw, SWIPE_MAX);
@@ -143,6 +167,7 @@ export const MessageBubble = memo(
   const handleTouchEnd = () => {
     if (!touchStartRef.current) return;
     touchStartRef.current = null;
+    clearLongPressTimer();
     if (Math.abs(dragXRef.current) >= SWIPE_TRIGGER) {
       onReply?.(message);
     }
@@ -153,28 +178,27 @@ export const MessageBubble = memo(
 
   const handleTouchCancel = () => {
     touchStartRef.current = null;
+    clearLongPressTimer();
     dragXRef.current = 0;
     setDragX(0);
     setDragging(false);
   };
 
-  // ===== Tap en la burbuja: abre/cierra las acciones =====
-  // Se ignora si el toque fue un drag (swipe) o si apuntó a un elemento
-  // interactivo (links, botones, medios...).
+  // El long-press ya abrió las acciones; el click sintético que lo sigue
+  // (touch -> click) no debe hacer nada más.
   const handleBubbleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return;
+    }
     if (movedRef.current) {
       movedRef.current = false;
       return;
     }
     const target = e.target as HTMLElement;
-    if (
-      target.closest(
-        "a, button, [role='button'], input, textarea, select, label, video, audio"
-      )
-    ) {
+    if (target.closest(INTERACTIVE_SELECTOR)) {
       return;
     }
-    setActionsOpen((v) => !v);
   };
 
 return (
@@ -201,30 +225,21 @@ return (
         </div>
       )}
 
-      {/* Botón "Responder" revelado por el swipe (estilo Telegram) */}
+      {/* Botón "Responder" revelado por el swipe (estilo Telegram) - solo indicador visual, el gesto lo maneja handleTouchEnd */}
       {!message.optimistic && dragging && (
-        <button
-          type="button"
-          onClick={() => {
-            if (movedRef.current) {
-              movedRef.current = false;
-              return;
-            }
-            onReply?.(message);
-          }}
+        <div
           className={`absolute top-1/2 -translate-y-1/2 z-[90] w-9 h-9 flex items-center justify-center rounded-full glass-card shadow-lg text-primary ${
             isOwn ? "right-2" : "left-2"
           }`}
           style={{ opacity: Math.min(1, Math.abs(dragX) / SWIPE_TRIGGER) }}
           aria-label="Responder"
-          title="Responder"
         >
           <MaterialIcon name="reply" className="text-lg" />
-        </button>
+        </div>
       )}
 
       <div className={`relative flex flex-col ${kind.startsWith("video") ? "max-w-[80%]" : "max-w-[70%]"}`}>
-        {!message.optimistic && !editing && (
+        {!message.optimistic && (
           <MessageActions
             message={message}
             isOwn={isOwn}
@@ -243,16 +258,20 @@ return (
         <div
           ref={bubbleRef}
           onClick={handleBubbleClick}
-          className={`px-4 py-2.5 cursor-pointer ${
+          className={`px-4 py-2.5 cursor-pointer transition-all duration-200 ${
             isOwn
               ? "bg-primary text-white rounded-2xl rounded-tr-none"
               : "bg-secondary-container text-on-secondary-container rounded-2xl rounded-tl-none"
           } ${
-            isReplyTarget
+            actionsOpen
               ? isOwn
-                ? "ring-2 ring-white/70"
-                : "ring-2 ring-secondary/60"
-              : ""
+                ? "ring-2 ring-secondary/70 shadow-xl scale-[1.02]"
+                : "ring-2 ring-primary/60 shadow-xl scale-[1.02]"
+              : isReplyTarget
+                ? isOwn
+                  ? "ring-2 ring-white/70"
+                  : "ring-2 ring-secondary/60"
+                : ""
           }`}
         >
           <ReplyPreview message={message} onScrollToMessage={onScrollToMessage} />
@@ -286,14 +305,7 @@ return (
           {kind === "voice" && message.attachment_url && <VoiceView message={message} isOwn={isOwn} />}
           {kind === "document" && message.attachment_url && <DocumentView message={message} isOwn={isOwn} />}
 
-          {editing && kind === "text" ? (
-            <EditMessageForm
-              body={message.body || ""}
-              isOwn={isOwn}
-              onSave={(body) => onSaveEdit?.(message.id, body)}
-              onCancel={onCancelEdit ?? (() => {})}
-            />
-          ) : (kind === "text" || kind === "image" || kind === "video" || kind === "audio") && message.body && (
+          {(kind === "text" || kind === "image" || kind === "video" || kind === "audio") && message.body && (
             <div className="text-body-md wrap-break-word">
               <MentionText text={message.body} isOwn={isOwn} members={members} />
             </div>
@@ -431,8 +443,7 @@ return (
     prev.message === next.message &&
     prev.isOwn === next.isOwn &&
     prev.isReplyTarget === next.isReplyTarget &&
-    prev.members === next.members &&
-    prev.editing === next.editing
+    prev.members === next.members
 );
 
 MessageBubble.displayName = "MessageBubble";

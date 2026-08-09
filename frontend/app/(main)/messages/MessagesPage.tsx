@@ -218,6 +218,14 @@ export default function MessagesPage() {
     setForwardMessage(message);
   }, []);
 
+  const handleForwardToTarget = useCallback(async (message: Message, targetId: string, targetType: "dm" | "room") => {
+    setForwardMessage(null);
+    const ok = await handleForward(message, targetId, targetType);
+    if (ok) {
+      handleSelectConv(targetId, targetType === "dm" ? "direct" : "room");
+    }
+  }, [handleForward, handleSelectConv]);
+
   const handlePollVote = useCallback((messageId: string, updatedPoll: PollResponse) => {
     messagesHook.setMessages((prev) =>
       prev.map((m) =>
@@ -408,7 +416,7 @@ export default function MessagesPage() {
         <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-pulse"><div className="w-96 h-[80vh] max-h-[80vh] rounded-2xl bg-surface" /></div>}>
           <ForwardModal
             message={forwardMessage}
-            onForward={handleForward}
+            onForward={handleForwardToTarget}
             forwarding={false}
             onClose={() => setForwardMessage(null)}
           />

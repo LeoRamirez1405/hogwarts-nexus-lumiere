@@ -12,6 +12,7 @@ interface UseChatInputOptions {
   onMentionMove: (delta: number) => void;
   onMentionConfirm: () => void;
   onDismissMentions: () => void;
+  onCancelEdit?: () => void;
 }
 
 export function useChatInput({
@@ -24,6 +25,7 @@ export function useChatInput({
   onMentionMove,
   onMentionConfirm,
   onDismissMentions,
+  onCancelEdit,
 }: UseChatInputOptions) {
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -59,12 +61,19 @@ export function useChatInput({
         }
       }
 
+      // Escape sale del modo edición (estilo WhatsApp/Telegram).
+      if (e.key === "Escape" && onCancelEdit) {
+        e.preventDefault();
+        onCancelEdit();
+        return;
+      }
+
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         onSend();
       }
     },
-    [mentionOpen, onMentionMove, onMentionConfirm, onSend, onDismissMentions]
+    [mentionOpen, onMentionMove, onMentionConfirm, onSend, onDismissMentions, onCancelEdit]
   );
 
   const handleBlur = useCallback(() => {
