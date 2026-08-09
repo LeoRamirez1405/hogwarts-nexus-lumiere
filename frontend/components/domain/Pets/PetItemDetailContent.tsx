@@ -121,7 +121,7 @@ export const PetItemDetailContent = memo(function PetItemDetailContent({
           <Button
             onClick={() => onBuy(item)}
             disabled={buying}
-            className="w-full sm:w-auto"
+            className="w-auto"
           >
             {buying ? "..." : "Comprar"}
           </Button>

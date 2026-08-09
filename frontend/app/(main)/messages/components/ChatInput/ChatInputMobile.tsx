@@ -11,7 +11,8 @@ import { useChatInput } from "./hooks/useChatInput";
 import { useAutoResizeTextarea } from "./hooks/useAutoResizeTextarea";
 import MentionDropdown from "@/app/(main)/messages/components/MentionDropdown";
 import type { AttachmentPreview } from "../../types";
-import type { Message, UserSearchResult } from "@/lib/api";
+import type { Message } from "@/lib/api";
+import type { MentionSuggestion } from "@/lib/mentions";
 
 interface ChatInputMobileProps {
   input: string;
@@ -20,7 +21,7 @@ interface ChatInputMobileProps {
   onCancelEdit: () => void;
   attachment: AttachmentPreview | null;
   uploading: boolean;
-  mentionResults: UserSearchResult[];
+  mentionResults: MentionSuggestion[];
   mentionOpen: boolean;
   mentionActiveIndex: number;
   onMentionHover: (index: number) => void;
@@ -41,7 +42,7 @@ interface ChatInputMobileProps {
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onStartRecording: () => void;
   onStartVideoRecording: () => void;
-  onSelectMention: (name: string) => void;
+  onSelectMention: (suggestion: MentionSuggestion) => void;
   onDismissMentions: () => void;
 }
 

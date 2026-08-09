@@ -1,11 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import { MaterialIcon, Badge, ZerineDisplay, Button } from "@/components/ui";
 import { PetItem, UserPetItem } from "@/lib/api";
 
 interface ShopSectionProps {
-  title: string;
-  icon: string;
+  title?: string;
+  icon?: string;
   items: PetItem[];
   inventory: UserPetItem[];
   buying: string | null;
@@ -27,11 +28,13 @@ export function ShopSection({
   if (items.length === 0) return null;
   const ownedQty = (id: string) => inventory.find((r) => r.pet_item_id === id)?.quantity ?? 0;
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-4">
-        <MaterialIcon name={icon} className="text-primary text-2xl" />
-        <h3 className="font-display text-title-lg text-on-surface">{title}</h3>
-      </div>
+    <div className="mt-6">
+      {(title || icon) && (
+        <div className="flex items-center gap-2 mb-4">
+          {icon && <MaterialIcon name={icon} className="text-primary text-2xl" />}
+          {title && <h3 className="font-display text-title-lg text-on-surface">{title}</h3>}
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {items.map((item) => {
           const owned = ownedQty(item.id);
@@ -41,6 +44,18 @@ export function ShopSection({
               className="glass-card rounded-2xl p-5 flex flex-col cursor-pointer hover:-translate-y-1 transition-transform duration-200"
               onClick={() => onViewDetails?.(item)}
             >
+              {item.image_url && (
+                <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden mb-3 bg-surface-container-low">
+                  <Image
+                    src={item.image_url}
+                    alt={item.name}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    unoptimized={item.image_url.startsWith("http://localhost:8000/uploads/") || item.image_url.startsWith("/fallbacks/")}
+                  />
+                </div>
+              )}
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-1.5">
                   <Badge variant="tag" color="secondary">

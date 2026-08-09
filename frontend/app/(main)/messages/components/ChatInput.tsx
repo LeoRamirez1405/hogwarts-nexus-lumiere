@@ -7,7 +7,8 @@ import DateTimePickerModal from "./DateTimePickerModal";
 import StickerPicker from "./StickerPicker";
 import PollCreator from "../PollCreator";
 import { MaterialIcon } from "../helpers";
-import type { Message, UserSearchResult } from "@/lib/api";
+import type { Message } from "@/lib/api";
+import type { MentionSuggestion } from "@/lib/mentions";
 import type { AttachmentPreview } from "../types";
 import type { VoiceRecorderState } from "../hooks/useVoiceRecorder";
 import type { VideoRecorderState } from "../hooks/useVideoRecorder";
@@ -23,7 +24,7 @@ interface ChatInputProps {
   showStickers: boolean;
   stickerTab: string;
   showPoll: boolean;
-  mentionResults: UserSearchResult[];
+  mentionResults: MentionSuggestion[];
   mentionOpen: boolean;
   mentionActiveIndex: number;
   onMentionHover: (index: number) => void;
@@ -54,7 +55,7 @@ interface ChatInputProps {
   onStopVideoRecording: () => void;
   onCancelVideoRecording: () => void;
   onSendVideo: () => void;
-  onSelectMention: (name: string) => void;
+  onSelectMention: (suggestion: MentionSuggestion) => void;
   onDismissMentions: () => void;
   disappearAt?: string;
   onDisappearChange?: (value: string | undefined) => void;

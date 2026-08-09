@@ -14,16 +14,18 @@ Helpers only *add* to the session; the calling router is responsible for
 ``commit`` (it usually already commits its own writes in the same transaction).
 """
 
-import re
-from typing import List, Optional
+from typing import Optional
 
-from sqlalchemy import select, func, insert, literal, or_, String, true
+from sqlalchemy import select, func, insert, literal, String, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models.article_subscription import Notification
 from .models.user import User
 from .models.post import PostLike
 from .models.friend_request import FriendRequest
+# Re-exported for backwards compatibility: articles/forum/posts still import
+# `resolve_mentions` from this module.
+from .services.mentions import resolve_mentions  # noqa: F401
 from .services.push_service import notification_url, send_webpush_to_user
 from .ws_manager import manager
 
@@ -353,51 +355,6 @@ async def notify_all_users(
             pass
 
     return count
-
-
-# Names can be multi-word and the text after an "@" usually keeps going
-# ("@Hermione Granger mira esto"), so we can't match the phrase whole. For every
-# "@<phrase>" we pick the longest real user name that is a prefix of the phrase.
-# We only fetch users whose name starts with the mention's first word instead of
-# loading the whole users table into memory.
-_MENTION_RE = re.compile(r"@([A-Za-zÀ-ſ]+(?: [A-Za-zÀ-ſ]+)*)")
-
-
-async def resolve_mentions(db: AsyncSession, body: Optional[str]) -> List[User]:
-    """Return the distinct ``User`` rows mentioned via "@Name" in ``body``."""
-    if not body or "@" not in body:
-        return []
-
-    first_words = set()
-    for match in _MENTION_RE.finditer(body):
-        word = match.group(1).split(" ", 1)[0].lower()
-        if word:
-            first_words.add(word)
-    if not first_words:
-        return []
-
-    clauses = [User.name.ilike(f"{word}%") for word in sorted(first_words)]
-    all_users = (
-        await db.execute(select(User).where(or_(*clauses)))
-    ).scalars().all()
-    users_by_lower = {}
-    for u in all_users:
-        users_by_lower.setdefault(u.name.lower(), u)
-
-    found: List[User] = []
-    seen: set[str] = set()
-    for match in _MENTION_RE.finditer(body):
-        words = match.group(1).split(" ")
-        mentioned = None
-        for k in range(len(words), 0, -1):  # longest prefix first
-            candidate = " ".join(words[:k]).lower()
-            if candidate in users_by_lower:
-                mentioned = users_by_lower[candidate]
-                break
-        if mentioned and mentioned.id not in seen:
-            seen.add(mentioned.id)
-            found.append(mentioned)
-    return found
 
 
 async def notify_friends_of_post(

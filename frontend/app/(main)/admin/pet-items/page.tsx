@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { api, PetItem, PetType, PetItemKind, EnumValue } from "@/lib/api";
+import { api, PetItem, PetItemKind, EnumValue } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -26,7 +26,7 @@ const defaultCreateForm: Partial<PetItem> = {
   name: "",
   description: "",
   kind: "food",
-  pet_type: "Criaturas pequeñas",
+  pet_type: "",
   price: 0,
   restore_amount: 10,
   pack_size: 1,
@@ -41,7 +41,7 @@ export default function AdminPetItemsPage() {
     name: "",
     description: "",
     kind: "food" as PetItemKind,
-    pet_type: "Criaturas pequeñas" as PetType,
+    pet_type: "",
     price: "",
     restore_amount: "",
     pack_size: "",
@@ -90,7 +90,7 @@ export default function AdminPetItemsPage() {
       name: "",
       description: "",
       kind: "food",
-      pet_type: "Criaturas pequeñas",
+      pet_type: petTypes[0]?.label ?? "",
       price: "",
       restore_amount: "",
       pack_size: "",
@@ -133,7 +133,7 @@ export default function AdminPetItemsPage() {
       name: "",
       description: "",
       kind: "food",
-      pet_type: "Criaturas pequeñas",
+      pet_type: petTypes[0]?.label ?? "",
       price: "",
       restore_amount: "",
       pack_size: "",
@@ -348,7 +348,7 @@ export default function AdminPetItemsPage() {
                   <FormField label="Tipo de mascota" required className="sm:order-2 sm:col-span-3">
                     <SelectField
                       value={form.pet_type}
-                      onChange={(v: string) => setForm((p) => ({ ...p, pet_type: v as PetType }))}
+                      onChange={(v: string) => setForm((p) => ({ ...p, pet_type: v }))}
                       options={petTypes.map((pt) => ({ value: pt.label, label: pt.label }))}
                       placeholder="Seleccionar..."
                     />

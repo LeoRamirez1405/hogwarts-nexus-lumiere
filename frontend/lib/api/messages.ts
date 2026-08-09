@@ -70,7 +70,7 @@ export const messagesApi = {
     }),
 
   createRoom: (data: CreateRoomData) =>
-    request<ChatRoomResponse>("/admin/rooms", {
+    request<ChatRoomResponse>("/admin/rooms/", {
       method: "POST",
       body: JSON.stringify(data),
     }),

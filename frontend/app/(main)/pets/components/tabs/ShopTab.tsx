@@ -1,8 +1,17 @@
 "use client";
 
+import { useState } from "react";
+import { TabGroup } from "@/components/ui";
 import { ShopSection } from "@/components/domain/Pets";
 import type { ShopTabProps, PetType } from "../types";
 import Skeleton from "@/components/ui/Skeleton";
+
+const KIND_TABS = [
+  { id: "food", label: "Comida", icon: "nutrition" },
+  { id: "toy", label: "Juguetes", icon: "toys" },
+];
+
+type KindTab = typeof KIND_TABS[number]["id"];
 
 export const ShopTab = ({
   petItems,
@@ -16,10 +25,11 @@ export const ShopTab = ({
   onViewDetails,
 }: ShopTabProps) => {
   const shopItems = shopType === "all" ? petItems : petItems.filter((i) => i.pet_type === shopType);
-  const shopFoods = shopItems.filter((i) => i.kind === "food");
-  const shopToys = shopItems.filter((i) => i.kind === "toy");
 
   const typeOptions: (PetType | "all")[] = ["all", ...petTypeValues.map((v) => v.label as PetType)];
+  const [kindTab, setKindTab] = useState<KindTab>("food");
+
+  const filteredItems = shopItems.filter((i) => i.kind === kindTab);
 
   return (
     <>
@@ -44,33 +54,26 @@ export const ShopTab = ({
         </div>
       </div>
 
+      <TabGroup
+        tabs={KIND_TABS}
+        activeTab={kindTab}
+        onChange={(tabId) => setKindTab(tabId as KindTab)}
+        variant="light"
+      />
+
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} variant="card" />)}
         </div>
       ) : (
-        <div className="space-y-10">
-          <ShopSection
-            title="Comida"
-            icon="nutrition"
-            items={shopFoods}
-            inventory={inventory}
-            buying={buying}
-            onBuy={onBuy}
-            onViewDetails={onViewDetails}
-            statLabel="hambre"
-          />
-          <ShopSection
-            title="Juguetes"
-            icon="toys"
-            items={shopToys}
-            inventory={inventory}
-            buying={buying}
-            onBuy={onBuy}
-            onViewDetails={onViewDetails}
-            statLabel="felicidad"
-          />
-        </div>
+        <ShopSection
+          items={filteredItems}
+          inventory={inventory}
+          buying={buying}
+          onBuy={onBuy}
+          onViewDetails={onViewDetails}
+          statLabel={kindTab === "toy" ? "felicidad" : "hambre"}
+        />
       )}
     </>
   );

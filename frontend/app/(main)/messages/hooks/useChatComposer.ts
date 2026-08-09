@@ -1,13 +1,20 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { api, Message, MessageSendData, UserSearchResult } from "@/lib/api";
+import { api, Message, MessageSendData } from "@/lib/api";
 import { wsClient } from "@/lib/ws";
 import { useVoiceRecorder } from "./useVoiceRecorder";
 import { useVideoRecorder } from "./useVideoRecorder";
 import { blobToWav } from "../utils/voice";
 import type { SelectedConv } from "../types";
 import { hapticLight, hapticMedium } from "@/lib/haptics";
+import {
+  SPECIAL_MENTIONS,
+  commandToSuggestion,
+  userToSuggestion,
+} from "@/lib/mentions";
+import type { MentionSuggestion } from "@/lib/mentions";
+import { getInitials } from "../helpers";
 
 export function useChatComposer({
   selectedConv,
@@ -27,7 +34,7 @@ export function useChatComposer({
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [mentionSearch, setMentionSearch] = useState("");
-  const [mentionResults, setMentionResults] = useState<UserSearchResult[]>([]);
+  const [mentionResults, setMentionResults] = useState<MentionSuggestion[]>([]);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
   const [disappearAt, setDisappearAt] = useState<string | undefined>(undefined);
@@ -178,8 +185,16 @@ const handleSend = () => {
       const atIndex = value.lastIndexOf("@");
       if (atIndex >= 0 && (atIndex === 0 || value[atIndex - 1] === " ")) {
         const query = value.slice(atIndex + 1);
-        if (query.length > 0 && !query.includes(" ")) {
+        if (!query.includes(" ")) {
           setMentionSearch(query);
+          if (query.length === 0) {
+            // "@" a secas: en grupos muestra los comandos especiales con su
+            // significado; en DMs no hay comandos grupales.
+            const commands = isRoom ? SPECIAL_MENTIONS.map(commandToSuggestion) : [];
+            setMentionResults(commands);
+            setShowMentionDropdown(commands.length > 0);
+            setMentionActiveIndex(0);
+          }
           return;
         }
       }
@@ -187,7 +202,7 @@ const handleSend = () => {
       setShowMentionDropdown(false);
       setMentionResults([]);
     },
-    [selectedConv]
+    [selectedConv, isRoom]
   );
 
   const handleTypingStop = useCallback(() => {
@@ -200,37 +215,43 @@ const handleSend = () => {
     }
   }, [selectedConv]);
 
-  // Mention search
+  // Mention search: en grupos, "@" + prefijo sugiere primero los comandos
+  // especiales (@all, @alle, @alla, @allg...) con su significado; luego los
+  // usuarios encontrados.
   useEffect(() => {
-    if (!mentionSearch || mentionSearch.length < 1) {
-      return;
-    }
+    if (!mentionSearch) return;
     let cancelled = false;
     const timer = setTimeout(async () => {
+      const q = mentionSearch.toLowerCase();
+      const commands = isRoom
+        ? SPECIAL_MENTIONS.filter((c) => c.command.toLowerCase().startsWith(`@${q}`)).map(commandToSuggestion)
+        : [];
       try {
         const friendsOnly = !isRoom;
         const results = await api.searchUsers(mentionSearch, friendsOnly);
         if (!cancelled) {
-          setMentionResults(results);
-          setShowMentionDropdown(results.length > 0);
+          const users = results.map((u) => userToSuggestion(u, getInitials));
+          const combined = [...commands, ...users];
+          setMentionResults(combined);
+          setShowMentionDropdown(combined.length > 0);
           setMentionActiveIndex(0);
         }
       } catch (error) {
         console.error('Failed to search users for mentions:', error);
         if (!cancelled) {
-          setMentionResults([]);
-          setShowMentionDropdown(false);
+          setMentionResults(commands);
+          setShowMentionDropdown(commands.length > 0);
         }
       }
     }, 200);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [mentionSearch, isRoom]);
 
-  const handleSelectMention = (name: string) => {
+  const handleSelectMention = (suggestion: MentionSuggestion) => {
     const atIndex = input.lastIndexOf("@");
     if (atIndex >= 0) {
       const before = input.slice(0, atIndex);
-      setInput(`${before}@${name} `);
+      setInput(`${before}@${suggestion.insertText} `);
     }
     setShowMentionDropdown(false);
     setMentionSearch("");
@@ -254,7 +275,7 @@ const handleSend = () => {
   // Confirmar la sugerencia resaltada (Enter / Tab).
   const handleMentionConfirm = () => {
     const picked = mentionResults[mentionActiveIndex];
-    if (picked) handleSelectMention(picked.name);
+    if (picked) handleSelectMention(picked);
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {

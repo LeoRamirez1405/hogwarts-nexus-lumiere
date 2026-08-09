@@ -253,7 +253,6 @@ export function MessageEffectsContainer({
     Array<{ id: number; type: MessageEffectType; ref: React.RefObject<HTMLElement> }>
   >([]);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _triggerEffect = (type: MessageEffectType, element: HTMLElement) => {
     const id = Date.now() + Math.random();
     const ref = { current: element } as React.RefObject<HTMLElement>;

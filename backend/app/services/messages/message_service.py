@@ -29,7 +29,11 @@ async def create_mention_notifications(
     room_id: str,
     message_id: str,
 ):
-    for mentioned_user in await resolve_mentions(db, body):
+    for mentioned_user in await resolve_mentions(
+        db, body, room_id=room_id, sender_id=sender.id
+    ):
+        if mentioned_user.id == sender.id:
+            continue
         if await is_conversation_muted(db, mentioned_user.id, "room", room_id):
             continue
         await notify(

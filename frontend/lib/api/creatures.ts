@@ -1,7 +1,7 @@
 import { request, buildQuery } from "./core";
 import type { PaginationParams, Page } from "./core";
 
-export type PetType = "Aves" | "Bestias" | "Criaturas pequeñas";
+export type PetType = string;
 export type PetItemKind = "food" | "toy";
 
 export interface Creature {

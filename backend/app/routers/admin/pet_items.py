@@ -1,6 +1,6 @@
 """Admin-only pet item routes (prefix /admin/pet-items)."""
 
-from typing import Optional
+from typing import Optional, Set
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db
 from ...middleware.roles import require_role
+from ...models.enum_type import EnumCategory, EnumValue
 from ...models.pet_item import PetItem
 from ...models.user import User
 from ...models.user_pet_item import UserPetItem
@@ -21,7 +22,17 @@ from ...schemas.pet_item import (
 router = APIRouter(prefix="/admin/pet-items", tags=["admin-pet-items"])
 
 VALID_KINDS = {"food", "toy"}
-VALID_PET_TYPES = {"Aves", "Bestias", "Criaturas pequeñas"}
+PET_TYPE_CATEGORY_CODE = "pet_type"
+
+
+async def _valid_pet_types(db: AsyncSession) -> Set[str]:
+    """Pet types are configured via the `pet_type` enum category in /settings."""
+    result = await db.execute(
+        select(EnumValue.label)
+        .join(EnumCategory, EnumValue.category_id == EnumCategory.id)
+        .where(EnumCategory.code == PET_TYPE_CATEGORY_CODE)
+    )
+    return set(result.scalars().all())
 
 
 @router.get("/", response_model=Page[PetItemResponse])
@@ -78,7 +89,7 @@ async def create_pet_item(
 ):
     if data.kind not in VALID_KINDS:
         raise HTTPException(status_code=400, detail="Invalid kind (food/toy)")
-    if data.pet_type not in VALID_PET_TYPES:
+    if data.pet_type not in await _valid_pet_types(db):
         raise HTTPException(status_code=400, detail="Invalid pet_type")
     item = PetItem(**data.model_dump())
     db.add(item)
@@ -101,7 +112,7 @@ async def update_pet_item(
     payload = data.model_dump(exclude_unset=True)
     if "kind" in payload and payload["kind"] not in VALID_KINDS:
         raise HTTPException(status_code=400, detail="Invalid kind (food/toy)")
-    if "pet_type" in payload and payload["pet_type"] not in VALID_PET_TYPES:
+    if "pet_type" in payload and payload["pet_type"] not in await _valid_pet_types(db):
         raise HTTPException(status_code=400, detail="Invalid pet_type")
     for key, value in payload.items():
         setattr(item, key, value)

@@ -10,7 +10,7 @@ import { AdminCrudModal, FormField, InputField, SelectField } from "@/components
 import ListFooter from "@/components/ui/ListFooter";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import { MaterialIcon, Skeleton } from "@/components/ui";
+import { MaterialIcon, Skeleton, Avatar } from "@/components/ui";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import PullToRefresh from "@/components/ui/PullToRefresh";
 
@@ -198,9 +198,7 @@ return (
               {filtered.map((u) => (
                 <div key={u.id} className="glass-card rounded-xl p-4 hover:bg-surface-container-high transition-colors">
                   <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-display text-title-md shrink-0">
-                      {u.name.charAt(0).toUpperCase()}
-                    </div>
+                    <Avatar src={u.avatar_url} alt={u.name} size="lg" initials={u.name.charAt(0).toUpperCase()} />
                     <div className="flex-1 min-w-0">
                       <p className="text-body-md font-medium text-on-surface truncate">{u.name}</p>
                       <p className="text-label-sm text-on-surface-variant truncate">{u.email}</p>
@@ -285,9 +283,7 @@ return (
                       <tr key={u.id} className="border-b border-outline-variant/10 last:border-0 hover:bg-surface-container-low/50 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-display text-title-md">
-                              {u.name.charAt(0).toUpperCase()}
-                            </div>
+<Avatar src={u.avatar_url} alt={u.name} size="md" initials={u.name.charAt(0).toUpperCase()} />
                             <div>
                               <p className="text-body-md font-medium text-on-surface">{u.name}</p>
                               <p className="text-label-sm text-on-surface-variant md:hidden">{u.email}</p>
