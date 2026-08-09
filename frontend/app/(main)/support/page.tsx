@@ -121,8 +121,7 @@ export default function SupportPage() {
           Soporte
         </h1>
         <p className="text-body-md text-on-surface-variant">
-          Encontraste un bug o tienes una sugerencia? Cuéntanos y te
-          responderemos por Telegram.
+          Encontraste un bug o tienes una sugerencia? Cuéntanos, estamos aquí para ayudarte.
         </p>
       </div>
 
