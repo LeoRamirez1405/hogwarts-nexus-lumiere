@@ -1,3 +1,24 @@
+// Aplica la transformacion on-the-fly de Cloudinary (f_auto + q_auto + ancho
+// maximo) a URLs ya subidas. El CDN genera y cachea la version optimizada
+// (WebP/AVIF) sin re-subir ni tocar el original. Idempotente: si la URL ya
+// tiene transformacion, se deja intacta.
+const CLOUDINARY_TRANSFORM = "f_auto,q_auto,w_2000";
+
+export function cloudinaryOptimized(url: string): string {
+  if (
+    !url.startsWith("https://res.cloudinary.com/") &&
+    !url.startsWith("http://res.cloudinary.com/")
+  ) {
+    return url;
+  }
+  const marker = "/image/upload/";
+  const idx = url.indexOf(marker);
+  if (idx === -1) return url;
+  const rest = url.slice(idx + marker.length);
+  if (!rest || rest.startsWith("f_auto")) return url;
+  return `${url.slice(0, idx + marker.length)}${CLOUDINARY_TRANSFORM}/${rest}`;
+}
+
 // Normaliza la URL de un archivo subido al backend para que sea cargable desde
 // cualquier cliente (PC, movil) y sin contenido mixto.
 //
@@ -33,7 +54,8 @@ export function mediaSrc(url?: string | null): string {
     if (isLocalBackend) return `/api${m[2]}`;
   }
 
-  return url;
+  // Cloudinary: servir la version optimizada al vuelo.
+  return cloudinaryOptimized(url);
 }
 
 // Indica si la URL termina sirviendose por el proxy de subidas. Se usa para

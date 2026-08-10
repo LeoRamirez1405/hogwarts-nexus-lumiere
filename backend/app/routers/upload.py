@@ -17,10 +17,50 @@ ALLOWED_TYPES = {
     "text/plain",
 }
 
-MAX_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_SIZE = 10 * 1024 * 1024  # 10MB (tras compresion)
+
+# Limite duro del archivo crudo: por encima de esto se rechaza sin intentar
+# abrirlo (evita decompression bombs y picos de memoria en Pillow).
+MAX_RAW_SIZE = 40 * 1024 * 1024  # 40MB
+
+# Umbral: solo se re-encodean imagenes por encima de 1MB.
+COMPRESS_THRESHOLD = 1 * 1024 * 1024
+
+MAX_DIMENSION = 1600  # lado mas largo tras redimensionar
+JPEG_QUALITY = 82
 
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+
+def _compress_image(content: bytes, content_type: str) -> tuple[bytes, str]:
+    """Redimensiona y re-encodea una imagen para reducir su peso.
+
+    Devuelve (contenido, extension). Las imagenes con transparencia se
+    conservan como PNG optimizado; el resto pasa a JPEG. Nuncia amplia y,
+    si Pillow no puede procesar el archivo, devuelve el original.
+    """
+    from PIL import Image
+    import io
+
+    if not content_type or content_type == "image/gif":
+        return content, ""
+
+    try:
+        img = Image.open(io.BytesIO(content))
+        img.thumbnail((MAX_DIMENSION, MAX_DIMENSION), Image.LANCZOS)
+        buf = io.BytesIO()
+        if img.mode in ("RGBA", "LA") or (
+            img.mode == "P" and "transparency" in img.info
+        ):
+            img.save(buf, "PNG", optimize=True)
+            return buf.getvalue(), ".png"
+        img.convert("RGB").save(
+            buf, "JPEG", quality=JPEG_QUALITY, optimize=True, progressive=True
+        )
+        return buf.getvalue(), ".jpg"
+    except Exception:
+        return content, ""
 
 
 def _try_cloudinary() -> bool:
@@ -77,14 +117,25 @@ async def upload_file(
         raise HTTPException(400, "Tipo de archivo no permitido")
 
     content = await file.read()
-    if len(content) > MAX_SIZE:
-        raise HTTPException(400, "Archivo demasiado grande (max 10MB)")
+    if len(content) > MAX_RAW_SIZE:
+        raise HTTPException(400, "Archivo demasiado grande (max 40MB)")
 
     ext = ""
     if file.filename:
         ext = os.path.splitext(file.filename)[1].lower()
         if not ext:
             ext = mimetypes.guess_extension(file.content_type) or ""
+
+    # Comprimir antes del chequeo de tamano: asi los originales grandes
+    # (fotos de catalogo, pantallas de alta resolucion) entran como JPEG/PNG
+    # livianos y no fallan por el limite de 10MB.
+    if len(content) > COMPRESS_THRESHOLD:
+        content, compressed_ext = _compress_image(content, file.content_type)
+        if compressed_ext:
+            ext = compressed_ext
+
+    if len(content) > MAX_SIZE:
+        raise HTTPException(400, "Archivo demasiado grande (max 10MB)")
 
     filename = f"{uuid.uuid4()}{ext}"
 

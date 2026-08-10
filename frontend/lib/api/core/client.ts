@@ -1,4 +1,5 @@
 import { ApiError } from "./errors";
+import { compressImageFile } from "@/lib/image/compress";
 
 // In the browser we ALWAYS go through the same-origin `/api` proxy (rewritten
 // to the backend by next.config). This keeps the auth cookies first-party on
@@ -118,7 +119,7 @@ export async function uploadFile<T>(
   fieldName: string = "file"
 ): Promise<T> {
   const formData = new FormData();
-  formData.append(fieldName, file);
+  formData.append(fieldName, await compressImageFile(file));
 
   let res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
