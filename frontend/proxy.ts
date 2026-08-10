@@ -10,6 +10,14 @@ import { jwtVerify } from "jose";
 // JWT_SECRET debe estar en frontend/.env.local (mismo valor que backend/.env).
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "");
 
+// Nunca dejar que el navegador (o el CDN) cachee las redirecciones 307 del
+// proxy. Vercel las sirve con `Cache-Control: public, max-age=0,
+// must-revalidate`, y Safari reutiliza la redireccion cacheada (stale) incluso
+// despues de un login valido: mantiene el Location viejo hacia /login y el
+// usuario queda atrapado con "This page couldn't load" solo en iOS. Sin
+// almacenamiento, cada navegacion revalida contra el servidor y el JWT actual.
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+
 const PUBLIC_PATHS = new Set(["/", "/login"]);
 
 export async function proxy(request: NextRequest) {
@@ -33,7 +41,9 @@ export async function proxy(request: NextRequest) {
         // token invalido o expirado -> redirigir
       }
     }
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL("/login", request.url), {
+      headers: NO_STORE_HEADERS,
+    });
   }
 
   return NextResponse.next();
