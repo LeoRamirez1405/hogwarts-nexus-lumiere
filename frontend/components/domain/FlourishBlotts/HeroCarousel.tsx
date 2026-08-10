@@ -55,7 +55,7 @@ const ProductSlide = memo(function ProductSlide({
               alt={product.name}
               fill
               className="object-cover"
-              unoptimized={isStoredUpload(product.image_url) || isStoredUpload(imgSrc)}
+              unoptimized={isStoredUpload(product.image_url || fallbackSrc)}
               sizes="(max-width: 768px) 100vw, 50vw"
               priority={index === 0}
             />
