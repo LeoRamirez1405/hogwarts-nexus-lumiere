@@ -68,6 +68,9 @@ backend/*.pyc
 # Uploads
 uploads/
 
+# Backups locales de scripts (Cloudinary etc.)
+backend/backups/
+
 # Next.js cache
 .next/
 

@@ -4,6 +4,7 @@ import { Article } from "@/lib/api";
 import { GlassCard, Badge, MaterialIcon } from "@/components/ui";
 import Link from "next/link";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 
 interface VirtualizedArticleGridProps {
   articles: Article[];
@@ -29,7 +30,7 @@ function formatDate(dateStr: string): string {
 }
 
 function isLocalUpload(src?: string): boolean {
-  return src?.startsWith("http://localhost:8000/uploads/") ?? false;
+  return isStoredUpload(src);
 }
 
 function DefaultArticleItem({ article, style }: { article: Article; style: React.CSSProperties }) {

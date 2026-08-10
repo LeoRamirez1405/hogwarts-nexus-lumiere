@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useMemo } from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api, CatalogItem, CatalogItemInput } from "@/lib/api";
@@ -174,7 +175,7 @@ export default function AdminCatalogItemsPage() {
                         alt={`Elemento #${i.numero}`}
                         fill
                         className="object-cover"
-                        unoptimized={i.image_url.startsWith("http://localhost:8000/uploads/")}
+                        unoptimized={isStoredUpload(i.image_url)}
                       />
                     ) : (
                       <div className="w-full h-full bg-surface-container-high flex items-center justify-center">

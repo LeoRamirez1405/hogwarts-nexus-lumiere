@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { MaterialIcon, Badge, ZerineDisplay, Button } from "@/components/ui";
 import { PetItem, UserPetItem } from "@/lib/api";
 
@@ -52,7 +53,7 @@ export function ShopSection({
                     fill
                     className="object-cover"
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                    unoptimized={item.image_url.startsWith("http://localhost:8000/uploads/") || item.image_url.startsWith("/fallbacks/")}
+                    unoptimized={isStoredUpload(item.image_url)}
                   />
                 </div>
               )}

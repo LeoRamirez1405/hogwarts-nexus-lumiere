@@ -2,6 +2,7 @@
 
 import { CartItem } from "@/lib/cartStore";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { MaterialIcon, Button, ZerineDisplay, BottomSheet } from "@/components/ui";
 import { getFallbackForProduct } from "@/lib/fallbacks";
 import { useTheme } from "@/lib/useTheme";
@@ -62,7 +63,7 @@ function CartContents({
                 width={64}
                 height={64}
                 className="w-16 h-16 rounded-lg object-cover shrink-0"
-                unoptimized={item.product.image_url?.startsWith("http://localhost:8000/uploads/") || item.product.image_url?.startsWith("/fallbacks/")}
+                unoptimized={isStoredUpload(item.product.image_url)}
               />
               <div className="flex-1 min-w-0">
                 <h4 className="text-body-md font-medium text-on-surface truncate">

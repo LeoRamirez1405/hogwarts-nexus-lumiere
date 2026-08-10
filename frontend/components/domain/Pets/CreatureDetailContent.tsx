@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { Creature, MarketCreature, SanctuaryStats } from "@/lib/api";
 import { getFallbackForCreature } from "@/lib/fallbacks";
 import { MaterialIcon, ZerineDisplay, Button, Badge } from "@/components/ui";
@@ -64,7 +65,7 @@ export const CreatureDetailContent = memo(function CreatureDetailContent({
           alt={creature.name}
           fill
           className="object-cover"
-          unoptimized={creature.image_url?.startsWith("http://localhost:8000/uploads/") || creature.image_url?.startsWith("/fallbacks/")}
+          unoptimized={isStoredUpload(creature.image_url)}
         />
         {!hideRequirements && (
           <span className={`absolute top-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-label-sm font-bold shadow-sm ${RARITY_COLORS[creature.rarity] || "text-outline"}`}>

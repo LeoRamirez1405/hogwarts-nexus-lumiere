@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useMemo } from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { useRouter } from "next/navigation";
 import { api, Catalog, CatalogInput } from "@/lib/api";
 import { useAuthStore } from "@/lib/authStore";
@@ -160,7 +161,7 @@ export default function AdminCatalogsPage() {
                             alt={c.name}
                             fill
                             className="object-cover group-hover:scale-105 transition-transform duration-300"
-                            unoptimized={c.cover_image_url.startsWith("http://localhost:8000/uploads/")}
+                            unoptimized={isStoredUpload(c.cover_image_url)}
                           />
                         ) : (
                           <div className="w-full h-full bg-surface-container-high flex items-center justify-center">

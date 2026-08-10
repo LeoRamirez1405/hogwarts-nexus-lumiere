@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { api, Catalog } from "@/lib/api";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -46,10 +47,7 @@ function CatalogCard({
           alt={catalog.name}
           fill
           className="object-cover group-hover:scale-105 transition-transform duration-500"
-          unoptimized={
-            src.startsWith("http://localhost:8000/uploads/") ||
-            src.startsWith("/fallbacks/")
-          }
+          unoptimized={isStoredUpload(src)}
           onError={handleImageError}
         />
         <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-primary font-bold text-label-sm shadow-sm flex items-center gap-1">

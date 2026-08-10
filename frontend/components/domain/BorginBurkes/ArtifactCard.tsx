@@ -2,6 +2,7 @@
 
 import { memo, useState } from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { Product } from "@/lib/api";
 import { ZerineDisplay } from "@/components/ui";
 import { getFallbackImageByContext } from "@/lib/fallbacks";
@@ -39,7 +40,7 @@ export const ArtifactCard = memo(function ArtifactCard({
           alt={product.name}
           fill
           className="object-cover group-hover:scale-105 transition-transform duration-500"
-          unoptimized={src.startsWith("http://localhost:8000/uploads/") || src.startsWith("/fallbacks/")}
+          unoptimized={isStoredUpload(src)}
           onError={handleImageError}
         />
         <span className="absolute top-4 left-4 bg-black/60 backdrop-blur-md text-secondary-fixed text-label-sm uppercase px-3 py-1 rounded-full">

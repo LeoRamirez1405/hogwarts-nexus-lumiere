@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { PetItem, PetItemKind, PetType } from "@/lib/api";
 import { MaterialIcon, ZerineDisplay, Button } from "@/components/ui";
 
@@ -55,7 +56,7 @@ export const PetItemDetailContent = memo(function PetItemDetailContent({
             alt={item.name}
             fill
             className="object-cover"
-            unoptimized={item.image_url.startsWith("http://localhost:8000/uploads/") || item.image_url.startsWith("/fallbacks/")}
+            unoptimized={isStoredUpload(item.image_url)}
           />
         </div>
       )}

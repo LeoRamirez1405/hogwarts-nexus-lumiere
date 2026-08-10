@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { MaterialIcon, ZerineDisplay, Button } from "@/components/ui";
 import { Creature, SanctuaryStats } from "@/lib/api";
 import { getFallbackForCreature } from "@/lib/fallbacks";
@@ -73,7 +74,7 @@ export function CreatureCard({
           alt={creature.name}
           fill
           className="object-cover group-hover:scale-110 transition-transform duration-500"
-          unoptimized={creature.image_url?.startsWith("http://localhost:8000/uploads/") || creature.image_url?.startsWith("/fallbacks/")}
+          unoptimized={isStoredUpload(creature.image_url)}
           onError={() => !imageError && setImageError(true)}
         />
         {!hideRequirements && (

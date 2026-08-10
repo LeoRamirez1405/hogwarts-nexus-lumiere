@@ -5,6 +5,7 @@ import Button from "@/components/ui/Button";
 import GlassCard from "@/components/ui/GlassCard";
 import Badge from "@/components/ui/Badge";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import type { UserProductAdmin } from "@/lib/api";
 
 interface InventoryCardsProps {
@@ -40,7 +41,7 @@ export default function InventoryCards({ items, onRemove, loading }: InventoryCa
                 width={64}
                 height={64}
                 className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                unoptimized={item.product.image_url.startsWith("http://localhost:8000/uploads/")}
+                unoptimized={isStoredUpload(item.product.image_url)}
               />
             )}
             <div className="flex-1 min-w-0">

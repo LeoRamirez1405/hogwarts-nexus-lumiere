@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AdminCrudModal, FormField, InputField } from "@/components/ui/AdminCrudModal";
 import { MaterialIcon, Badge } from "@/components/ui";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import type { UserProductAdmin } from "@/lib/api";
 
 interface RemoveItemModalProps {
@@ -72,7 +73,7 @@ export default function RemoveItemModal({
               width={72}
               height={72}
               className="w-18 h-18 rounded-xl object-cover shrink-0"
-              unoptimized={item.product.image_url.startsWith("http://localhost:8000/uploads/")}
+              unoptimized={isStoredUpload(item.product.image_url)}
             />
           ) : (
             <div className="w-18 h-18 rounded-xl bg-surface-container-high flex items-center justify-center shrink-0">

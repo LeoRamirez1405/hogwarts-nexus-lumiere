@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { UserCreature } from "@/lib/api";
 import { getFallbackForCreature } from "@/lib/fallbacks";
 import { MaterialIcon, ProgressBar, Button } from "@/components/ui";
@@ -64,7 +65,7 @@ export const MyPetDetailContent = memo(function MyPetDetailContent({
           alt={displayName}
           fill
           className="object-cover"
-          unoptimized={userCreature.creature?.image_url?.startsWith("http://localhost:8000/uploads/") || userCreature.creature?.image_url?.startsWith("/fallbacks/")}
+              unoptimized={isStoredUpload(userCreature.creature?.image_url)}
         />
       </div>
 
@@ -76,7 +77,7 @@ export const MyPetDetailContent = memo(function MyPetDetailContent({
               alt={displayName}
               fill
               className="object-cover"
-              unoptimized={userCreature.creature?.image_url?.startsWith("http://localhost:8000/uploads/") || userCreature.creature?.image_url?.startsWith("/fallbacks/")}
+          unoptimized={isStoredUpload(userCreature.creature?.image_url)}
             />
           </div>
           <div className="flex-1 min-w-0">

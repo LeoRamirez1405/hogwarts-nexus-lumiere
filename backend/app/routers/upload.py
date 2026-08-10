@@ -27,17 +27,17 @@ MAX_RAW_SIZE = 40 * 1024 * 1024  # 40MB
 COMPRESS_THRESHOLD = 1 * 1024 * 1024
 
 MAX_DIMENSION = 1600  # lado mas largo tras redimensionar
-JPEG_QUALITY = 82
+WEBP_QUALITY = 80
 
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 
 def _compress_image(content: bytes, content_type: str) -> tuple[bytes, str]:
-    """Redimensiona y re-encodea una imagen para reducir su peso.
+    """Redimensiona y re-encodea una imagen a WebP para reducir su peso.
 
-    Devuelve (contenido, extension). Las imagenes con transparencia se
-    conservan como PNG optimizado; el resto pasa a JPEG. Nuncia amplia y,
+    Devuelve (contenido, extension). WebP conserva el canal alpha, asi que
+    las imagenes con transparencia tambien se benefician. Nunca amplia y,
     si Pillow no puede procesar el archivo, devuelve el original.
     """
     from PIL import Image
@@ -49,16 +49,14 @@ def _compress_image(content: bytes, content_type: str) -> tuple[bytes, str]:
     try:
         img = Image.open(io.BytesIO(content))
         img.thumbnail((MAX_DIMENSION, MAX_DIMENSION), Image.LANCZOS)
+        if img.mode not in ("RGB", "RGBA"):
+            has_alpha = img.mode in ("LA", "PA") or (
+                img.mode == "P" and "transparency" in img.info
+            )
+            img = img.convert("RGBA" if has_alpha else "RGB")
         buf = io.BytesIO()
-        if img.mode in ("RGBA", "LA") or (
-            img.mode == "P" and "transparency" in img.info
-        ):
-            img.save(buf, "PNG", optimize=True)
-            return buf.getvalue(), ".png"
-        img.convert("RGB").save(
-            buf, "JPEG", quality=JPEG_QUALITY, optimize=True, progressive=True
-        )
-        return buf.getvalue(), ".jpg"
+        img.save(buf, "WEBP", quality=WEBP_QUALITY, method=6)
+        return buf.getvalue(), ".webp"
     except Exception:
         return content, ""
 

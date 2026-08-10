@@ -1,24 +1,3 @@
-// Aplica la transformacion on-the-fly de Cloudinary (f_auto + q_auto + ancho
-// maximo) a URLs ya subidas. El CDN genera y cachea la version optimizada
-// (WebP/AVIF) sin re-subir ni tocar el original. Idempotente: si la URL ya
-// tiene transformacion, se deja intacta.
-const CLOUDINARY_TRANSFORM = "f_auto,q_auto,w_2000";
-
-export function cloudinaryOptimized(url: string): string {
-  if (
-    !url.startsWith("https://res.cloudinary.com/") &&
-    !url.startsWith("http://res.cloudinary.com/")
-  ) {
-    return url;
-  }
-  const marker = "/image/upload/";
-  const idx = url.indexOf(marker);
-  if (idx === -1) return url;
-  const rest = url.slice(idx + marker.length);
-  if (!rest || rest.startsWith("f_auto")) return url;
-  return `${url.slice(0, idx + marker.length)}${CLOUDINARY_TRANSFORM}/${rest}`;
-}
-
 // Normaliza la URL de un archivo subido al backend para que sea cargable desde
 // cualquier cliente (PC, movil) y sin contenido mixto.
 //
@@ -29,8 +8,12 @@ export function cloudinaryOptimized(url: string): string {
 //
 // Solucion: reenrutar toda URL de subida del backend a una ruta same-origin
 // servida por el proxy ("/api/uploads/..."), que hereda host y https de la
-// pagina. Las URLs externas (Cloudinary, Unsplash, etc.) se dejan intactas, por
-// lo que en produccion (que usa Cloudinary) el comportamiento no cambia.
+// pagina. Las URLs externas (Cloudinary, Unsplash, etc.) se dejan intactas.
+//
+// Las imagenes se almacenan ya optimizadas (WebP de 1600px max, comprimidas
+// en el ingreso por el frontend y el backend), por lo que se sirven TAL CUAL,
+// sin transformaciones on-the-fly de Cloudinary: una sola compresion en el
+// ingreso y cero re-encode al mostrar.
 export function mediaSrc(url?: string | null): string {
   if (!url) return "";
 
@@ -54,8 +37,7 @@ export function mediaSrc(url?: string | null): string {
     if (isLocalBackend) return `/api${m[2]}`;
   }
 
-  // Cloudinary: servir la version optimizada al vuelo.
-  return cloudinaryOptimized(url);
+  return url;
 }
 
 // Indica si la URL termina sirviendose por el proxy de subidas. Se usa para
@@ -69,4 +51,15 @@ export function isProxiedUpload(url?: string | null): boolean {
       url
     )
   );
+}
+
+// Indica si la URL corresponde a un archivo ALMACENADO tal cual (subidas del
+// backend por proxy o Cloudinary, o fallbacks locales). Para esos, next/image
+// debe usar `unoptimized` y servir el archivo sin re-encodearlo: ya viene
+// optimizado de fabrica (WebP/JPEG comprimido en el ingreso).
+export function isStoredUpload(url?: string | null): boolean {
+  if (!url) return false;
+  if (url.startsWith("/fallbacks/")) return true;
+  if (isProxiedUpload(url)) return true;
+  return url.includes("res.cloudinary.com");
 }

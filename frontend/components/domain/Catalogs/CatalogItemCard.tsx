@@ -2,6 +2,7 @@
 
 import { memo, useState } from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { CatalogItem } from "@/lib/api";
 import { getFallbackImageByContext } from "@/lib/fallbacks";
 import { useTheme } from "@/lib/useTheme";
@@ -37,10 +38,7 @@ export const CatalogItemCard = memo(function CatalogItemCard({
           alt={`Elemento #${item.numero}`}
           fill
           className="object-cover group-hover:scale-105 transition-transform duration-500"
-          unoptimized={
-            src.startsWith("http://localhost:8000/uploads/") ||
-            src.startsWith("/fallbacks/")
-          }
+          unoptimized={isStoredUpload(src)}
           onError={handleImageError}
         />
         <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-primary font-bold text-label-sm shadow-sm">

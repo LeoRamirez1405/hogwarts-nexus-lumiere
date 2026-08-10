@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { memo, useRef } from "react";
 import { MaterialIcon, ZerineDisplay } from "@/components/ui";
 import { getFallbackForProduct, type Theme } from "@/lib/fallbacks";
@@ -54,7 +55,7 @@ const ProductSlide = memo(function ProductSlide({
               alt={product.name}
               fill
               className="object-cover"
-              unoptimized={!!product.image_url && (product.image_url.startsWith("http://localhost:8000/uploads/") || product.image_url.startsWith("/fallbacks/"))}
+              unoptimized={isStoredUpload(product.image_url) || isStoredUpload(imgSrc)}
               sizes="(max-width: 768px) 100vw, 50vw"
               priority={index === 0}
             />

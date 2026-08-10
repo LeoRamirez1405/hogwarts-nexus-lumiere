@@ -2,6 +2,7 @@
 
 import { memo, useState } from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { Catalog } from "@/lib/api";
 import { getFallbackImageByContext } from "@/lib/fallbacks";
 import { useTheme } from "@/lib/useTheme";
@@ -30,10 +31,7 @@ export const CatalogDetailContent = memo(function CatalogDetailContent({
           alt={catalog.name}
           fill
           className="object-cover"
-          unoptimized={
-            src.startsWith("http://localhost:8000/uploads/") ||
-            src.startsWith("/fallbacks/")
-          }
+          unoptimized={isStoredUpload(src)}
           onError={() => setImgError(true)}
         />
         <span className="absolute top-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-primary font-bold text-label-sm shadow-sm flex items-center gap-1">

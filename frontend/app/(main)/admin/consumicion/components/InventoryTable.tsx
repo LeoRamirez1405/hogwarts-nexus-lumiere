@@ -5,6 +5,7 @@ import Button from "@/components/ui/Button";
 import GlassCard from "@/components/ui/GlassCard";
 import Badge from "@/components/ui/Badge";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import type { UserProductAdmin } from "@/lib/api";
 
 interface InventoryTableProps {
@@ -69,7 +70,7 @@ export default function InventoryTable({ items, onRemove, loading }: InventoryTa
                         width={40}
                         height={40}
                         className="w-10 h-10 rounded-lg object-cover"
-                        unoptimized={item.product.image_url.startsWith("http://localhost:8000/uploads/")}
+                        unoptimized={isStoredUpload(item.product.image_url)}
                       />
                     )}
                     <div>

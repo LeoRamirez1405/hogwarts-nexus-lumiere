@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { api, Product, EnumValue } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
@@ -393,7 +394,7 @@ export default function FlourishBlottsPage() {
                     >
                       <div className="relative h-48 overflow-hidden">
                         {up.product?.image_url
-                          ? <Image src={up.product.image_url} alt={up.product?.name ?? "Libro"} fill className="object-cover group-hover:scale-105 transition-transform duration-500" unoptimized={up.product.image_url.startsWith("http://localhost:8000/uploads/")} />
+                          ? <Image src={up.product.image_url} alt={up.product?.name ?? "Libro"} fill className="object-cover group-hover:scale-105 transition-transform duration-500" unoptimized={isStoredUpload(up.product.image_url)} />
                           : <div className="w-full h-full bg-primary/5 flex items-center justify-center"><MaterialIcon name="menu_book" className="text-5xl text-primary/30" /></div>
                         }
                         <span className="absolute top-3 right-3 bg-success/90 text-on-success backdrop-blur-sm px-3 py-1 rounded-full text-label-sm font-bold flex items-center gap-1">

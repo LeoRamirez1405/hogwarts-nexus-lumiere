@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { Product } from "@/lib/api";
 import { getFallbackForProduct } from "@/lib/fallbacks";
 import { ZerineDisplay, Button } from "@/components/ui";
@@ -29,7 +30,7 @@ export const ProductDetailContent = memo(function ProductDetailContent({
             alt={product.name}
             fill
             className="object-cover"
-            unoptimized={imageSrc.startsWith("http://localhost:8000/uploads/") || imageSrc.startsWith("/fallbacks/")}
+            unoptimized={isStoredUpload(imageSrc)}
           />
           <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-primary font-bold text-label-sm shadow-sm">
             {product.category}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { api, Product, EnumValue } from "@/lib/api";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
@@ -380,7 +381,7 @@ export default function BorginBurkesPage() {
                     >
                       <div className="relative h-48 overflow-hidden">
                         {up.product?.image_url
-                          ? <Image src={up.product.image_url} alt={up.product?.name ?? "Artefacto"} fill className="object-cover group-hover:scale-105 transition-transform duration-500" unoptimized={up.product.image_url.startsWith("http://localhost:8000/uploads/")} />
+                          ? <Image src={up.product.image_url} alt={up.product?.name ?? "Artefacto"} fill className="object-cover group-hover:scale-105 transition-transform duration-500" unoptimized={isStoredUpload(up.product.image_url)} />
                           : <div className="w-full h-full bg-[#1c1b1b] flex items-center justify-center"><MaterialIcon name="inventory_2" className="text-5xl text-secondary/30" /></div>
                         }
                         <span className="absolute top-3 right-3 bg-green-600/90 text-white backdrop-blur-sm px-3 py-1 rounded-full text-label-sm font-bold flex items-center gap-1">

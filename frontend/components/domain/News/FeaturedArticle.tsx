@@ -6,9 +6,10 @@ import Link from "next/link";
 import { Article } from "@/lib/api";
 import { GlassCard, Badge, Button, Avatar, MaterialIcon } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
+import { isStoredUpload } from "@/lib/media";
 
 function isLocalUpload(src?: string): boolean {
-  return src?.startsWith("http://localhost:8000/uploads/") ?? false;
+  return isStoredUpload(src);
 }
 
 function formatDate(dateStr: string): string {

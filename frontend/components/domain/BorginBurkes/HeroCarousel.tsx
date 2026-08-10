@@ -2,6 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { Product } from "@/lib/api";
 import { ZerineDisplay, MaterialIcon } from "@/components/ui";
 import { getFallbackForProduct, detectTheme } from "@/lib/fallbacks";
@@ -55,7 +56,7 @@ function ProductSlide({ product, displaySlidesLength, onAddToCart, index }: {
                   alt={product.name}
                   fill
                   className="object-cover"
-                  unoptimized={product.image_url?.startsWith("http://localhost:8000/uploads/") || imgSrc.startsWith("/fallbacks/")}
+                  unoptimized={isStoredUpload(product.image_url) || isStoredUpload(imgSrc)}
                   onError={() => { if (imgSrc !== fallbackSrc) setImgSrc(fallbackSrc); }}
                   sizes="(max-width: 768px) 100vw, 50vw"
                   priority={index === 0}

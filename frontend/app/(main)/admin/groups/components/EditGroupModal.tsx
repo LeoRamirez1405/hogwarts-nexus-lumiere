@@ -2,6 +2,7 @@
 
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { AdminCrudModal, FormField, InputField, TextareaField } from "@/components/ui/AdminCrudModal";
 
 export function EditGroupModal({
@@ -61,7 +62,7 @@ export function EditGroupModal({
                 alt="Avatar"
                 fill
                 className="object-cover"
-                unoptimized={form.avatar_url?.startsWith("http://localhost:8000/uploads/") ?? false}
+                unoptimized={isStoredUpload(form.avatar_url)}
               />
             ) : (
               <MaterialIcon name="add_a_photo" className="text-2xl text-outline-variant" />

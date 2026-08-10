@@ -1,5 +1,7 @@
+import { isStoredUpload } from "@/lib/media";
+
 export function isLocalUpload(src?: string): boolean {
-  return src?.startsWith("http://localhost:8000/uploads/") ?? false;
+  return isStoredUpload(src);
 }
 
 export function formatDate(dateStr: string): string {

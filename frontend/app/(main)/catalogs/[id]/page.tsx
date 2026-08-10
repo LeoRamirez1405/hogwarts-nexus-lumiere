@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import Image from "next/image";
+import { isStoredUpload } from "@/lib/media";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient, InfiniteData } from "@tanstack/react-query";
 import { api, CatalogItem } from "@/lib/api";
@@ -128,10 +129,7 @@ export default function CatalogDetailPage() {
                   alt={catalog.name}
                   fill
                   className="object-cover"
-                  unoptimized={
-                    src.startsWith("http://localhost:8000/uploads/") ||
-                    src.startsWith("/fallbacks/")
-                  }
+                  unoptimized={isStoredUpload(src)}
                   onError={handleImageError}
                 />
               </div>

@@ -8,6 +8,7 @@ import { api, Article, ArticleComment } from "@/lib/api";
 import { GlassCard, Badge, Button, Avatar, MaterialIcon } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
 import { toastError, toastSuccess } from "@/lib/toastStore";
+import { isStoredUpload } from "@/lib/media";
 import { hapticLight, hapticSelection } from "@/lib/haptics";
 import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
 
@@ -32,7 +33,7 @@ function timeAgo(dateStr: string): string {
 }
 
 function isLocalUpload(src?: string): boolean {
-  return src?.startsWith("http://localhost:8000/uploads/") ?? false;
+  return isStoredUpload(src);
 }
 
 export default function ArticleDetailPage() {
