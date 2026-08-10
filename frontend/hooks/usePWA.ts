@@ -281,7 +281,7 @@ export function usePushSubscription() {
   }, [user, fetchVapidKey, urlBase64ToUint8Array, ensureRegistration]);
 
   const unsubscribe = useCallback(async () => {
-    if (!subscription || !registration) return;
+    if (!subscription || !registration || !("pushManager" in registration)) return;
 
     setLoading(true);
     try {
@@ -305,16 +305,23 @@ export function usePushSubscription() {
     }
   }, [registration, subscription]);
 
-  // Check existing subscription on mount
+  // Check existing subscription on mount. Guard pushManager: iOS < 16.4 does
+  // NOT expose ServiceWorkerRegistration.pushManager, and accessing it throws
+  // "undefined is not an object" which crashed the root provider on every
+  // visit (page never rendered for iPhone users). Web Push was never usable
+  // there anyway (PushManager in window guard in subscribe()).
   useEffect(() => {
-    if (!registration) return;
+    if (!registration || !("pushManager" in registration)) return;
 
-    registration.pushManager.getSubscription().then((sub) => {
-      if (sub) {
-        setSubscription(sub.toJSON() as PushSubscriptionData);
-        setIsSubscribed(true);
-      }
-    });
+    registration.pushManager
+      .getSubscription()
+      .then((sub) => {
+        if (sub) {
+          setSubscription(sub.toJSON() as PushSubscriptionData);
+          setIsSubscribed(true);
+        }
+      })
+      .catch(() => {});
   }, [registration]);
 
   return { subscription, isSubscribed, loading, subscribe, unsubscribe };
