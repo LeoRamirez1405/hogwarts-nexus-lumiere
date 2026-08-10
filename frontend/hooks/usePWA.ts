@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuthStore } from "@/lib/authStore";
 import { toastInfo, toastError } from "@/lib/toastStore";
 
@@ -12,15 +12,16 @@ interface PushSubscriptionData {
   };
 }
 
-// Ensures the controllerchange handler reloads the page at most once, avoiding
-// the PWA infinite-reload loop.
-let reloadingForSW = false;
-
 export function useServiceWorker() {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
   const [isSupported, setIsSupported] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  // The page NEVER reloads on its own when a service worker activates: that
+  // races the initial load on iOS Safari ("This page couldn't load" on every
+  // later navigation). The only reload is the one the user triggers by
+  // accepting an update banner, gated through this flag.
+  const swReloadPending = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -75,23 +76,21 @@ export function useServiceWorker() {
         }
       });
 
+    // Reload ONLY when the user explicitly accepted an update (applyUpdate
+    // set the flag). Uncontrolled SW activations (first install, deploy
+    // updates) never reload the page: taking over mid-session on iOS Safari
+    // breaks subsequent HTML navigations with "This page couldn't load".
     navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (reloadingForSW) return;
-      reloadingForSW = true;
-      try {
-        if (sessionStorage.getItem("sw-reloaded") === "1") return;
-        sessionStorage.setItem("sw-reloaded", "1");
-      } catch (error) {
-        console.warn("sessionStorage unavailable (private mode?), skipping SW reload:", error);
-        return;
-      }
-      console.log("[SW] Controller changed, reloading...");
+      if (!swReloadPending.current) return;
+      swReloadPending.current = false;
+      console.log("[SW] Update applied, reloading...");
       window.location.reload();
     });
   }, []);
 
   const applyUpdate = useCallback(async () => {
     if (!registration || !registration.waiting) return;
+    swReloadPending.current = true;
     registration.waiting.postMessage({ type: "SKIP_WAITING" });
     setUpdateAvailable(false);
   }, [registration]);

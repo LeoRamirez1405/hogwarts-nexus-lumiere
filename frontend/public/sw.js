@@ -42,7 +42,12 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  self.clients.claim();
+  // IMPORTANT: do NOT call clients.claim() here. Claiming takes control of
+  // already-open pages mid-load, which fires `controllerchange` in the page.
+  // Combined with a page-side reload, that races the initial load on iOS
+  // Safari and leaves the tab showing "This page couldn't load" for every
+  // subsequent HTML navigation. Without claim, the SW only controls pages
+  // loaded AFTER activation: no mid-session control switch, no race.
 });
 
 self.addEventListener('fetch', (event) => {
@@ -192,6 +197,16 @@ async function staleWhileRevalidate(request) {
     return Response.error();
   }
 }
+
+// Update flow: the page posts SKIP_WAITING only when the user explicitly
+// accepted an available update (see hooks/usePWA.ts applyUpdate). We never
+// force-control a page (no clients.claim()), so the new SW simply becomes
+// active and the page reloads once, deliberately, on the user's action.
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
 
 // Push Notifications
 self.addEventListener('push', (event) => {
