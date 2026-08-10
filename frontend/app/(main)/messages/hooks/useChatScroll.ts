@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { VirtuosoHandle } from "react-virtuoso";
 import type { Message } from "@/lib/api";
 
 interface UseChatScrollOptions {
@@ -24,7 +23,6 @@ export function useChatScroll({
 }: UseChatScrollOptions) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dividerRef = useRef<HTMLDivElement>(null);
-  const virtuosoRef = useRef<VirtuosoHandle>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [newCount, setNewCount] = useState(0);
 
@@ -65,35 +63,27 @@ export function useChatScroll({
   }, [hasMore, loadingOlder, onLoadOlder]);
 
   // A fresh conversation page has arrived (loadNonce is bumped by useMessages
-  // after the first page for the conversation loads). Position the viewport
-  // on the unread divider, or at the bottom when there is nothing unread.
-  // This triggers on loadNonce instead of convId because the new conversation's
-  // messages/firstUnreadId state isn't in the DOM yet when the id changes.
+  // after the first page for the conversation loads). ChatMessages remounts
+  // the Virtuoso keyed by convId:loadNonce with initialTopMostItemIndex, so
+  // the viewport lands on the unread divider (or at the bottom). Here we only
+  // reset the bookkeeping so this page isn't mistaken for a prepend/append.
   useEffect(() => {
     if (loadNonce === 0 || loadNonce === prevNonceRef.current) return;
     prevNonceRef.current = loadNonce;
-    // Reset bookkeeping so this page isn't mistaken for a prepend/append.
     prevFirstIdRef.current = messages[0]?.id ?? null;
     prevLastIdRef.current = messages[messages.length - 1]?.id ?? null;
     prevScrollHeightRef.current = 0;
-    stickToBottomRef.current = true;
+    const hasUnread = firstUnreadId
+      ? messages.some((m) => m.id === firstUnreadId)
+      : false;
+    stickToBottomRef.current = !hasUnread;
 
     requestAnimationFrame(() => {
-      if (firstUnreadId) {
-        const index = messages.findIndex((m) => m.id === firstUnreadId);
-        if (index >= 0) {
-          // Virtuoso virtualizes from the top, so the item holding the unread
-          // divider is not mounted yet — scrollToIndex handles that reliably.
-          virtuosoRef.current?.scrollToIndex({ index, align: "center", behavior: "auto" });
-          stickToBottomRef.current = false;
-          setShowScrollBtn(true);
-          return;
-        }
-      }
-      const c = containerRef.current;
-      if (c) c.scrollTop = c.scrollHeight;
+      // Position-dependent UI resets (after Virtuoso's initial layout settled).
       setNewCount(0);
-      setShowScrollBtn(false);
+      setShowScrollBtn(hasUnread);
+      const c = containerRef.current;
+      if (c) prevScrollHeightRef.current = c.scrollHeight;
     });
   }, [loadNonce, messages, firstUnreadId]);
 
@@ -145,7 +135,6 @@ export function useChatScroll({
   return {
     containerRef,
     dividerRef,
-    virtuosoRef,
     scrollToBottom,
     handleScroll,
     showScrollBtn,

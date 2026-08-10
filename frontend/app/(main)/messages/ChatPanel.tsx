@@ -92,7 +92,6 @@ export default function ChatPanel(props: ChatPanelProps) {
   const {
     containerRef,
     dividerRef,
-    virtuosoRef,
     scrollToBottom,
     handleScroll,
     showScrollBtn,
@@ -566,7 +565,8 @@ export default function ChatPanel(props: ChatPanelProps) {
           user={user}
           containerRef={containerRef}
           dividerRef={dividerRef}
-          virtuosoRef={virtuosoRef}
+          convId={selectedConv?.id}
+          loadNonce={loadNonce}
           onScroll={handleScroll}
           firstUnreadId={firstUnreadId}
           unreadCount={unreadCount}

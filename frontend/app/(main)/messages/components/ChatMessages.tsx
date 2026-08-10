@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Virtuoso } from "react-virtuoso";
-import type { VirtuosoHandle } from "react-virtuoso";
 import { MaterialIcon, parseUtc } from "../helpers";
 import { MessageBubble } from "../MessageRenderers";
 import type { Message, ChatRoomMemberResponse } from "@/lib/api";
@@ -12,7 +11,8 @@ interface ChatMessagesProps {
   user: { id?: string } | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
   dividerRef: React.RefObject<HTMLDivElement | null>;
-  virtuosoRef: React.RefObject<VirtuosoHandle | null>;
+  convId?: string | null;
+  loadNonce: number;
   onScroll: () => void;
   firstUnreadId?: string | null;
   unreadCount?: number;
@@ -41,7 +41,8 @@ export default function ChatMessages({
   user,
   containerRef,
   dividerRef,
-  virtuosoRef,
+  convId,
+  loadNonce,
   onScroll,
   firstUnreadId,
   unreadCount,
@@ -102,14 +103,30 @@ export default function ChatMessages({
     const listener = () => onScrollRef.current();
     el.addEventListener("scroll", listener, { passive: true });
     return () => el.removeEventListener("scroll", listener);
-  }, [containerRef]);
+  }, [containerRef, convId, loadNonce]);
+
+  // The Virtuoso is keyed by conversation so it REMOUNTS when a fresh page
+  // arrives (loadNonce bumps only when the new page is already in state) and
+  // applies initialTopMostItemIndex during its initial layout — the reliable
+  // way to land on the unread divider (or at the bottom) without racing the
+  // measurement pass.
+  const unreadIndex = firstUnreadId
+    ? visibleMessages.findIndex((m) => m.id === firstUnreadId)
+    : -1;
+  const initialIndex =
+    unreadIndex >= 0
+      ? { index: unreadIndex, align: "center" as const }
+      : visibleMessages.length > 0
+        ? { index: visibleMessages.length - 1, align: "end" as const }
+        : undefined;
 
   return (
     <>
       <div className="relative h-full px-4 py-4">
         <Virtuoso
+          key={`${convId ?? ""}:${loadNonce}`}
           data={visibleMessages}
-          ref={virtuosoRef}
+          initialTopMostItemIndex={initialIndex}
           scrollerRef={handleScrollerRef}
           components={{
             Header: () => (
