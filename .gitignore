@@ -77,3 +77,5 @@ auth-wal
 
 #bot
 bunker_bot.zip
+*.pdf
+spam_pages/
