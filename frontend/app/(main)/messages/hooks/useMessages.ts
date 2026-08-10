@@ -29,6 +29,7 @@ export function useMessages({ selectedId, selectedType, wsClient, setConversatio
   const [roomMembers, setRoomMembers] = useState<ChatRoomMemberResponse[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [targetMessageId, setTargetMessageId] = useState<string | null>(null);
+  const [loadNonce, setLoadNonce] = useState(0);
 
   const messagesRef = useRef(messages);
   const hasMoreRef = useRef(hasMore);
@@ -120,6 +121,7 @@ export function useMessages({ selectedId, selectedType, wsClient, setConversatio
         setHasMore(page.has_more);
         setFirstUnreadId(page.first_unread_id ?? null);
         setUnreadCount(page.unread_count);
+        setLoadNonce((n) => n + 1);
         const newest = page.messages[page.messages.length - 1];
         if (newest && wsClient.isConnected()) {
           wsClient.markRead(id, newest.id);
@@ -246,6 +248,7 @@ export function useMessages({ selectedId, selectedType, wsClient, setConversatio
     membersLoading,
     targetMessageId,
     setTargetMessageId,
+    loadNonce,
     loadOlder,
     handleCatchUp,
     handleRefresh,

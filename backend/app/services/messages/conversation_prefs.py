@@ -304,3 +304,44 @@ async def update_conversation_preferences_after_delete(
     await db.commit()
 
     await _invalidate_conversations_caches(list(affected_user_ids))
+
+
+async def update_conversation_preview_after_edit(
+    db: AsyncSession,
+    message: Message,
+) -> None:
+    """Refresh ``last_message_body`` on pref rows that point at an edited message.
+
+    Called by both edit paths (HTTP PATCH and WS ``edit_message``) so the inbox
+    preview reflects the new body. Only the body changes on an edit: created_at,
+    sender, kind and attachment metadata stay as they were.
+    """
+    body_preview = (message.body or "")[:200] if message.body else ""
+    if not body_preview and message.attachment_url:
+        body_preview = "📎 Adjunto"
+
+    if message.room_id:
+        conditions = and_(
+            UserConversationPreference.conversation_type == "room",
+            UserConversationPreference.conversation_id == message.room_id,
+            UserConversationPreference.last_message_id == message.id,
+        )
+    else:
+        conditions = and_(
+            UserConversationPreference.conversation_type == "dm",
+            UserConversationPreference.conversation_id.in_(
+                [message.sender_id, message.receiver_id]
+            ),
+            UserConversationPreference.last_message_id == message.id,
+        )
+
+    prefs = (
+        await db.execute(select(UserConversationPreference).where(conditions))
+    ).scalars().all()
+    if not prefs:
+        return
+
+    for pref in prefs:
+        pref.last_message_body = body_preview
+    await db.commit()
+    await _invalidate_conversations_caches([p.user_id for p in prefs])

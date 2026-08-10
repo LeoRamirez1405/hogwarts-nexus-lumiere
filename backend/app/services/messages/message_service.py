@@ -18,6 +18,7 @@ from .conversation_prefs import (
     _update_conversation_preferences,
     is_conversation_muted,
     update_conversation_preferences_after_delete,
+    update_conversation_preview_after_edit,
 )
 
 
@@ -218,6 +219,8 @@ async def edit_message_service(
     message.edited_at = datetime.utcnow()
     await db.commit()
     await db.refresh(message)
+    # Keep the inbox preview in sync when the edited message is the last one.
+    await update_conversation_preview_after_edit(db, message)
     return message
 
 

@@ -14,7 +14,10 @@ from ..models.user import User
 from ..models.e2e_encryption import EncryptedMessage
 from ..middleware.auth import get_current_user_ws
 from ..ws_manager import manager
-from ..services.messages.conversation_prefs import update_conversation_preferences_after_delete
+from ..services.messages.conversation_prefs import (
+    update_conversation_preferences_after_delete,
+    update_conversation_preview_after_edit,
+)
 from .messages import serialize_message
 from .messages.serializers.message import _preview_message
 
@@ -182,6 +185,8 @@ async def handle_edit_message(user_id: str, data: dict, db: AsyncSession):
     message.edited_at = datetime.utcnow()
     await db.commit()
     await db.refresh(message)
+    # Keep the inbox preview in sync when the edited message is the last one.
+    await update_conversation_preview_after_edit(db, message)
 
     # Serialize and broadcast
     serialized = await serialize_message(db, message, user_id)

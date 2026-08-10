@@ -50,7 +50,7 @@ function ChatPanelSkeleton() {
 
 export default function MessagesPage() {
   const { user: authUser } = useAuthStore();
-  const markNotifsRead = useNotificationStore((s) => s.markReadMatching);
+  const markNotifsRead = useNotificationStore((s) => s.markReadByReference);
   const storeNotifications = useNotificationStore((s) => s.notifications);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -202,7 +202,7 @@ export default function MessagesPage() {
 
   // Notification sync
   useEffect(() => {
-    markNotifsReadMatching(selectedId, selectedType, markNotifsRead, storeNotifications);
+    markNotifsReadMatching(selectedId, selectedType, markNotifsRead);
   }, [selectedId, selectedType, markNotifsRead, storeNotifications]);
 
   // Conversation selection wrapper
@@ -352,6 +352,7 @@ export default function MessagesPage() {
                 onLoadOlder={messagesHook.loadOlder}
                 firstUnreadId={messagesHook.firstUnreadId}
                 unreadCount={messagesHook.unreadCount}
+                loadNonce={messagesHook.loadNonce}
                 pinnedMessages={messagesHook.pinnedMessages}
                 onTogglePin={handleTogglePin}
                 onEditMessage={handleEditMessage}

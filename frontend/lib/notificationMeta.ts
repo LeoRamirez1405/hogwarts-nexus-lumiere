@@ -1,4 +1,5 @@
 import type { Notification } from "./api";
+import type { NotificationReadReference } from "./notificationStore";
 
 export type NotificationCategory =
   | "social"
@@ -201,19 +202,53 @@ export function notificationMeta(type: string): NotificationMeta {
 }
 
 /**
- * Auto-clear rule: does simply *being* at `pathname` count as attending this
- * notification? True when the notification's own destination matches the
- * current path. Messages are excluded on purpose — a DM/room notification is
- * cleared by opening that specific conversation (handled in the messages page),
- * not by merely landing on `/messages`, which would wipe unrelated chats.
+ * Map the current route to the notification reference it attends. Returns null
+ * for routes that don't clear notifications by themselves (e.g. `/messages`,
+ * handled conversation-by-conversation on the messages page). The returned
+ * reference is used with `markReadByReference`, which clears matching rows on
+ * the server even when they were never loaded client-side.
  */
-export function autoClearedByPath(n: Notification, pathname: string): boolean {
-  const meta = notificationMeta(n.type);
-  if (meta.category === "messages") return false;
-  const dest = meta.route(n);
-  if (!dest) return false;
-  const destPath = dest.split("?")[0];
-  return destPath === pathname;
+export function pathToClearRef(pathname: string): NotificationReadReference | null {
+  const articleMatch = pathname.match(/^\/news\/([^/]+)$/);
+  if (articleMatch) {
+    return {
+      types: ["article_created", "article_updated", "article_comment"],
+      relatedId: articleMatch[1],
+    };
+  }
+  const threadMatch = pathname.match(/^\/news\/thread\/([^/]+)$/);
+  if (threadMatch) {
+    return { types: ["forum_reply", "forum_mention"], relatedId: threadMatch[1] };
+  }
+  if (pathname === "/news") {
+    return { types: ["announcement"] };
+  }
+  const profileMatch = pathname.match(/^\/profile\/([^/]+)$/);
+  if (profileMatch) {
+    return {
+      types: ["friend_request", "friend_accepted", "friend_post"],
+      relatedId: profileMatch[1],
+    };
+  }
+  if (pathname === "/profile") {
+    return { types: ["post_like", "post_comment", "post_repost", "post_mention"] };
+  }
+  if (pathname === "/pets") {
+    return {
+      types: [
+        "pet_needs_attention",
+        "pet_escape_warning",
+        "pet_escaped",
+        "pet_aging",
+        "pet_farewell",
+        "pet_sold",
+      ],
+    };
+  }
+  if (pathname === "/treasury") {
+    return { types: ["zerines_received"] };
+  }
+  return null;
 }
 
 export const NOTIFICATION_CATEGORIES: {

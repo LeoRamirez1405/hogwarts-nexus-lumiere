@@ -42,4 +42,14 @@ export const notificationsApi = {
       method: "POST",
       body: JSON.stringify({ ids }),
     }),
+
+  markNotificationsReadByReference: (ref: {
+    types?: string[];
+    relatedId?: string;
+    relatedPrefix?: string;
+  }) =>
+    request<{ updated: number }>("/notifications/read-by-reference", {
+      method: "POST",
+      body: JSON.stringify(ref),
+    }),
 };

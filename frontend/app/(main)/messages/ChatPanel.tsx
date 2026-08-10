@@ -47,6 +47,7 @@ export default function ChatPanel(props: ChatPanelProps) {
     onLoadOlder,
     firstUnreadId,
     unreadCount,
+    loadNonce,
     pinnedMessages,
     onTogglePin,
     onEditMessage,
@@ -91,6 +92,7 @@ export default function ChatPanel(props: ChatPanelProps) {
   const {
     containerRef,
     dividerRef,
+    virtuosoRef,
     scrollToBottom,
     handleScroll,
     showScrollBtn,
@@ -104,6 +106,7 @@ export default function ChatPanel(props: ChatPanelProps) {
     onLoadOlder,
     firstUnreadId,
     targetMessageId,
+    loadNonce,
   });
 
   const composer = useChatComposer({
@@ -563,6 +566,7 @@ export default function ChatPanel(props: ChatPanelProps) {
           user={user}
           containerRef={containerRef}
           dividerRef={dividerRef}
+          virtuosoRef={virtuosoRef}
           onScroll={handleScroll}
           firstUnreadId={firstUnreadId}
           unreadCount={unreadCount}

@@ -2,21 +2,33 @@
 
 import type { SelectedConvType } from "../types";
 
-interface Notification {
-  related_id?: string;
-}
-
+/**
+ * Mark message notifications read when the user opens their conversation.
+ *
+ * Backend formats for `related_id`:
+ * - dm_message: the partner's user id (== selectedId for DMs)
+ * - mention (room): "{room_id}:{message_id}" (starts with the room id)
+ * - group_added / group_join_request: the room id
+ *
+ * Uses `markReadByReference` (REST) so rows that were never loaded client-side
+ * also get cleared, and it works when the WebSocket is down.
+ */
 export function markNotifsReadMatching(
   selectedId: string | null,
   selectedType: SelectedConvType | null,
-  markRead: (predicate: (n: Notification) => boolean) => Promise<void>,
-  // notifications kept for API compatibility; predicate is self-contained
-  notifications: Notification[]
+  markRead: (ref: {
+    types?: string[];
+    relatedId?: string;
+    relatedPrefix?: string;
+  }) => Promise<void>
 ): void {
   if (!selectedId || !selectedType) return;
-  if (notifications.length === 0) return;
-  void markRead((n) =>
-    n.related_id?.startsWith(`conversation:${selectedId}`) === true ||
-    n.related_id?.startsWith(`message:${selectedId}`) === true
-  );
+  if (selectedType === "direct") {
+    void markRead({ types: ["dm_message"], relatedId: selectedId });
+  } else {
+    void markRead({
+      types: ["mention", "group_added", "group_join_request"],
+      relatedPrefix: selectedId,
+    });
+  }
 }

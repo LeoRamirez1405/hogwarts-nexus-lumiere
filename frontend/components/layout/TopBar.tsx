@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/authStore";
 import { Notification } from "@/lib/api";
 import { useNotificationStore } from "@/lib/notificationStore";
-import { notificationMeta, autoClearedByPath } from "@/lib/notificationMeta";
+import { notificationMeta, pathToClearRef } from "@/lib/notificationMeta";
 import { wsClient } from "@/lib/ws";
 import { getAccessTokenFromCookie } from "@/lib/cookies";
 import Avatar from "@/components/ui/Avatar";
@@ -114,7 +114,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
     push: pushNotification,
     markRead,
     markAllRead,
-    markReadMatching,
+    markReadByReference,
   } = useNotificationStore();
 
   useEffect(() => {
@@ -164,11 +164,13 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   }, [user, loadNotifications, pushNotification]);
 
   // Auto-clear: reaching the place a notification points to marks it read,
-  // even without clicking it. Messages are handled by the messages page itself.
+  // even without clicking it. REST-based (markReadByReference), so it also
+  // works when the WebSocket is down. Messages are handled by the messages page.
   useEffect(() => {
     if (!user) return;
-    markReadMatching((n) => autoClearedByPath(n, pathname));
-  }, [user, pathname, notifications, markReadMatching]);
+    const ref = pathToClearRef(pathname);
+    if (ref) markReadByReference(ref);
+  }, [user, pathname, markReadByReference]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const unreadLabel = unreadCount > 99 ? "+99" : String(unreadCount);

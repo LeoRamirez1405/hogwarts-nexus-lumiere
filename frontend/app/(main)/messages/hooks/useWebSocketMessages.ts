@@ -116,7 +116,16 @@ export function useWebSocketMessages({
 
   const handleWSEdit = useCallback((message: Message) => {
     setMessages((prev) => prev.map((m) => m.id === message.id ? { ...m, ...message } : m));
-  }, [setMessages]);
+    // Si el mensaje editado es el último de la conversación, refrescar el
+    // preview de la bandeja de entrada con el nuevo texto.
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.last_message?.id === message.id
+          ? { ...c, last_message: { ...c.last_message, ...message } }
+          : c
+      )
+    );
+  }, [setMessages, setConversations]);
 
   const handleCatchUp = useCallback(() => {
     const id = selectedIdRef.current;

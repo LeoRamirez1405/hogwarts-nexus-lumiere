@@ -118,6 +118,20 @@ class ReadBatchRequest(BaseModel):
     ids: List[str]
 
 
+class ReadByReferenceRequest(BaseModel):
+    """Mark read by destination instead of by id.
+
+    Lets the client clear notifications pointing at a place the user just
+    reached (a conversation, an article, a room...) even when those rows were
+    never loaded client-side. Pure REST — no WebSocket required, so it works as
+    a fallback when the socket is down.
+    """
+
+    types: Optional[List[str]] = None
+    related_id: Optional[str] = None
+    related_prefix: Optional[str] = None
+
+
 @router.post("/read-batch")
 async def mark_notifications_read_batch(
     payload: ReadBatchRequest,
@@ -141,5 +155,31 @@ async def mark_notifications_read_batch(
         )
         .values(read=True)
     )
+    await db.commit()
+    return {"updated": result.rowcount or 0}
+
+
+@router.post("/read-by-reference")
+async def mark_notifications_read_by_reference(
+    payload: ReadByReferenceRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mark read every unread notification matching a type + reference pattern.
+
+    ``related_prefix`` matches ``related_id`` as a prefix so a room id also
+    clears mention notifications whose reference is "room_id:message_id".
+    """
+    stmt = update(Notification).where(
+        Notification.user_id == current_user.id,
+        Notification.read.is_(False),
+    )
+    if payload.types:
+        stmt = stmt.where(Notification.type.in_(payload.types))
+    if payload.related_id is not None:
+        stmt = stmt.where(Notification.related_id == payload.related_id)
+    elif payload.related_prefix is not None:
+        stmt = stmt.where(Notification.related_id.like(f"{payload.related_prefix}%"))
+    result = await db.execute(stmt.values(read=True))
     await db.commit()
     return {"updated": result.rowcount or 0}

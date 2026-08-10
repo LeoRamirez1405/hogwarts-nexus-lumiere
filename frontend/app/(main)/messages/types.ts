@@ -29,6 +29,7 @@ export interface ChatPanelProps {
   onLoadOlder: () => Promise<void>;
   firstUnreadId: string | null;
   unreadCount: number;
+  loadNonce: number;
   pinnedMessages: Message[];
   onTogglePin: (m: Message) => Promise<void>;
   onEditMessage: (messageId: string, _convId: string, body: string) => Promise<void>;

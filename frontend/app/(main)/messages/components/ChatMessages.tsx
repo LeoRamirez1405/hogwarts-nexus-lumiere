@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Virtuoso } from "react-virtuoso";
+import type { VirtuosoHandle } from "react-virtuoso";
 import { MaterialIcon, parseUtc } from "../helpers";
 import { MessageBubble } from "../MessageRenderers";
 import type { Message, ChatRoomMemberResponse } from "@/lib/api";
@@ -11,6 +12,7 @@ interface ChatMessagesProps {
   user: { id?: string } | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
   dividerRef: React.RefObject<HTMLDivElement | null>;
+  virtuosoRef: React.RefObject<VirtuosoHandle | null>;
   onScroll: () => void;
   firstUnreadId?: string | null;
   unreadCount?: number;
@@ -39,6 +41,7 @@ export default function ChatMessages({
   user,
   containerRef,
   dividerRef,
+  virtuosoRef,
   onScroll,
   firstUnreadId,
   unreadCount,
@@ -106,6 +109,7 @@ export default function ChatMessages({
       <div className="relative h-full px-4 py-4">
         <Virtuoso
           data={visibleMessages}
+          ref={virtuosoRef}
           scrollerRef={handleScrollerRef}
           components={{
             Header: () => (

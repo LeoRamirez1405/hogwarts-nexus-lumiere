@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import type { VirtuosoHandle } from "react-virtuoso";
 import type { Message } from "@/lib/api";
 
 interface UseChatScrollOptions {
@@ -9,19 +10,21 @@ interface UseChatScrollOptions {
   onLoadOlder?: () => void;
   firstUnreadId?: string | null;
   targetMessageId?: string | null;
+  loadNonce?: number;
 }
 
 export function useChatScroll({
   messages,
-  convId,
   hasMore,
   loadingOlder,
   onLoadOlder,
   firstUnreadId,
   targetMessageId,
+  loadNonce = 0,
 }: UseChatScrollOptions) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dividerRef = useRef<HTMLDivElement>(null);
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [newCount, setNewCount] = useState(0);
 
@@ -29,7 +32,7 @@ export function useChatScroll({
   // stickToBottom reflects whether the user was near the bottom *before* the
   // last content change, so we know whether to auto-follow new messages.
   const stickToBottomRef = useRef(true);
-  const prevConvIdRef = useRef<string | null>(null);
+  const prevNonceRef = useRef(0);
   const prevFirstIdRef = useRef<string | null>(null);
   const prevLastIdRef = useRef<string | null>(null);
   const prevScrollHeightRef = useRef(0);
@@ -61,45 +64,52 @@ export function useChatScroll({
     }
   }, [hasMore, loadingOlder, onLoadOlder]);
 
-  // Position the viewport whenever messages or the conversation change.
+  // A fresh conversation page has arrived (loadNonce is bumped by useMessages
+  // after the first page for the conversation loads). Position the viewport
+  // on the unread divider, or at the bottom when there is nothing unread.
+  // This triggers on loadNonce instead of convId because the new conversation's
+  // messages/firstUnreadId state isn't in the DOM yet when the id changes.
+  useEffect(() => {
+    if (loadNonce === 0 || loadNonce === prevNonceRef.current) return;
+    prevNonceRef.current = loadNonce;
+    // Reset bookkeeping so this page isn't mistaken for a prepend/append.
+    prevFirstIdRef.current = messages[0]?.id ?? null;
+    prevLastIdRef.current = messages[messages.length - 1]?.id ?? null;
+    prevScrollHeightRef.current = 0;
+    stickToBottomRef.current = true;
+
+    requestAnimationFrame(() => {
+      if (firstUnreadId) {
+        const index = messages.findIndex((m) => m.id === firstUnreadId);
+        if (index >= 0) {
+          // Virtuoso virtualizes from the top, so the item holding the unread
+          // divider is not mounted yet — scrollToIndex handles that reliably.
+          virtuosoRef.current?.scrollToIndex({ index, align: "center", behavior: "auto" });
+          stickToBottomRef.current = false;
+          setShowScrollBtn(true);
+          return;
+        }
+      }
+      const c = containerRef.current;
+      if (c) c.scrollTop = c.scrollHeight;
+      setNewCount(0);
+      setShowScrollBtn(false);
+    });
+  }, [loadNonce, messages, firstUnreadId]);
+
+  // React to later content changes: older pages prepended at the top (keep the
+  // current view anchored) and new messages appended at the bottom (follow only
+  // when the user was already near the bottom).
   useEffect(() => {
     const c = containerRef.current;
     if (!c) return;
-    const currentConvId = convId ?? null;
     const first = messages[0]?.id ?? null;
     const last = messages[messages.length - 1]?.id ?? null;
 
-    if (prevConvIdRef.current !== currentConvId) {
-      // Wait until the first page has actually loaded before positioning, so
-      // the transient "empty" reset render doesn't consume the switch.
-      if (messages.length === 0) return;
-      // Fresh conversation: jump to the unread divider, else to the bottom.
-      prevConvIdRef.current = currentConvId;
-      prevFirstIdRef.current = first;
-      prevLastIdRef.current = last;
-      requestAnimationFrame(() => {
-        const cc = containerRef.current;
-        if (!cc) return;
-        if (firstUnreadId && dividerRef.current) {
-          dividerRef.current.scrollIntoView({ block: "center" });
-          stickToBottomRef.current = false;
-          setShowScrollBtn(true);
-        } else {
-          cc.scrollTop = cc.scrollHeight;
-          stickToBottomRef.current = true;
-          setShowScrollBtn(false);
-        }
-        prevScrollHeightRef.current = cc.scrollHeight;
-      });
-      return;
-    }
-
-    // Older page prepended at the top: keep the current view anchored.
     if (first !== prevFirstIdRef.current) {
       const delta = c.scrollHeight - prevScrollHeightRef.current;
       if (delta > 0) c.scrollTop += delta;
     }
-    // New message appended at the bottom.
     if (last !== prevLastIdRef.current) {
       if (stickToBottomRef.current) {
         c.scrollTop = c.scrollHeight;
@@ -111,7 +121,7 @@ export function useChatScroll({
     prevFirstIdRef.current = first;
     prevLastIdRef.current = last;
     prevScrollHeightRef.current = c.scrollHeight;
-  }, [messages, convId, firstUnreadId]);
+  }, [messages]);
 
   // Jump + highlight a specific message (from a mention notification).
   useEffect(() => {
@@ -135,6 +145,7 @@ export function useChatScroll({
   return {
     containerRef,
     dividerRef,
+    virtuosoRef,
     scrollToBottom,
     handleScroll,
     showScrollBtn,

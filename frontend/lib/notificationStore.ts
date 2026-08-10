@@ -19,12 +19,17 @@ interface NotificationState {
   /** Mark every unread notification read (backend + local). */
   markAllRead: () => Promise<void>;
   /**
-   * Mark read every currently-loaded unread notification matching `predicate`.
-   * Used to auto-clear notifications when the user reaches the place they point
-   * to. No-ops (no network call) when nothing matches, so it is cheap to call
-   * on every route change.
+   * Mark read every notification whose type + related reference match, both in
+   * the loaded list (optimistic) and on the server (so rows the client never
+   * loaded also get cleared). Pure REST — works even when the WebSocket is down.
    */
-  markReadMatching: (predicate: (n: Notification) => boolean) => Promise<void>;
+  markReadByReference: (ref: NotificationReadReference) => Promise<void>;
+}
+
+export interface NotificationReadReference {
+  types?: string[];
+  relatedId?: string;
+  relatedPrefix?: string;
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -104,23 +109,31 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
-  markReadMatching: async (predicate) => {
+  markReadByReference: async (ref) => {
     const { notifications } = get();
     const matchIds = notifications
-      .filter((n) => !n.read && predicate(n))
+      .filter((n) => !n.read && matchesReference(n, ref))
       .map((n) => n.id);
-    if (matchIds.length === 0) return;
-    const matchSet = new Set(matchIds);
-    set({
-      notifications: notifications.map((n) =>
-        matchSet.has(n.id) ? { ...n, read: true } : n
-      ),
-    });
+    if (matchIds.length > 0) {
+      const matchSet = new Set(matchIds);
+      set({
+        notifications: notifications.map((n) =>
+          matchSet.has(n.id) ? { ...n, read: true } : n
+        ),
+      });
+    }
     try {
-      await api.markNotificationsRead(matchIds);
+      await api.markNotificationsReadByReference(ref);
     } catch (e) {
       /* optimistic update stays; next load() reconciles */
       console.error("No se pudo marcar notificaciones como leídas", e);
     }
   },
 }));
+
+function matchesReference(n: Notification, ref: NotificationReadReference): boolean {
+  if (ref.types && !ref.types.includes(n.type)) return false;
+  if (ref.relatedId !== undefined && n.related_id !== ref.relatedId) return false;
+  if (ref.relatedPrefix && !(n.related_id ?? "").startsWith(ref.relatedPrefix)) return false;
+  return true;
+}
