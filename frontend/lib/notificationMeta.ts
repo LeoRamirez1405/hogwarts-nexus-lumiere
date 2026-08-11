@@ -7,7 +7,8 @@ export type NotificationCategory =
   | "press"
   | "forum"
   | "economy"
-  | "pets";
+  | "pets"
+  | "admin";
 
 export interface NotificationMeta {
   icon: string;
@@ -238,11 +239,30 @@ const META: Record<string, NotificationMeta> = {
     category: "pets",
     route: () => "/pets",
   },
-  inventory_consumed: {
+inventory_consumed: {
     icon: "restaurant",
     chip: "bg-secondary/10 text-secondary",
     category: "economy",
     route: () => null,
+},
+  // Admin
+marketplace_purchase: {
+    icon: "shop",
+    chip: "bg-primary/10 text-primary",
+    category: "admin",
+    route: () => "/admin/consumicion",
+  },
+  marketplace_purchase_flourish: {
+    icon: "menu_book",
+    chip: "bg-primary/10 text-primary",
+    category: "admin",
+    route: () => "/admin/consumicion",
+  },
+  marketplace_purchase_borgin: {
+    icon: "dark_mode",
+    chip: "bg-secondary/10 text-secondary",
+    category: "admin",
+    route: () => "/admin/consumicion",
   },
 };
 
@@ -302,6 +322,9 @@ export function pathToClearRef(pathname: string): NotificationReadReference | nu
   if (pathname === "/treasury") {
     return { types: ["zerines_received"] };
   }
+  if (pathname === "/admin/consumicion") {
+    return { types: ["marketplace_purchase", "marketplace_purchase_flourish", "marketplace_purchase_borgin"] };
+  }
   return null;
 }
 
@@ -316,4 +339,5 @@ export const NOTIFICATION_CATEGORIES: {
   { key: "forum", label: "Foro" },
   { key: "economy", label: "Economía" },
   { key: "pets", label: "Mascotas" },
+  { key: "admin", label: "Administración" },
 ];
