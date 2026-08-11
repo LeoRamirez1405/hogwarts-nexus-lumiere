@@ -208,6 +208,15 @@ class ScheduledMessageRequest(BaseModel):
     receiver_id: Optional[str] = None
     room_id: Optional[str] = None
     scheduled_at: datetime
+    attachment_url: Optional[str] = None
+    attachment_type: Optional[str] = None
+    attachment_name: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class ScheduledMessageUpdate(BaseModel):
+    body: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
 
 
 class MessageResponse(BaseModel):

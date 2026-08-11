@@ -16,7 +16,10 @@ from sqlalchemy.orm import selectinload
 
 from .database import async_session
 from .models.message import Message, Poll
+from .models.user import User
 from .routers.messages import serialize_message
+from .services.messages.conversation_prefs import _update_conversation_preferences
+from .services.messages.message_service import send_notifications_after_send
 from .ws_manager import manager
 
 
@@ -48,9 +51,15 @@ async def deliver_due_scheduled_messages() -> int:
         ).scalars().all()
 
         for message in rows:
+            sender: User = message.sender
             message.scheduled_at = None
             message.created_at = now
             await db.flush()
+
+            # Mirror the regular send path: update inbox previews/unread counts
+            # and fire notifications (mentions in rooms, DM alerts).
+            await _update_conversation_preferences(db, message, sender)
+            await send_notifications_after_send(db, message, sender, message.receiver)
 
             serialized = await serialize_message(
                 db, message, message.sender_id, expand_sender=True, expand_reply_to=True

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ....models.chat_room import ChatRoom
 from ....models.message import Message, Poll
 from ....schemas.message import (
+    ChatRoomBrief,
     ChatRoomMemberResponse,
     ChatRoomResponse,
     MessageReactionResponse,
@@ -50,6 +51,7 @@ async def serialize_message(
     db: AsyncSession, msg: Message, current_user_id: str,
     expand_sender: bool = False, expand_receiver: bool = False,
     expand_reactions: bool = False, expand_reply_to: bool = False,
+    expand_room: bool = False,
     reply_depth: int = 0,
 ) -> MessageResponse:
     poll_data = None
@@ -93,6 +95,22 @@ async def serialize_message(
     sender_data = msg.sender if expand_sender else None
     receiver_data = msg.receiver if expand_receiver else None
 
+    room_data = None
+    if expand_room and msg.room:
+        room_data = ChatRoomBrief(
+            id=msg.room.id,
+            name=msg.room.name,
+            description=msg.room.description,
+            avatar_url=msg.room.avatar_url,
+            type=msg.room.type,
+            closed=msg.room.closed,
+            join_approval=bool(getattr(msg.room, "join_approval", False)),
+            created_by=msg.room.created_by,
+            creator_name=msg.room.creator.name if msg.room.creator else None,
+            created_at=msg.room.created_at,
+            member_count=len(msg.room.members or []),
+        )
+
     return MessageResponse(
         id=msg.id,
         sender_id=msg.sender_id,
@@ -117,7 +135,7 @@ async def serialize_message(
         created_at=msg.created_at,
         sender=sender_data,
         receiver=receiver_data,
-        room=None,
+        room=room_data,
         poll=poll_data,
         reply_to=reply_to_data,
         reactions=reactions_out,
