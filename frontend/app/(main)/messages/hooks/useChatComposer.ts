@@ -15,6 +15,8 @@ import {
 } from "@/lib/mentions";
 import type { MentionSuggestion } from "@/lib/mentions";
 import { getInitials } from "../helpers";
+import { toastSuccess, toastError } from "@/lib/toastStore";
+import { formatScheduleTime } from "../components/ChatInput/utils/formatScheduleTime";
 
 export function useChatComposer({
   selectedConv,
@@ -158,8 +160,11 @@ const handleSend = () => {
       ...data,
       scheduled_at: scheduleAt,
     }).then(() => {
+      toastSuccess("Mensaje programado", `Se enviará ${formatScheduleTime(scheduleAt)}`);
       clearInputState();
-    }).catch(() => {});
+    }).catch((err) => {
+      toastError("No se pudo programar el mensaje", err);
+    });
   } else {
     doSend(data);
     clearInputState();

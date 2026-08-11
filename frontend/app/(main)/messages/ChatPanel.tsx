@@ -69,6 +69,7 @@ export default function ChatPanel(props: ChatPanelProps) {
     onPollVote,
     onToggleStar,
     onShowMediaGallery,
+    onViewScheduled,
     e2eEncrypted,
     e2eVerified,
     onE2EClick,
@@ -638,6 +639,9 @@ export default function ChatPanel(props: ChatPanelProps) {
         onDisappearChange={composer.onDisappearChange}
         scheduleAt={composer.scheduleAt}
         onScheduleChange={composer.onScheduleChange}
+        onViewScheduled={onViewScheduled}
+        convId={selectedConv?.id}
+        convType={selectedConv?.type === "room" ? "room" : "dm"}
       />
 
       {liveEvent && (

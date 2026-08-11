@@ -29,6 +29,10 @@ interface ChatInputDesktopProps {
   onDisappearChange?: (value: string | undefined) => void;
   scheduleAt?: string;
   onScheduleChange?: (value: string | undefined) => void;
+  onCustomScheduleClick: () => void;
+  onViewScheduled?: () => void;
+  showScheduledEntry?: boolean;
+  onRequestScheduledRefresh?: () => void;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onInputChange: (value: string) => void;
@@ -60,6 +64,10 @@ export default function ChatInputDesktop({
   onDisappearChange,
   scheduleAt,
   onScheduleChange,
+  onCustomScheduleClick,
+  onViewScheduled,
+  showScheduledEntry,
+  onRequestScheduledRefresh,
   inputRef,
   fileInputRef,
   onInputChange,
@@ -159,6 +167,7 @@ export default function ChatInputDesktop({
             className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/20"
             aria-label="Herramientas de mensaje"
             aria-expanded={showToolbar}
+            onClickCapture={onRequestScheduledRefresh ? () => onRequestScheduledRefresh() : undefined}
           >
             <MaterialIcon name="add_circle" className="text-xl" />
           </button>
@@ -234,7 +243,7 @@ export default function ChatInputDesktop({
                   <ScheduleMenu
                     selectedValue={scheduleAt}
                     onChange={onScheduleChange ?? (() => {})}
-                    onCustomClick={() => handleToolbarAction(() => {})}
+                    onCustomClick={() => handleToolbarAction(onCustomScheduleClick)}
                   />
                 )}
 
@@ -255,6 +264,17 @@ export default function ChatInputDesktop({
                       <MaterialIcon name="close" className="text-sm" />
                     </button>
                   </div>
+                )}
+
+                {onViewScheduled && showScheduledEntry && (
+                  <button
+                    type="button"
+                    onClick={() => handleToolbarAction(onViewScheduled)}
+                    className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-label-sm font-medium text-secondary hover:bg-secondary/10 transition-colors"
+                  >
+                    <MaterialIcon name="event_available" className="text-base" />
+                    Ver mis mensajes programados
+                  </button>
                 )}
               </div>
             </div>

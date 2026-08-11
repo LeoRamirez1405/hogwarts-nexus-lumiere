@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense, useCallback } from "react";
 import ChatVoiceRecorder from "./ChatVoiceRecorder";
 import ChatVideoRecorder from "./ChatVideoRecorder";
 import DateTimePickerModal from "./DateTimePickerModal";
 import StickerPicker from "./StickerPicker";
 import PollCreator from "../PollCreator";
 import { MaterialIcon } from "../helpers";
+import { api } from "@/lib/api";
+import { toastSuccess } from "@/lib/toastStore";
+import { formatScheduleTime } from "./ChatInput/utils/formatScheduleTime";
 import type { Message } from "@/lib/api";
 import type { MentionSuggestion } from "@/lib/mentions";
 import type { AttachmentPreview } from "../types";
@@ -61,6 +64,9 @@ interface ChatInputProps {
   onDisappearChange?: (value: string | undefined) => void;
   scheduleAt?: string;
   onScheduleChange?: (value: string | undefined) => void;
+  onViewScheduled?: () => void;
+  convId?: string;
+  convType?: "room" | "dm";
 }
 
 export default function ChatInput({
@@ -110,8 +116,63 @@ export default function ChatInput({
   onDisappearChange,
   scheduleAt,
   onScheduleChange,
+  onViewScheduled,
+  convId,
+  convType,
 }: ChatInputProps) {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [hasScheduledInChat, setHasScheduledInChat] = useState(false);
+
+  const refreshScheduledInChat = useCallback(async () => {
+    if (!convId || !convType) {
+      setHasScheduledInChat(false);
+      return;
+    }
+    try {
+      const msgs = await api.getScheduledMessages();
+      const mine = msgs.some((m) =>
+        convType === "room" ? m.room_id === convId : m.receiver_id === convId
+      );
+      setHasScheduledInChat(mine);
+    } catch {
+      setHasScheduledInChat(false);
+    }
+  }, [convId, convType]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      if (!convId || !convType) {
+        if (active) setHasScheduledInChat(false);
+        return;
+      }
+      try {
+        const msgs = await api.getScheduledMessages();
+        if (active) {
+          setHasScheduledInChat(
+            msgs.some((m) =>
+              convType === "room" ? m.room_id === convId : m.receiver_id === convId
+            )
+          );
+        }
+      } catch {
+        if (active) setHasScheduledInChat(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [convId, convType]);
+
+  // Tras programar (o cancelar la programación) el chip se limpia: refresca
+  // el estado del botón "Ver mis mensajes programados".
+  const prevScheduleAtRef = useRef(scheduleAt);
+  useEffect(() => {
+    if (prevScheduleAtRef.current && !scheduleAt) {
+      refreshScheduledInChat();
+    }
+    prevScheduleAtRef.current = scheduleAt;
+  }, [scheduleAt, refreshScheduledInChat]);
 
   const commonProps = {
     input,
@@ -131,6 +192,9 @@ export default function ChatInput({
     scheduleAt,
     onScheduleChange,
     onCustomScheduleClick: () => setShowScheduleModal(true),
+    onViewScheduled,
+    showScheduledEntry: hasScheduledInChat,
+    onRequestScheduledRefresh: refreshScheduledInChat,
     inputRef,
     fileInputRef,
     onInputChange,
@@ -249,7 +313,11 @@ export default function ChatInput({
       <DateTimePickerModal
         isOpen={showScheduleModal}
         onClose={() => setShowScheduleModal(false)}
-        onConfirm={(isoString) => onScheduleChange?.(isoString)}
+        onConfirm={(isoString) => {
+          onScheduleChange?.(isoString);
+          setShowScheduleModal(false);
+          toastSuccess("Mensaje programado", `Se enviará ${formatScheduleTime(isoString)}`);
+        }}
         initialDateTime={scheduleAt}
         title="Programar mensaje"
       />

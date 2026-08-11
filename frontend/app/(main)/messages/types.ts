@@ -54,6 +54,7 @@ export interface ChatPanelProps {
   onUnarchiveConversation: (convType: "dm" | "room", convId: string) => Promise<void>;
   onExportChat: (convType: "dm" | "room", convId: string, convName: string) => Promise<void>;
   onPollVote: (messageId: string, updatedPoll: NonNullable<Message["poll"]>) => void;
+  onViewScheduled?: () => void;
 }
 
 export interface ThirdPaneProps {

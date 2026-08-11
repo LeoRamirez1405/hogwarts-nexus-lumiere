@@ -15,6 +15,7 @@ import { buildSelectedConv, selectConv } from "./utils/conversationHelpers";
 import { markNotifsReadMatching } from "./utils/notificationSync";
 import { MaterialIcon } from "./helpers";
 import type { SelectedConvType } from "./types";
+import type { ScheduledConvFilter } from "./ScheduledMessagesModal";
 
 const ChatPanel = dynamic(() => import("./ChatPanel").then((mod) => mod.default), {
   loading: () => <ChatPanelSkeleton />,
@@ -23,6 +24,7 @@ const ChatPanel = dynamic(() => import("./ChatPanel").then((mod) => mod.default)
 const NewChatModal = dynamic(() => import("./NewChatModal").then((mod) => mod.default), { ssr: false });
 const ForwardModal = dynamic(() => import("./ForwardModal").then((mod) => mod.default), { ssr: false });
 const StarredMessagesModal = dynamic(() => import("./StarredMessagesModal").then((mod) => mod.default), { ssr: false });
+const ScheduledMessagesModal = dynamic(() => import("./ScheduledMessagesModal").then((mod) => mod.default), { ssr: false });
 const MediaGalleryModal = dynamic(() => import("./components/MediaGalleryModal").then((mod) => mod.default), { ssr: false });
 const ArchivedConversationsModal = dynamic(() => import("./components/ArchivedConversationsModal").then((mod) => mod.default), { ssr: false });
 const ThirdPane = dynamic(() => import("./ThirdPane").then((mod) => mod.default), { ssr: false });
@@ -59,6 +61,8 @@ export default function MessagesPage() {
   const debouncedSearch = useDebounce(search, 300);
   const [showNewChat, setShowNewChat] = useState(false);
   const [showStarred, setShowStarred] = useState(false);
+  const [showScheduled, setShowScheduled] = useState(false);
+  const [scheduledFilter, setScheduledFilter] = useState<ScheduledConvFilter | null>(null);
   const [showMediaGallery, setShowMediaGallery] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
@@ -253,6 +257,9 @@ export default function MessagesPage() {
                 <button onClick={() => setShowStarred(true)} className="w-9 h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors" title="Mensajes destacados">
                   <MaterialIcon name="star" className="text-xl" />
                 </button>
+                <button onClick={() => { setScheduledFilter(null); setShowScheduled(true); }} className="w-9 h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors" title="Mensajes programados">
+                  <MaterialIcon name="schedule" className="text-xl" />
+                </button>
                 <button onClick={() => setShowArchived(true)} className="w-9 h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors" title="Conversaciones archivadas">
                   <MaterialIcon name="archive" className="text-xl" />
                 </button>
@@ -377,6 +384,14 @@ export default function MessagesPage() {
                 onUnarchiveConversation={handleUnhideConv}
                 onExportChat={handleExportChat}
                 onPollVote={handlePollVote}
+                onViewScheduled={() => {
+                  setScheduledFilter(
+                    selectedId && selectedType
+                      ? { type: selectedType === "room" ? "room" : "dm", id: selectedId }
+                      : null
+                  );
+                  setShowScheduled(true);
+                }}
               />
             </Suspense>
           ) : (
@@ -433,6 +448,20 @@ export default function MessagesPage() {
               setTargetMessageId(msg.id);
             }}
             onClose={() => setShowStarred(false)}
+          />
+        </Suspense>
+      )}
+
+      {showScheduled && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-pulse"><div className="w-96 h-[80vh] max-h-[80vh] rounded-2xl bg-surface" /></div>}>
+          <ScheduledMessagesModal
+            filterConv={scheduledFilter}
+            onSelectMessage={(msg) => {
+              setShowScheduled(false);
+              const convId = msg.room_id || msg.receiver_id;
+              if (convId) handleSelectConv(convId, msg.room_id ? "room" : "direct");
+            }}
+            onClose={() => setShowScheduled(false)}
           />
         </Suspense>
       )}

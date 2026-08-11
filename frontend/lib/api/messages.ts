@@ -266,6 +266,12 @@ export const messagesApi = {
 
   getScheduledMessages: () => request<Message[]>("/messages/scheduled"),
 
+  updateScheduledMessage: (messageId: string, data: { body?: string; scheduled_at?: string }) =>
+    request<Message>(`/messages/${messageId}/scheduled`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
   cancelScheduledMessage: (messageId: string) =>
     request<{ ok: boolean }>(
       `/messages/${messageId}/scheduled`,

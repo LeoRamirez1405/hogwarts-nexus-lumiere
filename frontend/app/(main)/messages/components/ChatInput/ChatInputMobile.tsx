@@ -32,6 +32,9 @@ interface ChatInputMobileProps {
   scheduleAt?: string;
   onScheduleChange?: (value: string | undefined) => void;
   onCustomScheduleClick: () => void;
+  onViewScheduled?: () => void;
+  showScheduledEntry?: boolean;
+  onRequestScheduledRefresh?: () => void;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onInputChange: (value: string) => void;
@@ -64,6 +67,9 @@ export default function ChatInputMobile({
   scheduleAt,
   onScheduleChange,
   onCustomScheduleClick,
+  onViewScheduled,
+  showScheduledEntry,
+  onRequestScheduledRefresh,
   inputRef,
   fileInputRef,
   onInputChange,
@@ -123,7 +129,7 @@ export default function ChatInputMobile({
         )}
         <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt" className="absolute opacity-0 w-0 h-0 pointer-events-none" onChange={handleFileChange} disabled={uploading} />
 
-        <button type="button" onClick={() => setShowMobileToolbar(true)} className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary transition-colors" aria-label="Herramientas de mensaje">
+        <button type="button" onClick={() => { setShowMobileToolbar(true); onRequestScheduledRefresh?.(); }} className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary transition-colors" aria-label="Herramientas de mensaje">
           <MaterialIcon name="add_circle" className="text-xl" />
         </button>
 
@@ -171,6 +177,20 @@ export default function ChatInputMobile({
                   <MaterialIcon name="close" className="text-base" />
                 </button>
               </div>
+            )}
+
+            {onViewScheduled && showScheduledEntry && (
+              <button
+                type="button"
+                onClick={() => {
+                  onViewScheduled();
+                  setShowMobileToolbar(false);
+                }}
+                className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-body-md font-medium text-secondary hover:bg-secondary/10 transition-colors"
+              >
+                <MaterialIcon name="event_available" className="text-lg" />
+                Ver mis mensajes programados
+              </button>
             )}
           </div>
         </BottomSheet>
