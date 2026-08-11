@@ -1,8 +1,10 @@
 "use client";
 
 import Modal from "@/components/ui/Modal";
+import BottomSheet from "@/components/ui/BottomSheet";
 import Button from "@/components/ui/Button";
 import { useEffect, useRef } from "react";
+import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";
 
 export interface AdminCrudModalProps {
   open: boolean;
@@ -29,6 +31,7 @@ export function AdminCrudModal({
   saveDisabled = false,
   onSave,
 }: AdminCrudModalProps) {
+  const isDesktop = useIsDesktopMdUp(false);
   const firstInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(null);
 
   useEffect(() => {
@@ -39,21 +42,31 @@ export function AdminCrudModal({
 
   if (!open) return null;
 
-  return (
-    <Modal open={open} onClose={onClose} size={size}>
-      <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto no-scrollbar">
+  const body = (
+    <div className={isDesktop ? "p-6 space-y-5 max-h-[80vh] overflow-y-auto no-scrollbar" : "space-y-5 pb-2"}>
+      {isDesktop && (
         <h2 className="font-display text-headline-lg text-on-surface">{title}</h2>
-        <div className="space-y-4">{children}</div>
-        <div className="flex gap-3 pt-4">
-          <Button variant="secondary" onClick={onClose} className="flex-1" disabled={saving}>
-            {cancelLabel}
-          </Button>
-          <Button variant="primary" onClick={onSave} disabled={saving || saveDisabled} className="flex-1">
-            {saving ? "Guardando..." : saveLabel}
-          </Button>
-        </div>
+      )}
+      <div className="space-y-4">{children}</div>
+      <div className="flex gap-3 pt-4">
+        <Button variant="secondary" onClick={onClose} className="flex-1" disabled={saving}>
+          {cancelLabel}
+        </Button>
+        <Button variant="primary" onClick={onSave} disabled={saving || saveDisabled} className="flex-1">
+          {saving ? "Guardando..." : saveLabel}
+        </Button>
       </div>
-    </Modal>
+    </div>
+  );
+
+  if (isDesktop) {
+    return <Modal open={open} onClose={onClose} size={size}>{body}</Modal>;
+  }
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title={title}>
+      {body}
+    </BottomSheet>
   );
 }
 
