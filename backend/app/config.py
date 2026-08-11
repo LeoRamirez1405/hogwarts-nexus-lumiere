@@ -23,8 +23,9 @@ class Settings(BaseSettings):
     # Generate one with: python -c "import secrets; print(secrets.token_hex(32))"
     JWT_SECRET: str = os.getenv("JWT_SECRET", "")
     JWT_ALGORITHM: str = "HS256"
-    # Short-lived access token: refreshed automatically via /auth/refresh.
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # Access token: refreshed automatically via /auth/refresh.
+    # 1 week so PWA sessions persist while the app is closed (push notifications).
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
     # Long-lived refresh token stored in an httpOnly cookie.
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 14
     # Set to true in production so auth cookies are only sent over HTTPS.
