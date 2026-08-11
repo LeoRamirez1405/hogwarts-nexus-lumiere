@@ -22,7 +22,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .models.article_subscription import Notification
 from .models.user import User
 from .models.post import PostLike
-from .models.friend_request import FriendRequest
 # Re-exported for backwards compatibility: articles/forum/posts still import
 # `resolve_mentions` from this module.
 from .services.mentions import resolve_mentions  # noqa: F401
@@ -38,6 +37,7 @@ class N:
     POST_COMMENT = "post_comment"
     POST_REPOST = "post_repost"
     POST_MENTION = "post_mention"
+    POST_REPLY = "post_reply"
     # Messaging
     DM_MESSAGE = "dm_message"
     MENTION = "mention"  # existing: mention inside a chat room
@@ -48,14 +48,22 @@ class N:
     ARTICLE_CREATED = "article_created"
     ARTICLE_UPDATED = "article_updated"
     ARTICLE_COMMENT = "article_comment"
+    ARTICLE_COMMENT_REPLY = "article_comment_reply"
     FORUM_REPLY = "forum_reply"
     FORUM_MENTION = "forum_mention"
+    FORUM_COMMENT_REPLY = "forum_comment_reply"
     # Economy
     ZERINES_RECEIVED = "zerines_received"
     INVENTORY_CONSUMED = "inventory_consumed"
     # Social graph
     FRIEND_REQUEST = "friend_request"
     FRIEND_ACCEPTED = "friend_accepted"
+    # Friend activity (public things your friends do, seen from your feed)
+    FRIEND_LIKE = "friend_like"
+    FRIEND_COMMENT = "friend_comment"
+    FRIEND_REPOST = "friend_repost"
+    FRIEND_FORUM = "friend_forum"
+    FRIEND_ARTICLE_COMMENT = "friend_article_comment"
     # Pets
     PET_NEEDS_ATTENTION = "pet_needs_attention"
     PET_ESCAPE_WARNING = "pet_escape_warning"
@@ -361,20 +369,10 @@ async def notify_friends_of_post(
     db: AsyncSession, post, actor: User
 ) -> int:
     """Notify all friends of the post author about the new post."""
-    result = await db.execute(
-        select(FriendRequest.sender_id).where(
-            FriendRequest.receiver_id == actor.id,
-            FriendRequest.status == "accepted",
-        )
-    )
-    friend_ids = set(result.scalars().all())
-    result2 = await db.execute(
-        select(FriendRequest.receiver_id).where(
-            FriendRequest.sender_id == actor.id,
-            FriendRequest.status == "accepted",
-        )
-    )
-    friend_ids.update(result2.scalars().all())
+    from .services.friend_notifications import friend_ids_of
+
+    friend_ids = await friend_ids_of(db, actor.id)
+    friend_ids.discard(actor.id)
 
     count = 0
     body = (post.body or "")[:140]
