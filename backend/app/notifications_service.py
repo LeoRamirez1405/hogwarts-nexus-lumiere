@@ -74,6 +74,10 @@ class N:
     # Broadcast
     ANNOUNCEMENT = "announcement"
     FRIEND_POST = "friend_post"
+    # Marketplace purchase (admin notification)
+    MARKETPLACE_PURCHASE = "marketplace_purchase"
+    MARKETPLACE_PURCHASE_FLOURISH = "marketplace_purchase_flourish"
+    MARKETPLACE_PURCHASE_BORGIN = "marketplace_purchase_borgin"
 
 
 def _notification_payload(n: Notification) -> dict:
