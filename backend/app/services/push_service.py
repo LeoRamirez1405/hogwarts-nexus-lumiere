@@ -93,19 +93,19 @@ def notification_url(
         return f"/messages?room={related_id}" if related_id else "/messages"
     if type == "group_event":
         return "/messages"
-    if type in ("article_created", "article_updated", "article_comment"):
+    if type in ("article_created", "article_updated", "article_comment", "article_comment_reply", "friend_article_comment"):
         return f"/news/{related_id}" if related_id else "/news"
     if type == "announcement":
         return "/news"
-    if type in ("forum_reply", "forum_mention"):
+    if type in ("forum_reply", "forum_mention", "forum_comment_reply", "friend_forum"):
         return f"/news/thread/{related_id}" if related_id else "/news"
     if type == "zerines_received":
         return "/treasury"
     if type.startswith("pet_"):
         return "/pets"
-    if type in ("post_like", "post_comment", "post_repost", "post_mention"):
+    if type in ("post_like", "post_comment", "post_repost", "post_mention", "post_reply"):
         return "/profile"
-    if type in ("friend_request", "friend_accepted", "friend_post"):
+    if type in ("friend_request", "friend_accepted", "friend_post", "friend_like", "friend_comment", "friend_repost"):
         return f"/profile/{actor_id}" if actor_id else "/profile"
     return "/notifications"
 

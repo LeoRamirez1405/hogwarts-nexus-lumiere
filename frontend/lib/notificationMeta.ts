@@ -51,11 +51,48 @@ const META: Record<string, NotificationMeta> = {
     category: "social",
     route: () => "/profile",
   },
+  post_reply: {
+    icon: "reply",
+    chip: "bg-primary/10 text-primary",
+    category: "social",
+    route: () => "/profile",
+  },
   friend_post: {
     icon: "waving_hand",
     chip: "bg-primary/10 text-primary",
     category: "social",
     route: (n) => (n.actor_id ? `/profile/${n.actor_id}` : "/profile"),
+  },
+  // Friend activity (public things your friends do)
+  friend_like: {
+    icon: "favorite",
+    chip: "bg-error/10 text-error",
+    category: "social",
+    route: (n) => (n.actor_id ? `/profile/${n.actor_id}` : "/profile"),
+  },
+  friend_comment: {
+    icon: "chat_bubble",
+    chip: "bg-primary/10 text-primary",
+    category: "social",
+    route: (n) => (n.actor_id ? `/profile/${n.actor_id}` : "/profile"),
+  },
+  friend_repost: {
+    icon: "repeat",
+    chip: "bg-tertiary/10 text-tertiary",
+    category: "social",
+    route: (n) => (n.actor_id ? `/profile/${n.actor_id}` : "/profile"),
+  },
+  friend_forum: {
+    icon: "forum",
+    chip: "bg-secondary/10 text-secondary",
+    category: "forum",
+    route: (n) => (n.related_id ? `/news/thread/${n.related_id}` : "/news"),
+  },
+  friend_article_comment: {
+    icon: "comment",
+    chip: "bg-secondary/10 text-secondary",
+    category: "press",
+    route: (n) => (n.related_id ? `/news/${n.related_id}` : "/news"),
   },
   // Social graph
   friend_request: {
@@ -126,6 +163,12 @@ const META: Record<string, NotificationMeta> = {
     category: "press",
     route: (n) => (n.related_id ? `/news/${n.related_id}` : "/news"),
   },
+  article_comment_reply: {
+    icon: "reply",
+    chip: "bg-secondary/10 text-secondary",
+    category: "press",
+    route: (n) => (n.related_id ? `/news/${n.related_id}` : "/news"),
+  },
   announcement: {
     icon: "campaign",
     chip: "bg-tertiary/10 text-tertiary",
@@ -141,6 +184,12 @@ const META: Record<string, NotificationMeta> = {
   },
   forum_mention: {
     icon: "alternate_email",
+    chip: "bg-secondary/10 text-secondary",
+    category: "forum",
+    route: (n) => (n.related_id ? `/news/thread/${n.related_id}` : "/news"),
+  },
+  forum_comment_reply: {
+    icon: "reply",
     chip: "bg-secondary/10 text-secondary",
     category: "forum",
     route: (n) => (n.related_id ? `/news/thread/${n.related_id}` : "/news"),
@@ -212,13 +261,16 @@ export function pathToClearRef(pathname: string): NotificationReadReference | nu
   const articleMatch = pathname.match(/^\/news\/([^/]+)$/);
   if (articleMatch) {
     return {
-      types: ["article_created", "article_updated", "article_comment"],
+      types: ["article_created", "article_updated", "article_comment", "article_comment_reply", "friend_article_comment"],
       relatedId: articleMatch[1],
     };
   }
   const threadMatch = pathname.match(/^\/news\/thread\/([^/]+)$/);
   if (threadMatch) {
-    return { types: ["forum_reply", "forum_mention"], relatedId: threadMatch[1] };
+    return {
+      types: ["forum_reply", "forum_mention", "forum_comment_reply", "friend_forum"],
+      relatedId: threadMatch[1],
+    };
   }
   if (pathname === "/news") {
     return { types: ["announcement"] };
@@ -226,12 +278,14 @@ export function pathToClearRef(pathname: string): NotificationReadReference | nu
   const profileMatch = pathname.match(/^\/profile\/([^/]+)$/);
   if (profileMatch) {
     return {
-      types: ["friend_request", "friend_accepted", "friend_post"],
+      types: ["friend_request", "friend_accepted", "friend_post", "friend_like", "friend_comment", "friend_repost"],
       relatedId: profileMatch[1],
     };
   }
   if (pathname === "/profile") {
-    return { types: ["post_like", "post_comment", "post_repost", "post_mention"] };
+    return {
+      types: ["post_like", "post_comment", "post_repost", "post_mention", "post_reply"],
+    };
   }
   if (pathname === "/pets") {
     return {
