@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuthStore } from "@/lib/authStore";
+import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";
 import { api, Message, ChatRoomMemberResponse } from "@/lib/api";
 import { useChatComposer } from "./hooks/useChatComposer";
 import { useChatScroll } from "./hooks/useChatScroll";
@@ -85,6 +86,7 @@ export default function ChatPanel(props: ChatPanelProps) {
   const [showInChatSearch, setShowInChatSearch] = useState(false);
   const [showEditRoom, setShowEditRoom] = useState(false);
   const eventsEnabled = useFeatureFlag("events.enabled");
+  const isDesktop = useIsDesktopMdUp(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
@@ -322,6 +324,9 @@ export default function ChatPanel(props: ChatPanelProps) {
   }, [inChatSearch, selectedConv?.id, selectedConv?.type]);
 
   useEffect(() => {
+    // On mobile ChatMenu renders a modal BottomSheet (own backdrop closes it),
+    // so only attach the outside-click handler for the desktop positioned menu.
+    if (!isDesktop) return;
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
       const isOutside =
@@ -334,7 +339,7 @@ export default function ChatPanel(props: ChatPanelProps) {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isDesktop]);
 
   const scrollToMessage = (messageId: string) => {
     const el = document.getElementById(`msg-${messageId}`);

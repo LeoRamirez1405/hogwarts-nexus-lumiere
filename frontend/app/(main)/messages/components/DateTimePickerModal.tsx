@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
+import { BottomSheet } from "@/components/ui";
 import { createPortal } from "react-dom";
+import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";
 
 interface DateTimePickerModalProps {
   isOpen: boolean;
@@ -19,6 +21,7 @@ export default function DateTimePickerModal({
   initialDateTime,
   title = "Programar mensaje",
 }: DateTimePickerModalProps) {
+  const isDesktop = useIsDesktopMdUp(false);
   const [date, setDate] = useState(() => {
     const base = initialDateTime ? new Date(initialDateTime) : new Date();
     base.setMinutes(Math.ceil(base.getMinutes() / 5) * 5);
@@ -38,7 +41,7 @@ export default function DateTimePickerModal({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && isDesktop) {
       // Focus date input after render
       setTimeout(() => inputRef.current?.focus(), 100);
 
@@ -68,7 +71,7 @@ export default function DateTimePickerModal({
         document.body.style.overflow = "";
       };
     }
-  }, [isOpen, onClose]);
+  }, [isOpen, isDesktop, onClose]);
 
   const validateAndConfirm = useCallback(() => {
     if (!date || !time) {
@@ -100,132 +103,145 @@ export default function DateTimePickerModal({
 
   if (!isOpen) return null;
 
-  const modalContent = (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="datetime-modal-title"
-    >
-      <div
-        ref={modalRef}
-        className="bg-surface-container w-full max-w-sm rounded-2xl border border-outline-variant/20 shadow-xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-outline-variant/20">
-          <h2 id="datetime-modal-title" className="font-display text-headline-sm text-on-surface">
-            {title}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors"
-            aria-label="Cerrar"
-          >
-            <MaterialIcon name="close" className="text-xl" />
-          </button>
+  const renderContent = () => (
+    <>
+      {/* Date & Time Inputs */}
+      <div className={isDesktop ? "p-4 space-y-4" : "space-y-4"}>
+        <div>
+          <label htmlFor="schedule-date" className="block text-label-md text-on-surface-variant mb-1.5">
+            Fecha
+          </label>
+          <input
+            ref={inputRef}
+            id="schedule-date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            min={new Date().toISOString().split("T")[0]}
+            className="w-full px-3 py-2.5 rounded-xl bg-surface border border-outline-variant/30 text-body-md text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+          />
         </div>
 
-        {/* Date & Time Inputs */}
-        <div className="p-4 space-y-4">
-          <div>
-            <label htmlFor="schedule-date" className="block text-label-md text-on-surface-variant mb-1.5">
-              Fecha
-            </label>
-            <input
-              ref={inputRef}
-              id="schedule-date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              min={new Date().toISOString().split("T")[0]}
-              className="w-full px-3 py-2.5 rounded-xl bg-surface border border-outline-variant/30 text-body-md text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="schedule-time" className="block text-label-md text-on-surface-variant mb-1.5">
-              Hora
-            </label>
-            <input
-              id="schedule-time"
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              step={300} // 5 minutes
-              className="w-full px-3 py-2.5 rounded-xl bg-surface border border-outline-variant/30 text-body-md text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          {error && (
-            <div className="p-3 rounded-xl bg-error/10 border border-error/30 text-error text-label-sm" role="alert">
-              {error}
-            </div>
-          )}
-
-          {/* Quick select buttons */}
-          <div className="pt-2">
-            <p className="text-label-sm text-on-surface-variant mb-2">O accesos rápidos:</p>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { label: "15 min", minutes: 15 },
-                { label: "30 min", minutes: 30 },
-                { label: "1 hora", minutes: 60 },
-                { label: "3 horas", minutes: 180 },
-                { label: "Mañana 9:00", special: "tomorrow9" },
-                { label: "En 1 día", minutes: 1440 },
-              ].map((opt) => (
-                <button
-                  key={opt.label}
-                  type="button"
-                  onClick={() => {
-                    const now = new Date();
-                    if ("special" in opt && opt.special === "tomorrow9") {
-                      const tomorrow = new Date(now);
-                      tomorrow.setDate(tomorrow.getDate() + 1);
-                      tomorrow.setHours(9, 0, 0, 0);
-                      setDate(tomorrow.toISOString().split("T")[0]);
-                      setTime(tomorrow.toTimeString().slice(0, 5));
-                    } else {
-                      const future = new Date(now.getTime() + (opt.minutes as number) * 60000);
-                      future.setMinutes(Math.ceil(future.getMinutes() / 5) * 5);
-                      future.setSeconds(0);
-                      future.setMilliseconds(0);
-                      setDate(future.toISOString().split("T")[0]);
-                      setTime(future.toTimeString().slice(0, 5));
-                    }
-                    setError(null);
-                  }}
-                  className="px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/30 text-label-md text-on-surface hover:bg-surface-container transition-colors"
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div>
+          <label htmlFor="schedule-time" className="block text-label-md text-on-surface-variant mb-1.5">
+            Hora
+          </label>
+          <input
+            id="schedule-time"
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            step={300} // 5 minutes
+            className="w-full px-3 py-2.5 rounded-xl bg-surface border border-outline-variant/30 text-body-md text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+          />
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-2 p-4 border-t border-outline-variant/20 bg-surface-container-low/50">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-label-md font-medium text-on-surface-variant hover:bg-surface-container transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={validateAndConfirm}
-            className="px-4 py-2 rounded-xl text-label-md font-medium bg-primary text-on-primary hover:opacity-90 transition-opacity"
-          >
-            Programar
-          </button>
+        {error && (
+          <div className="p-3 rounded-xl bg-error/10 border border-error/30 text-error text-label-sm" role="alert">
+            {error}
+          </div>
+        )}
+
+        {/* Quick select buttons */}
+        <div className="pt-2">
+          <p className="text-label-sm text-on-surface-variant mb-2">O accesos rápidos:</p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: "15 min", minutes: 15 },
+              { label: "30 min", minutes: 30 },
+              { label: "1 hora", minutes: 60 },
+              { label: "3 horas", minutes: 180 },
+              { label: "Mañana 9:00", special: "tomorrow9" },
+              { label: "En 1 día", minutes: 1440 },
+            ].map((opt) => (
+              <button
+                key={opt.label}
+                type="button"
+                onClick={() => {
+                  const now = new Date();
+                  if ("special" in opt && opt.special === "tomorrow9") {
+                    const tomorrow = new Date(now);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    tomorrow.setHours(9, 0, 0, 0);
+                    setDate(tomorrow.toISOString().split("T")[0]);
+                    setTime(tomorrow.toTimeString().slice(0, 5));
+                  } else {
+                    const future = new Date(now.getTime() + (opt.minutes as number) * 60000);
+                    future.setMinutes(Math.ceil(future.getMinutes() / 5) * 5);
+                    future.setSeconds(0);
+                    future.setMilliseconds(0);
+                    setDate(future.toISOString().split("T")[0]);
+                    setTime(future.toTimeString().slice(0, 5));
+                  }
+                  setError(null);
+                }}
+                className="px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/30 text-label-md text-on-surface hover:bg-surface-container transition-colors"
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Actions */}
+      <div className="flex items-center justify-end gap-2 p-4 border-t border-outline-variant/20 bg-surface-container-low/50">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 rounded-xl text-label-md font-medium text-on-surface-variant hover:bg-surface-container transition-colors"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={validateAndConfirm}
+          className="px-4 py-2 rounded-xl text-label-md font-medium bg-primary text-on-primary hover:opacity-90 transition-opacity"
+        >
+          Programar
+        </button>
+      </div>
+    </>
   );
 
-  if (typeof document === "undefined") return null;
+  if (isDesktop) {
+    if (typeof document === "undefined") return null;
 
-  return createPortal(modalContent, document.body);
+    return createPortal(
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="datetime-modal-title"
+      >
+        <div
+          ref={modalRef}
+          className="bg-surface-container w-full max-w-sm rounded-2xl border border-outline-variant/20 shadow-xl overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-outline-variant/20">
+            <h2 id="datetime-modal-title" className="font-display text-headline-sm text-on-surface">
+              {title}
+            </h2>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors"
+              aria-label="Cerrar"
+            >
+              <MaterialIcon name="close" className="text-xl" />
+            </button>
+          </div>
+
+          {renderContent()}
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  return (
+    <BottomSheet open onClose={onClose} title={title}>
+      {renderContent()}
+    </BottomSheet>
+  );
 }

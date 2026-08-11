@@ -1,6 +1,8 @@
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { MaterialIcon } from "../helpers";
+import { BottomSheet } from "@/components/ui";
+import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";
 import type { SelectedConv, ConvType, MuteDuration } from "../types";
 
 interface ChatMenuProps {
@@ -138,14 +140,12 @@ export default function ChatMenu({
   eventsEnabled,
   isAdmin,
 }: ChatMenuProps) {
+  const isDesktop = useIsDesktopMdUp(false);
+
   if (!show || !position || !selectedConv) return null;
 
-  return createPortal(
-    <div
-      ref={menuRef}
-      className="fixed z-[60] bg-surface-container-highest rounded-xl shadow-xl py-1 w-56"
-      style={{ top: position.top, right: position.right }}
-    >
+  const items = (
+    <>
       {showMuteMenu ? (
         <MuteView onBack={onToggleMuteMenu} onMute={onMute} isMuted={isMuted} />
       ) : isRoom ? (
@@ -325,7 +325,25 @@ export default function ChatMenu({
           </button>
         </>
       )}
-    </div>,
-    document.body
+    </>
+  );
+
+  if (isDesktop) {
+    return createPortal(
+      <div
+        ref={menuRef}
+        className="fixed z-[60] bg-surface-container-highest rounded-xl shadow-xl py-1 w-56"
+        style={{ top: position.top, right: position.right }}
+      >
+        {items}
+      </div>,
+      document.body
+    );
+  }
+
+  return (
+    <BottomSheet open onClose={onClose} title={selectedConv.name}>
+      <div className="pb-2">{items}</div>
+    </BottomSheet>
   );
 }

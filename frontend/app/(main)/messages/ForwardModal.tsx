@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { api, User, ChatRoomBrief } from "@/lib/api";
-import { Avatar, Badge } from "@/components/ui";
+import { Avatar, Badge, BottomSheet } from "@/components/ui";
 import { MaterialIcon, getInitials } from "./helpers";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";
 import type { Message } from "@/lib/api";
 
 export default function ForwardModal({
@@ -18,6 +19,7 @@ export default function ForwardModal({
   onClose: () => void;
   forwarding?: boolean;
 }) {
+  const isDesktop = useIsDesktopMdUp(false);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [tab, setTab] = useState<"users" | "rooms">("users");
@@ -81,196 +83,221 @@ export default function ForwardModal({
     ? rooms.filter((r) => r.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
     : rooms;
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="bg-surface rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20">
-          <h2 className="font-display text-title-md text-on-surface">
-            Reenviar mensaje
-          </h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
-          >
-            <MaterialIcon name="close" className="text-xl" />
-          </button>
-        </div>
+  const previewLabel =
+    message.body
+      ? message.body.slice(0, 80)
+      : message.kind === "image"
+      ? "📷 Imagen"
+      : message.kind === "video"
+      ? "🎥 Video"
+      : message.kind === "audio"
+      ? "🎵 Audio"
+      : message.kind === "voice"
+      ? "🎤 Nota de voz"
+      : message.kind === "sticker"
+      ? "😀 Sticker"
+      : message.kind === "document"
+      ? "📄 Documento"
+      : message.kind === "poll"
+      ? "📊 Encuesta"
+      : message.kind === "post"
+      ? "📝 Publicación"
+      : "Mensaje";
 
-        <div className="px-6 pt-2 pb-1">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-container-low text-on-surface-variant">
-            <MaterialIcon name="forward" className="text-lg shrink-0" />
-            <span className="text-label-sm truncate">
-              {message.body
-                ? message.body.slice(0, 80)
-                : message.kind === "image"
-                ? "📷 Imagen"
-                : message.kind === "video"
-                ? "🎥 Video"
-                : message.kind === "audio"
-                ? "🎵 Audio"
-                : message.kind === "voice"
-                ? "🎤 Nota de voz"
-                : message.kind === "sticker"
-                ? "😀 Sticker"
-                : message.kind === "document"
-                ? "📄 Documento"
-                : message.kind === "poll"
-                ? "📊 Encuesta"
-                : message.kind === "post"
-                ? "📝 Publicación"
-                : "Mensaje"}
-            </span>
-          </div>
-        </div>
-
-        <div className="px-6 pt-3 pb-2 flex gap-2 border-b border-outline-variant/20">
-          <button
-            onClick={() => setTab("users")}
-            className={`flex-1 py-2 rounded-full text-label-sm font-medium transition-colors ${
-              tab === "users"
-                ? "bg-primary text-on-primary"
-                : "text-on-surface-variant hover:bg-surface-container-high"
-            }`}
-          >
-            Usuarios
-          </button>
-          <button
-            onClick={() => setTab("rooms")}
-            className={`flex-1 py-2 rounded-full text-label-sm font-medium transition-colors ${
-              tab === "rooms"
-                ? "bg-primary text-on-primary"
-                : "text-on-surface-variant hover:bg-surface-container-high"
-            }`}
-          >
-            Grupos
-          </button>
-        </div>
-
-        <div className="px-6 py-3">
-          <div className="relative">
+  const renderList = () => {
+    if (tab === "users") {
+      if (usersLoading) {
+        return (
+          <div className="py-12 text-center">
             <MaterialIcon
-              name="search"
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-xl text-on-surface-variant"
+              name="progress_activity"
+              className="text-4xl text-outline-variant animate-spin mb-2 block mx-auto"
             />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre o correo..."
-              autoFocus
-              className="w-full bg-surface-container-low rounded-xl pl-10 pr-4 py-3 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-outline-variant/20 focus:border-primary/40 transition-colors"
-            />
+            <p className="text-on-surface-variant text-body-md">
+              Cargando usuarios
+            </p>
           </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto no-scrollbar">
-          {tab === "users" ? (
-            usersLoading ? (
-              <div className="py-12 text-center">
-                <MaterialIcon
-                  name="progress_activity"
-                  className="text-4xl text-outline-variant animate-spin mb-2 block mx-auto"
-                />
-                <p className="text-on-surface-variant text-body-md">
-                  Cargando usuarios
-                </p>
-              </div>
-            ) : filteredUsers.length === 0 ? (
-              <div className="py-12 text-center">
-                <MaterialIcon
-                  name="person_search"
-                  className="text-4xl text-outline-variant mb-2 block mx-auto"
-                />
-                <p className="text-on-surface-variant text-body-md">
-                  No se encontraron usuarios
-                </p>
-              </div>
-            ) : (
-              filteredUsers.map((u) => (
-                <button
-                  key={u.id}
-                  disabled={forwarding}
-                  onClick={() => onForward(message, u.id, "dm")}
-                  className="flex items-center gap-3 px-6 py-3 w-full text-left hover:bg-surface-container-high transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Avatar
-                    src={u.avatar_url}
-                    alt={u.name}
-                    size="sm"
-                    initials={getInitials(u.name)}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-body-md font-medium text-on-surface truncate">
-                      {u.name}
-                    </p>
-                    <p className="text-label-sm text-on-surface-variant truncate">
-                      {u.email}
-                    </p>
-                  </div>
-                  {u.house && (
-                    <Badge variant="tag" color="secondary">
-                      {u.house}
-                    </Badge>
-                  )}
-                </button>
-              ))
-            )
-          ) : roomsLoading ? (
-              <div className="py-12 text-center">
-                <MaterialIcon
-                  name="progress_activity"
-                  className="text-4xl text-outline-variant animate-spin mb-2 block mx-auto"
-                />
-                <p className="text-on-surface-variant text-body-md">
-                  Cargando grupos
-                </p>
-              </div>
-            ) : filteredRooms.length === 0 ? (
-              <div className="py-12 text-center">
-                <MaterialIcon
-                  name="groups"
-                  className="text-4xl text-outline-variant mb-2 block mx-auto"
-                />
-                <p className="text-on-surface-variant text-body-md">
-                  {rooms.length === 0
-                    ? "No perteneces a ningun grupo aún"
-                    : "No se encontraron grupos"}
-                </p>
-              </div>
-            ) : (
-              filteredRooms.map((r) => (
-                <button
-                  key={r.id}
-                  disabled={forwarding}
-                  onClick={() => onForward(message, r.id, "room")}
-                  className="flex items-center gap-3 px-6 py-3 w-full text-left hover:bg-surface-container-high transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Avatar
-                    src={r.avatar_url}
-                    alt={r.name}
-                    size="sm"
-                    initials={getInitials(r.name)}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-body-md font-medium text-on-surface truncate">
-                      {r.name}
-                    </p>
-                    <p className="text-label-sm text-on-surface-variant truncate">
-                      {r.member_count} miembros
-                    </p>
-                  </div>
-                  <MaterialIcon name="groups" className="text-on-surface-variant" />
-                </button>
-              ))
+        );
+      }
+      if (filteredUsers.length === 0) {
+        return (
+          <div className="py-12 text-center">
+            <MaterialIcon
+              name="person_search"
+              className="text-4xl text-outline-variant mb-2 block mx-auto"
+            />
+            <p className="text-on-surface-variant text-body-md">
+              No se encontraron usuarios
+            </p>
+          </div>
+        );
+      }
+      return filteredUsers.map((u) => (
+        <button
+          key={u.id}
+          disabled={forwarding}
+          onClick={() => onForward(message, u.id, "dm")}
+          className="flex items-center gap-3 px-6 py-3 w-full text-left hover:bg-surface-container-high transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Avatar
+            src={u.avatar_url}
+            alt={u.name}
+            size="sm"
+            initials={getInitials(u.name)}
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-body-md font-medium text-on-surface truncate">
+              {u.name}
+            </p>
+            <p className="text-label-sm text-on-surface-variant truncate">
+              {u.email}
+            </p>
+          </div>
+          {u.house && (
+            <Badge variant="tag" color="secondary">
+              {u.house}
+            </Badge>
           )}
+        </button>
+      ));
+    }
+
+    if (roomsLoading) {
+      return (
+        <div className="py-12 text-center">
+          <MaterialIcon
+            name="progress_activity"
+            className="text-4xl text-outline-variant animate-spin mb-2 block mx-auto"
+          />
+          <p className="text-on-surface-variant text-body-md">
+            Cargando grupos
+          </p>
+        </div>
+      );
+    }
+    if (filteredRooms.length === 0) {
+      return (
+        <div className="py-12 text-center">
+          <MaterialIcon
+            name="groups"
+            className="text-4xl text-outline-variant mb-2 block mx-auto"
+          />
+          <p className="text-on-surface-variant text-body-md">
+            {rooms.length === 0
+              ? "No perteneces a ningun grupo aún"
+              : "No se encontraron grupos"}
+          </p>
+        </div>
+      );
+    }
+    return filteredRooms.map((r) => (
+      <button
+        key={r.id}
+        disabled={forwarding}
+        onClick={() => onForward(message, r.id, "room")}
+        className="flex items-center gap-3 px-6 py-3 w-full text-left hover:bg-surface-container-high transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Avatar
+          src={r.avatar_url}
+          alt={r.name}
+          size="sm"
+          initials={getInitials(r.name)}
+        />
+        <div className="flex-1 min-w-0">
+          <p className="text-body-md font-medium text-on-surface truncate">
+            {r.name}
+          </p>
+          <p className="text-label-sm text-on-surface-variant truncate">
+            {r.member_count} miembros
+          </p>
+        </div>
+        <MaterialIcon name="groups" className="text-on-surface-variant" />
+      </button>
+    ));
+  };
+
+  const body = (
+    <>
+      <div className={`${isDesktop ? "px-6" : "px-1"} pt-2 pb-1`}>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-container-low text-on-surface-variant">
+          <MaterialIcon name="forward" className="text-lg shrink-0" />
+          <span className="text-label-sm truncate">{previewLabel}</span>
         </div>
       </div>
-    </div>
+      <div className={`${isDesktop ? "px-6 pt-3 pb-2" : "px-1 pt-3 pb-2"} flex gap-2 border-b border-outline-variant/20`}>
+        <button
+          onClick={() => setTab("users")}
+          className={`flex-1 py-2 rounded-full text-label-sm font-medium transition-colors ${
+            tab === "users"
+              ? "bg-primary text-on-primary"
+              : "text-on-surface-variant hover:bg-surface-container-high"
+          }`}
+        >
+          Usuarios
+        </button>
+        <button
+          onClick={() => setTab("rooms")}
+          className={`flex-1 py-2 rounded-full text-label-sm font-medium transition-colors ${
+            tab === "rooms"
+              ? "bg-primary text-on-primary"
+              : "text-on-surface-variant hover:bg-surface-container-high"
+          }`}
+        >
+          Grupos
+        </button>
+      </div>
+      <div className={`${isDesktop ? "px-6" : "px-1"} py-3`}>
+        <div className="relative">
+          <MaterialIcon
+            name="search"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-xl text-on-surface-variant"
+          />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nombre o correo..."
+            autoFocus
+            className="w-full bg-surface-container-low rounded-xl pl-10 pr-4 py-3 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-outline-variant/20 focus:border-primary/40 transition-colors"
+          />
+        </div>
+      </div>
+      <div className={isDesktop ? "flex-1 overflow-y-auto no-scrollbar" : "pb-2"}>
+        {renderList()}
+      </div>
+    </>
+  );
+
+  if (isDesktop) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      >
+        <div
+          className="bg-surface rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20">
+            <h2 className="font-display text-title-md text-on-surface">
+              Reenviar mensaje
+            </h2>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
+            >
+              <MaterialIcon name="close" className="text-xl" />
+            </button>
+          </div>
+          {body}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <BottomSheet open onClose={onClose} title="Reenviar mensaje">
+      {body}
+    </BottomSheet>
   );
 }
