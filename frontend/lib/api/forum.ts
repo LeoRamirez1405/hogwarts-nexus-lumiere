@@ -21,6 +21,8 @@ export interface ForumComment {
   thread_id: string;
   user_id: string;
   body: string;
+  parent_id?: string | null;
+  replies?: ForumComment[];
   created_at: string;
   author?: User;
 }
@@ -50,10 +52,10 @@ export const forumApi = {
   getThreadComments: (id: string) =>
     request<ForumComment[]>(`/forum/${id}/comments`),
 
-  createThreadComment: (id: string, body: string) =>
+  createThreadComment: (id: string, body: string, parentId?: string) =>
     request<ForumComment>(`/forum/${id}/comments`, {
       method: "POST",
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, parent_id: parentId ?? null }),
     }),
 
   subscribeThread: (id: string) =>

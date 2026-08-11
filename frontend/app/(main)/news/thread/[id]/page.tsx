@@ -4,6 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api, ForumThread, ForumComment } from "@/lib/api";
 import { GlassCard, Badge, Button, Avatar, MaterialIcon } from "@/components/ui";
+import {
+  CommentThread,
+  countComments,
+  appendReply,
+} from "@/components/domain/comments/CommentThread";
 import { useAuthStore } from "@/lib/authStore";
 import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
 
@@ -110,6 +115,15 @@ export default function ThreadDetailPage() {
     }
   };
 
+  const handleReply = async (parentId: string, text: string) => {
+    if (!thread) throw new Error("Debate no cargado");
+    const created = await api.createThreadComment(thread.id, text, parentId);
+    setComments((prev) => appendReply(prev, parentId, created));
+    setThread((t) =>
+      t ? { ...t, comment_count: t.comment_count + 1, subscribed: true } : t
+    );
+  };
+
   if (loading || !thread) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
@@ -212,7 +226,7 @@ export default function ThreadDetailPage() {
       <section>
         <h2 className="font-display text-headline-md text-on-surface mb-4 flex items-center gap-2">
           <MaterialIcon name="forum" className="text-secondary" filled />
-          Respuestas ({thread.comment_count})
+          Respuestas ({countComments(comments)})
         </h2>
 
         {authUser ? (
@@ -254,28 +268,12 @@ export default function ThreadDetailPage() {
         )}
 
         <div className="space-y-3">
-          {comments.map((c) => {
-            const cName = c.author?.name ?? "Anónimo";
-            return (
-              <GlassCard key={c.id} className="p-4">
-                <div className="flex gap-3">
-                  <Avatar
-                    src={c.author?.avatar_url}
-                    alt={cName}
-                    size="sm"
-                    initials={initials(cName)}
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-body-md font-semibold text-on-surface">{cName}</p>
-                      <p className="text-label-sm text-on-surface-variant">{timeAgo(c.created_at)}</p>
-                    </div>
-                    <p className="text-body-md text-on-surface-variant leading-relaxed">{c.body}</p>
-                  </div>
-                </div>
-              </GlassCard>
-            );
-          })}
+          <CommentThread
+            comments={comments}
+            currentUser={authUser}
+            onReply={handleReply}
+            timeAgo={timeAgo}
+          />
           {comments.length === 0 && (
             <GlassCard className="p-8 text-center">
               <MaterialIcon name="chat_bubble_outline" className="text-4xl text-outline-variant mb-2" />

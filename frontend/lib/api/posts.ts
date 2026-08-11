@@ -27,6 +27,8 @@ export interface PostComment {
   user_id: string;
   author?: User;
   body: string;
+  parent_id?: string | null;
+  replies?: PostComment[];
   created_at: string;
 }
 
@@ -63,9 +65,9 @@ export const postsApi = {
   getComments: (postId: string) =>
     request<PostComment[]>(`/posts/${postId}/comments`),
 
-  addComment: (postId: string, body: string) =>
+  addComment: (postId: string, body: string, parentId?: string) =>
     request<PostComment>(`/posts/${postId}/comments`, {
       method: "POST",
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, parent_id: parentId ?? null }),
     }),
 };

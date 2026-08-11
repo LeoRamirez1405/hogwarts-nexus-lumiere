@@ -34,6 +34,7 @@ class ForumVoteRequest(BaseModel):
 
 class ForumCommentCreate(BaseModel):
     body: str
+    parent_id: Optional[str] = None
 
 
 class ForumCommentResponse(BaseModel):
@@ -41,6 +42,8 @@ class ForumCommentResponse(BaseModel):
     thread_id: str
     user_id: str
     body: str
+    parent_id: Optional[str] = None
+    replies: list["ForumCommentResponse"] = []
     created_at: datetime
     author: Optional[UserResponse] = None
 

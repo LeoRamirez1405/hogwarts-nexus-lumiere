@@ -72,7 +72,9 @@ class PostComment(Base):
     post_id = Column(String, ForeignKey("posts.id"), nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     body = Column(Text, nullable=False)
+    parent_id = Column(String, ForeignKey("post_comments.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     post = relationship("Post", back_populates="comments", lazy="selectin")
     user = relationship("User", lazy="selectin")
+    parent = relationship("PostComment", remote_side=[id], lazy="selectin")

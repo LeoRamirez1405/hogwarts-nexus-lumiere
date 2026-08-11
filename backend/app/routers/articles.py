@@ -19,6 +19,8 @@ from ..schemas.user import UserResponse
 from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..notifications_service import notify, resolve_mentions, N
+from ..services.friend_notifications import notify_friends_of_activity
+from ..services.comment_threads import nest_comments
 
 router = APIRouter()
 
@@ -182,16 +184,17 @@ async def list_article_comments(
     result = await db.execute(
         select(ArticleComment)
         .where(ArticleComment.article_id == article_id)
-        .order_by(ArticleComment.created_at.desc())
+        .order_by(ArticleComment.created_at.asc())
     )
     comments = result.scalars().all()
-    out = []
-    for c in comments:
-        resp = ArticleCommentResponse.model_validate(c)
-        if c.user:
-            resp.author = UserResponse.model_validate(c.user)
-        out.append(resp)
-    return out
+    return nest_comments(comments, lambda c: _article_comment_response(c))
+
+
+def _article_comment_response(c: ArticleComment) -> ArticleCommentResponse:
+    resp = ArticleCommentResponse.model_validate(c)
+    if c.user:
+        resp.author = UserResponse.model_validate(c.user)
+    return resp
 
 
 @router.post(
@@ -215,12 +218,42 @@ async def create_article_comment(
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
 
-    comment = ArticleComment(article_id=article_id, user_id=current_user.id, body=body)
+    # Validate an optional parent (threaded replies live on the same article).
+    parent = None
+    if data.parent_id:
+        parent = (
+            await db.execute(
+                select(ArticleComment).where(ArticleComment.id == data.parent_id)
+            )
+        ).scalar_one_or_none()
+        if not parent or parent.article_id != article_id:
+            raise HTTPException(status_code=404, detail="Parent comment not found")
+
+    comment = ArticleComment(
+        article_id=article_id,
+        user_id=current_user.id,
+        body=body,
+        parent_id=parent.id if parent else None,
+    )
     db.add(comment)
+
+    # Commenters auto-follow the article so they keep getting notifications
+    # for later comments (mirrors the forum auto-subscribe behavior).
+    already = (
+        await db.execute(
+            select(ArticleSubscription.id).where(
+                ArticleSubscription.article_id == article_id,
+                ArticleSubscription.user_id == current_user.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if already is None:
+        db.add(ArticleSubscription(user_id=current_user.id, article_id=article_id))
+
     await db.flush()
 
-    # Recipients: the author, every subscriber, and anyone @mentioned — deduped,
-    # never the commenter themselves (notify() also guards actor == user).
+    # Recipients: the author, every subscriber, every previous commenter, and
+    # anyone @mentioned — deduped, never the commenter themselves.
     subs = (
         await db.execute(
             select(ArticleSubscription.user_id).where(
@@ -228,10 +261,34 @@ async def create_article_comment(
             )
         )
     ).scalars().all()
-    recipients = {article.author_id, *subs}
+    previous_commenters = set(
+        (
+            await db.execute(
+                select(ArticleComment.user_id).where(
+                    ArticleComment.article_id == article_id
+                )
+            )
+        ).scalars().all()
+    )
+    recipients = {article.author_id, *subs, *previous_commenters}
     for u in await resolve_mentions(db, body):
         recipients.add(u.id)
     recipients.discard(current_user.id)
+
+    # A direct reply gets its own, more specific notification — take that
+    # recipient out of the generic batch so they receive exactly one alert.
+    reply_target = parent.user_id if parent is not None else None
+    if reply_target is not None:
+        recipients.discard(reply_target)
+        await notify(
+            db,
+            user_id=reply_target,
+            type=N.ARTICLE_COMMENT_REPLY,
+            title=f"{current_user.name} respondió a tu comentario en {article.title}",
+            body=body[:200],
+            related_id=article_id,
+            actor_id=current_user.id,
+        )
 
     for uid in recipients:
         await notify(
@@ -243,6 +300,22 @@ async def create_article_comment(
             related_id=article_id,
             actor_id=current_user.id,
         )
+
+    # Friends get a lightweight "tu amigo comentó un artículo" alert. Anyone
+    # already notified above (author, subscribers, commenters, mentions, reply
+    # target) is excluded to avoid stacking generic + friend alerts.
+    exclude_ids = {article.author_id, *recipients, *subs, *previous_commenters}
+    if reply_target is not None:
+        exclude_ids.add(reply_target)
+    await notify_friends_of_activity(
+        db,
+        current_user,
+        type=N.FRIEND_ARTICLE_COMMENT,
+        title=f"Tu amigo {current_user.name} comentó el artículo {article.title}",
+        body=body[:200],
+        related_id=article_id,
+        exclude_ids=exclude_ids,
+    )
 
     await db.commit()
     await db.refresh(comment)

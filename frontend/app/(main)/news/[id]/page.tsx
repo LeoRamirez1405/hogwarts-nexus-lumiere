@@ -6,6 +6,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { api, Article, ArticleComment } from "@/lib/api";
 import { GlassCard, Badge, Button, Avatar, MaterialIcon } from "@/components/ui";
+import {
+  CommentThread,
+  countComments,
+  appendReply,
+} from "@/components/domain/comments/CommentThread";
 import { useAuthStore } from "@/lib/authStore";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import { isStoredUpload } from "@/lib/media";
@@ -128,6 +133,12 @@ export default function ArticleDetailPage() {
     } finally {
       setPosting(false);
     }
+  };
+
+  const handleReply = async (parentId: string, text: string) => {
+    if (!article) throw new Error("Articulo no cargado");
+    const created = await api.createArticleComment(article.id, text, parentId);
+    setComments((prev) => appendReply(prev, parentId, created));
   };
 
   if (loading || !article) {
@@ -282,7 +293,7 @@ export default function ArticleDetailPage() {
       <section className="max-w-3xl mx-auto">
         <h2 className="font-display text-headline-lg text-on-surface mb-4 flex items-center gap-2">
           <MaterialIcon name="comment" className="text-secondary" filled />
-          Cartas al Director ({comments.length})
+          Cartas al Director ({countComments(comments)})
         </h2>
 
         {authUser && (
@@ -322,39 +333,12 @@ export default function ArticleDetailPage() {
           </GlassCard>
         )}
 
-        <div className="space-y-3">
-          {comments.map((c) => {
-            const authorName = c.author?.name ?? "Anónimo";
-            return (
-              <GlassCard key={c.id} className="p-4">
-                <div className="flex gap-3">
-                  <Avatar
-                    src={c.author?.avatar_url}
-                    alt={authorName}
-                    size="sm"
-                    initials={authorName
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-body-md font-semibold text-on-surface">
-                        {authorName}
-                      </p>
-                      <p className="text-label-sm text-on-surface-variant">
-                        {timeAgo(c.created_at)}
-                      </p>
-                    </div>
-                    <p className="text-body-md text-on-surface-variant leading-relaxed">
-                      {c.body}
-                    </p>
-                  </div>
-                </div>
-              </GlassCard>
-            );
-          })}
-        </div>
+        <CommentThread
+          comments={comments}
+          currentUser={authUser}
+          onReply={handleReply}
+          timeAgo={timeAgo}
+        />
       </section>
 
       {/* Related */}

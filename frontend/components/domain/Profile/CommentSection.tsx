@@ -1,10 +1,14 @@
 "use client";
 
 import { memo, useEffect, useState } from "react";
-import Link from "next/link";
 import { api, PostComment, User } from "@/lib/api";
 import { Avatar, MaterialIcon } from "@/components/ui";
 import { toastError } from "@/lib/toastStore";
+import {
+  CommentThread,
+  countComments,
+  appendReply,
+} from "@/components/domain/comments/CommentThread";
 import { useHapticLight, useHapticSelection } from "@/hooks/useHapticFeedback";
 
 const EMOJIS = [
@@ -18,6 +22,17 @@ function initialsOf(name?: string): string {
     .split(" ")
     .map((n) => n[0])
     .join("");
+}
+
+function timeAgo(dateStr: string): string {
+  const d = new Date(dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr + "Z");
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins <= 0) return "ahora";
+  if (mins < 60) return `hace ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `hace ${hrs} h`;
+  return `hace ${Math.floor(hrs / 24)} d`;
 }
 
 interface CommentSectionProps {
@@ -48,7 +63,7 @@ export const CommentSection = memo(function CommentSection({
       .then((data) => {
         if (cancelled) return;
         setComments(data);
-        onLoadedCount?.(data.length);
+        onLoadedCount?.(countComments(data));
       })
       .catch((e) => {
         if (!cancelled) toastError("No se pudieron cargar los comentarios", e);
@@ -68,13 +83,19 @@ export const CommentSection = memo(function CommentSection({
     try {
       const created = await api.addComment(postId, text);
       setComments((prev) => [...prev, created]);
-      onLoadedCount?.(comments.length + 1);
+      onLoadedCount?.(countComments([...comments, created]));
       setCommentText("");
     } catch (e) {
       toastError("No se pudo enviar el comentario", e);
     } finally {
       setSending(false);
     }
+  };
+
+  const handleReply = async (parentId: string, text: string) => {
+    const created = await api.addComment(postId, text, parentId);
+    setComments((prev) => appendReply(prev, parentId, created));
+    onLoadedCount?.(countComments(comments) + 1);
   };
 
   const insertEmoji = (emoji: string) => {
@@ -94,27 +115,14 @@ export const CommentSection = memo(function CommentSection({
           Aun no hay comentarios. Se el primero.
         </p>
       )}
-      {comments.map((c) => (
-        <Link
-          key={c.id}
-          href={`/profile/${c.user_id}`}
-          className="flex items-start gap-2 group"
-        >
-          <Avatar
-            size="sm"
-            src={c.author?.avatar_url}
-            alt={c.author?.name}
-            initials={initialsOf(c.author?.name)}
-            className="w-7! h-7!"
-          />
-          <div className="flex-1 bg-surface-container-low rounded-xl px-3 py-2">
-            <p className="text-label-sm font-semibold text-on-surface group-hover:text-primary transition-colors">
-              {c.author?.name ?? "Usuario"}
-            </p>
-            <p className="text-body-md text-on-surface">{c.body}</p>
-          </div>
-        </Link>
-      ))}
+      {!loading && comments.length > 0 && (
+        <CommentThread
+          comments={comments}
+          currentUser={currentUser}
+          onReply={handleReply}
+          timeAgo={timeAgo}
+        />
+      )}
       <div className="flex items-start gap-2 relative">
         <Avatar
           size="sm"

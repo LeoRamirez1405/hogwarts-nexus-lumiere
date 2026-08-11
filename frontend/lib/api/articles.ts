@@ -28,6 +28,8 @@ export interface ArticleComment {
   article_id: string;
   user_id: string;
   body: string;
+  parent_id?: string | null;
+  replies?: ArticleComment[];
   created_at: string;
   author?: User;
 }
@@ -128,10 +130,10 @@ export const articlesApi = {
   getArticleComments: (articleId: string) =>
     request<ArticleComment[]>(`/articles/${articleId}/comments`),
 
-  createArticleComment: (articleId: string, body: string) =>
+  createArticleComment: (articleId: string, body: string, parentId?: string) =>
     request<ArticleComment>(`/articles/${articleId}/comments`, {
       method: "POST",
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, parent_id: parentId ?? null }),
     }),
 
   getAnnouncements: (pagination?: PaginationParams) =>

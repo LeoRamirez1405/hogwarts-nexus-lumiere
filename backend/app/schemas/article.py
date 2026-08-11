@@ -42,6 +42,7 @@ class ArticleResponse(BaseModel):
 
 class ArticleCommentCreate(BaseModel):
     body: str
+    parent_id: Optional[str] = None
 
 
 class ArticleCommentResponse(BaseModel):
@@ -49,6 +50,8 @@ class ArticleCommentResponse(BaseModel):
     article_id: str
     user_id: str
     body: str
+    parent_id: Optional[str] = None
+    replies: list["ArticleCommentResponse"] = []
     created_at: datetime
     author: Optional[UserResponse] = None
 

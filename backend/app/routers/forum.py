@@ -16,6 +16,8 @@ from ..schemas.user import UserResponse
 from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..notifications_service import notify, resolve_mentions, N
+from ..services.friend_notifications import notify_friends_of_activity
+from ..services.comment_threads import nest_comments
 
 router = APIRouter()
 
@@ -240,13 +242,14 @@ async def list_thread_comments(
             .order_by(ForumComment.created_at.asc())
         )
     ).scalars().all()
-    out = []
-    for c in comments:
-        resp = ForumCommentResponse.model_validate(c)
-        if c.user:
-            resp.author = UserResponse.model_validate(c.user)
-        out.append(resp)
-    return out
+    return nest_comments(comments, lambda c: _forum_comment_response(c))
+
+
+def _forum_comment_response(c: ForumComment) -> ForumCommentResponse:
+    resp = ForumCommentResponse.model_validate(c)
+    if c.user:
+        resp.author = UserResponse.model_validate(c.user)
+    return resp
 
 
 @router.post(
@@ -265,7 +268,23 @@ async def create_thread_comment(
         raise HTTPException(status_code=400, detail="El comentario no puede estar vacío")
     thread = await _get_thread(db, thread_id)
 
-    comment = ForumComment(thread_id=thread_id, user_id=current_user.id, body=body)
+    # Validate an optional parent (threaded replies live on the same thread).
+    parent = None
+    if data.parent_id:
+        parent = (
+            await db.execute(
+                select(ForumComment).where(ForumComment.id == data.parent_id)
+            )
+        ).scalar_one_or_none()
+        if not parent or parent.thread_id != thread_id:
+            raise HTTPException(status_code=404, detail="Comentario padre no encontrado")
+
+    comment = ForumComment(
+        thread_id=thread_id,
+        user_id=current_user.id,
+        body=body,
+        parent_id=parent.id if parent else None,
+    )
     db.add(comment)
 
     # Reward: 5 zerines per forum comment (as the UI promises).
@@ -307,6 +326,21 @@ async def create_thread_comment(
     recipients |= mentioned_ids
     recipients.discard(current_user.id)
 
+    # A direct reply gets its own notification; remove that recipient from the
+    # generic batch so they receive exactly one alert.
+    reply_target = parent.user_id if parent is not None else None
+    if reply_target is not None:
+        recipients.discard(reply_target)
+        await notify(
+            db,
+            user_id=reply_target,
+            type=N.FORUM_COMMENT_REPLY,
+            title=f"{current_user.name} respondió a tu comentario en {thread.title}",
+            body=body[:200],
+            related_id=thread_id,
+            actor_id=current_user.id,
+        )
+
     for uid in recipients:
         ntype = N.FORUM_MENTION if uid in mentioned_ids else N.FORUM_REPLY
         title = (
@@ -323,6 +357,22 @@ async def create_thread_comment(
             related_id=thread_id,
             actor_id=current_user.id,
         )
+
+    # Friends get a lightweight "tu amigo participó en el foro" alert. Anyone
+    # already notified above (author, subscribers, mentions, reply target) is
+    # excluded to avoid stacking generic + friend alerts.
+    exclude_ids = {thread.author_id, *recipients, *mentioned_ids}
+    if reply_target is not None:
+        exclude_ids.add(reply_target)
+    await notify_friends_of_activity(
+        db,
+        current_user,
+        type=N.FRIEND_FORUM,
+        title=f"Tu amigo {current_user.name} participó en el debate {thread.title}",
+        body=body[:200],
+        related_id=thread_id,
+        exclude_ids=exclude_ids,
+    )
 
     await db.commit()
     await db.refresh(comment)

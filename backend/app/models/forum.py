@@ -47,9 +47,11 @@ class ForumComment(Base):
     thread_id = Column(String, ForeignKey("forum_threads.id"), nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     body = Column(Text, nullable=False)
+    parent_id = Column(String, ForeignKey("forum_comments.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     user = relationship("User", lazy="selectin")
+    parent = relationship("ForumComment", remote_side=[id], lazy="selectin")
 
 
 class ForumSubscription(Base):

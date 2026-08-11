@@ -20,6 +20,7 @@ class PostCreate(BaseModel):
 
 class CommentCreate(BaseModel):
     body: str
+    parent_id: Optional[str] = None
 
 
 class CommentResponse(BaseModel):
@@ -28,6 +29,8 @@ class CommentResponse(BaseModel):
     user_id: str
     author: Optional[UserResponse] = None
     body: str
+    parent_id: Optional[str] = None
+    replies: list["CommentResponse"] = []
     created_at: datetime
 
     class Config:

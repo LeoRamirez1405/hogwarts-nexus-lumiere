@@ -31,6 +31,8 @@ class ArticleComment(Base):
     article_id = Column(String, ForeignKey("articles.id"), nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     body = Column(Text, nullable=False)
+    parent_id = Column(String, ForeignKey("article_comments.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     user = relationship("User", lazy="selectin")
+    parent = relationship("ArticleComment", remote_side=[id], lazy="selectin")

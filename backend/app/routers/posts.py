@@ -12,117 +12,20 @@ from ..schemas.user import UserResponse
 from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..notifications_service import notify, notify_like, notify_friends_of_post, resolve_mentions, N
+from ..services.post_notifications import (
+    notify_like_to_commenters,
+    notify_comment_to_engagers,
+    notify_repost,
+)
+from ..services.friend_notifications import (
+    notify_friend_like,
+    notify_friend_comment,
+    notify_friend_repost,
+)
+from ..services.post_response import build_posts_response, build_post_response
+from ..services.comment_threads import nest_comments
 
 router = APIRouter()
-
-
-async def _build_posts_response(
-    db: AsyncSession,
-    posts: List[Post],
-    current_user: User,
-) -> List[PostResponse]:
-    """Enrich a page of posts with counts + the current user's state.
-
-    Instead of running 6 queries per post (the old ``_build_post_response``),
-    the whole page is enriched with a constant number of aggregate queries:
-    3 GROUP BY counts + 2 "my state" lookups + 1 editors fetch.
-    """
-    if not posts:
-        return []
-    ids = [p.id for p in posts]
-
-    likes_count = {
-        post_id: count
-        for post_id, count in (
-            await db.execute(
-                select(PostLike.post_id, func.count())
-                .where(PostLike.post_id.in_(ids))
-                .group_by(PostLike.post_id)
-            )
-        ).all()
-    }
-    reposts_count = {
-        post_id: count
-        for post_id, count in (
-            await db.execute(
-                select(PostRepost.post_id, func.count())
-                .where(PostRepost.post_id.in_(ids))
-                .group_by(PostRepost.post_id)
-            )
-        ).all()
-    }
-    comments_count = {
-        post_id: count
-        for post_id, count in (
-            await db.execute(
-                select(PostComment.post_id, func.count())
-                .where(PostComment.post_id.in_(ids))
-                .group_by(PostComment.post_id)
-            )
-        ).all()
-    }
-    liked_ids = set(
-        (
-            await db.execute(
-                select(PostLike.post_id).where(
-                    PostLike.post_id.in_(ids),
-                    PostLike.user_id == current_user.id,
-                )
-            )
-        ).scalars().all()
-    )
-    reposted_ids = set(
-        (
-            await db.execute(
-                select(PostRepost.post_id).where(
-                    PostRepost.post_id.in_(ids),
-                    PostRepost.user_id == current_user.id,
-                )
-            )
-        ).scalars().all()
-    )
-
-    editor_ids = {p.edited_by for p in posts if p.edited_by}
-    editors: dict = {}
-    if editor_ids:
-        for editor in (
-            await db.execute(select(User).where(User.id.in_(editor_ids)))
-        ).scalars().all():
-            editors[editor.id] = editor
-
-    responses: List[PostResponse] = []
-    for post in posts:
-        edited_by_user = None
-        if post.edited_by and post.edited_by in editors:
-            edited_by_user = UserResponse.model_validate(editors[post.edited_by])
-
-        # Build the response from a dict instead of the ORM object to avoid
-        # Pydantic trying to validate edited_by (a string FK) as UserResponse.
-        responses.append(PostResponse.model_validate({
-            "id": post.id,
-            "author_id": post.author_id,
-            "author": post.author,
-            "body": post.body,
-            "image_url": post.image_url,
-            "created_at": post.created_at,
-            "edited_at": post.edited_at,
-            "edited_by": edited_by_user,
-            "likes_count": likes_count.get(post.id, 0),
-            "liked_by_me": post.id in liked_ids,
-            "reposts_count": reposts_count.get(post.id, 0),
-            "reposted_by_me": post.id in reposted_ids,
-            "comments_count": comments_count.get(post.id, 0),
-        }))
-    return responses
-
-
-async def _build_post_response(
-    db: AsyncSession,
-    post: Post,
-    current_user: User,
-) -> PostResponse:
-    """Enrich a single Post (used by mutations and detail endpoints)."""
-    return (await _build_posts_response(db, [post], current_user))[0]
 
 
 @router.get("/", response_model=Page[PostResponse])
@@ -143,7 +46,7 @@ async def list_posts(
     posts = posts[:limit]
     total = (await db.execute(select(func.count(Post.id)))).scalar_one()
     return Page(
-        items=await _build_posts_response(db, posts, current_user),
+        items=await build_posts_response(db, posts, current_user),
         total=total,
         skip=skip,
         limit=limit,
@@ -198,7 +101,7 @@ async def list_user_feed(
     page_entries = entries[skip : skip + limit]
     has_more = skip + limit < total
 
-    responses = await _build_posts_response(
+    responses = await build_posts_response(
         db, [entry[2] for entry in page_entries], current_user
     )
     for (feed_time, is_repost, post, repost), response in zip(page_entries, responses):
@@ -287,9 +190,11 @@ async def toggle_like(
     await db.flush()
     if liked_now:
         await notify_like(db, post, current_user)
+        await notify_like_to_commenters(db, post, current_user)
+        await notify_friend_like(db, current_user, post)
     await db.commit()
 
-    return await _build_post_response(db, post, current_user)
+    return await build_post_response(db, post, current_user)
 
 
 @router.post("/{post_id}/repost", response_model=PostResponse)
@@ -319,18 +224,11 @@ async def toggle_repost(
         reposted_now = True
 
     if reposted_now:
-        await notify(
-            db,
-            user_id=post.author_id,
-            type=N.POST_REPOST,
-            title=f"{current_user.name} compartió tu publicación",
-            body=(post.body or "Tu publicación")[:140],
-            related_id=post_id,
-            actor_id=current_user.id,
-        )
+        await notify_repost(db, post, current_user)
+        await notify_friend_repost(db, current_user, post)
     await db.commit()
 
-    return await _build_post_response(db, post, current_user)
+    return await build_post_response(db, post, current_user)
 
 
 @router.get("/{post_id}/comments", response_model=List[CommentResponse])
@@ -345,13 +243,14 @@ async def list_comments(
         .order_by(PostComment.created_at.asc())
     )
     comments = result.scalars().all()
-    responses = []
-    for c in comments:
-        resp = CommentResponse.model_validate(c)
-        if c.user:
-            resp.author = UserResponse.model_validate(c.user)
-        responses.append(resp)
-    return responses
+    return nest_comments(comments, lambda c: _post_comment_response(c))
+
+
+def _post_comment_response(c: PostComment) -> CommentResponse:
+    resp = CommentResponse.model_validate(c)
+    if c.user:
+        resp.author = UserResponse.model_validate(c.user)
+    return resp
 
 
 @router.post(
@@ -375,10 +274,22 @@ async def create_comment(
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
+    # Validate an optional parent (threaded replies live on the same post).
+    parent = None
+    if comment_data.parent_id:
+        parent = (
+            await db.execute(
+                select(PostComment).where(PostComment.id == comment_data.parent_id)
+            )
+        ).scalar_one_or_none()
+        if not parent or parent.post_id != post_id:
+            raise HTTPException(status_code=404, detail="Parent comment not found")
+
     comment = PostComment(
         post_id=post_id,
         user_id=current_user.id,
         body=body,
+        parent_id=parent.id if parent else None,
     )
     db.add(comment)
     await db.flush()
@@ -392,6 +303,29 @@ async def create_comment(
         body=body[:200],
         related_id=post_id,
         actor_id=current_user.id,
+    )
+    # A reply to an existing comment alerts that comment's author, unless the
+    # parent's author is the post author (already covered above).
+    reply_targets = set()
+    if parent is not None and parent.user_id != post.author_id:
+        reply_targets.add(parent.user_id)
+        await notify(
+            db,
+            user_id=parent.user_id,
+            type=N.POST_REPLY,
+            title=f"{current_user.name} respondió a tu comentario",
+            body=body[:200],
+            related_id=post_id,
+            actor_id=current_user.id,
+        )
+    # Everyone else who engaged with this post (liked / commented) finds out
+    # there is new activity, minus those who got the dedicated reply alert.
+    await notify_comment_to_engagers(
+        db, post, current_user, exclude_ids=reply_targets
+    )
+    # Friends see every public activity of their friends (social feed).
+    await notify_friend_comment(
+        db, current_user, body=body, exclude_ids={post.author_id, *reply_targets}
     )
     for mentioned in await resolve_mentions(db, body):
         if mentioned.id == post.author_id:
@@ -442,7 +376,7 @@ async def update_post(
     await db.commit()
     await db.refresh(post)
 
-    return await _build_post_response(db, post, current_user)
+    return await build_post_response(db, post, current_user)
 
 
 @router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
