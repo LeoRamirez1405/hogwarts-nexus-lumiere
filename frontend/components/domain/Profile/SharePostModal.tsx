@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { api, Conversation } from "@/lib/api";
-import { Avatar, Button, MaterialIcon, Modal } from "@/components/ui";
+import { Avatar, Button, MaterialIcon, Modal, BottomSheet } from "@/components/ui";
 import { hapticLight } from "@/lib/haptics";
+import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";
 
 interface SharedPostMeta {
   id: string;
@@ -28,6 +29,7 @@ interface SharePostModalProps {
 }
 
 export function SharePostModal({ post, onClose }: SharePostModalProps) {
+  const isDesktop = useIsDesktopMdUp(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -113,14 +115,8 @@ export function SharePostModal({ post, onClose }: SharePostModalProps) {
       .map((n) => n[0])
       .join("");
 
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title="Compartir publicacion"
-      size="md"
-      swipeToDismiss
-    >
+  const renderBody = () => (
+    <>
       {/* Post preview */}
       <div className="pt-1">
         <div className="flex items-start gap-2 bg-surface-container-low rounded-xl p-3 border border-outline-variant/20">
@@ -204,6 +200,20 @@ export function SharePostModal({ post, onClose }: SharePostModalProps) {
           })
         )}
       </div>
-    </Modal>
+    </>
+  );
+
+  if (isDesktop) {
+    return (
+      <Modal open onClose={onClose} title="Compartir publicacion" size="md" swipeToDismiss>
+        {renderBody()}
+      </Modal>
+    );
+  }
+
+  return (
+    <BottomSheet open onClose={onClose} title="Compartir publicacion">
+      {renderBody()}
+    </BottomSheet>
   );
 }
