@@ -8,9 +8,9 @@ from ..models.product import Product
 from ..models.user import User
 from ..models.user_product import UserProduct
 from ..models.transaction import Transaction
+from ..notifications_service import notify, N
 from ..schemas.product import (
     ProductResponse,
-    UserProductResponse,
     BatchPurchaseRequest,
     BatchPurchaseResponse,
     BatchPurchaseResultItem,
@@ -147,6 +147,24 @@ async def purchase_product(
     db.add(transaction)
     await db.commit()
     await db.refresh(product)
+
+    # Notify admins of the marketplace purchase
+    from .models.user import User as UserModel
+    admins_result = await db.execute(select(UserModel).where(UserModel.role == "admin"))
+    admins = admins_result.scalars().all()
+    shop_label = "Flourish & Blotts" if product.shop == "flourish" else "Borgin & Burkes"
+    notification_type = N.MARKETPLACE_PURCHASE_FLOURISH if product.shop == "flourish" else N.MARKETPLACE_PURCHASE_BORGIN
+    for admin in admins:
+        await notify(
+            db,
+            user_id=admin.id,
+            type=notification_type,
+            title=f"Compra en {shop_label}",
+            body=f"{current_user.name} compró {product.name} x{quantity}",
+            related_id=product.id,
+            actor_id=current_user.id,
+        )
+
     return product
 
 
@@ -277,6 +295,32 @@ async def batch_purchase(
             status="confirmed",
         )
     )
+    # Notify admins of the batch marketplace purchase - separate per shop
+    from .models.user import User as UserModel
+    admins_result = await db.execute(select(UserModel).where(UserModel.role == "admin"))
+    admins = admins_result.scalars().all()
+    shop_names = {}
+    for item in purchased:
+        shop = products[item.product_id].shop
+        if shop not in shop_names:
+            shop_names[shop] = []
+        shop_names[shop].append(f"{item.name} x{item.quantity}")
+    
+    for admin in admins:
+        for shop, items in shop_names.items():
+            shop_label = "Flourish & Blotts" if shop == "flourish" else "Borgin & Burkes"
+            notification_type = N.MARKETPLACE_PURCHASE_FLOURISH if shop == "flourish" else N.MARKETPLACE_PURCHASE_BORGIN
+            body_text = f"{current_user.name} hizo una compra en {shop_label}: {', '.join(items)}"
+            await notify(
+                db,
+                user_id=admin.id,
+                type=notification_type,
+                title=f"Compra en {shop_label}",
+                body=body_text,
+                related_id=None,
+                actor_id=current_user.id,
+            )
+    
     await db.commit()
     return BatchPurchaseResponse(
         success=True,
@@ -284,9 +328,6 @@ async def batch_purchase(
         total_spent=total,
         new_balance=current_user.zerines,
     )
-
-
-@router.get("/my-purchases", response_model=Page[UserProductResponse])
 async def my_purchases(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
