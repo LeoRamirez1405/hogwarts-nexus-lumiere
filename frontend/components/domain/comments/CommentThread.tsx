@@ -2,10 +2,11 @@
 
 import { memo, useState } from "react";
 import Link from "next/link";
-import { Avatar, MaterialIcon, ReactionBar } from "@/components/ui";
+import { Avatar, MaterialIcon, ReactionBar, MentionText, MentionInput } from "@/components/ui";
 import type { User, ReactionTargetType } from "@/lib/api";
 import { toastError } from "@/lib/toastStore";
 import { hapticLight } from "@/lib/haptics";
+import { buildMembers, mergeUniqueMembers, type MentionMember } from "@/lib/mentions-utils";
 
 export interface ThreadComment {
   id: string;
@@ -23,12 +24,10 @@ function initialsOf(name?: string): string {
     .join("");
 }
 
-/** Total comments in a tree (roots + nested replies). */
 export function countComments(list: ThreadComment[]): number {
   return list.reduce((n, c) => n + 1 + countComments(c.replies ?? []), 0);
 }
 
-/** Immutably attach a new reply under the comment with id `parentId`. */
 export function appendReply<T extends ThreadComment>(
   list: T[],
   parentId: string,
@@ -56,6 +55,7 @@ interface CommentNodeProps {
   timeAgo: (dateStr: string) => string;
   depth?: number;
   reactionTargetType?: ReactionTargetType;
+  members: MentionMember[];
 }
 
 function CommentNode({
@@ -65,6 +65,7 @@ function CommentNode({
   timeAgo,
   depth = 0,
   reactionTargetType,
+  members,
 }: CommentNodeProps) {
   const [replying, setReplying] = useState(false);
   const [replyText, setReplyText] = useState("");
@@ -115,9 +116,9 @@ function CommentNode({
                 {timeAgo(comment.created_at)}
               </span>
             </div>
-            <p className="text-body-md text-on-surface break-words">
-              {comment.body}
-            </p>
+            <div className="text-body-md text-on-surface break-words">
+              <MentionText text={comment.body} members={members} />
+            </div>
           </div>
           {currentUser && (
             <button
@@ -148,16 +149,13 @@ function CommentNode({
                 className="w-7! h-7!"
               />
               <div className="flex-1 relative">
-                <input
-                  type="text"
+                <MentionInput
                   value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && submitReply()}
+                  onChange={setReplyText}
                   placeholder={`Responde a ${comment.author?.name ?? "este usuario"}...`}
-                  className="w-full bg-surface-container-low rounded-xl px-3 py-2 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-outline-variant/20 focus:border-primary/40 transition-colors pr-10"
-                  inputMode="text"
-                  autoComplete="off"
-                  enterKeyHint="send"
+                  minHeight={40}
+                  maxHeight={120}
+                  disabled={sending}
                   autoFocus
                 />
                 <button
@@ -166,7 +164,7 @@ function CommentNode({
                     submitReply();
                   }}
                   disabled={!replyText.trim() || sending}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 inline-flex items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-30 transition-opacity"
+                  className="absolute right-1.5 bottom-1.5 w-7 h-7 inline-flex items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-30 transition-opacity"
                   aria-label="Enviar respuesta"
                 >
                   <MaterialIcon name="send" className="text-base" />
@@ -187,6 +185,7 @@ function CommentNode({
               timeAgo={timeAgo}
               depth={depth + 1}
               reactionTargetType={reactionTargetType}
+              members={members}
             />
           ))}
         </div>
@@ -201,20 +200,18 @@ interface CommentThreadProps {
   onReply: (parentId: string, body: string) => Promise<void>;
   timeAgo: (dateStr: string) => string;
   reactionTargetType?: ReactionTargetType;
+  additionalMembers?: MentionMember[];
 }
 
-/** Recursive threaded comments with inline reply composer.
- *
- * Used by the profile post feed, article ("Cartas al Director") and forum
- * debate views. The parent owns the state updates (appendReply + API call).
- */
 export const CommentThread = memo(function CommentThread({
   comments,
   currentUser,
   onReply,
   timeAgo,
   reactionTargetType,
+  additionalMembers = [],
 }: CommentThreadProps) {
+  const members = mergeUniqueMembers(buildMembers(null, comments), additionalMembers);
   if (comments.length === 0) {
     return (
       <p className="text-label-sm text-on-surface-variant/70">
@@ -232,6 +229,7 @@ export const CommentThread = memo(function CommentThread({
           onReply={onReply}
           timeAgo={timeAgo}
           reactionTargetType={reactionTargetType}
+          members={members}
         />
       ))}
     </div>

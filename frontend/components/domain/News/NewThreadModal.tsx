@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MaterialIcon, Button, BottomSheet } from "@/components/ui";
+import { MaterialIcon, Button, BottomSheet, MentionInput } from "@/components/ui";
 import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";
 
 interface NewThreadModalProps {
@@ -66,13 +66,12 @@ export function NewThreadModal({ isOpen, onClose, onSubmit }: NewThreadModalProp
           <label className="text-label-sm text-on-surface-variant uppercase tracking-wider block mb-2">
             Contenido
           </label>
-          <textarea
+          <MentionInput
             value={newThread.body}
-            onChange={(e) =>
-              setNewThread((p) => ({ ...p, body: e.target.value }))
-            }
+            onChange={(v) => setNewThread((p) => ({ ...p, body: v }))}
             placeholder="Argumenta tu postura..."
-            className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors min-h-25 resize-none"
+            minHeight={100}
+            maxHeight={300}
           />
         </div>
       </div>

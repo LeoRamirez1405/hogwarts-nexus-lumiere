@@ -32,3 +32,5 @@ export { NumberStepper } from "./NumberStepper";
 export { VirtualizedList } from "./VirtualizedGrid";
 export { ReactionBar } from "./ReactionBar";
 export { useReactions } from "./useReactions";
+export { MentionInput } from "./MentionInput";
+export { MentionText } from "./MentionText";

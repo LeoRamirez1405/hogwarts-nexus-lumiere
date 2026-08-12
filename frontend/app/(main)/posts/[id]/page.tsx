@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { api, Post, PostComment } from "@/lib/api";
 import { postsApi } from "@/lib/api/posts";
-import { GlassCard, Badge, Button, Avatar, MaterialIcon } from "@/components/ui";
+import { GlassCard, Badge, Button, Avatar, MaterialIcon, MentionInput, MentionText } from "@/components/ui";
 import {
   CommentThread,
   countComments,
@@ -16,7 +16,7 @@ import { useAuthStore } from "@/lib/authStore";
 import { toastError } from "@/lib/toastStore";
 import { isStoredUpload } from "@/lib/media";
 import { hapticLight, hapticSelection } from "@/lib/haptics";
-import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
+import { buildMembers, extractMentions, fetchMentionedUsers, mergeUniqueMembers, resolveCommentMentions, type MentionMember } from "@/lib/mentions-utils";
 
 function timeAgo(dateStr: string): string {
   const d = new Date(dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr + "Z");
@@ -46,10 +46,7 @@ export default function PostDetailPage() {
   const [posting, setPosting] = useState(false);
   const [liking, setLiking] = useState(false);
   const [reposting, setReposting] = useState(false);
-  const {
-    textareaRef: commentRef,
-    height: commentHeight,
-  } = useAutoResizeTextarea({ minHeight: 80, maxHeight: 200 });
+  const [mentionedUsers, setMentionedUsers] = useState<MentionMember[]>([]);
 
   useEffect(() => {
     if (!params.id) return;
@@ -60,10 +57,18 @@ export default function PostDetailPage() {
         const found = await api.getPost(params.id);
         if (cancelled) return;
         setPost(found);
+
+        // Resolve users mentioned in the post body
+        const bodyMentions = await fetchMentionedUsers(extractMentions(found.body ?? ""));
+
         try {
           const cs = await postsApi.getComments(found.id);
           if (cancelled) return;
           setComments(cs);
+
+          // Resolve users mentioned in comments
+          const commentMentions = await resolveCommentMentions(cs);
+          setMentionedUsers(mergeUniqueMembers(bodyMentions, commentMentions));
         } catch (e) {
           if (!cancelled) toastError("No se pudieron cargar los comentarios", e);
         }
@@ -117,6 +122,11 @@ export default function PostDetailPage() {
       const created = await postsApi.addComment(post.id, newComment.trim());
       setComments((prev) => [created, ...prev]);
       setNewComment("");
+
+      const newUsers = await fetchMentionedUsers(extractMentions(newComment.trim()));
+      if (newUsers.length > 0) {
+        setMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
+      }
     } catch (e) {
       toastError("No se pudo enviar tu comentario", e);
     } finally {
@@ -128,6 +138,11 @@ export default function PostDetailPage() {
     if (!post) throw new Error("Publicacion no cargada");
     const created = await postsApi.addComment(post.id, text, parentId);
     setComments((prev) => appendReply(prev, parentId, created));
+
+    const newUsers = await fetchMentionedUsers(extractMentions(text));
+    if (newUsers.length > 0) {
+      setMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
+    }
   };
 
   if (loading || !post) {
@@ -210,14 +225,7 @@ export default function PostDetailPage() {
         )}
 
         <div className="prose prose-lg max-w-none">
-          {post.body.split("\n").map((para, i) => (
-            <p
-              key={i}
-              className="text-body-md text-on-surface-variant leading-relaxed mb-4 first-letter:font-display first-letter:text-4xl first-letter:text-secondary first-letter:mr-1 first-letter:float-left first-letter:leading-none"
-            >
-              {para}
-            </p>
-          ))}
+          <MentionText text={post.body} members={post ? mergeUniqueMembers(buildMembers(post, comments), mentionedUsers) : mentionedUsers} />
         </div>
 
         {/* Post actions */}
@@ -296,13 +304,13 @@ export default function PostDetailPage() {
                   .join("")}
               />
               <div className="flex-1">
-                <textarea
-                  ref={commentRef}
-                  style={{ height: commentHeight }}
+                <MentionInput
                   value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
+                  onChange={setNewComment}
                   placeholder="Escribe un comentario..."
-                  className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors resize-none"
+                  minHeight={80}
+                  maxHeight={200}
+                  disabled={posting}
                 />
                 <div className="flex justify-end mt-2">
                   <Button
@@ -326,6 +334,7 @@ export default function PostDetailPage() {
           onReply={handleReply}
           timeAgo={timeAgo}
           reactionTargetType="post_comment"
+          additionalMembers={mentionedUsers}
         />
       </section>
     </div>

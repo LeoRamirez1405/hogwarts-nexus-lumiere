@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useState } from "react";
 import { api, PostComment, User } from "@/lib/api";
-import { Avatar, MaterialIcon } from "@/components/ui";
+import { Avatar, MaterialIcon, MentionInput } from "@/components/ui";
 import { toastError } from "@/lib/toastStore";
 import {
   CommentThread,
@@ -10,6 +10,13 @@ import {
   appendReply,
 } from "@/components/domain/comments/CommentThread";
 import { useHapticLight, useHapticSelection } from "@/hooks/useHapticFeedback";
+import {
+  extractMentions,
+  fetchMentionedUsers,
+  mergeUniqueMembers,
+  resolveCommentMentions,
+  type MentionMember,
+} from "@/lib/mentions-utils";
 
 const EMOJIS = [
   "😀","😂","😍","🥳","😎","🤩","💀","👻","🔥","✨",
@@ -39,6 +46,7 @@ interface CommentSectionProps {
   postId: string;
   currentUser?: User;
   onLoadedCount?: (count: number) => void;
+  additionalMembers?: MentionMember[];
 }
 
 /** Expandible comment thread + composer for a single post. Loads comments on
@@ -47,12 +55,14 @@ export const CommentSection = memo(function CommentSection({
   postId,
   currentUser,
   onLoadedCount,
+  additionalMembers = [],
 }: CommentSectionProps) {
   const [comments, setComments] = useState<PostComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [localMentionedUsers, setLocalMentionedUsers] = useState<MentionMember[]>([]);
   const hapticLight = useHapticLight();
   const hapticSelection = useHapticSelection();
 
@@ -60,10 +70,15 @@ export const CommentSection = memo(function CommentSection({
     let cancelled = false;
     api
       .getComments(postId)
-      .then((data) => {
+      .then(async (data) => {
         if (cancelled) return;
         setComments(data);
         onLoadedCount?.(countComments(data));
+
+        const commentMentions = await resolveCommentMentions(data);
+        if (!cancelled && commentMentions.length > 0) {
+          setLocalMentionedUsers(commentMentions);
+        }
       })
       .catch((e) => {
         if (!cancelled) toastError("No se pudieron cargar los comentarios", e);
@@ -82,9 +97,16 @@ export const CommentSection = memo(function CommentSection({
     setSending(true);
     try {
       const created = await api.addComment(postId, text);
-      setComments((prev) => [...prev, created]);
-      onLoadedCount?.(countComments([...comments, created]));
+      const newComments = [...comments, created];
+      setComments(newComments);
+      onLoadedCount?.(countComments(newComments));
       setCommentText("");
+      void (async () => {
+        const newUsers = await fetchMentionedUsers(extractMentions(text));
+        if (newUsers.length > 0) {
+          setLocalMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
+        }
+      })();
     } catch (e) {
       toastError("No se pudo enviar el comentario", e);
     } finally {
@@ -96,6 +118,12 @@ export const CommentSection = memo(function CommentSection({
     const created = await api.addComment(postId, text, parentId);
     setComments((prev) => appendReply(prev, parentId, created));
     onLoadedCount?.(countComments(comments) + 1);
+    void (async () => {
+      const newUsers = await fetchMentionedUsers(extractMentions(text));
+      if (newUsers.length > 0) {
+        setLocalMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
+      }
+    })();
   };
 
   const insertEmoji = (emoji: string) => {
@@ -122,6 +150,7 @@ export const CommentSection = memo(function CommentSection({
           onReply={handleReply}
           timeAgo={timeAgo}
           reactionTargetType="post_comment"
+          additionalMembers={mergeUniqueMembers(additionalMembers, localMentionedUsers)}
         />
       )}
       <div className="flex items-start gap-2 relative">
@@ -133,16 +162,13 @@ export const CommentSection = memo(function CommentSection({
           className="w-7! h-7!"
         />
         <div className="flex-1 relative">
-          <input
-            type="text"
+          <MentionInput
             value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleComment()}
+            onChange={setCommentText}
             placeholder="Escribe un comentario..."
-            className="w-full bg-surface-container-low rounded-xl px-3 py-2 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-outline-variant/20 focus:border-primary/40 transition-colors pr-10"
-            inputMode="text"
-            autoComplete="off"
-            enterKeyHint="send"
+            minHeight={40}
+            maxHeight={100}
+            disabled={sending}
           />
           <button
             onClick={() => { hapticLight(); setShowEmojiPicker(!showEmojiPicker); }}

@@ -80,15 +80,26 @@ export default function NewsPage() {
     setActiveTab(tab);
   }, []);
 
-  const byDateDesc = useCallback(
-    (a: Article, b: Article) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  // Orden: primero los pinned (fixed), y dentro de cada grupo los más recientes.
+  const byPinnedThenDateDesc = useCallback(
+    (a: Article, b: Article) => {
+      const aPinned = a.pinned ? 1 : 0;
+      const bPinned = b.pinned ? 1 : 0;
+      if (aPinned !== bPinned) return bPinned - aPinned;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    },
     []
   );
 
   // El artículo principal es el fijado (pinned); si no hay ninguno, el más reciente.
-  const mostRecent = useMemo(() => [...allArticles].sort(byDateDesc)[0], [allArticles, byDateDesc]);
-  const featured = useMemo(() => allArticles.find((a) => a.pinned) ?? mostRecent, [allArticles, mostRecent]);
+  const mostRecent = useMemo(
+    () => [...allArticles].sort(byPinnedThenDateDesc)[0],
+    [allArticles, byPinnedThenDateDesc]
+  );
+  const featured = useMemo(
+    () => allArticles.find((a) => a.pinned) ?? mostRecent,
+    [allArticles, mostRecent]
+  );
 
   // Cada pestaña tiene su propia lista paginada con lazy loading independiente.
   const isFeatured = filter === "featured";
@@ -100,7 +111,10 @@ export default function NewsPage() {
   const activeListLoading = isFeatured ? featuredLoading : false;
   const loadMoreActive = isFeatured ? loadMoreFeatured : loadMoreArticles;
 
-  const sortedArticles = useMemo(() => [...activeItems].sort(byDateDesc), [activeItems, byDateDesc]);
+  const sortedArticles = useMemo(
+    () => [...activeItems].sort(byPinnedThenDateDesc),
+    [activeItems, byPinnedThenDateDesc]
+  );
 
   return (
     <div className="space-y-10 pb-16">

@@ -3,14 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api, ForumThread, ForumComment } from "@/lib/api";
-import { GlassCard, Badge, Button, Avatar, MaterialIcon, ReactionBar } from "@/components/ui";
+import { GlassCard, Badge, Button, Avatar, MaterialIcon, ReactionBar, MentionInput, MentionText } from "@/components/ui";
 import {
   CommentThread,
   countComments,
   appendReply,
 } from "@/components/domain/comments/CommentThread";
 import { useAuthStore } from "@/lib/authStore";
-import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
+import { buildMembers, extractMentions, fetchMentionedUsers, mergeUniqueMembers, resolveCommentMentions, type MentionMember } from "@/lib/mentions-utils";
 
 function timeAgo(dateStr: string): string {
   const d = new Date(dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr + "Z");
@@ -39,20 +39,23 @@ export default function ThreadDetailPage() {
   const [newComment, setNewComment] = useState("");
   const [posting, setPosting] = useState(false);
   const [busy, setBusy] = useState(false);
-
-  const {
-    textareaRef: commentRef,
-    height: commentHeight,
-  } = useAutoResizeTextarea({ minHeight: 80, maxHeight: 200 });
+  const [mentionedUsers, setMentionedUsers] = useState<MentionMember[]>([]);
 
   useEffect(() => {
     if (!params.id) return;
     let cancelled = false;
     Promise.all([api.getThread(params.id), api.getThreadComments(params.id)])
-      .then(([t, cs]) => {
+      .then(async ([t, cs]) => {
         if (cancelled) return;
         setThread(t);
         setComments(cs);
+
+        // Resolve users mentioned in the thread body
+        const bodyMentions = await fetchMentionedUsers(extractMentions(t.body ?? ""));
+
+        // Resolve users mentioned in comments
+        const commentMentions = await resolveCommentMentions(cs);
+        setMentionedUsers(mergeUniqueMembers(bodyMentions, commentMentions));
       })
       .catch(() => {
         if (!cancelled) router.push("/news");
@@ -108,6 +111,12 @@ export default function ThreadDetailPage() {
       setThread((t) =>
         t ? { ...t, comment_count: t.comment_count + 1, subscribed: true } : t
       );
+
+      // Resolve newly mentioned users so the link becomes clickable
+      const newUsers = await fetchMentionedUsers(extractMentions(newComment.trim()));
+      if (newUsers.length > 0) {
+        setMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
+      }
     } catch (error) {
       console.error('Failed to post comment:', error);
     } finally {
@@ -122,6 +131,12 @@ export default function ThreadDetailPage() {
     setThread((t) =>
       t ? { ...t, comment_count: t.comment_count + 1, subscribed: true } : t
     );
+
+    // Resolve newly mentioned users so the link becomes clickable
+    const newUsers = await fetchMentionedUsers(extractMentions(text));
+    if (newUsers.length > 0) {
+      setMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
+    }
   };
 
   if (loading || !thread) {
@@ -199,11 +214,7 @@ export default function ThreadDetailPage() {
               </div>
             </div>
             <div className="prose max-w-none">
-              {thread.body.split("\n").map((para, i) => (
-                <p key={i} className="text-body-md text-on-surface-variant leading-relaxed mb-3">
-                  {para}
-                </p>
-              ))}
+              <MentionText text={thread.body} members={thread ? mergeUniqueMembers(buildMembers(thread, comments), mentionedUsers) : mentionedUsers} />
             </div>
             {authUser && (
               <div className="mt-4 pt-4 border-t border-outline-variant/20 flex items-center gap-3">
@@ -245,13 +256,13 @@ export default function ThreadDetailPage() {
                 initials={initials(authUser.name)}
               />
               <div className="flex-1">
-                <textarea
-                  ref={commentRef}
-                  style={{ height: commentHeight }}
+                <MentionInput
                   value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
+                  onChange={setNewComment}
                   placeholder="Escribe tu respuesta... (gana 5 zerines)"
-                  className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors resize-none"
+                  minHeight={80}
+                  maxHeight={200}
+                  disabled={posting}
                 />
                 <div className="flex justify-end mt-2">
                   <Button
@@ -280,6 +291,7 @@ export default function ThreadDetailPage() {
             onReply={handleReply}
             timeAgo={timeAgo}
             reactionTargetType="forum_comment"
+            additionalMembers={mentionedUsers}
           />
           {comments.length === 0 && (
             <GlassCard className="p-8 text-center">

@@ -15,7 +15,7 @@ from ...middleware.roles import require_role
 from ...models.article import Article, ArticleComment
 from ...models.article_subscription import ArticleSubscription, Notification
 from ...models.user import User
-from ...notifications_service import N, notify_all_users
+from ...notifications_service import N, notify, notify_all_users, resolve_mentions
 from ...schemas.article import ArticleCreate, ArticleResponse, ArticleUpdate
 
 router = APIRouter(prefix="/admin/articles", tags=["admin-articles"])
@@ -90,6 +90,23 @@ async def create_article(
         exclude_id=current_user.id,
     )
     await db.commit()
+
+    # Notify anyone @mentioned in the article body.
+    mentioned = await resolve_mentions(db, article.body)
+    if mentioned:
+        for user in mentioned:
+            if user.id == current_user.id:
+                continue
+            await notify(
+                db,
+                user_id=user.id,
+                type=N.ARTICLE_MENTION,
+                title=f"{current_user.name} te mencionó en {article.title}",
+                body=(article.body or "")[:200],
+                related_id=article.id,
+                actor_id=current_user.id,
+            )
+        await db.commit()
 
     # Load author for response
     result = await db.execute(

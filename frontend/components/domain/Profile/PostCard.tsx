@@ -194,6 +194,7 @@ function PostCardComponent({
             postId={post.id}
             currentUser={currentUser}
             onLoadedCount={setCommentCount}
+            additionalMembers={post.author ? [{ user_id: post.author.id, user: { name: post.author.name } }] : []}
           />
         )}
       </GlassCard>

@@ -5,7 +5,8 @@ import Image from "next/image";
 import { api, Article, EnumValue } from "@/lib/api";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
 import { useDebounce } from "@/hooks/useDebounce";
-import { AdminCrudModal, FormField, InputField, TextareaField, SelectField } from "@/components/ui/AdminCrudModal";
+import { AdminCrudModal, FormField, InputField, SelectField } from "@/components/ui/AdminCrudModal";
+import { MentionInput } from "@/components/ui/MentionInput";
 import ListFooter from "@/components/ui/ListFooter";
 import Switch from "@/components/ui/Switch";
 import Button from "@/components/ui/Button";
@@ -239,10 +240,12 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
                 />
               </FormField>
               <FormField label="Contenido" required>
-                <TextareaField
+                <MentionInput
                   value={form.body}
                   onChange={(v: string) => setForm((f) => ({ ...f, body: v }))}
-                  rows={8}
+                  placeholder="Escribe el contenido del artículo... @menciona a alguien"
+                  minHeight={160}
+                  maxHeight={300}
                 />
               </FormField>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -3,10 +3,9 @@
 import { useState, useRef } from "react";
 import Image from "next/image";
 import { User } from "@/lib/api";
-import { Avatar, Button, GlassCard, MaterialIcon } from "@/components/ui";
+import { Avatar, Button, GlassCard, MaterialIcon, MentionInput } from "@/components/ui";
 import { useImageUpload } from "@/hooks/useFileUpload";
 import { toastError } from "@/lib/toastStore";
-import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
 import { useHapticLight } from "@/hooks/useHapticFeedback";
 
 interface PostComposerProps {
@@ -20,10 +19,6 @@ export function PostComposer({ profile, onCreate }: PostComposerProps) {
   const [posting, setPosting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hapticLight = useHapticLight();
-  const {
-    textareaRef: postRef,
-    height: postHeight,
-  } = useAutoResizeTextarea({ minHeight: 80, maxHeight: 240 });
 
   const { handleFileSelect: handlePostImageUpload, uploading: uploadingPostImage } = useImageUpload({
     onSuccess: (result) => setPostImageUrl(result.url),
@@ -61,16 +56,13 @@ export function PostComposer({ profile, onCreate }: PostComposerProps) {
             .join("")}
         />
         <div className="flex-1">
-          <textarea
-            ref={postRef}
-            style={{ height: postHeight }}
+          <MentionInput
             value={postText}
-            onChange={(e) => setPostText(e.target.value)}
+            onChange={setPostText}
             placeholder="Qué está pasando en tu mundo mágico?"
-            className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none resize-none border border-outline-variant/20 focus:border-primary/40 transition-colors"
-            inputMode="text"
-            autoComplete="off"
-            enterKeyHint="send"
+            minHeight={80}
+            maxHeight={240}
+            disabled={posting}
           />
           <input
             ref={fileInputRef}

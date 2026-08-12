@@ -55,6 +55,7 @@ class N:
     ARTICLE_UPDATED = "article_updated"
     ARTICLE_COMMENT = "article_comment"
     ARTICLE_COMMENT_REPLY = "article_comment_reply"
+    ARTICLE_MENTION = "article_mention"
     FORUM_REPLY = "forum_reply"
     FORUM_MENTION = "forum_mention"
     FORUM_COMMENT_REPLY = "forum_comment_reply"

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { api, Article, ArticleComment } from "@/lib/api";
-import { GlassCard, Badge, Button, Avatar, MaterialIcon, ReactionBar } from "@/components/ui";
+import { GlassCard, Badge, Button, Avatar, MaterialIcon, ReactionBar, MentionInput, MentionText } from "@/components/ui";
 import {
   CommentThread,
   countComments,
@@ -15,7 +15,7 @@ import { useAuthStore } from "@/lib/authStore";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import { isStoredUpload } from "@/lib/media";
 import { hapticLight, hapticSelection } from "@/lib/haptics";
-import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
+import { buildMembers, extractMentions, fetchMentionedUsers, mergeUniqueMembers, resolveCommentMentions, type MentionMember } from "@/lib/mentions-utils";
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("es-ES", {
@@ -54,10 +54,7 @@ export default function ArticleDetailPage() {
   const [posting, setPosting] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
-  const {
-    textareaRef: commentRef,
-    height: commentHeight,
-  } = useAutoResizeTextarea({ minHeight: 80, maxHeight: 200 });
+  const [mentionedUsers, setMentionedUsers] = useState<MentionMember[]>([]);
 
   useEffect(() => {
     if (!params.id) return;
@@ -69,6 +66,10 @@ export default function ArticleDetailPage() {
         if (cancelled) return;
         setArticle(found);
         setSubscribed(found.subscribed ?? false);
+
+        // Resolve users mentioned in the article body
+        const bodyMentions = await fetchMentionedUsers(extractMentions(found.body ?? ""));
+
         try {
           const [cs, relatedPage] = await Promise.all([
             api.getArticleComments(found.id),
@@ -83,6 +84,10 @@ export default function ArticleDetailPage() {
           setRelated(
             relatedPage.items.filter((a) => a.id !== found.id).slice(0, 3)
           );
+
+          // Resolve users mentioned in comments
+          const commentMentions = await resolveCommentMentions(cs);
+          setMentionedUsers(mergeUniqueMembers(bodyMentions, commentMentions));
         } catch (e) {
           if (!cancelled) toastError("No se pudieron cargar los comentarios", e);
         }
@@ -128,6 +133,12 @@ export default function ArticleDetailPage() {
       const created = await api.createArticleComment(article.id, newComment.trim());
       setComments((prev) => [created, ...prev]);
       setNewComment("");
+
+      // Resolve newly mentioned users so the link becomes clickable
+      const newUsers = await fetchMentionedUsers(extractMentions(newComment.trim()));
+      if (newUsers.length > 0) {
+        setMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
+      }
     } catch (e) {
       toastError("No se pudo enviar tu carta", e);
     } finally {
@@ -139,6 +150,11 @@ export default function ArticleDetailPage() {
     if (!article) throw new Error("Articulo no cargado");
     const created = await api.createArticleComment(article.id, text, parentId);
     setComments((prev) => appendReply(prev, parentId, created));
+
+    const newUsers = await fetchMentionedUsers(extractMentions(text));
+    if (newUsers.length > 0) {
+      setMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
+    }
   };
 
   if (loading || !article) {
@@ -229,14 +245,7 @@ export default function ArticleDetailPage() {
         )}
 
         <div className="prose prose-lg max-w-none">
-          {article.body.split("\n").map((para, i) => (
-            <p
-              key={i}
-              className="text-body-md text-on-surface-variant leading-relaxed mb-4 first-letter:font-display first-letter:text-4xl first-letter:text-secondary first-letter:mr-1 first-letter:float-left first-letter:leading-none"
-            >
-              {para}
-            </p>
-          ))}
+          <MentionText text={article.body} members={article ? mergeUniqueMembers(buildMembers(article, comments), mentionedUsers) : mentionedUsers} />
         </div>
 
         {/* Article actions */}
@@ -311,13 +320,13 @@ export default function ArticleDetailPage() {
                   .join("")}
               />
               <div className="flex-1">
-                <textarea
-                  ref={commentRef}
-                  style={{ height: commentHeight }}
+                <MentionInput
                   value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
+                  onChange={setNewComment}
                   placeholder="Escribe tu carta..."
-                  className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors resize-none"
+                  minHeight={80}
+                  maxHeight={200}
+                  disabled={posting}
                 />
                 <div className="flex justify-end mt-2">
                   <Button
@@ -341,6 +350,7 @@ export default function ArticleDetailPage() {
           onReply={handleReply}
           timeAgo={timeAgo}
           reactionTargetType="article_comment"
+          additionalMembers={mentionedUsers}
         />
       </section>
 

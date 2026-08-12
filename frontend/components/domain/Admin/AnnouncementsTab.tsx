@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { api, Announcement } from "@/lib/api";
 import { useAdminCrud } from "@/hooks/useAdminCrud";
-import { AdminCrudModal, FormField, TextareaField } from "@/components/ui/AdminCrudModal";
+import { AdminCrudModal, FormField } from "@/components/ui/AdminCrudModal";
+import { MentionInput } from "@/components/ui/MentionInput";
 import ListFooter from "@/components/ui/ListFooter";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 
@@ -121,11 +122,12 @@ export function AnnouncementsTab() {
         >
           <div className="space-y-4">
             <FormField label="Texto del anuncio" required>
-              <TextareaField
+              <MentionInput
                 value={form.body}
                 onChange={(v: string) => setForm({ body: v })}
-                placeholder="Ej: La Copa de las Casas arranca el próximo viernes..."
-                rows={6}
+                placeholder="Ej: La Copa de las Casas arranca el próximo viernes... @menciona a alguien"
+                minHeight={140}
+                maxHeight={250}
               />
             </FormField>
           </div>
