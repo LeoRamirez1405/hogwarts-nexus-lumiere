@@ -1,4 +1,5 @@
 import { request, buildQuery } from "./core";
+import { refreshUserLevelThrottled } from "../levelUp";
 
 export type ReactionTargetType =
   | "post_comment"
@@ -34,11 +35,13 @@ export const reactionsApi = {
     targetType: ReactionTargetType,
     targetId: string,
     emoji: string
-  ) =>
-    request<ReactionToggleResult>("/reactions/", {
+  ) => {
+    refreshUserLevelThrottled();
+    return request<ReactionToggleResult>("/reactions/", {
       method: "POST",
       body: JSON.stringify({ target_type: targetType, target_id: targetId, emoji }),
-    }),
+    });
+  },
 
   getReactions: (targetType: ReactionTargetType, targetId: string) =>
     request<ReactionList>(

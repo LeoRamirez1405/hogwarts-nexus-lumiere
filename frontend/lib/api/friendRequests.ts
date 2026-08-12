@@ -1,6 +1,7 @@
 import { request, buildQuery } from "./core";
 import type { Page } from "./core";
 import type { User } from "./users";
+import { refreshUserLevelThrottled } from "../levelUp";
 
 export interface FriendRequest {
   id: string;
@@ -37,10 +38,12 @@ export const friendRequestsApi = {
       body: JSON.stringify({ receiver_id }),
     }),
 
-  acceptFriendRequest: (id: string) =>
-    request<FriendRequest>(`/friend-requests/${id}/accept`, {
+  acceptFriendRequest: (id: string) => {
+    refreshUserLevelThrottled();
+    return request<FriendRequest>(`/friend-requests/${id}/accept`, {
       method: "PUT",
-    }),
+    });
+  },
 
   rejectFriendRequest: (id: string) =>
     request<FriendRequest>(`/friend-requests/${id}/reject`, {

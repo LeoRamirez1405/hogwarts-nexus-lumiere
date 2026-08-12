@@ -1,6 +1,7 @@
 import { request, buildQuery, uploadFile, API_BASE_VALUE } from "./core";
 import type { PaginationParams, Page } from "./core";
 import type { UserSearchResult } from "./users";
+import { refreshUserLevelThrottled } from "../levelUp";
 import type {
   Conversation,
   ChatRoomBrief,
@@ -31,11 +32,13 @@ export const messagesApi = {
       `/messages/${userId}${buildQuery({ limit, before, expand })}`
     ),
 
-  sendMessage: (data: MessageSendData) =>
-    request<Message>("/messages/", {
+  sendMessage: (data: MessageSendData) => {
+    refreshUserLevelThrottled();
+    return request<Message>("/messages/", {
       method: "POST",
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
   getRooms: (all?: boolean, pagination?: PaginationParams, search?: string) =>
     request<Page<ChatRoomBrief>>(
@@ -63,17 +66,21 @@ export const messagesApi = {
   getDmPinned: (userId: string) =>
     request<Message[]>(`/messages/dm/${userId}/pinned`),
 
-  sendRoomMessage: (roomId: string, data: MessageSendData) =>
-    request<Message>(`/messages/rooms/${roomId}/messages`, {
+  sendRoomMessage: (roomId: string, data: MessageSendData) => {
+    refreshUserLevelThrottled();
+    return request<Message>(`/messages/rooms/${roomId}/messages`, {
       method: "POST",
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
-  createRoom: (data: CreateRoomData) =>
-    request<ChatRoomResponse>("/admin/rooms/", {
+  createRoom: (data: CreateRoomData) => {
+    refreshUserLevelThrottled();
+    return request<ChatRoomResponse>("/admin/rooms/", {
       method: "POST",
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
   updateRoom: (roomId: string, data: UpdateRoomData) =>
     request<ChatRoomResponse>(`/messages/rooms/${roomId}`, {
@@ -110,11 +117,13 @@ export const messagesApi = {
       method: "DELETE",
     }),
 
-  votePoll: (messageId: string, optionIds: string[]) =>
-    request<{ ok: boolean }>(`/messages/${messageId}/poll/vote`, {
+  votePoll: (messageId: string, optionIds: string[]) => {
+    refreshUserLevelThrottled();
+    return request<{ ok: boolean }>(`/messages/${messageId}/poll/vote`, {
       method: "POST",
       body: JSON.stringify({ option_ids: optionIds }),
-    }),
+    });
+  },
 
   removePollVote: (messageId: string, optionId: string) =>
     request<{ ok: boolean }>(
@@ -122,11 +131,13 @@ export const messagesApi = {
       { method: "DELETE" }
     ),
 
-  addReaction: (messageId: string, emoji: string) =>
-    request<MessageReaction>(`/messages/${messageId}/reactions`, {
+  addReaction: (messageId: string, emoji: string) => {
+    refreshUserLevelThrottled();
+    return request<MessageReaction>(`/messages/${messageId}/reactions`, {
       method: "POST",
       body: JSON.stringify({ emoji }),
-    }),
+    });
+  },
 
   removeReaction: (messageId: string, emoji: string) =>
     request<void>(

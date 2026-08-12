@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { TabGroup, DetailModal } from "@/components/ui";
-import { LevelUpCelebration } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
 import { useFeatureFlag } from "@/lib/featureFlagStore";
 import type { Creature, MarketCreature, PetItem, UserCreature } from "@/lib/api";
@@ -47,6 +46,7 @@ export default function PetsPage() {
 
   const petsData = usePetsData();
   const celebrations = usePetCelebrations();
+  const applyStats = celebrations.applyStats;
   const shopFilter = useShopFilter(petsData.petItems);
 
   const validActiveTab =
@@ -73,14 +73,14 @@ export default function PetsPage() {
     [petsData.myCreatures]
   );
 
+  useEffect(() => {
+    if (petsData.stats) {
+      applyStats(petsData.stats, true);
+    }
+  }, [petsData.stats, applyStats]);
+
   return (
     <div className="min-h-content -mx-4 md:-mx-10 -mt-6 md:-mt-8 px-4 md:px-10 py-8">
-      <LevelUpCelebration
-        key={celebrations.celebrations[0]?.id ?? "none"}
-        event={celebrations.celebrations[0] ?? null}
-        onDone={() => celebrations.setCelebrations((q) => q.slice(1))}
-      />
-
       <PetsHeader stats={petsData.stats} user={user} />
 
       {/* Tabs */}

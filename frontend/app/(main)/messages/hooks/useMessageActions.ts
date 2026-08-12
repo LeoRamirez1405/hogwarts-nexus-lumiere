@@ -3,6 +3,7 @@
 import { useCallback, useRef } from "react";
 import { api, Message, MessageSendData } from "@/lib/api";
 import { toastSuccess, toastError } from "@/lib/toastStore";
+import { refreshUserLevelThrottled } from "@/lib/levelUp";
 import { markMessageDeleting, healConversationPreview } from "../utils/messageLifecycle";
 import type { Conversation, SelectedConvType, MuteDuration } from "../types";
 
@@ -119,6 +120,7 @@ export function useMessageActions({
           setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, last_message: withPreview } : c));
         }
       }
+      refreshUserLevelThrottled();
     } catch (error) {
       console.error("Failed to send message:", error);
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, sending: false, failed: true } : m));

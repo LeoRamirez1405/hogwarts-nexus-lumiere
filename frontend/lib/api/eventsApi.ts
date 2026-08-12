@@ -1,6 +1,7 @@
 /** Events API client */
 
 import { request, buildQuery } from "@/lib/api/core";
+import { refreshUserLevelThrottled } from "@/lib/levelUp";
 import type {
   Event,
   EventListResponse,
@@ -51,12 +52,14 @@ export const eventsApi = {
   getCurrent: (roomId: string) =>
     request<Event | null>(`${EVENTS_BASE}/current${buildQuery({ room_id: roomId })}`),
 
-  create: (data: EventCreate) =>
+  create: (data: EventCreate) => {
+    refreshUserLevelThrottled();
     // Trailing slash: backend route is `@router.post("/")`. See note in `list`.
-    request<Event>(`${EVENTS_BASE}/`, {
+    return request<Event>(`${EVENTS_BASE}/`, {
       method: "POST",
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
   update: (eventId: string, data: EventUpdate) =>
     request<Event>(`${EVENTS_BASE}/${eventId}`, {
@@ -68,11 +71,13 @@ export const eventsApi = {
     request<void>(`${EVENTS_BASE}/${eventId}`, { method: "DELETE" }),
 
   // RSVP
-  rsvp: (eventId: string, status: RSVPStatus) =>
-    request<RSVPResponse>(`${EVENTS_BASE}/${eventId}/rsvp`, {
+  rsvp: (eventId: string, status: RSVPStatus) => {
+    refreshUserLevelThrottled();
+    return request<RSVPResponse>(`${EVENTS_BASE}/${eventId}/rsvp`, {
       method: "POST",
       body: JSON.stringify({ status }),
-    }),
+    });
+  },
 
   listRsvps: (eventId: string) => request<RSVPListItem[]>(`${EVENTS_BASE}/${eventId}/rsvps`),
 

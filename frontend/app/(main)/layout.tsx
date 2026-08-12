@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/authStore";
 import { api } from "@/lib/api";
 import { useFeatureFlagStore } from "@/lib/featureFlagStore";
+import { LevelUpCelebration } from "@/components/ui";
+import { useLevelUpWatcher } from "@/hooks/useLevelUpWatcher";
 import AppShell from "@/components/layout/AppShell";
 
 export default function AuthProvider({
@@ -16,6 +18,7 @@ export default function AuthProvider({
   const { user, setAuth, isLoading } = useAuthStore();
   const loadFlags = useFeatureFlagStore((s) => s.load);
   const validatedRef = useRef(false);
+  const levelUp = useLevelUpWatcher();
 
   useEffect(() => {
     if (validatedRef.current) return;
@@ -55,5 +58,14 @@ export default function AuthProvider({
     );
   }
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <>
+      <LevelUpCelebration
+        key={levelUp.event?.id ?? "none"}
+        event={levelUp.event}
+        onDone={levelUp.dismiss}
+      />
+      <AppShell>{children}</AppShell>
+    </>
+  );
 }

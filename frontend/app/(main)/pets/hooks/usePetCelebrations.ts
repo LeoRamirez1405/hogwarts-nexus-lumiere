@@ -6,15 +6,14 @@ import type { UsePetCelebrationsReturn } from "../components/types";
 
 export function usePetCelebrations(): UsePetCelebrationsReturn {
   const [celebrations, setCelebrations] = useState<
-    Array<{ id: number; kind: "pet" | "sanctuary" | "user"; title: string; subtitle: string }>
+    Array<{ id: number; kind: "pet" | "sanctuary"; title: string; subtitle: string }>
   >([]);
   const petLevels = useRef<Record<string, number>>({});
   const prevSanctuary = useRef<number | null>(null);
-  const prevUserLevel = useRef<number | null>(null);
   const celebId = useRef(0);
 
   const pushCelebration = useCallback(
-    (ev: { kind: "pet" | "sanctuary" | "user"; title: string; subtitle: string }) => {
+    (ev: { kind: "pet" | "sanctuary"; title: string; subtitle: string }) => {
       celebId.current += 1;
       setCelebrations((q) => [...q, { ...ev, id: celebId.current }].slice(-3));
     },
@@ -31,16 +30,8 @@ export function usePetCelebrations(): UsePetCelebrationsReturn {
             subtitle: `de ${s.sanctuary_max}`,
           });
         }
-        if (prevUserLevel.current !== null && s.user_level > prevUserLevel.current) {
-          pushCelebration({
-            kind: "user",
-            title: `Nivel ${s.user_level}`,
-            subtitle: s.user_level_name,
-          });
-        }
       }
       prevSanctuary.current = s.sanctuary_level;
-      prevUserLevel.current = s.user_level;
     },
     [pushCelebration]
   );

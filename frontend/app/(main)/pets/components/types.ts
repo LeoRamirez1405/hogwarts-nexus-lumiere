@@ -135,7 +135,7 @@ export interface UsePetActionsParams {
   refreshStats: () => Promise<void>;
   refreshUser: () => Promise<void>;
   petLevels: React.MutableRefObject<Record<string, number>>;
-  pushCelebration: (ev: { kind: "pet" | "sanctuary" | "user"; title: string; subtitle: string }) => void;
+  pushCelebration: (ev: { kind: "pet" | "sanctuary"; title: string; subtitle: string }) => void;
   sellPrice: string;
 }
 
@@ -153,12 +153,12 @@ export interface UsePetActionsReturn {
 }
 
 export interface UsePetCelebrationsReturn {
-  celebrations: Array<{ id: number; kind: "pet" | "sanctuary" | "user"; title: string; subtitle: string }>;
-  pushCelebration: (ev: { kind: "pet" | "sanctuary" | "user"; title: string; subtitle: string }) => void;
+  celebrations: Array<{ id: number; kind: "pet" | "sanctuary"; title: string; subtitle: string }>;
+  pushCelebration: (ev: { kind: "pet" | "sanctuary"; title: string; subtitle: string }) => void;
   applyStats: (s: SanctuaryStats, celebrate: boolean) => void;
   detectPetLevelUp: (uc: UserCreature) => void;
   petLevels: React.MutableRefObject<Record<string, number>>;
-  setCelebrations: React.Dispatch<React.SetStateAction<Array<{ id: number; kind: "pet" | "sanctuary" | "user"; title: string; subtitle: string }>>>;
+  setCelebrations: React.Dispatch<React.SetStateAction<Array<{ id: number; kind: "pet" | "sanctuary"; title: string; subtitle: string }>>>;
 }
 
 export interface UseShopFilterReturn {

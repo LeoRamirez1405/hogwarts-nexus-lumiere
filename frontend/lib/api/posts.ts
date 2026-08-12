@@ -1,6 +1,7 @@
 import { request, buildQuery } from "./core";
 import type { PaginationParams, Page } from "./core";
 import type { User } from "./users";
+import { refreshUserLevelThrottled } from "../levelUp";
 
 export interface Post {
   id: string;
@@ -41,11 +42,13 @@ export const postsApi = {
       `/posts/user/${userId}` + buildQuery(pagination ?? {})
     ),
 
-  createPost: (data: { body?: string; image_url?: string }) =>
-    request<Post>("/posts/", {
+  createPost: (data: { body?: string; image_url?: string }) => {
+    refreshUserLevelThrottled();
+    return request<Post>("/posts/", {
       method: "POST",
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
   updatePost: (id: string, data: { body?: string; image_url?: string }) =>
     request<Post>(`/posts/${id}`, {
@@ -56,20 +59,26 @@ export const postsApi = {
   deletePost: (id: string) =>
     request<void>(`/posts/${id}`, { method: "DELETE" }),
 
-  likePost: (id: string) =>
-    request<Post>(`/posts/${id}/like`, { method: "POST" }),
+  likePost: (id: string) => {
+    refreshUserLevelThrottled();
+    return request<Post>(`/posts/${id}/like`, { method: "POST" });
+  },
 
-  repostPost: (id: string) =>
-    request<Post>(`/posts/${id}/repost`, { method: "POST" }),
+  repostPost: (id: string) => {
+    refreshUserLevelThrottled();
+    return request<Post>(`/posts/${id}/repost`, { method: "POST" });
+  },
 
   getComments: (postId: string) =>
     request<PostComment[]>(`/posts/${postId}/comments`),
 
-  addComment: (postId: string, body: string, parentId?: string) =>
-    request<PostComment>(`/posts/${postId}/comments`, {
+  addComment: (postId: string, body: string, parentId?: string) => {
+    refreshUserLevelThrottled();
+    return request<PostComment>(`/posts/${postId}/comments`, {
       method: "POST",
       body: JSON.stringify({ body, parent_id: parentId ?? null }),
-    }),
+    });
+  },
 
   getPost: (postId: string) =>
     request<Post>(`/posts/${postId}`),
