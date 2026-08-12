@@ -11,6 +11,7 @@ import { toastError, toastSuccess } from "@/lib/toastStore";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { useFeatureFlags } from "./hooks/useFeatureFlags";
 import { FeatureFlagsCard } from "./components/FeatureFlagsCard";
+import { NotificationPrefsCard } from "./components/NotificationPrefsCard";
 import { CategoriesSidebar } from "./components/CategoriesSidebar";
 import { ValuesPanel } from "./components/ValuesPanel";
 import { CategoryModal, type CategoryForm } from "./components/CategoryModal";
@@ -18,10 +19,11 @@ import { ValueModal, type ValueForm } from "./components/ValueModal";
 import PullToRefresh from "@/components/ui/PullToRefresh";
 
 export default function AdminSettingsPage() {
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const router = useRouter();
   const [search, setSearch] = useState("");
   const { flags, flagsLoading, flagUpdating, toggleFlag } = useFeatureFlags();
+  const [notifUpdating, setNotifUpdating] = useState(false);
 
   const crud = useAdminCrud<EnumCategory, { code: string; name: string; description?: string }, { code?: string; name: string; description?: string }>({
     queryKey: ["admin-enum-categories"],
@@ -71,8 +73,18 @@ export default function AdminSettingsPage() {
     }
   }, [user, router]);
 
-  const openNewCategory = () => {
-    setCatForm({ code: "", name: "", description: "" });
+  const handleToggleMarketplaceNotifications = async (enabled: boolean) => {
+    if (!user) return;
+    setNotifUpdating(true);
+    try {
+      const updated = await api.updateUser(user.id, { receive_marketplace_notifications: enabled });
+      setUser(updated);
+    } finally {
+      setNotifUpdating(false);
+    }
+  };
+
+  const openNewCategory = () => {    setCatForm({ code: "", name: "", description: "" });
     crud.setShowCreate(true);
   };
 
@@ -192,6 +204,13 @@ export default function AdminSettingsPage() {
           loading={flagsLoading}
           updatingKey={flagUpdating}
           onToggle={toggleFlag}
+        />
+
+        {/* Notification preferences */}
+        <NotificationPrefsCard
+          enabled={user?.receive_marketplace_notifications ?? true}
+          updating={notifUpdating}
+          onToggle={handleToggleMarketplaceNotifications}
         />
 
         {crud.loading ? (

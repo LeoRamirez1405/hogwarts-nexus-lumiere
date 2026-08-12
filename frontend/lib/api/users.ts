@@ -31,6 +31,7 @@ export interface User {
   last_active_at?: string;
   magic_level?: MagicLevelInfo;
   sanctuary_penalty?: number;
+  receive_marketplace_notifications?: boolean;
   created_at: string;
 }
 
