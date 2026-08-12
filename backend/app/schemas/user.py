@@ -27,6 +27,7 @@ class UserUpdate(BaseModel):
     location: Optional[str] = None
     zerines: Optional[int] = None
     house_points: Optional[int] = None
+    receive_marketplace_notifications: Optional[bool] = None
 
 
 class AdminCreateUser(BaseModel):
@@ -92,6 +93,7 @@ class UserResponse(BaseModel):
     last_active_at: Optional[datetime] = None
     magic_level: Optional[MagicLevelInfo] = None
     sanctuary_penalty: int = 0
+    receive_marketplace_notifications: bool = True
     created_at: datetime
 
     class Config:

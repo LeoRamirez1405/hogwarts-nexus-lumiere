@@ -151,7 +151,12 @@ async def purchase_product(
 
     # Notify admins of the marketplace purchase
     from ..models.user import User as UserModel
-    admins_result = await db.execute(select(UserModel).where(UserModel.role == "admin"))
+    admins_result = await db.execute(
+        select(UserModel).where(
+            UserModel.role == "admin",
+            UserModel.receive_marketplace_notifications.is_(True),
+        )
+    )
     admins = admins_result.scalars().all()
     shop_label = "Flourish & Blotts" if product.shop == "flourish" else "Borgin & Burkes"
     notification_type = N.MARKETPLACE_PURCHASE_FLOURISH if product.shop == "flourish" else N.MARKETPLACE_PURCHASE_BORGIN
@@ -298,7 +303,12 @@ async def batch_purchase(
     )
     # Notify admins of the batch marketplace purchase - separate per shop
     from ..models.user import User as UserModel
-    admins_result = await db.execute(select(UserModel).where(UserModel.role == "admin"))
+    admins_result = await db.execute(
+        select(UserModel).where(
+            UserModel.role == "admin",
+            UserModel.receive_marketplace_notifications.is_(True),
+        )
+    )
     admins = admins_result.scalars().all()
     shop_names = {}
     for item in purchased:

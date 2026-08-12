@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, Integer, DateTime, Text
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text
 from sqlalchemy.orm import relationship
 
 from ..database import Base
@@ -29,6 +29,7 @@ class User(Base):
     care_actions = Column(Integer, default=0, nullable=False)  # feeds + plays
     items_purchased = Column(Integer, default=0, nullable=False)  # pet item units bought
     sanctuary_penalty = Column(Integer, default=0, nullable=False)  # accumulated penalties from neglect
+    receive_marketplace_notifications = Column(Boolean, default=True, nullable=False)  # admin: receive purchase alerts
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Collection relationships are lazy="raise" on purpose: they are NEVER
