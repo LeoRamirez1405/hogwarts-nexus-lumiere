@@ -39,8 +39,10 @@ class Settings(BaseSettings):
 
     # Pet stat decay: points lost per hour while unattended (clamped at 0).
     # Applied lazily whenever a creature's stats are read or mutated.
-    HUNGER_DECAY_PER_HOUR: float = 5.0
-    HAPPINESS_DECAY_PER_HOUR: float = 3.0
+    # 0.8333/h = 10% every 12h: from the 50% starting point a pet stays alive
+    # for 60h and can be fed comfortably every 2 days.
+    HUNGER_DECAY_PER_HOUR: float = 0.8333
+    HAPPINESS_DECAY_PER_HOUR: float = 0.8333
 
     # Pet lifespan in days. A pet ages from its adoption date; past this it
     # "se despide" (is retired). A heads-up is sent once near the end.
@@ -53,7 +55,7 @@ class Settings(BaseSettings):
     # every PET_CARE_SWEEP_HOURS and notifies the owner once per lapse.
     PET_ATTENTION_HUNGER: int = 20
     PET_ATTENTION_HAPPINESS: int = 20
-    PET_CARE_SWEEP_HOURS: int = 6
+    PET_CARE_SWEEP_HOURS: int = 12
 
     # Critical state: either hunger OR happiness at 0.
     # If either stays at 0 for PET_ESCAPE_GRACE_HOURS, the pet escapes.
