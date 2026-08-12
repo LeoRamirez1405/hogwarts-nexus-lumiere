@@ -90,9 +90,9 @@ export const productsApi = {
       body: JSON.stringify({ items }),
     }),
 
-  getMyPurchases: (pagination?: PaginationParams) =>
+  getMyPurchases: (pagination?: PaginationParams, shop?: "flourish" | "borgin") =>
     request<Page<UserProduct>>(
-      "/products/my-purchases" + buildQuery(pagination ?? {})
+      "/products/my-purchases" + buildQuery({ shop, ...(pagination ?? {}) })
     ),
 
   createProduct: (data: ProductInput) =>

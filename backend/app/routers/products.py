@@ -341,26 +341,33 @@ async def batch_purchase(
     )
 @router.get("/my-purchases", response_model=Page[UserProductResponse])
 async def my_purchases(
+    shop: Optional[str] = Query(None, pattern="^(flourish|borgin)$"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    base_query = select(UserProduct).join(
+        Product, UserProduct.product_id == Product.id
+    ).where(UserProduct.user_id == current_user.id)
+    if shop:
+        base_query = base_query.where(Product.shop == shop)
     result = await db.execute(
-        select(UserProduct)
-        .where(UserProduct.user_id == current_user.id)
-        .order_by(UserProduct.purchased_at.desc())
+        base_query.order_by(UserProduct.purchased_at.desc())
         .offset(skip)
         .limit(limit + 1)
     )
     items = result.scalars().all()
     has_more = len(items) > limit
     items = items[:limit]
-    total_result = await db.execute(
-        select(func.count(UserProduct.id)).where(
-            UserProduct.user_id == current_user.id
-        )
+    count_query = (
+        select(func.count(UserProduct.id))
+        .join(Product, UserProduct.product_id == Product.id)
+        .where(UserProduct.user_id == current_user.id)
     )
+    if shop:
+        count_query = count_query.where(Product.shop == shop)
+    total_result = await db.execute(count_query)
     total = total_result.scalar_one()
     return Page(
         items=items,

@@ -64,10 +64,10 @@ export default function BorginBurkesPage() {
     loadMore: loadMorePurchases,
     refresh: refreshPurchases,
   } = usePaginatedList({
-    fetcher: (p) => api.getMyPurchases(p),
+    fetcher: (p) => api.getMyPurchases(p, "borgin"),
     pageSize: 9,
     enabled: true,
-    queryKey: ["my-purchases"],
+    queryKey: ["my-purchases", "borgin", user?.id],
   });
 
   const BORGIN_FILTERS = ["Todos", ...borginCategories.map((c) => c.label)];

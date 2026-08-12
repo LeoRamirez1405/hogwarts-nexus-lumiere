@@ -68,10 +68,10 @@ export default function FlourishBlottsPage() {
     loadMore: loadMorePurchases,
     refresh: refreshPurchases,
   } = usePaginatedList({
-    fetcher: (p) => api.getMyPurchases(p),
+    fetcher: (p) => api.getMyPurchases(p, "flourish"),
     pageSize: 9,
     enabled: true,
-    queryKey: ["my-purchases"],
+    queryKey: ["my-purchases", "flourish", user?.id],
   });
 
   // Compute display slides with duplicates for infinite loop
