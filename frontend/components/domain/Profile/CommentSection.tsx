@@ -14,7 +14,7 @@ import { useHapticLight, useHapticSelection } from "@/hooks/useHapticFeedback";
 const EMOJIS = [
   "😀","😂","😍","🥳","😎","🤩","💀","👻","🔥","✨",
   "❤️","💎","⚡","🌟","🎉","🎊","🦋","🐱","🦉","🏰",
-  "🪄","📜","🧪","⚗️","🔮","🗝️","🧣","📚","🍲","🪄",
+  "🪄","📜","🧪","⚗️","🔮","🗝️","🧣","📚","🍲","🧙",
 ];
 
 function initialsOf(name?: string): string {
