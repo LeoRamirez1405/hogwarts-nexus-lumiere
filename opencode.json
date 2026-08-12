@@ -1,26 +1,6 @@
 ﻿{
   "$schema": "https://opencode.ai/config.json",
-  "model": "nvidia-nim/nicoboss/deepseek-r1-distill-qwen-32b-uncensored",
   "instructions": ["AGENTS.md", "PLAN.md"],
-
-  "provider": {
-    "nvidia-nim": {
-      "api": "https://nim.api.nvidia.com/v1",
-      "models": {
-        "nicoboss/deepseek-r1-distill-qwen-32b-uncensored": {
-          "id": "nicoboss/DeepSeek-R1-Distill-Qwen-32B-Uncensored",
-          "limit": { "context": 32768, "output": 4096 }
-        },
-        "moonshotai/kimi-k2.6": {
-          "id": "moonshotai/kimi-k2.6",
-          "limit": { "context": 131072, "output": 16384 }
-        }
-      },
-      "options": {
-        "apiKey": "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"
-      }
-    }
-  },
 
   "mcp": {
     "context7": {

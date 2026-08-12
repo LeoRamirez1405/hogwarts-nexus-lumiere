@@ -93,7 +93,7 @@ export default function ArticleDetailPage() {
         }
       } catch (e) {
         if (!cancelled) {
-          toastError("No se pudo abrir el articulo", e);
+          toastError("No se pudo abrir el artículo", e);
           router.push("/news");
         }
       } finally {

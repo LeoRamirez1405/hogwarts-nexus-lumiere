@@ -122,18 +122,18 @@ export function CreateGroupModal({
             firstInput
           />
         </FormField>
-        <FormField label="Descripcion">
+        <FormField label="Descripción">
           <TextareaField
             value={form.description || ""}
             onChange={(v: string) => setForm((prev) => ({ ...prev, description: v }))}
-            placeholder="Descripcion opcional..."
+            placeholder="Descripción opcional..."
             rows={3}
           />
         </FormField>
 
         <div>
           <label className="block text-label-sm text-on-surface-variant mb-1">
-            Miembros <span className="text-error">(minimo 2)</span>
+            Miembros <span className="text-error">(mínimo 2)</span>
           </label>
           <div className="relative mb-2">
             <MaterialIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-xl text-on-surface-variant" />

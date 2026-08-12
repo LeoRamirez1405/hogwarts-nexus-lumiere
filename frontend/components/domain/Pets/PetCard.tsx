@@ -99,7 +99,7 @@ export function PetCard({
       {uc.stage === "anciana" && (
         <div className="mb-3 text-label-sm text-error bg-error/5 rounded-lg px-3 py-1.5 flex items-center gap-1.5">
           <MaterialIcon name="hourglass_bottom" className="text-[1.1em]" />
-          Ya es muy mayor. Disfruta sus ultimos dias.
+          Ya es muy mayor. Disfruta sus últimos días.
         </div>
       )}
 

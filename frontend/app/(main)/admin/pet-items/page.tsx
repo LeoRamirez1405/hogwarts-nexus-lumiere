@@ -318,7 +318,7 @@ export default function AdminPetItemsPage() {
                     firstInput
                   />
                 </FormField>
-                <FormField label="Descripcion">
+                <FormField label="Descripción">
                   <TextareaField
                     value={form.description}
                     onChange={(v: string) => setForm((p) => ({ ...p, description: v }))}

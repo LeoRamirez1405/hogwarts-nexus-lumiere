@@ -184,7 +184,7 @@ export default function ForwardModal({
           />
           <p className="text-on-surface-variant text-body-md">
             {rooms.length === 0
-              ? "No perteneces a ningun grupo aún"
+              ? "No perteneces a ningún grupo aún"
               : "No se encontraron grupos"}
           </p>
         </div>

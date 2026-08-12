@@ -80,7 +80,7 @@ export function EditGroupModal({
             onChange={(v: string) => setForm((prev) => ({ ...prev, name: v }))}
           />
         </FormField>
-        <FormField label="Descripcion">
+        <FormField label="Descripción">
           <TextareaField
             value={form.description || ""}
             onChange={(v: string) => setForm((prev) => ({ ...prev, description: v }))}

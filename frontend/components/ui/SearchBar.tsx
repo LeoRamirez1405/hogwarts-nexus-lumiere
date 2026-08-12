@@ -12,6 +12,7 @@ interface SearchBarProps {
   className?: string;
   ariaLabel?: string;
   debounceMs?: number;
+  onFocus?: () => void;
 }
 
 const sizeClasses: Record<NonNullable<SearchBarProps["size"]>, string> = {
@@ -46,6 +47,7 @@ export default function SearchBar({
   className = "",
   ariaLabel = "Buscar",
   debounceMs,
+  onFocus,
 }: SearchBarProps) {
   const styles = variantClasses[variant];
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -96,19 +98,20 @@ export default function SearchBar({
         type="text"
         placeholder={placeholder}
         value={currentValue}
-        onChange={(e) => handleChange(e.target.value)}
-        aria-label={ariaLabel}
-        inputMode="search"
-        enterKeyHint="search"
-        autoComplete="off"
-        className={`w-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 text-body-md ${styles.text} ${styles.placeholder} ${hasValue ? "pr-8" : ""}`}
+onChange={(e) => handleChange(e.target.value)}
+      onFocus={onFocus}
+      aria-label={ariaLabel}
+      inputMode="search"
+      enterKeyHint="search"
+      autoComplete="off"
+        className={`w-full bg-transparent outline-none text-body-md ${styles.text} ${styles.placeholder} ${hasValue ? "pr-8" : ""}`}
       />
       {hasValue && (
         <button
           type="button"
           onClick={handleClear}
           aria-label="Limpiar búsqueda"
-          className={`absolute right-3 w-6 h-6 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${styles.icon}`}
+          className={`absolute right-3 w-6 h-6 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors focus:outline-none ${styles.icon}`}
         >
           <MaterialIcon name="close" className="text-[1.1em]" />
         </button>

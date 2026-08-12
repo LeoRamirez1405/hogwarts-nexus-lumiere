@@ -146,7 +146,7 @@ async def _main() -> int:
     delete_orphans = "--delete-orphans" in sys.argv
 
     creds = _cloudinary_credentials()
-    cloud = creds["CLOUDINARY_CLOUD_NAME"]
+    #cloud = creds["CLOUDINARY_CLOUD_NAME"]
 
     all_assets = {r["public_id"]: r for r in _cloudinary_list(creds)}
     print(f"Imagenes en Cloudinary: {len(all_assets)}")

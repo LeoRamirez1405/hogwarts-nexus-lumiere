@@ -367,7 +367,7 @@ export default function FlourishBlottsPage() {
                   className="text-on-surface-variant text-6xl block mb-4"
                 />
                 <p className="text-on-surface-variant text-body-md mb-2">
-                  Tu biblioteca esta vacia.
+                  Tu biblioteca está vacía.
                 </p>
                 <p className="text-on-surface-variant text-body-sm mb-6">
                   Explora el catálogo y adquiere tu primer libro.

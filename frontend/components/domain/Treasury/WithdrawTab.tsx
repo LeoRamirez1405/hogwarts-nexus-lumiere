@@ -26,7 +26,7 @@ export function WithdrawTab({ balance, onDone, applyOptimisticBalance, onErrorRo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!parsed || parsed <= 0 || !Number.isInteger(parsed)) {
-      setError("Ingrese una cantidad valida");
+      setError("Ingrese una cantidad válida");
       return;
     }
     if (insufficient) {
@@ -34,11 +34,11 @@ export function WithdrawTab({ balance, onDone, applyOptimisticBalance, onErrorRo
       return;
     }
     if (!description.trim()) {
-      setError("La descripcion es obligatoria");
+      setError("La descripción es obligatoria");
       return;
     }
     if (description.length > 500) {
-      setError("La descripcion no puede exceder 500 caracteres");
+      setError("La descripción no puede exceder 500 caracteres");
       return;
     }
     if (!confirming) {
@@ -105,7 +105,7 @@ export function WithdrawTab({ balance, onDone, applyOptimisticBalance, onErrorRo
         <div className="flex items-center gap-3 bg-error/10 rounded-xl px-6 py-3">
           <MaterialIcon name="warning" className="text-error text-xl" />
           <span className="text-error text-body-md">
-            Ingresa una cantidad valida mayor a 0.
+            Ingresa una cantidad válida mayor a 0.
           </span>
         </div>
       )}
@@ -114,7 +114,7 @@ export function WithdrawTab({ balance, onDone, applyOptimisticBalance, onErrorRo
         <input
           type="text"
           maxLength={500}
-          placeholder="Descripcion"
+          placeholder="Descripción"
           value={description}
           onChange={(e) => {
             setDescription(e.target.value);
@@ -149,7 +149,7 @@ export function WithdrawTab({ balance, onDone, applyOptimisticBalance, onErrorRo
                 icon="diamond"
                 disabled={submitting}
               >
-                {submitting ? "Retirando..." : "Sí, confirmar"}
+                {submitting ? "Retirando..." : "Sí"}
               </Button>
               <Button
                 type="button"

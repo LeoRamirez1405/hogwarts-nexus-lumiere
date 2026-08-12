@@ -52,12 +52,12 @@ export default function SafetyNumberDialog({
   };
 
   return (
-    <Modal open={open} onClose={handleClose} title="Numero de seguridad" size="sm">
+    <Modal open={open} onClose={handleClose} title="Número de seguridad" size="sm">
       <div className="space-y-4">
         <p className="text-body-sm text-on-surface-variant">
-          Verifica el numero de seguridad con{" "}
+          Verifica el número de seguridad con{" "}
           <span className="font-semibold text-on-surface">{remoteUserName}</span>{" "}
-          para confirmar que la conversacion es privada y no ha sido interceptada.
+          para confirmar que la conversación es privada y no ha sido interceptada.
         </p>
 
         {loading ? (
@@ -85,18 +85,18 @@ export default function SafetyNumberDialog({
                 className="w-full"
                 icon="verified"
               >
-                Verificar numero
+                Verificar número
               </Button>
             )}
 
             <p className="text-xs text-on-surface-variant text-center">
-              Compara este numero con {remoteUserName} en persona o por otra via verificada.
+              Compara este número con {remoteUserName} en persona o por otra vía verificada.
             </p>
           </>
         ) : (
           <div className="text-center py-8 text-on-surface-variant">
             <MaterialIcon name="error" className="text-[2em] mx-auto mb-2" />
-            <p className="text-body-sm">No se pudo cargar el numero de seguridad</p>
+            <p className="text-body-sm">No se pudo cargar el número de seguridad</p>
           </div>
         )}
       </div>

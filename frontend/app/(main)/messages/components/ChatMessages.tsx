@@ -174,7 +174,7 @@ export default function ChatMessages({
                   No hay mensajes aún
                 </p>
                 <p className="text-on-surface-variant/60 text-label-sm mt-1">
-                  Envia el primer mensaje
+                  Envía el primer mensaje
                 </p>
               </div>
             ),
@@ -217,7 +217,7 @@ export default function ChatMessages({
         <button
           onClick={onScrollToBottom}
           className="absolute bottom-4 right-4 z-20 w-11 h-11 flex items-center justify-center rounded-full bg-surface-container-highest shadow-lg border border-outline-variant/20 text-on-surface hover:bg-surface-container-high transition-colors"
-          title="Ir al ultimo mensaje"
+          title="Ir al último mensaje"
         >
           <MaterialIcon name="keyboard_arrow_down" className="text-2xl" />
           {newCount > 0 && (

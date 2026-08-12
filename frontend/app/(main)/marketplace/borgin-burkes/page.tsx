@@ -354,7 +354,7 @@ export default function BorginBurkesPage() {
                   className="text-surface-dim text-6xl block mb-4"
                 />
                 <p className="text-surface-dim text-body-md mb-2">
-                  Tu coleccion esta vacia.
+                  Tu colección está vacía.
                 </p>
                 <p className="text-surface-dim text-body-sm mb-6">
                   Explora el catálogo y adquiere tu primer artefacto.

@@ -47,7 +47,7 @@ export function SavedArticlesSection({
             No tienes artículos guardados aún.
           </p>
           <p className="text-on-surface-variant text-body-sm">
-            Usa el boton de guardar en cualquier artículo para verlo aqui.
+            Usa el botón de guardar en cualquier artículo para verlo aquí.
           </p>
         </GlassCard>
       ) : (

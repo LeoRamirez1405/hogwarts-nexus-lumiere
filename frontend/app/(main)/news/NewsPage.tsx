@@ -131,7 +131,7 @@ export default function NewsPage() {
       />
 
       {activeTab === "news" && (articlesLoading ? (
-        <SectionLoading label="Cargando edicion..." />
+        <SectionLoading label="Cargando edición..." />
       ) : (
         <>
           {/* ===== DESKTOP: FEATURED + SIDEBAR ===== */}

@@ -93,7 +93,7 @@ export function useMembersModal({
         setRoomMembers(members);
         setSelectedMembers(members.map((m) => m.user_id));
       } catch (e) {
-        toastError("No se pudo cargar la informacion del grupo", e);
+        toastError("No se pudo cargar la información del grupo", e);
         setSelectedMembers([]);
         setRoomMembers([]);
       }

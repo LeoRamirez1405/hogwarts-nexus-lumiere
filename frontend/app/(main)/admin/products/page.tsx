@@ -342,11 +342,11 @@ export default function AdminProductsPage() {
                   firstInput
                 />
               </FormField>
-              <FormField label="Descripcion" required>
+              <FormField label="Descripción" required>
                 <TextareaField
                   value={form.description}
                   onChange={(v: string) => setForm((p) => ({ ...p, description: v }))}
-                  placeholder="Descripcion del producto..."
+                  placeholder="Descripción del producto..."
                 />
               </FormField>
               <div className="grid grid-cols-2 gap-4">
@@ -396,8 +396,8 @@ export default function AdminProductsPage() {
                     required
                     helpText={
                       form.specification_placeholder.trim()
-                        ? `Se mostrara al comprador: "${form.specification_placeholder.trim()}"`
-                        : "Ej: 'Especifica el nombre de la cancion', 'Indica el numero de foto del catalogo', 'Escribe el nombre del alumno'"
+                        ? `Se mostrará al comprador: "${form.specification_placeholder.trim()}"`
+                        : "Ej: 'Especifica el nombre de la canción', 'Indica el número de foto del catálogo', 'Escribe el nombre del alumno'"
                     }
                   >
                     <InputField
@@ -405,12 +405,12 @@ export default function AdminProductsPage() {
                       onChange={(v: string) =>
                         setForm((p) => ({ ...p, specification_placeholder: v }))
                       }
-                      placeholder="Especifica el nombre de la cancion"
+                      placeholder="Especifica el nombre de la canción"
                     />
                   </FormField>
                   <p className="text-label-sm text-on-surface-variant">
-                    Todos los productos de Flourish & Blotts requieren especificacion del comprador.
-                    La especificacion se pide al agregar al carrito y el administrador la ve en Consumicion.
+                    Todos los productos de Flourish & Blotts requieren especificación del comprador.
+                    La especificación se pide al agregar al carrito y el administrador la ve en Consumición.
                   </p>
                 </>
               )}

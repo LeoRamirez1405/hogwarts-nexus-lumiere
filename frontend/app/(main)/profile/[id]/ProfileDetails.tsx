@@ -183,7 +183,7 @@ export default function ProfileDetails({
                 } ${isAdmin ? "cursor-pointer hover:text-primary transition-colors" : ""}`}
                 onClick={isAdmin ? () => setEditingTitle(true) : undefined}
               >
-                {profile.official_title || "Sin titulo oficial"}
+                {profile.official_title || "Sin título oficial"}
               </span>
             )}
             {isAdmin && profile.official_title && (

@@ -21,7 +21,7 @@ export function MobileFeaturedCard({ article }: MobileFeaturedCardProps) {
           className="text-5xl text-outline-variant mb-3"
         />
         <p className="text-on-surface-variant text-body-md">
-          Sin edicion hoy
+          Sin edición hoy
         </p>
       </GlassCard>
     );
