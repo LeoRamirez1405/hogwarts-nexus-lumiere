@@ -38,6 +38,12 @@ class N:
     POST_REPOST = "post_repost"
     POST_MENTION = "post_mention"
     POST_REPLY = "post_reply"
+    # Reactions (emoji)
+    POST_REACTION = "post_reaction"
+    POST_COMMENT_REACTION = "post_comment_reaction"
+    FORUM_REACTION = "forum_reaction"
+    FORUM_COMMENT_REACTION = "forum_comment_reaction"
+    ARTICLE_COMMENT_REACTION = "article_comment_reaction"
     # Messaging
     DM_MESSAGE = "dm_message"
     MENTION = "mention"  # existing: mention inside a chat room

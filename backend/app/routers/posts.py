@@ -231,6 +231,19 @@ async def toggle_repost(
     return await build_post_response(db, post, current_user)
 
 
+@router.get("/{post_id}", response_model=PostResponse)
+async def get_post(
+    post_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(Post).where(Post.id == post_id))
+    post = result.scalar_one_or_none()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return await build_post_response(db, post, current_user)
+
+
 @router.get("/{post_id}/comments", response_model=List[CommentResponse])
 async def list_comments(
     post_id: str,
@@ -325,7 +338,7 @@ async def create_comment(
     )
     # Friends see every public activity of their friends (social feed).
     await notify_friend_comment(
-        db, current_user, body=body, exclude_ids={post.author_id, *reply_targets}
+        db, current_user, body=body, related_id=post_id, exclude_ids={post.author_id, *reply_targets}
     )
     for mentioned in await resolve_mentions(db, body):
         if mentioned.id == post.author_id:

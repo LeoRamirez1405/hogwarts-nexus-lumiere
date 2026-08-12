@@ -4,26 +4,19 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { api, Article, ArticleComment } from "@/lib/api";
-import { GlassCard, Badge, Button, Avatar, MaterialIcon, ReactionBar } from "@/components/ui";
+import { api, Post, PostComment } from "@/lib/api";
+import { postsApi } from "@/lib/api/posts";
+import { GlassCard, Badge, Button, Avatar, MaterialIcon } from "@/components/ui";
 import {
   CommentThread,
   countComments,
   appendReply,
 } from "@/components/domain/comments/CommentThread";
 import { useAuthStore } from "@/lib/authStore";
-import { toastError, toastSuccess } from "@/lib/toastStore";
+import { toastError } from "@/lib/toastStore";
 import { isStoredUpload } from "@/lib/media";
 import { hapticLight, hapticSelection } from "@/lib/haptics";
 import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("es-ES", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
 
 function timeAgo(dateStr: string): string {
   const d = new Date(dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr + "Z");
@@ -41,19 +34,18 @@ function isLocalUpload(src?: string): boolean {
   return isStoredUpload(src);
 }
 
-export default function ArticleDetailPage() {
+export default function PostDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { user: authUser } = useAuthStore();
 
-  const [article, setArticle] = useState<Article | null>(null);
-  const [related, setRelated] = useState<Article[]>([]);
+  const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
-  const [comments, setComments] = useState<ArticleComment[]>([]);
+  const [comments, setComments] = useState<PostComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [posting, setPosting] = useState(false);
-  const [subscribed, setSubscribed] = useState(false);
-  const [subscribing, setSubscribing] = useState(false);
+  const [liking, setLiking] = useState(false);
+  const [reposting, setReposting] = useState(false);
   const {
     textareaRef: commentRef,
     height: commentHeight,
@@ -65,31 +57,20 @@ export default function ArticleDetailPage() {
     (async () => {
       setLoading(true);
       try {
-        const found = await api.getArticle(params.id);
+        const found = await api.getPost(params.id);
         if (cancelled) return;
-        setArticle(found);
-        setSubscribed(found.subscribed ?? false);
+        setPost(found);
         try {
-          const [cs, relatedPage] = await Promise.all([
-            api.getArticleComments(found.id),
-            api.getArticles({
-              category: found.category ?? "",
-              limit: "4",
-              offset: "0",
-            }),
-          ]);
+          const cs = await postsApi.getComments(found.id);
           if (cancelled) return;
           setComments(cs);
-          setRelated(
-            relatedPage.items.filter((a) => a.id !== found.id).slice(0, 3)
-          );
         } catch (e) {
           if (!cancelled) toastError("No se pudieron cargar los comentarios", e);
         }
       } catch (e) {
         if (!cancelled) {
-          toastError("No se pudo abrir el articulo", e);
-          router.push("/news");
+          toastError("No se pudo abrir la publicacion", e);
+          router.push("/profile");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -100,48 +81,56 @@ export default function ArticleDetailPage() {
     };
   }, [params.id, router]);
 
-  const handleSubscribe = async () => {
-    if (!authUser || subscribing || !article) return;
-    setSubscribing(true);
+  const handleLike = async () => {
+    if (!authUser || liking || !post) return;
+    hapticSelection();
+    setLiking(true);
     try {
-      if (subscribed) {
-        await api.unsubscribeArticle(article.id);
-        toastSuccess("Guardado eliminado");
-      } else {
-        await api.subscribeArticle(article.id);
-        toastSuccess("Guardado en tu Quisquilloso");
-      }
-      setSubscribed((v) => !v);
-      setArticle((a) => (a ? { ...a, subscribed: !a.subscribed } : null));
+      const updated = await postsApi.likePost(post.id);
+      setPost(updated);
     } catch (e) {
-      toastError("No se pudo cambiar la suscripcion", e);
+      toastError("No se pudo dar like", e);
     } finally {
-      setSubscribing(false);
+      setLiking(false);
+    }
+  };
+
+  const handleRepost = async () => {
+    if (!authUser || reposting || !post) return;
+    hapticSelection();
+    setReposting(true);
+    try {
+      const updated = await postsApi.repostPost(post.id);
+      setPost(updated);
+    } catch (e) {
+      toastError("No se pudo compartir", e);
+    } finally {
+      setReposting(false);
     }
   };
 
   const handleSubmitComment = async () => {
-    if (!newComment.trim() || !authUser || !article || posting) return;
+    if (!newComment.trim() || !authUser || !post || posting) return;
     hapticLight();
     setPosting(true);
     try {
-      const created = await api.createArticleComment(article.id, newComment.trim());
+      const created = await postsApi.addComment(post.id, newComment.trim());
       setComments((prev) => [created, ...prev]);
       setNewComment("");
     } catch (e) {
-      toastError("No se pudo enviar tu carta", e);
+      toastError("No se pudo enviar tu comentario", e);
     } finally {
       setPosting(false);
     }
   };
 
   const handleReply = async (parentId: string, text: string) => {
-    if (!article) throw new Error("Articulo no cargado");
-    const created = await api.createArticleComment(article.id, text, parentId);
+    if (!post) throw new Error("Publicacion no cargada");
+    const created = await postsApi.addComment(post.id, text, parentId);
     setComments((prev) => appendReply(prev, parentId, created));
   };
 
-  if (loading || !article) {
+  if (loading || !post) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
         <MaterialIcon
@@ -149,7 +138,7 @@ export default function ArticleDetailPage() {
           className="text-5xl text-outline-variant animate-spin mb-3"
         />
         <p className="text-on-surface-variant text-body-md">
-          Abriendo edicion...
+          Abriendo publicacion...
         </p>
       </div>
     );
@@ -159,77 +148,69 @@ export default function ArticleDetailPage() {
     <div className="pb-16 space-y-8">
       {/* Back link */}
       <button
-        onClick={() => router.push("/news")}
+        onClick={() => router.push("/profile")}
         className="inline-flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors"
       >
         <MaterialIcon name="arrow_back" className="text-xl" />
-        <span className="text-body-md">Volver al Quisquilloso</span>
+        <span className="text-body-md">Volver al perfil</span>
       </button>
 
-      {/* Article header */}
+      {/* Post header */}
       <article className="max-w-3xl mx-auto">
-        <div className="quibbler-border py-3 mb-6 text-center">
-          <p className="text-label-sm tracking-[0.2em] text-on-surface-variant uppercase">
-            El Quisquilloso &middot; {formatDate(article.created_at)}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 mb-4 justify-center">
+        <div className="flex items-center justify-center gap-2 mb-4">
           <Badge variant="tag" color="secondary">
-            {article.category}
+            Publicacion
           </Badge>
-          {article.featured && (
+          {post.is_repost && (
             <Badge variant="rarity" color="secondary">
-              Exclusivo
+              Repost
             </Badge>
           )}
         </div>
 
-        <h1 className="font-display text-headline-lg md:text-display-lg text-on-surface leading-tight text-center mb-6">
-          {article.title}
-        </h1>
-
-        {article.author && (
+        {post.author && (
           <Link
-            href={`/profile/${article.author.id}`}
+            href={`/profile/${post.author.id}`}
             className="flex items-center justify-center gap-3 mb-8 hover:opacity-80 transition-opacity"
           >
             <Avatar
-              src={article.author.avatar_url}
-              alt={article.author.name}
+              src={post.author.avatar_url}
+              alt={post.author.name}
               size="sm"
-              initials={article.author.name
+              initials={post.author.name
                 .split(" ")
                 .map((n) => n[0])
                 .join("")}
             />
             <div className="text-left">
               <p className="text-body-md font-semibold text-on-surface hover:text-primary transition-colors">
-                {article.author.name}
+                {post.author.name}
               </p>
               <p className="text-label-sm text-on-surface-variant">
-                Corresponsal &middot; {timeAgo(article.created_at)}
+                {post.is_repost && post.reposted_by
+                  ? `Reposteado por ${post.reposted_by.name} &middot; {timeAgo(post.reposted_at!)}`
+                  : `Publicado &middot; {timeAgo(post.created_at)}`}
               </p>
             </div>
           </Link>
         )}
 
-        {article.image_url && (
+        {post.image_url && (
           <div className="relative h-72 md:h-96 rounded-2xl overflow-hidden mb-8">
             <Image
-              src={article.image_url}
-              alt={article.title}
+              src={post.image_url}
+              alt="Imagen de la publicacion"
               fill
               priority
               sizes="(max-width: 768px) 100vw, 768px"
               className="object-cover"
-              unoptimized={isLocalUpload(article.image_url)}
+              unoptimized={isLocalUpload(post.image_url)}
             />
           </div>
         )}
 
         <div className="prose prose-lg max-w-none">
-          {article.body.split("\n").map((para, i) => (
+          {post.body.split("\n").map((para, i) => (
             <p
               key={i}
               className="text-body-md text-on-surface-variant leading-relaxed mb-4 first-letter:font-display first-letter:text-4xl first-letter:text-secondary first-letter:mr-1 first-letter:float-left first-letter:leading-none"
@@ -239,7 +220,7 @@ export default function ArticleDetailPage() {
           ))}
         </div>
 
-        {/* Article actions */}
+        {/* Post actions */}
         <div className="flex items-center justify-between mt-8 pt-6 border-t border-outline-variant/20">
           <div className="flex items-center gap-2">
             <button
@@ -247,8 +228,8 @@ export default function ArticleDetailPage() {
                 hapticSelection();
                 if (typeof navigator !== "undefined" && navigator.share) {
                   navigator.share({
-                    title: article?.title ?? "Hogwarts Nexus",
-                    text: `Lee "${article?.title}" en Hogwarts Nexus`,
+                    title: "Hogwarts Nexus",
+                    text: `Lee esta publicacion en Hogwarts Nexus`,
                     url: window.location.href,
                   }).catch(() => {
                     /* user cancelled — do nothing */
@@ -266,36 +247,40 @@ export default function ArticleDetailPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button
+              variant={post.liked_by_me ? "primary" : "ghost"}
+              size="sm"
+              icon="favorite"
+              onClick={handleLike}
+              disabled={liking || !authUser}
+            >
+              {post.likes_count ?? 0}
+            </Button>
+            <Button
+              variant={post.reposted_by_me ? "primary" : "ghost"}
+              size="sm"
+              icon="repeat"
+              onClick={handleRepost}
+              disabled={reposting || !authUser}
+            >
+              {post.reposts_count ?? 0}
+            </Button>
+            <Button
               variant="ghost"
               size="sm"
-              icon={subscribed ? "bookmark" : "bookmark_add"}
-              onClick={handleSubscribe}
-              disabled={subscribing || !authUser}
+              icon="comment"
+              disabled={!authUser}
             >
-              {subscribed ? "Guardado" : "Guardar"}
+              {post.comments_count ?? 0}
             </Button>
-            {authUser && article && (
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={subscribed ? "notifications_off" : "notifications_active"}
-                onClick={handleSubscribe}
-                disabled={subscribing}
-              >
-                {subscribed ? "Suscrito" : "Suscribirse"}
-              </Button>
-            )}
           </div>
         </div>
-
-        <ReactionBar targetType="article" targetId={article.id} className="mt-4" />
       </article>
 
       {/* Comments */}
       <section className="max-w-3xl mx-auto">
         <h2 className="font-display text-headline-lg text-on-surface mb-4 flex items-center gap-2">
           <MaterialIcon name="comment" className="text-secondary" filled />
-          Cartas al Director ({countComments(comments)})
+          Comentarios ({countComments(comments)})
         </h2>
 
         {authUser && (
@@ -316,7 +301,7 @@ export default function ArticleDetailPage() {
                   style={{ height: commentHeight }}
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Escribe tu carta..."
+                  placeholder="Escribe un comentario..."
                   className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-body-md text-on-surface outline-none focus:border-primary transition-colors resize-none"
                 />
                 <div className="flex justify-end mt-2">
@@ -340,34 +325,9 @@ export default function ArticleDetailPage() {
           currentUser={authUser}
           onReply={handleReply}
           timeAgo={timeAgo}
-          reactionTargetType="article_comment"
+          reactionTargetType="post_comment"
         />
       </section>
-
-      {/* Related */}
-      {related.length > 0 && (
-        <section className="max-w-4xl mx-auto">
-          <h2 className="font-display text-headline-lg text-on-surface mb-4 flex items-center gap-2">
-            <MaterialIcon name="auto_stories" className="text-primary" filled />
-            Mas de {article.category}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {related.map((a) => (
-              <Link key={a.id} href={`/news/${a.id}`} className="block group">
-                <GlassCard className="p-5 h-full" hover>
-                  <Badge variant="tag">{a.category}</Badge>
-                  <h3 className="font-display text-title-md text-on-surface mt-2 leading-snug group-hover:text-primary transition-colors">
-                    {a.title}
-                  </h3>
-                  <p className="text-label-sm text-on-surface-variant mt-2 line-clamp-2">
-                    {a.body.slice(0, 120)}...
-                  </p>
-                </GlassCard>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

@@ -50,6 +50,10 @@ export const notificationsApi = {
   }) =>
     request<{ updated: number }>("/notifications/read-by-reference", {
       method: "POST",
-      body: JSON.stringify(ref),
+      body: JSON.stringify({
+        types: ref.types,
+        related_id: ref.relatedId,
+        related_prefix: ref.relatedPrefix,
+      }),
     }),
 };

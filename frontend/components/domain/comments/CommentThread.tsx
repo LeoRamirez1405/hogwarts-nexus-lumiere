@@ -2,8 +2,8 @@
 
 import { memo, useState } from "react";
 import Link from "next/link";
-import { Avatar, MaterialIcon } from "@/components/ui";
-import type { User } from "@/lib/api";
+import { Avatar, MaterialIcon, ReactionBar } from "@/components/ui";
+import type { User, ReactionTargetType } from "@/lib/api";
 import { toastError } from "@/lib/toastStore";
 import { hapticLight } from "@/lib/haptics";
 
@@ -55,6 +55,7 @@ interface CommentNodeProps {
   onReply: (parentId: string, body: string) => Promise<void>;
   timeAgo: (dateStr: string) => string;
   depth?: number;
+  reactionTargetType?: ReactionTargetType;
 }
 
 function CommentNode({
@@ -63,6 +64,7 @@ function CommentNode({
   onReply,
   timeAgo,
   depth = 0,
+  reactionTargetType,
 }: CommentNodeProps) {
   const [replying, setReplying] = useState(false);
   const [replyText, setReplyText] = useState("");
@@ -129,6 +131,13 @@ function CommentNode({
               Responder
             </button>
           )}
+          {reactionTargetType && (
+            <ReactionBar
+              targetType={reactionTargetType}
+              targetId={comment.id}
+              className="mt-1"
+            />
+          )}
           {replying && (
             <div className="mt-2 flex items-start gap-2">
               <Avatar
@@ -177,6 +186,7 @@ function CommentNode({
               onReply={onReply}
               timeAgo={timeAgo}
               depth={depth + 1}
+              reactionTargetType={reactionTargetType}
             />
           ))}
         </div>
@@ -190,6 +200,7 @@ interface CommentThreadProps {
   currentUser?: User | null;
   onReply: (parentId: string, body: string) => Promise<void>;
   timeAgo: (dateStr: string) => string;
+  reactionTargetType?: ReactionTargetType;
 }
 
 /** Recursive threaded comments with inline reply composer.
@@ -202,6 +213,7 @@ export const CommentThread = memo(function CommentThread({
   currentUser,
   onReply,
   timeAgo,
+  reactionTargetType,
 }: CommentThreadProps) {
   if (comments.length === 0) {
     return (
@@ -219,6 +231,7 @@ export const CommentThread = memo(function CommentThread({
           currentUser={currentUser}
           onReply={onReply}
           timeAgo={timeAgo}
+          reactionTargetType={reactionTargetType}
         />
       ))}
     </div>

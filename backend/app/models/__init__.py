@@ -41,6 +41,7 @@ from .push_subscription import PushSubscription
 from .catalog import Catalog
 from .catalog_item import CatalogItem
 from .catalog_item_favorite import CatalogItemFavorite
+from .reaction import Reaction
 
 __all__ = [
     "User",
@@ -99,4 +100,5 @@ __all__ = [
     "Catalog",
     "CatalogItem",
     "CatalogItemFavorite",
+    "Reaction",
 ]

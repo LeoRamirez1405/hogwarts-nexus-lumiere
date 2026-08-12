@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api, ForumThread, ForumComment } from "@/lib/api";
-import { GlassCard, Badge, Button, Avatar, MaterialIcon } from "@/components/ui";
+import { GlassCard, Badge, Button, Avatar, MaterialIcon, ReactionBar } from "@/components/ui";
 import {
   CommentThread,
   countComments,
@@ -206,7 +206,7 @@ export default function ThreadDetailPage() {
               ))}
             </div>
             {authUser && (
-              <div className="mt-4 pt-4 border-t border-outline-variant/20">
+              <div className="mt-4 pt-4 border-t border-outline-variant/20 flex items-center gap-3">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -216,6 +216,12 @@ export default function ThreadDetailPage() {
                 >
                   {thread.subscribed ? "Suscrito" : "Suscribirse"}
                 </Button>
+                <ReactionBar targetType="forum_thread" targetId={thread.id} />
+              </div>
+            )}
+            {!authUser && (
+              <div className="mt-4 pt-4 border-t border-outline-variant/20">
+                <ReactionBar targetType="forum_thread" targetId={thread.id} />
               </div>
             )}
           </div>
@@ -273,6 +279,7 @@ export default function ThreadDetailPage() {
             currentUser={authUser}
             onReply={handleReply}
             timeAgo={timeAgo}
+            reactionTargetType="forum_comment"
           />
           {comments.length === 0 && (
             <GlassCard className="p-8 text-center">

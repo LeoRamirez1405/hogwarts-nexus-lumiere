@@ -21,6 +21,7 @@ import { auditLogsApi } from "./admin/auditLogs";
 import { dashboardApi } from "./admin/dashboard";
 import { consumicionApi } from "./consumicion";
 import { catalogsApi } from "./catalogs";
+import { reactionsApi } from "./reactions";
 
 export const api = {
   ...authApi,
@@ -44,6 +45,7 @@ export const api = {
   ...dashboardApi,
   ...consumicionApi,
   ...catalogsApi,
+  ...reactionsApi,
 };
 
 export { request, uploadFile };
@@ -65,3 +67,4 @@ export * from "./e2e";
 export * from "./admin";
 export * from "./consumicion";
 export * from "./catalogs";
+export * from "./reactions";

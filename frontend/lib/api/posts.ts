@@ -70,4 +70,7 @@ export const postsApi = {
       method: "POST",
       body: JSON.stringify({ body, parent_id: parentId ?? null }),
     }),
+
+  getPost: (postId: string) =>
+    request<Post>(`/posts/${postId}`),
 };

@@ -30,3 +30,5 @@ export { default as ContextMenu } from "./ContextMenu";
 export { default as Popover } from "./Popover";
 export { NumberStepper } from "./NumberStepper";
 export { VirtualizedList } from "./VirtualizedGrid";
+export { ReactionBar } from "./ReactionBar";
+export { useReactions } from "./useReactions";

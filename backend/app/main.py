@@ -12,7 +12,7 @@ from brotli_asgi import BrotliMiddleware
 from .config import settings
 from .rate_limit import limiter
 from .database import init_db
-from .routers import auth, users, products, articles, creatures, messages, posts, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, ws_messages, push, voice_channels, e2e_encryption, events, catalogs
+from .routers import auth, users, products, articles, creatures, messages, posts, reactions, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, ws_messages, push, voice_channels, e2e_encryption, events, catalogs
 from .routers.admin import users as admin_users
 from .routers.admin import products as admin_products
 from .routers.admin import creatures as admin_creatures
@@ -104,6 +104,7 @@ app.include_router(messages.router, prefix="/messages", tags=["messages"])
 app.include_router(ws_messages.router, prefix="/messages", tags=["messages"])
 app.include_router(voice_channels.ws_router, prefix="/messages", tags=["voice"])
 app.include_router(posts.router, prefix="/posts", tags=["posts"])
+app.include_router(reactions.router, prefix="/reactions", tags=["reactions"])
 app.include_router(transactions.router, prefix="/transactions", tags=["transactions"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(friend_requests.router, prefix="/friend-requests", tags=["friend-requests"])

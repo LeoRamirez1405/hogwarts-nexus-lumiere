@@ -121,6 +121,7 @@ export const CommentSection = memo(function CommentSection({
           currentUser={currentUser}
           onReply={handleReply}
           timeAgo={timeAgo}
+          reactionTargetType="post_comment"
         />
       )}
       <div className="flex items-start gap-2 relative">
