@@ -27,6 +27,8 @@ export default function BottomSheet({
   showTitle = true,
 }: BottomSheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const wasAtTopRef = useRef(true);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const [visible, setVisible] = useState(false);
@@ -36,6 +38,7 @@ export default function BottomSheet({
 
   const swipeHandlers = useSwipeable({
     onSwipeDown: () => {
+      if (!wasAtTopRef.current) return;
       setAnimOut(true);
       setTimeout(() => {
         setAnimOut(false);
@@ -146,10 +149,18 @@ export default function BottomSheet({
           transform: open && !animOut ? "translateY(0)" : "translateY(100%)",
         }}
         onClick={(e) => e.stopPropagation()}
-        onTouchStart={swipeHandlers.onTouchStart}
+        onTouchStart={(e) => {
+          const scroller = scrollRef.current;
+          wasAtTopRef.current = !scroller || scroller.scrollTop <= 0;
+          swipeHandlers.onTouchStart(e);
+        }}
         onTouchMove={swipeHandlers.onTouchMove}
         onTouchEnd={swipeHandlers.onTouchEnd}
-        onMouseDown={swipeHandlers.onMouseDown}
+        onMouseDown={(e) => {
+          const scroller = scrollRef.current;
+          wasAtTopRef.current = !scroller || scroller.scrollTop <= 0;
+          swipeHandlers.onMouseDown(e);
+        }}
         onMouseMove={swipeHandlers.onMouseMove}
         onMouseUp={swipeHandlers.onMouseUp}
         onMouseLeave={swipeHandlers.onMouseLeave}
@@ -176,7 +187,7 @@ export default function BottomSheet({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-6 pb-6 no-scrollbar">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 pb-6 no-scrollbar">
           {children}
         </div>
       </div>

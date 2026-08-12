@@ -114,22 +114,22 @@ export const MyPetDetailContent = memo(function MyPetDetailContent({
         {onFeed || onPlay ? (
           <div className="flex gap-3 pt-2 border-t border-outline-variant/30">
             {onFeed && (
-              <Button
+              <button
                 onClick={onFeed}
-                className="flex-1 flex items-center justify-center gap-2 border border-success text-success hover:bg-success hover:text-on-success"
+                className="flex-1 flex items-center justify-center gap-2 border rounded-xl py-2 text-label-sm font-bold transition-all active:scale-95 border-success text-success hover:bg-success hover:text-on-success"
               >
                 <MaterialIcon name="restaurant" className="text-[1.1em]" />
                 Alimentar
-              </Button>
+              </button>
             )}
             {onPlay && (
-              <Button
+              <button
                 onClick={onPlay}
-                className="flex-1 flex items-center justify-center gap-2 border border-primary text-primary hover:bg-primary hover:text-on-primary"
+                className="flex-1 flex items-center justify-center gap-2 border rounded-xl py-2 text-label-sm font-bold transition-all active:scale-95 border-primary text-primary hover:bg-primary hover:text-on-primary"
               >
                 <MaterialIcon name="sports_esports" className="text-[1.1em]" />
                 Jugar
-              </Button>
+              </button>
             )}
           </div>
         ) : onGoToShop ? (

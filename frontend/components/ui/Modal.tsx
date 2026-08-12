@@ -39,6 +39,7 @@ export default function Modal({
   showTitle = true,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const wasAtTopRef = useRef(true);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const { keyboardHeight, isKeyboardOpen } = useVisualViewport();
@@ -80,7 +81,10 @@ export default function Modal({
   );
 
   const swipeHandlers = useSwipeable({
-    onSwipeDown: onClose,
+    onSwipeDown: () => {
+      if (!wasAtTopRef.current) return;
+      onClose();
+    },
     threshold: 80,
     disabled: !swipeToDismiss,
   });
@@ -139,10 +143,16 @@ export default function Modal({
         className={`w-full glass-card glass-card--white ${sizeClasses[size]} rounded-2xl shadow-2xl overflow-y-auto outline-none ${className}`}
         style={{ maxHeight }}
         onClick={(e) => e.stopPropagation()}
-        onTouchStart={swipeHandlers.onTouchStart}
+        onTouchStart={(e) => {
+          wasAtTopRef.current = (dialogRef.current?.scrollTop ?? 0) <= 0;
+          swipeHandlers.onTouchStart(e);
+        }}
         onTouchMove={swipeHandlers.onTouchMove}
         onTouchEnd={swipeHandlers.onTouchEnd}
-        onMouseDown={swipeHandlers.onMouseDown}
+        onMouseDown={(e) => {
+          wasAtTopRef.current = (dialogRef.current?.scrollTop ?? 0) <= 0;
+          swipeHandlers.onMouseDown(e);
+        }}
         onMouseMove={swipeHandlers.onMouseMove}
         onMouseUp={swipeHandlers.onMouseUp}
         onMouseLeave={swipeHandlers.onMouseLeave}
