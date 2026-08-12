@@ -126,6 +126,11 @@ async def update_user(
     for key, value in update_dict.items():
         setattr(user, key, value)
 
+    if not user.profile_completed_at and all(
+        (user.bio, user.avatar_url, user.wand, user.house, user.location, user.status)
+    ):
+        user.profile_completed_at = datetime.utcnow()
+
     user.last_active_at = datetime.utcnow()
     await db.commit()
     await db.refresh(user)

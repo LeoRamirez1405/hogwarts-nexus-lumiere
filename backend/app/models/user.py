@@ -29,6 +29,8 @@ class User(Base):
     care_actions = Column(Integer, default=0, nullable=False)  # feeds + plays
     items_purchased = Column(Integer, default=0, nullable=False)  # pet item units bought
     sanctuary_penalty = Column(Integer, default=0, nullable=False)  # accumulated penalties from neglect
+    daily_logins = Column(Integer, default=0, nullable=False, server_default="0")  # distinct active days, feeds magic level XP
+    profile_completed_at = Column(DateTime, nullable=True)  # set once when profile is complete (one-time XP)
     receive_marketplace_notifications = Column(Boolean, default=True, nullable=False)  # admin: receive purchase alerts
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

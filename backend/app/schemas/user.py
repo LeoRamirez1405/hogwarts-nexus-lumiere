@@ -92,6 +92,8 @@ class UserResponse(BaseModel):
     official_title: Optional[str] = None
     last_active_at: Optional[datetime] = None
     magic_level: Optional[MagicLevelInfo] = None
+    daily_logins: int = 0
+    profile_completed_at: Optional[datetime] = None
     sanctuary_penalty: int = 0
     receive_marketplace_notifications: bool = True
     created_at: datetime
