@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import { isStoredUpload } from "@/lib/media";
 import { api, Product, EnumValue } from "@/lib/api";
-import { useCartStore } from "@/lib/cartStore";
+import { useFlourishCartStore } from "@/lib/cartStore";
 import { useAuthStore } from "@/lib/authStore";
 import { SearchBar, MaterialIcon, TabGroup, ListFooter, ErrorBoundary, Skeleton, DetailModal, PurchaseSuccessModal } from "@/components/ui";
 import { BookCard, HeroCarousel, CartSidebar, ProductDetailContent } from "@/components/domain/FlourishBlotts";
@@ -18,7 +18,7 @@ type SlideType = { type: "product"; product: Product } | { type: "info" };
 
 export default function FlourishBlottsPage() {
   const { user, setUser } = useAuthStore();
-  const { items, addItem, removeItem, clearCart, toggleCart, isOpen, getTotal, getCount } = useCartStore();
+  const { items, addItem, removeItem, clearCart, toggleCart, isOpen, getTotal, getCount } = useFlourishCartStore();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [activeFilter, setActiveFilter] = useState("Todos");

@@ -11,6 +11,7 @@ from ..models.transaction import Transaction
 from ..notifications_service import notify, N
 from ..schemas.product import (
     ProductResponse,
+    UserProductResponse,
     BatchPurchaseRequest,
     BatchPurchaseResponse,
     BatchPurchaseResultItem,
@@ -149,7 +150,7 @@ async def purchase_product(
     await db.refresh(product)
 
     # Notify admins of the marketplace purchase
-    from .models.user import User as UserModel
+    from ..models.user import User as UserModel
     admins_result = await db.execute(select(UserModel).where(UserModel.role == "admin"))
     admins = admins_result.scalars().all()
     shop_label = "Flourish & Blotts" if product.shop == "flourish" else "Borgin & Burkes"
@@ -296,7 +297,7 @@ async def batch_purchase(
         )
     )
     # Notify admins of the batch marketplace purchase - separate per shop
-    from .models.user import User as UserModel
+    from ..models.user import User as UserModel
     admins_result = await db.execute(select(UserModel).where(UserModel.role == "admin"))
     admins = admins_result.scalars().all()
     shop_names = {}
@@ -328,6 +329,7 @@ async def batch_purchase(
         total_spent=total,
         new_balance=current_user.zerines,
     )
+@router.get("/my-purchases", response_model=Page[UserProductResponse])
 async def my_purchases(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
