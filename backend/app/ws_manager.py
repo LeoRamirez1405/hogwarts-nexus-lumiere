@@ -160,7 +160,12 @@ class ConnectionManager:
     # Connection tracking                                                  #
     # ------------------------------------------------------------------ #
     async def connect(self, user_id: str, ws: WebSocket):
-        await ws.accept()
+        # The client sends the JWT as the Sec-WebSocket-Protocol subprotocol.
+        # Browsers REQUIRE the server to echo back one of the offered
+        # subprotocols in the 101 response — without it, Chrome/Firefox/Brave
+        # abort the handshake with a generic "WebSocket connection failed".
+        subprotocols = ws.scope.get("subprotocols") or []
+        await ws.accept(subprotocol=subprotocols[0] if subprotocols else None)
         self.active_connections[user_id] = ws
         self.user_rooms[user_id] = set()
 

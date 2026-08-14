@@ -9,7 +9,6 @@ peer-to-peer) topology — no SFU. Suitable for groups of up to 10 peers.
 
 import asyncio
 import json
-from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
@@ -32,6 +31,7 @@ from ..schemas.voice_channel import (
 )
 from ..schemas.user import UserResponse
 from ..ws_manager import manager
+from app.utils.dates import utcnow
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -319,7 +319,7 @@ async def join_voice_channel(
     participant = VoiceChannelParticipant(
         channel_id=channel_id,
         user_id=current_user.id,
-        joined_at=datetime.utcnow(),
+        joined_at=utcnow(),
     )
     db.add(participant)
     await db.commit()
@@ -440,7 +440,10 @@ async def voice_ws_endpoint(
         await websocket.close(code=4001, reason="Invalid token")
         return
 
-    await websocket.accept()
+    # Echo back the client's subprotocol (the JWT) so browsers don't abort
+    # the handshake — they require a Sec-WebSocket-Protocol in the 101 response.
+    subprotocols = websocket.scope.get("subprotocols") or []
+    await websocket.accept(subprotocol=subprotocols[0] if subprotocols else None)
     user_id = current_user.id
 
     channel_ids: set[str] = set()
