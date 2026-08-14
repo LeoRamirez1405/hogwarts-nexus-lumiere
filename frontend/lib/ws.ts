@@ -1,3 +1,5 @@
+import { attemptRefresh } from "@/lib/api/core/client";
+
 type WSListener<T = unknown> = (data: T) => void;
 
 interface WSMessage {
@@ -59,9 +61,19 @@ class WSClient {
   private initialized = false;
 
   private async fetchWSToken(): Promise<string> {
-    const res = await fetch(`${getApiBase()}/auth/ws-token`, {
+    let res = await fetch(`${getApiBase()}/auth/ws-token`, {
       credentials: "include",
     });
+
+    // The access cookie may have expired (7 days). Every other API call goes
+    // through `request()` which transparently refreshes it; retry here once
+    // after refreshing so the socket isn't stuck in a 401 reconnect loop.
+    if (res.status === 401 && (await attemptRefresh())) {
+      res = await fetch(`${getApiBase()}/auth/ws-token`, {
+        credentials: "include",
+      });
+    }
+
     if (!res.ok) {
       const err = new Error(`Failed to fetch WS token (${res.status})`);
       (err as Error & { status: number }).status = res.status;
