@@ -13,6 +13,11 @@ from .config import settings
 from .rate_limit import limiter
 from .database import init_db
 from .routers import auth, users, products, articles, creatures, messages, posts, reactions, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, ws_messages, push, voice_channels, e2e_encryption, events, catalogs
+from .routers.albums import catalog as albums_catalog
+from .routers.albums import collection as albums_collection
+from .routers.albums import gallery as albums_gallery
+from .routers.albums import stats as albums_stats
+from .routers import packs, roulette
 from .routers.admin import users as admin_users
 from .routers.admin import products as admin_products
 from .routers.admin import creatures as admin_creatures
@@ -29,12 +34,17 @@ from .routers.admin import audit_logs as admin_audit_logs
 from .routers.admin import notifications as admin_notifications
 from .routers.admin import inventory as admin_inventory
 from .routers.admin import catalogs as admin_catalogs
+from .routers.admin import albums as admin_albums
+from .routers.admin import packs as admin_packs
+from .routers.admin import roulette as admin_roulette
+from .routers.admin import rewards as admin_rewards
 from .models import friend_request  # noqa: F401
 from .retention import retention_loop, disappearing_loop
 from .pet_care import pet_care_loop
 from .scheduled_messages import scheduled_messages_loop
 from .event_reminders import event_reminders_loop
 from .mute_cleanup import mute_cleanup_loop
+from .album_closure import album_closure_loop
 
 
 @asynccontextmanager
@@ -47,6 +57,7 @@ async def lifespan(app: FastAPI):
     scheduled_task = asyncio.create_task(scheduled_messages_loop())
     event_reminders_task = asyncio.create_task(event_reminders_loop())
     mute_cleanup_task = asyncio.create_task(mute_cleanup_loop())
+    album_closure_task = asyncio.create_task(album_closure_loop())
     # Redis pub/sub bus so WebSocket delivery works across uvicorn workers.
     from .ws_manager import manager
     await manager.start()
@@ -59,6 +70,7 @@ async def lifespan(app: FastAPI):
         scheduled_task.cancel()
         event_reminders_task.cancel()
         mute_cleanup_task.cancel()
+        album_closure_task.cancel()
         await manager.shutdown()
 
 
@@ -97,6 +109,12 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(products.router, prefix="/products", tags=["products"])
 app.include_router(catalogs.router, prefix="/catalogs", tags=["catalogs"])
+app.include_router(albums_catalog.router, prefix="/albums", tags=["albums"])
+app.include_router(albums_collection.router, prefix="/albums", tags=["albums"])
+app.include_router(albums_gallery.router, prefix="/albums", tags=["albums"])
+app.include_router(albums_stats.router, prefix="/albums", tags=["albums"])
+app.include_router(packs.router, prefix="/packs", tags=["packs"])
+app.include_router(roulette.router, prefix="/roulette", tags=["roulette"])
 app.include_router(articles.router, prefix="/articles", tags=["articles"])
 app.include_router(creatures.router, prefix="/creatures", tags=["creatures"])
 app.include_router(pet_items.router, prefix="/pet-items", tags=["pet-items"])
@@ -119,6 +137,10 @@ app.include_router(feature_flags.router, prefix="/feature-flags", tags=["feature
 app.include_router(admin_users.router, tags=["admin-users"])
 app.include_router(admin_products.router, tags=["admin-products"])
 app.include_router(admin_catalogs.router, tags=["admin-catalogs"])
+app.include_router(admin_albums.router, tags=["admin-albums"])
+app.include_router(admin_packs.router, tags=["admin-packs"])
+app.include_router(admin_roulette.router, tags=["admin-roulette"])
+app.include_router(admin_rewards.router, tags=["admin-rewards"])
 app.include_router(admin_creatures.router, tags=["admin-creatures"])
 app.include_router(admin_articles.router, tags=["admin-articles"])
 app.include_router(admin_announcements.router, tags=["admin-announcements"])

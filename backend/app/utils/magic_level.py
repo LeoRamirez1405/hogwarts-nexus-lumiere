@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
@@ -12,11 +13,14 @@ from ..models.article_subscription import ArticleSubscription
 from ..models.forum import ForumThread, ForumThreadVote, ForumComment, ForumSubscription
 from ..models.message import Message, Poll, PollVote, MessageReaction
 from ..models.reaction import Reaction
+from ..models.collection import UserAlbumCompletion
 from ..models.transaction import Transaction
 from ..models.event import Event, EventRSVP, RSVPStatus
 from ..models.chat_room import ChatRoom
 from ..models.friend_request import FriendRequest
 from ..models.catalog_item_favorite import CatalogItemFavorite
+from ..models.roulette import RouletteSpin
+from app.utils.dates import utcnow
 
 LEVEL_NAMES = [
     "Aprendiz",
@@ -66,6 +70,7 @@ ACTIVITY_XP = {
     "rsvp_maybe": 1,
     "daily_login": 2,
     "profile_complete": 10,
+    "album_completed": 100,
 }
 
 SIMPLE_COUNT_MODELS = (
@@ -252,6 +257,36 @@ async def _batch_xp(db: AsyncSession, user_ids: List[str]) -> Dict[str, int]:
         if u.profile_completed_at:
             xp[u.id] += ACTIVITY_XP["profile_complete"]
 
+    # Albums completados: 100 XP por cada edicion cerrada (UserAlbumCompletion).
+    rows = (
+        await db.execute(
+            select(UserAlbumCompletion.user_id, func.count())
+            .where(UserAlbumCompletion.user_id.in_(user_ids))
+            .group_by(UserAlbumCompletion.user_id)
+        )
+    ).all()
+    for user_id, n in rows:
+        xp[user_id] += n * ACTIVITY_XP["album_completed"]
+
+    # Premios de XP de la ruleta: el monto viaja en result_json (prize "xp:N").
+    rows = (
+        await db.execute(
+            select(RouletteSpin.user_id, RouletteSpin.result_json).where(
+                RouletteSpin.user_id.in_(user_ids)
+            )
+        )
+    ).all()
+    for user_id, result_json in rows:
+        if not result_json:
+            continue
+        try:
+            data = json.loads(result_json)
+            prize = str(data.get("prize", ""))
+            if prize.startswith("xp:"):
+                xp[user_id] += max(0, int(prize.split(":")[1]))
+        except (ValueError, TypeError):
+            continue
+
     return xp
 
 
@@ -262,7 +297,7 @@ def magic_level_from_xp(xp: int, last_active_at: Optional[datetime]) -> dict:
         if xp >= threshold:
             raw_level = i
 
-    now = datetime.utcnow()
+    now = utcnow()
     if last_active_at and (now - last_active_at) > timedelta(days=7):
         decay = min(2, (now - last_active_at).days // 7)
         raw_level = max(0, raw_level - decay)

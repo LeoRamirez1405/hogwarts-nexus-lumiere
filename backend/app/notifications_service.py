@@ -27,6 +27,7 @@ from .models.post import PostLike
 from .services.mentions import resolve_mentions  # noqa: F401
 from .services.push_service import notification_url, send_webpush_to_user
 from .ws_manager import manager
+from app.utils.dates import utcnow
 
 
 class N:
@@ -78,6 +79,11 @@ class N:
     PET_AGING = "pet_aging"
     PET_FAREWELL = "pet_farewell"
     PET_SOLD = "pet_sold"
+    # Album de figuritas
+    PACK_REWARD = "pack_reward"
+    DAILY_PACK = "daily_pack"
+    ALBUM_CLOSED = "album_closed"
+    ALBUM_COMPLETED = "album_completed"
     # Broadcast
     ANNOUNCEMENT = "announcement"
     FRIEND_POST = "friend_post"
@@ -162,7 +168,7 @@ async def notify_like(db: AsyncSession, post, actor: User) -> Optional[Notificat
     """Notify a post's author that someone liked it, aggregating rapid likes.
 
     If an unread ``post_like`` notification for this post already exists we
-    refresh it in place ("A Fulano y N mas les gusto tu publicacion") instead of
+    refresh it in place ("A Fulano y N mas les gusto tu publicación") instead of
     stacking a new row every time someone taps the heart.
     """
     if post.author_id == actor.id:
@@ -175,10 +181,10 @@ async def notify_like(db: AsyncSession, post, actor: User) -> Optional[Notificat
     ).scalar() or 0
 
     if likes_count <= 1:
-        title = f"A {actor.name} le gusto tu publicacion"
+        title = f"A {actor.name} le gusto tu publicación"
     else:
-        title = f"A {actor.name} y {likes_count - 1} mas les gusto tu publicacion"
-    body = post.body[:140] if post.body else "Tu publicacion"
+        title = f"A {actor.name} y {likes_count - 1} mas les gusto tu publicación"
+    body = post.body[:140] if post.body else "Tu publicación"
 
     existing = (
         await db.execute(
@@ -192,12 +198,11 @@ async def notify_like(db: AsyncSession, post, actor: User) -> Optional[Notificat
     ).scalar_one_or_none()
 
     if existing:
-        from datetime import datetime
 
         existing.title = title
         existing.body = body
         existing.actor_id = actor.id
-        existing.created_at = datetime.utcnow()
+        existing.created_at = utcnow()
         await db.flush()
         await _push_notification(existing)
         # Browser push for the aggregated like (best-effort).
@@ -242,7 +247,6 @@ async def notify_all_users(
     Also sends Web Push notifications (best-effort) so users receive alerts
     even with the app closed/installed as PWA.
     """
-    from datetime import datetime
     import asyncio
 
     from .models.push_subscription import PushSubscription
@@ -254,7 +258,7 @@ async def notify_all_users(
         id_expr = func.lower(func.hex(func.randomblob(16)))
 
     # Bound value instead of CURRENT_TIMESTAMP() (a syntax error on SQLite).
-    now = datetime.utcnow()
+    now = utcnow()
 
     # ``exclude_id`` is a plain value (str/int or None), not a SQL expression, so
     # build the WHERE clause conditionally instead of calling .is_() on it.
@@ -330,7 +334,7 @@ async def notify_all_users(
                                     {
                                         "title": title,
                                         "body": body,
-                                        "icon": "/icons/icon-192-owl-outline.svg",
+                                        "icon": "/icons/maskable-192-owl-outline.svg",
                                         "badge": "/icons/icon-192-owl-outline.svg",
                                         "tag": f"nexus-broadcast-{type}",
                                         "data": {"url": url or "/notifications"},

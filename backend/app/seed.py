@@ -540,14 +540,14 @@ async def seed_data():
 # Keyword-based mapping used to backfill pet_type on pre-existing creatures.
 _PET_TYPE_KEYWORDS = [
     ("Aves", ("phoenix", "owl", "hippogriff", "griffin", "eagle", "bird", "fawkes", "hedwig")),
-    ("Bestias", ("dragon", "hippogriff", "thestral", "unicorn", "horse", "wolf", "buckbeak")),
+    ("Bestias", ("dragón", "hippogriff", "thestral", "unicorn", "horse", "wolf", "buckbeak")),
 ]
 
 
 def _guess_pet_type(name: str) -> str:
     lowered = (name or "").lower()
     # beast keywords take priority over generic avian for hippogriff-like beasts
-    if any(k in lowered for k in ("hippogriff", "dragon", "thestral", "unicorn", "buckbeak")):
+    if any(k in lowered for k in ("hippogriff", "dragón", "thestral", "unicorn", "buckbeak")):
         return "Bestias"
     if any(k in lowered for k in ("phoenix", "owl", "eagle", "bird", "fawkes", "hedwig")):
         return "Aves"
@@ -573,7 +573,7 @@ _PET_SUPPLIES = [
     ("Cesta de Carne Premium", "Carne selecta para saciar a las criaturas mas grandes.", "food", "Bestias", 200, 55, 1),
     ("Banquete Real de Bestia", "El festin definitivo; sacia por completo a la bestia.", "food", "Bestias", 380, 90, 1),
     ("Saco de Hurones", "Varios hurones para toda la semana.", "food", "Bestias", 210, 16, 5),
-    ("Pelota de Cuero de Dragon", "Resistente y rebota alto; ideal para bestias energicas.", "toy", "Bestias", 55, 15, 1),
+    ("Pelota de Cuero de Dragón", "Resistente y rebota alto; ideal para bestias energicas.", "toy", "Bestias", 55, 15, 1),
     ("Lazo Volador", "Un lazo encantado para juegos de persecucion.", "toy", "Bestias", 110, 33, 1),
     ("Muneco de Entrenamiento", "Muneco robusto que aguanta las embestidas mas fuertes.", "toy", "Bestias", 210, 60, 1),
     ("Set de Aros de Vuelo", "Varios aros para montar circuitos de vuelo.", "toy", "Bestias", 180, 22, 3),

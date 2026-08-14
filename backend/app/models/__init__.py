@@ -42,6 +42,12 @@ from .catalog import Catalog
 from .catalog_item import CatalogItem
 from .catalog_item_favorite import CatalogItemFavorite
 from .reaction import Reaction
+from .album import Album, AlbumCard, AlbumStatus, CardRarity
+from .collection import UserCard, UserAlbumCompletion
+from .pack import PackType, UserPack, PackOrigin
+from .roulette import RouletteConfig, RouletteSpin
+from .reward import AdminReward
+from .badge import UserBadge
 
 __all__ = [
     "User",
@@ -101,4 +107,17 @@ __all__ = [
     "CatalogItem",
     "CatalogItemFavorite",
     "Reaction",
+    "Album",
+    "AlbumCard",
+    "AlbumStatus",
+    "CardRarity",
+    "UserCard",
+    "UserAlbumCompletion",
+    "PackType",
+    "UserPack",
+    "PackOrigin",
+    "RouletteConfig",
+    "RouletteSpin",
+    "AdminReward",
+    "UserBadge",
 ]

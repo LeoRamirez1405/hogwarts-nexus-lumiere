@@ -186,7 +186,7 @@ async def seed_chats_and_events():
         # --- Slug Club (room 2) ---
         slug_msgs = [
             (admin, "Welcome to the Slug Club! Horace has outdone himself with the refreshments tonight.", msg_time(0, 19, 0)),
-            (harry, "These dragon tartlets are amazing. Who made them?", msg_time(0, 19, 30)),
+            (harry, "These dragón tartlets are amazing. Who made them?", msg_time(0, 19, 30)),
             (hermione, "I believe the house-elves prepared them. Though I still think S.P.E.W. has a point...", msg_time(0, 20, 0)),
             (luna, "The Crumple-Horned Snorkack would appreciate the salad. Very discerning palate.", msg_time(0, 20, 30)),
             (cedric, "Anyone heard about the new Potions master? Rumor says it's someone famous.", msg_time(0, 21, 0)),
