@@ -10,7 +10,7 @@ export function previewOf(m: Message): string {
   if (m.kind === "image") return "Imagen";
   if (m.kind === "video") return "Video";
   if (m.kind === "document") return m.attachment_name || "Documento";
-  if (m.kind === "post") return "Publicacion compartida";
+  if (m.kind === "post") return "Publicación compartida";
   return m.body || "";
 }
 

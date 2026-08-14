@@ -13,7 +13,7 @@ export const ReplyPreview = ({ message, onScrollToMessage }: ReplyPreviewProps) 
   else if (r.kind === "image") preview = "Imagen";
   else if (r.kind === "video") preview = "Video";
   else if (r.kind === "document") preview = r.attachment_name || "Documento";
-  else if (r.kind === "post") preview = "Publicacion compartida";
+  else if (r.kind === "post") preview = "Publicación compartida";
   if (preview.length > 60) preview = preview.slice(0, 60) + "...";
 
   return (
