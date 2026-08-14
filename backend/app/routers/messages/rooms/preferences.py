@@ -12,6 +12,7 @@ from ....models.chat_room import ChatRoom, ChatRoomMember
 from ....models.user import User
 from ....schemas.message import MuteRequest
 from ..deps import _invalidate_conversations_cache
+from app.utils.dates import utcnow
 
 router = APIRouter()
 
@@ -97,11 +98,11 @@ async def mute_room(
     if duration == "off":
         member.muted_until = None
     elif duration == "8h":
-        member.muted_until = datetime.utcnow() + timedelta(hours=8)
+        member.muted_until = utcnow() + timedelta(hours=8)
     elif duration == "24h":
-        member.muted_until = datetime.utcnow() + timedelta(hours=24)
+        member.muted_until = utcnow() + timedelta(hours=24)
     elif duration == "7d":
-        member.muted_until = datetime.utcnow() + timedelta(days=7)
+        member.muted_until = utcnow() + timedelta(days=7)
     elif duration == "forever":
         member.muted_until = datetime(2099, 12, 31, 23, 59, 59)
     else:

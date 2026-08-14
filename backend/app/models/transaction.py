@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, Integer, DateTime, Text, ForeignKey
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class Transaction(Base):
@@ -17,7 +17,7 @@ class Transaction(Base):
     type = Column(String, nullable=False)  # deposit / withdrawal / transfer / purchase
     description = Column(Text, nullable=False)
     status = Column(String, default="confirmed", nullable=False)  # pending / confirmed / completed
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     sender = relationship("User", foreign_keys=[sender_id], back_populates="transactions_sent", lazy="selectin")
     receiver = relationship("User", foreign_keys=[receiver_id], back_populates="transactions_received", lazy="selectin")

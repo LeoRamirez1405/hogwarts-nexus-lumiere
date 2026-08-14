@@ -1,6 +1,5 @@
 from typing import Optional
 
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
@@ -22,6 +21,7 @@ from ..middleware.auth import (
     clear_auth_cookies,
 )
 from ..rate_limit import limiter
+from app.utils.dates import utcnow
 
 router = APIRouter()
 
@@ -103,10 +103,10 @@ async def login(
     refresh_token = create_refresh_token(data={"sub": user.id})
     set_auth_cookies(response, access_token, refresh_token)
 
-    today = datetime.utcnow().date()
+    today = utcnow().date()
     if not user.last_active_at or user.last_active_at.date() < today:
         user.daily_logins = (user.daily_logins or 0) + 1
-    user.last_active_at = datetime.utcnow()
+    user.last_active_at = utcnow()
     await db.commit()
 
     return {

@@ -17,6 +17,7 @@ from ....models.message import Message
 from ....models.user import User
 from ....schemas.message import ConversationResponse, MessageResponse
 from .message import _preview_message
+from app.utils.dates import utcnow
 
 
 async def build_conversations(
@@ -38,9 +39,9 @@ async def build_conversations(
     muted_dm: dict[str, datetime | None] = {}
     for p in dm_prefs:
         if p.muted_until is not None:
-            if p.muted_until > datetime.utcnow():
+            if p.muted_until > utcnow():
                 muted_dm[p.conversation_id] = p.muted_until
-            elif p.muted_until <= datetime.utcnow():
+            elif p.muted_until <= utcnow():
                 p.muted_until = None
 
     membership_result = await db.execute(
@@ -126,7 +127,7 @@ async def build_conversations(
         )
 
     room_convs = []
-    now = datetime.utcnow()
+    now = utcnow()
     for pref in room_prefs:
         room = rooms.get(pref.conversation_id)
         if not room:

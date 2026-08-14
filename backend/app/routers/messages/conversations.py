@@ -18,6 +18,7 @@ from .deps import (
     _set_cached_conversations,
 )
 from .serializers import build_conversations
+from app.utils.dates import utcnow
 
 router = APIRouter()
 
@@ -117,11 +118,11 @@ async def mute_conversation(
         if duration == "off":
             muted_until = None
         elif duration == "8h":
-            muted_until = datetime.utcnow() + timedelta(hours=8)
+            muted_until = utcnow() + timedelta(hours=8)
         elif duration == "24h":
-            muted_until = datetime.utcnow() + timedelta(hours=24)
+            muted_until = utcnow() + timedelta(hours=24)
         elif duration == "7d":
-            muted_until = datetime.utcnow() + timedelta(days=7)
+            muted_until = utcnow() + timedelta(days=7)
         elif duration == "forever":
             muted_until = datetime(2099, 12, 31, 23, 59, 59)
         else:
@@ -195,13 +196,13 @@ async def pin_conversation(
     ).scalar_one_or_none()
 
     if pref:
-        pref.pinned_at = datetime.utcnow()
+        pref.pinned_at = utcnow()
     else:
         pref = UserConversationPreference(
             user_id=current_user.id,
             conversation_type=conv_type,
             conversation_id=conv_id,
-            pinned_at=datetime.utcnow(),
+            pinned_at=utcnow(),
         )
         db.add(pref)
 

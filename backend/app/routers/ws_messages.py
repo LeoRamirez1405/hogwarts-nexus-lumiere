@@ -20,6 +20,7 @@ from ..services.messages.conversation_prefs import (
 )
 from .messages import serialize_message
 from .messages.serializers.message import _preview_message
+from app.utils.dates import utcnow
 
 
 router = APIRouter()
@@ -59,7 +60,7 @@ async def _touch_presence(user_id: str, db: AsyncSession) -> None:
     """
     try:
         await db.execute(
-            update(User).where(User.id == user_id).values(last_active_at=datetime.utcnow())
+            update(User).where(User.id == user_id).values(last_active_at=utcnow())
         )
         await db.commit()
     except Exception:
@@ -103,7 +104,7 @@ async def websocket_endpoint(
 
     # Mark the user as active the moment the socket opens.
     try:
-        current_user.last_active_at = datetime.utcnow()
+        current_user.last_active_at = utcnow()
         await db.commit()
     except Exception:
         pass
@@ -182,7 +183,7 @@ async def handle_edit_message(user_id: str, data: dict, db: AsyncSession):
 
     message.body = new_body
     message.edited = True
-    message.edited_at = datetime.utcnow()
+    message.edited_at = utcnow()
     await db.commit()
     await db.refresh(message)
     # Keep the inbox preview in sync when the edited message is the last one.
@@ -283,7 +284,7 @@ async def handle_delete_message(user_id: str, data: dict, db: AsyncSession):
         "c": conversation_id,
         "m": message_id,
         "lm": new_last_preview.model_dump(mode="json") if new_last_preview else None,
-        "ts": int(datetime.utcnow().timestamp() * 1000),
+        "ts": int(utcnow().timestamp() * 1000),
     }
 
     if room_id:
@@ -459,7 +460,7 @@ async def handle_mark_read(user_id: str, data: dict, db: AsyncSession):
             "c": conversation_id,
             "m": message.id,
             "u": user_id,
-            "ts": int(datetime.utcnow().timestamp() * 1000),
+            "ts": int(utcnow().timestamp() * 1000),
         }
         if message.sender_id:
             await manager.send_to_user(message.sender_id, payload)

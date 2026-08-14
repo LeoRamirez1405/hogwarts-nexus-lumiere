@@ -1,9 +1,9 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, Integer, DateTime, Text
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class PetItem(Base):
@@ -26,4 +26,4 @@ class PetItem(Base):
     restore_amount = Column(Integer, default=10, nullable=False)  # per single use
     pack_size = Column(Integer, default=1, nullable=False)  # units granted per purchase
     image_url = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)

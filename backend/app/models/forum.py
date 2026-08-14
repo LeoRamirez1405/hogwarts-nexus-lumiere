@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import (
     Column,
@@ -14,6 +13,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class ForumThread(Base):
@@ -24,7 +24,7 @@ class ForumThread(Base):
     title = Column(String, nullable=False)
     body = Column(Text, nullable=False)
     category = Column(String, nullable=False, default="General")
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     author = relationship("User", lazy="selectin")
 
@@ -35,7 +35,7 @@ class ForumThreadVote(Base):
     thread_id = Column(String, ForeignKey("forum_threads.id"), nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     value = Column(Integer, nullable=False, default=1)  # +1 or -1
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     __table_args__ = (PrimaryKeyConstraint("thread_id", "user_id"),)
 
@@ -48,7 +48,7 @@ class ForumComment(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     body = Column(Text, nullable=False)
     parent_id = Column(String, ForeignKey("forum_comments.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     user = relationship("User", lazy="selectin")
     parent = relationship("ForumComment", remote_side=[id], lazy="selectin")
@@ -60,7 +60,7 @@ class ForumSubscription(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     thread_id = Column(String, ForeignKey("forum_threads.id"), nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     __table_args__ = (
         UniqueConstraint("thread_id", "user_id", name="uq_forum_thread_user"),

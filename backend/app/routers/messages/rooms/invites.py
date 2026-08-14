@@ -8,7 +8,6 @@ approval-gated rooms with a single endpoint.
 """
 
 import secrets
-from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -27,6 +26,7 @@ from ....schemas.message import (
     RoomInviteResponse,
 )
 from ...audit_logs import log_audit
+from app.utils.dates import utcnow
 
 
 router = APIRouter()
@@ -58,7 +58,7 @@ def _room_admin_or_global_admin(
 
 
 def _invite_is_expired(inv: RoomInvite) -> bool:
-    return inv.expires_at is not None and inv.expires_at <= datetime.utcnow()
+    return inv.expires_at is not None and inv.expires_at <= utcnow()
 
 
 def _invite_uses_exhausted(inv: RoomInvite) -> bool:
@@ -89,7 +89,7 @@ async def create_room_invite(
         raise HTTPException(status_code=403, detail="Only room admins can create invites")
     if data.max_uses is not None and data.max_uses <= 0:
         raise HTTPException(status_code=400, detail="max_uses must be positive")
-    if data.expires_at is not None and data.expires_at <= datetime.utcnow():
+    if data.expires_at is not None and data.expires_at <= utcnow():
         raise HTTPException(status_code=400, detail="expires_at must be in the future")
 
     invite = RoomInvite(

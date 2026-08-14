@@ -15,6 +15,7 @@ from ...models.chat_room import ChatRoomMember, UserConversationPreference
 from ...models.message import Message
 from ...models.user import User
 from ...routers.messages.deps import _invalidate_conversations_caches
+from app.utils.dates import utcnow
 
 
 async def is_conversation_muted(
@@ -24,7 +25,7 @@ async def is_conversation_muted(
     conversation_id: str,
 ) -> bool:
     """True when the user has an active mute on this conversation."""
-    now = datetime.utcnow()
+    now = utcnow()
     if conversation_type == "dm":
         result = await db.execute(
             select(UserConversationPreference).where(

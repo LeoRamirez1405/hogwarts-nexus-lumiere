@@ -1,14 +1,16 @@
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 
 from ..database import get_db
+from ..models.badge import UserBadge
 from ..models.user import User
+from ..schemas.badge import BadgeResponse
 from ..schemas.user import UserResponse, UserUpdate, HousePoints
 from ..schemas.pagination import Page
 from ..middleware.auth import get_current_user
 from ..utils.user_helpers import enrich_user, enrich_users
+from app.utils.dates import utcnow
 
 router = APIRouter()
 
@@ -84,6 +86,31 @@ async def get_all_house_points(
     return {row[0]: row[1] for row in result.all()}
 
 
+@router.get("/badges/{user_id}", response_model=list[BadgeResponse])
+async def get_user_badges(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Insignias desbloqueadas por un usuario (primer completador, etc.)."""
+    badges = (
+        await db.execute(
+            select(UserBadge)
+            .where(UserBadge.user_id == user_id)
+            .order_by(UserBadge.granted_at.asc())
+        )
+    ).scalars().all()
+    return [
+        BadgeResponse(
+            badge_key=b.badge_key,
+            label=b.label,
+            icon=b.icon,
+            granted_at=b.granted_at,
+        )
+        for b in badges
+    ]
+
+
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: str,
@@ -129,9 +156,9 @@ async def update_user(
     if not user.profile_completed_at and all(
         (user.bio, user.avatar_url, user.wand, user.house, user.location, user.status)
     ):
-        user.profile_completed_at = datetime.utcnow()
+        user.profile_completed_at = utcnow()
 
-    user.last_active_at = datetime.utcnow()
+    user.last_active_at = utcnow()
     await db.commit()
     await db.refresh(user)
 

@@ -25,6 +25,7 @@ from ...services.events import (
 )
 from ...notifications_service import notify, N
 from ..events.deps import require_event_visibility, require_room_member
+from app.utils.dates import utcnow
 
 router = APIRouter()
 
@@ -114,7 +115,7 @@ class EventListResponse(BaseModel):
 
 def _event_to_response(event: Event, user_id: str) -> EventResponse:
     """Convert Event model to response schema."""
-    now = datetime.utcnow()
+    now = utcnow()
     in_progress = (
         event.status == EventStatus.PUBLISHED
         and event.starts_at <= now

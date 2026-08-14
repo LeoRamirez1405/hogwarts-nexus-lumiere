@@ -1,5 +1,4 @@
 """Key management: identity, prekeys, signed prekeys."""
-from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +17,7 @@ from ...models.e2e_encryption import (
     UserSignedPreKey,
     Session,
 )
+from ...utils.dates import utcnow
 
 
 class KeyManager:
@@ -177,7 +177,7 @@ class KeyManager:
             return None
 
         prekey_db.used = True
-        prekey_db.used_at = datetime.utcnow()
+        prekey_db.used_at = utcnow()
         await self.db.commit()
 
         return PreKeyRecord(
@@ -226,7 +226,7 @@ class KeyManager:
             prekey_id=1,
             key_pair=KeyPair(public=keypair[0], private=keypair[1]),
             signature=ed25519_sign(signing_key_private, keypair[0]),
-            timestamp=int(datetime.utcnow().timestamp()),
+            timestamp=int(utcnow().timestamp()),
         )
 
         spk_db = UserSignedPreKey(

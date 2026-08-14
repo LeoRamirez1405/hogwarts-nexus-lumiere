@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, DateTime, Boolean, UniqueConstraint, ForeignKey
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class EnumCategory(Base):
@@ -17,7 +17,7 @@ class EnumCategory(Base):
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
     is_system = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     values = relationship(
         "EnumValue",
@@ -38,8 +38,8 @@ class EnumValue(Base):
     )
     label = Column(String, nullable=False, index=True)
     description = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     category = relationship("EnumCategory", back_populates="values")
 

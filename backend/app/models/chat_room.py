@@ -1,11 +1,11 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint, Boolean
 from sqlalchemy.orm import relationship
 
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class ChatRoom(Base):
@@ -20,7 +20,7 @@ class ChatRoom(Base):
     # If True, anyone joining via invite link must be approved by an admin first
     join_approval = Column(Boolean, default=False, nullable=False)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     members = relationship(
         "ChatRoomMember",
@@ -64,7 +64,7 @@ class RoomInvite(Base):
     uses = Column(Integer, default=0, nullable=False)
     # When True the invite is no longer visible/usable (manual revoke)
     revoked = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     room = relationship("ChatRoom", back_populates="invites", lazy="selectin")
     creator = relationship("User", lazy="selectin", foreign_keys=[created_by])
@@ -83,7 +83,7 @@ class ChatRoomMember(Base):
     # When True the user requested to join via invite link and is waiting
     # for admin approval (effective only when room.join_approval = True)
     pending = Column(Boolean, default=False, nullable=False)
-    joined_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    joined_at = Column(DateTime, default=utcnow, nullable=False)
 
     room = relationship("ChatRoom", back_populates="members", lazy="selectin")
     user = relationship("User", lazy="selectin")
@@ -113,7 +113,7 @@ class UserConversationPreference(Base):
     last_message_attachment_name = Column(String, nullable=True)
     unread_count = Column(Integer, default=0, nullable=False)
     pinned_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     user = relationship("User", lazy="selectin")
 

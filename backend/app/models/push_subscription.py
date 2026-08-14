@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class PushSubscription(Base):
@@ -16,8 +16,8 @@ class PushSubscription(Base):
     subscription_json = Column(Text, nullable=False)
     # User agent info for debugging
     user_agent = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     user = relationship("User", back_populates="push_subscriptions", lazy="selectin")
 

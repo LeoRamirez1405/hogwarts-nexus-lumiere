@@ -1,10 +1,10 @@
 import httpx
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 
 from ..models.user import User
 from ..middleware.auth import get_current_user
 from ..config import settings
+from app.utils.dates import utcnow
 
 router = APIRouter(tags=["support"])
 
@@ -76,7 +76,7 @@ async def send_support_report(
     if len(desc) < 10:
         raise HTTPException(400, "La descripción debe tener al menos 10 caracteres")
 
-    now = datetime.utcnow()
+    now = utcnow()
     emoji = REPORT_EMOJIS[report_type]
     label = REPORT_LABELS[report_type]
     house = current_user.house or "Sin casa"

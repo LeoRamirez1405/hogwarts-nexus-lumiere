@@ -1,7 +1,6 @@
 """Key generation helpers."""
 import secrets
 from typing import List
-from datetime import datetime
 
 from .primitives import (
     generate_x25519_keypair,
@@ -9,6 +8,7 @@ from .primitives import (
     ed25519_sign,
 )
 from .keys import IdentityKeyPair, KeyPair, PreKeyRecord, SignedPreKeyRecord
+from app.utils.dates import utcnow
 
 
 def generate_identity_key_pair() -> IdentityKeyPair:
@@ -45,5 +45,5 @@ def generate_signed_prekey(identity_signing_key: bytes, prekey_id: int = 1) -> S
         prekey_id=prekey_id,
         key_pair=KeyPair(public=key_pair[0], private=key_pair[1]),
         signature=signature,
-        timestamp=int(datetime.utcnow().timestamp()),
+        timestamp=int(utcnow().timestamp()),
     )

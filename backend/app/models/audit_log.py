@@ -1,11 +1,11 @@
 import uuid
-from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Index
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class AuditAction(str, Enum):
@@ -33,7 +33,7 @@ class AuditLog(Base):
     details = Column(Text, nullable=True)  # JSON string with before/after or context
     ip_address = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     actor = relationship("User", lazy="selectin", foreign_keys=[actor_id])
 

@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class VoiceChannel(Base):
@@ -15,7 +15,7 @@ class VoiceChannel(Base):
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     room = relationship("ChatRoom", lazy="selectin", foreign_keys=[room_id])
     creator = relationship("User", lazy="selectin", foreign_keys=[created_by])
@@ -33,7 +33,7 @@ class VoiceChannelParticipant(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     channel_id = Column(String, ForeignKey("voice_channels.id"), nullable=False, index=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
-    joined_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    joined_at = Column(DateTime, default=utcnow, nullable=False)
     muted = Column(Boolean, default=False, nullable=False)
     deafened = Column(Boolean, default=False, nullable=False)
     video_enabled = Column(Boolean, default=False, nullable=False)

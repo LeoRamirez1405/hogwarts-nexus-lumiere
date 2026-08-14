@@ -1,11 +1,11 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Integer, Boolean, Enum as SQLEnum, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from ..database import Base
 import enum
+from app.utils.dates import utcnow
 
 
 class EventStatus(str, enum.Enum):
@@ -67,8 +67,8 @@ class Event(Base):
     started_notified = Column(Boolean, default=False, nullable=False, server_default="0")
 
     # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
     cancelled_at = Column(DateTime, nullable=True)
     cancelled_by = Column(String, ForeignKey("users.id"), nullable=True)
 
@@ -88,8 +88,8 @@ class EventRSVP(Base):
     event_id = Column(String, ForeignKey("events.id"), nullable=False, index=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     status = Column(SQLEnum(RSVPStatus), default=RSVPStatus.MAYBE, nullable=False)
-    responded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    responded_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     # Automatic reminders for attendees (GOING/MAYBE): fired once each, 1h and
     # 5min before the event starts. Independent of the user's custom reminder.
@@ -114,7 +114,7 @@ class EventReminder(Base):
     reminder_time = Column(SQLEnum(ReminderTime), default=ReminderTime.HOUR_1, nullable=False)
     sent = Column(Boolean, default=False, nullable=False)
     sent_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     # Relationships
     event = relationship("Event", back_populates="reminders", lazy="selectin")
@@ -134,7 +134,7 @@ class EventAnimationSeen(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     event_id = Column(String, ForeignKey("events.id"), nullable=False, index=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
-    seen_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    seen_at = Column(DateTime, default=utcnow, nullable=False)
 
     __table_args__ = (
         UniqueConstraint("event_id", "user_id", name="uq_event_user_seen"),
@@ -148,6 +148,6 @@ class EventVisibilitySettings(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     enabled = Column(Boolean, default=True, nullable=False)
     updated_by = Column(String, ForeignKey("users.id"), nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     updater = relationship("User", lazy="selectin")

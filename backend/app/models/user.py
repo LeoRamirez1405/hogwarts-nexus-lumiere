@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime
 
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text, text as sa_text
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class User(Base):
@@ -30,9 +30,11 @@ class User(Base):
     items_purchased = Column(Integer, default=0, nullable=False)  # pet item units bought
     sanctuary_penalty = Column(Integer, default=0, nullable=False)  # accumulated penalties from neglect
     daily_logins = Column(Integer, default=0, nullable=False, server_default="0")  # distinct active days, feeds magic level XP
+    last_daily_reward_at = Column(DateTime, nullable=True)  # sobre diario gratis del album
+    free_spins = Column(Integer, default=0, nullable=False, server_default="0")  # giros gratis acumulados de la ruleta
     profile_completed_at = Column(DateTime, nullable=True)  # set once when profile is complete (one-time XP)
-    receive_marketplace_notifications = Column(Boolean, default=True, nullable=False)  # admin: receive purchase alerts
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    receive_marketplace_notifications = Column(Boolean, default=True, nullable=False, server_default=sa_text("1"))  # admin: receive purchase alerts
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     # Collection relationships are lazy="raise" on purpose: they are NEVER
     # needed when serializing a User (the schemas only read scalar columns) and

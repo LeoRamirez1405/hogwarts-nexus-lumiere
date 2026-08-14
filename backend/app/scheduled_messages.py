@@ -9,7 +9,6 @@ path emits).
 """
 
 import asyncio
-from datetime import datetime
 
 from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
@@ -21,6 +20,7 @@ from .routers.messages import serialize_message
 from .services.messages.conversation_prefs import _update_conversation_preferences
 from .services.messages.message_service import send_notifications_after_send
 from .ws_manager import manager
+from app.utils.dates import utcnow
 
 
 async def deliver_due_scheduled_messages() -> int:
@@ -28,7 +28,7 @@ async def deliver_due_scheduled_messages() -> int:
 
     Returns the number of messages delivered.
     """
-    now = datetime.utcnow()
+    now = utcnow()
     delivered = 0
     async with async_session() as db:
         rows = (

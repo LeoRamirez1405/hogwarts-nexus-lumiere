@@ -1,12 +1,12 @@
 """Reaction models for posts, comments, forum threads, articles, etc."""
 
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, DateTime, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class Reaction(Base):
@@ -19,7 +19,7 @@ class Reaction(Base):
     target_id = Column(String, nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     emoji = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     __table_args__ = (
         UniqueConstraint(

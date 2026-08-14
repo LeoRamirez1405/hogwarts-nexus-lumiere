@@ -1,11 +1,11 @@
 """RSVP business logic service."""
 
-from datetime import datetime
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ...models.event import Event, EventReminder, EventRSVP, ReminderTime, RSVPStatus
+from app.utils.dates import utcnow
 
 
 async def check_capacity(
@@ -59,8 +59,8 @@ async def upsert_rsvp(
 
     if existing:
         existing.status = status
-        existing.updated_at = datetime.utcnow()
-        existing.responded_at = datetime.utcnow()
+        existing.updated_at = utcnow()
+        existing.responded_at = utcnow()
     else:
         existing = EventRSVP(
             event_id=event_id,

@@ -1,9 +1,9 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, Integer, DateTime, Text
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class Product(Base):
@@ -19,4 +19,4 @@ class Product(Base):
     stock = Column(Integer, default=0, nullable=False)
     weekly_sales = Column(Integer, default=0, nullable=False)
     specification_placeholder = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)

@@ -30,11 +30,17 @@ async def _collect_friends(db: AsyncSession, user_id: str) -> List[User]:
     )
     rows = result.scalars().all()
     friends: List[User] = []
+    seen: set[str] = set()
     for fr in rows:
         if fr.sender_id == user_id and fr.receiver:
-            friends.append(fr.receiver)
+            friend = fr.receiver
         elif fr.receiver_id == user_id and fr.sender:
-            friends.append(fr.sender)
+            friend = fr.sender
+        else:
+            continue
+        if friend.id not in seen:
+            seen.add(friend.id)
+            friends.append(friend)
     return friends
 
 

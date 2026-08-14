@@ -1,5 +1,4 @@
 from typing import List
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -24,6 +23,7 @@ from ..services.friend_notifications import (
 )
 from ..services.post_response import build_posts_response, build_post_response
 from ..services.comment_threads import nest_comments
+from app.utils.dates import utcnow
 
 router = APIRouter()
 
@@ -383,7 +383,7 @@ async def update_post(
 
     post.body = body
     post.image_url = image_url or None
-    post.edited_at = datetime.utcnow()
+    post.edited_at = utcnow()
     post.edited_by = current_user.id
 
     await db.commit()

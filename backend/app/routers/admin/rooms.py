@@ -5,7 +5,6 @@ endpoint (``PUT /messages/rooms/{room_id}``) intentionally stays in the
 public catalog because room admins use it from the chat UI.
 """
 
-from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -27,6 +26,7 @@ from ...schemas.message import (
 )
 from ..audit_logs import log_audit
 from ..messages.serializers import serialize_room
+from app.utils.dates import utcnow
 
 router = APIRouter(prefix="/admin/rooms", tags=["admin-rooms"])
 
@@ -460,7 +460,7 @@ async def approve_or_reject_pending_member(
     user = member.user
     if data.action == "approve":
         member.pending = False
-        member.joined_at = datetime.utcnow()
+        member.joined_at = utcnow()
         await db.commit()
         await db.refresh(member)
 

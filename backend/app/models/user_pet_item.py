@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class UserPetItem(Base):
@@ -16,6 +16,6 @@ class UserPetItem(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     pet_item_id = Column(String, ForeignKey("pet_items.id"), nullable=False)
     quantity = Column(Integer, default=0, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     pet_item = relationship("PetItem", lazy="selectin")

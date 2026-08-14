@@ -4,7 +4,6 @@ Centralizes the pure-ish helpers the creatures routers used to duplicate across
 ``/my`` and ``/my-full-state`` so every endpoint applies the same rules.
 """
 
-from datetime import datetime
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -21,6 +20,7 @@ from .notification_templates import (
     pet_escaped,
     pet_farewell,
 )
+from ..utils.dates import utcnow
 
 
 async def sanctuary_level_for(db: AsyncSession, user: User) -> int:
@@ -95,7 +95,7 @@ def settle_decay(uc: UserCreature) -> bool:
 
     Returns True if pet escaped.
     """
-    now = datetime.utcnow()
+    now = utcnow()
     last = uc.last_decay_at or uc.adopted_at or now
     hours = (now - last).total_seconds() / 3600.0
     if hours <= 0:

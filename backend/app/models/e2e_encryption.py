@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, LargeBinary, Text, Boolean, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class UserIdentityKey(Base):
@@ -17,8 +17,8 @@ class UserIdentityKey(Base):
     signing_key_public = Column(LargeBinary, nullable=False)  # Ed25519 public key (32 bytes)
     signing_key_private = Column(Text, nullable=False)  # Ed25519 private key (64 bytes) - encrypted at rest (base64 str)
     registration_id = Column(Integer, nullable=False)  # 16-bit registration ID
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     user = relationship("User", lazy="selectin")
     prekeys = relationship("UserPreKey", back_populates="identity", cascade="all, delete-orphan", lazy="selectin")
@@ -34,7 +34,7 @@ class UserPreKey(Base):
     public_key = Column(LargeBinary, nullable=False)  # X25519 public key (32 bytes)
     private_key = Column(Text, nullable=False)  # X25519 private key - encrypted at rest (base64 str)
     used = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
     used_at = Column(DateTime, nullable=True)
 
     identity = relationship("UserIdentityKey", back_populates="prekeys", lazy="selectin")
@@ -55,7 +55,7 @@ class UserSignedPreKey(Base):
     public_key = Column(LargeBinary, nullable=False)  # X25519 public key (32 bytes)
     private_key = Column(Text, nullable=False)  # X25519 private key - encrypted at rest (base64 str)
     signature = Column(LargeBinary, nullable=False)  # Ed25519 signature of public_key
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
     expires_at = Column(DateTime, nullable=True)  # Rotation policy
 
     identity = relationship("UserIdentityKey", back_populates="signed_prekey", lazy="selectin")
@@ -103,8 +103,8 @@ class Session(Base):
     # State
     established = Column(Boolean, default=False, nullable=False)
     archived = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
     last_used_at = Column(DateTime, nullable=True)
 
     user = relationship("User", foreign_keys=[user_id], lazy="selectin")
@@ -128,8 +128,8 @@ class SafetyNumber(Base):
     verified = Column(Boolean, default=False, nullable=False)
     verified_at = Column(DateTime, nullable=True)
     verification_method = Column(String, nullable=True)  # "qr", "manual", "trusted_contact"
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     user = relationship("User", foreign_keys=[user_id], lazy="selectin")
     remote_user = relationship("User", foreign_keys=[remote_user_id], lazy="selectin")
@@ -158,7 +158,7 @@ class EncryptedMessage(Base):
     kind = Column(String, nullable=False)  # text, image, video, etc.
     has_attachment = Column(Boolean, default=False, nullable=False)
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
     delivered_at = Column(DateTime, nullable=True)
     read_at = Column(DateTime, nullable=True)
 

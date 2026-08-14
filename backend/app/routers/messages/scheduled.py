@@ -15,6 +15,7 @@ from ...models.message import Message
 from ...models.user import User
 from ...schemas.message import MessageResponse, ScheduledMessageRequest, ScheduledMessageUpdate
 from .serializers import serialize_message
+from app.utils.dates import utcnow
 
 router = APIRouter()
 
@@ -24,7 +25,7 @@ def _to_naive_utc(dt: datetime) -> datetime:
 
     Pydantic parses ISO strings ending in ``Z`` / with an offset as
     tz-aware datetimes; the rest of the app compares against naive
-    ``datetime.utcnow()`` and stores naive datetimes, so normalize on the
+    ``utcnow()`` and stores naive datetimes, so normalize on the
     way in to avoid ``TypeError: can't compare offset-naive and
     offset-aware datetimes``.
     """
@@ -43,7 +44,7 @@ async def create_scheduled_message(
     actual delivery at scheduled_at requires a background scheduler (future work).
     """
     scheduled_at = _to_naive_utc(schedule_data.scheduled_at)
-    if scheduled_at <= datetime.utcnow():
+    if scheduled_at <= utcnow():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="scheduled_at must be in the future",
@@ -150,7 +151,7 @@ async def update_scheduled_message(
 
     if update_data.scheduled_at is not None:
         new_scheduled_at = _to_naive_utc(update_data.scheduled_at)
-        if new_scheduled_at <= datetime.utcnow():
+        if new_scheduled_at <= utcnow():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="scheduled_at must be in the future",

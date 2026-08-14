@@ -1,6 +1,5 @@
 """Session management endpoints."""
 import base64
-from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -20,6 +19,7 @@ from ...services.e2e import (
     serialize_signal_message,
     deserialize_signal_message,
 )
+from ...utils.dates import utcnow
 
 router = APIRouter()
 
@@ -141,7 +141,7 @@ async def receive_session(
                     ),
                 )
                 prekey_db.used = True
-                prekey_db.used_at = datetime.utcnow()
+                prekey_db.used_at = utcnow()
 
     await service.build_session_as_receiver(
         request.sender_id,

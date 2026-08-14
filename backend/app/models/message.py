@@ -1,11 +1,11 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, Integer, DateTime, Text, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class Message(Base):
@@ -33,7 +33,7 @@ class Message(Base):
     pinned = Column(Boolean, default=False, nullable=False)
     edited = Column(Boolean, default=False, nullable=False)
     edited_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     e2e_encrypted = Column(Boolean, default=False, nullable=False)
 
@@ -96,7 +96,7 @@ class Poll(Base):
     )
     question = Column(Text, nullable=False)
     multi_choice = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     message = relationship("Message", back_populates="poll", lazy="selectin")
     options = relationship(
@@ -114,7 +114,7 @@ class PollOption(Base):
     poll_id = Column(String, ForeignKey("polls.id"), nullable=False)
     label = Column(String, nullable=False)
     option_index = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     poll = relationship("Poll", back_populates="options", lazy="selectin")
     votes = relationship(
@@ -132,7 +132,7 @@ class PollVote(Base):
     poll_id = Column(String, ForeignKey("polls.id"), nullable=False)
     option_id = Column(String, ForeignKey("poll_options.id"), nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     option = relationship("PollOption", back_populates="votes", lazy="selectin")
 
@@ -144,6 +144,6 @@ class MessageReaction(Base):
     message_id = Column(String, ForeignKey("messages.id"), nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     emoji = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     message = relationship("Message", back_populates="reactions", lazy="selectin")

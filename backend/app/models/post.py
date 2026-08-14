@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey, PrimaryKeyConstraint
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class Post(Base):
@@ -14,7 +14,7 @@ class Post(Base):
     author_id = Column(String, ForeignKey("users.id"), nullable=False)
     body = Column(Text, nullable=False)
     image_url = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
     edited_at = Column(DateTime, nullable=True)
     edited_by = Column(String, ForeignKey("users.id"), nullable=True)
 
@@ -40,7 +40,7 @@ class PostLike(Base):
 
     post_id = Column(String, ForeignKey("posts.id"), nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     __table_args__ = (
         PrimaryKeyConstraint("post_id", "user_id"),
@@ -55,7 +55,7 @@ class PostRepost(Base):
 
     post_id = Column(String, ForeignKey("posts.id"), nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     __table_args__ = (
         PrimaryKeyConstraint("post_id", "user_id"),
@@ -73,7 +73,7 @@ class PostComment(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     body = Column(Text, nullable=False)
     parent_id = Column(String, ForeignKey("post_comments.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     post = relationship("Post", back_populates="comments", lazy="selectin")
     user = relationship("User", lazy="selectin")

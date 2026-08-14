@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, DateTime, Text, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class Article(Base):
@@ -18,7 +18,7 @@ class Article(Base):
     image_url = Column(String, nullable=True)
     featured = Column(Boolean, default=False, nullable=False)
     pinned = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     author = relationship("User", back_populates="articles", lazy="selectin")
     subscriptions = relationship("ArticleSubscription", back_populates="article", lazy="selectin")
@@ -32,7 +32,7 @@ class ArticleComment(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     body = Column(Text, nullable=False)
     parent_id = Column(String, ForeignKey("article_comments.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     user = relationship("User", lazy="selectin")
     parent = relationship("ArticleComment", remote_side=[id], lazy="selectin")

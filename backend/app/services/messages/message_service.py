@@ -1,6 +1,5 @@
 import json
 import base64
-from datetime import datetime
 from typing import Tuple
 
 from sqlalchemy import and_, or_, select
@@ -20,6 +19,7 @@ from .conversation_prefs import (
     update_conversation_preferences_after_delete,
     update_conversation_preview_after_edit,
 )
+from ...utils.dates import utcnow
 
 
 async def create_mention_notifications(
@@ -216,7 +216,7 @@ async def edit_message_service(
 
     message.body = body
     message.edited = True
-    message.edited_at = datetime.utcnow()
+    message.edited_at = utcnow()
     await db.commit()
     await db.refresh(message)
     # Keep the inbox preview in sync when the edited message is the last one.

@@ -1,4 +1,3 @@
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -11,6 +10,7 @@ from ....schemas.message import MessageResponse
 from ....services.messages.message_service import edit_message_service
 from ....ws_manager import manager
 from ..serializers import serialize_message
+from app.utils.dates import utcnow
 
 router = APIRouter()
 
@@ -36,7 +36,7 @@ async def edit_message(
         "t": "edit",
         "c": message.room_id or message.receiver_id,
         "m": serialized.model_dump(mode="json"),
-        "ts": int(datetime.utcnow().timestamp() * 1000),
+        "ts": int(utcnow().timestamp() * 1000),
     }
     if message.room_id:
         await manager.broadcast_to_room(message.room_id, event, exclude_user=current_user.id)

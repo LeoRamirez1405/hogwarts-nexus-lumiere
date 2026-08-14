@@ -1,7 +1,6 @@
 """Chat history export endpoints (.txt and .json)."""
 
 import json
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import and_, or_, select
@@ -13,6 +12,7 @@ from ...middleware.auth import get_current_user
 from ...models.chat_room import ChatRoom, ChatRoomMember
 from ...models.message import Message
 from ...models.user import User
+from app.utils.dates import utcnow
 
 router = APIRouter()
 
@@ -58,7 +58,7 @@ async def export_room_chat(
                 "id": room.id,
                 "name": room.name,
                 "type": room.type,
-                "exported_at": datetime.utcnow().isoformat(),
+                "exported_at": utcnow().isoformat(),
             },
             "messages": [
                 {
@@ -82,14 +82,14 @@ async def export_room_chat(
         return Response(
             content=json.dumps(export_data, ensure_ascii=False, indent=2),
             media_type="application/json",
-            headers={"Content-Disposition": f'attachment; filename="chat-{room.name}-{datetime.utcnow().strftime("%Y%m%d")}.json"'},
+            headers={"Content-Disposition": f'attachment; filename="chat-{room.name}-{utcnow().strftime("%Y%m%d")}.json"'},
         )
 
     # txt format
     lines = [
         f"Chat Export: {room.name}",
         f"Type: {room.type}",
-        f"Exported: {datetime.utcnow().isoformat()}",
+        f"Exported: {utcnow().isoformat()}",
         f"Total messages: {len(rows)}",
         "=" * 50,
         "",
@@ -122,7 +122,7 @@ async def export_room_chat(
     return Response(
         content=content,
         media_type="text/plain; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="chat-{room.name}-{datetime.utcnow().strftime("%Y%m%d")}.txt"'},
+        headers={"Content-Disposition": f'attachment; filename="chat-{room.name}-{utcnow().strftime("%Y%m%d")}.txt"'},
     )
 
 
@@ -164,7 +164,7 @@ async def export_dm_chat(
                     {"id": current_user.id, "name": current_user.name},
                     {"id": other_user.id, "name": other_user.name},
                 ],
-                "exported_at": datetime.utcnow().isoformat(),
+                "exported_at": utcnow().isoformat(),
             },
             "messages": [
                 {
@@ -188,12 +188,12 @@ async def export_dm_chat(
         return Response(
             content=json.dumps(export_data, ensure_ascii=False, indent=2),
             media_type="application/json",
-            headers={"Content-Disposition": f'attachment; filename="chat-dm-{other_user.name}-{datetime.utcnow().strftime("%Y%m%d")}.json"'},
+            headers={"Content-Disposition": f'attachment; filename="chat-dm-{other_user.name}-{utcnow().strftime("%Y%m%d")}.json"'},
         )
 
     lines = [
         f"Chat Export: DM con {other_user.name}",
-        f"Exported: {datetime.utcnow().isoformat()}",
+        f"Exported: {utcnow().isoformat()}",
         f"Total messages: {len(rows)}",
         "=" * 50,
         "",
@@ -226,5 +226,5 @@ async def export_dm_chat(
     return Response(
         content=content,
         media_type="text/plain; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="chat-dm-{other_user.name}-{datetime.utcnow().strftime("%Y%m%d")}.txt"'},
+        headers={"Content-Disposition": f'attachment; filename="chat-dm-{other_user.name}-{utcnow().strftime("%Y%m%d")}.txt"'},
     )

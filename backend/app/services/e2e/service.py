@@ -17,7 +17,7 @@ from .session.manager import SessionManager
 from .key_manager import KeyManager
 from .ratchet.receiver import ratchet_receive
 from ...models.e2e_encryption import SafetyNumber
-from datetime import datetime
+from app.utils.dates import utcnow
 
 
 class E2EEncryptionService:
@@ -214,8 +214,8 @@ class E2EEncryptionService:
             existing.safety_number = safety_number
             existing.verified = verified
             existing.verification_method = verification_method
-            existing.verified_at = datetime.utcnow() if verified else None
-            existing.updated_at = datetime.utcnow()
+            existing.verified_at = utcnow() if verified else None
+            existing.updated_at = utcnow()
         else:
             sn = SafetyNumber(
                 user_id=self.user_id,
@@ -223,7 +223,7 @@ class E2EEncryptionService:
                 safety_number=safety_number,
                 verified=verified,
                 verification_method=verification_method,
-                verified_at=datetime.utcnow() if verified else None,
+                verified_at=utcnow() if verified else None,
             )
             self.db.add(sn)
 

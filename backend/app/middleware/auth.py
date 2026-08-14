@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, Response, status, WebSocket
@@ -11,6 +11,7 @@ from sqlalchemy import select
 from ..config import settings
 from ..database import get_db
 from ..models.user import User
+from app.utils.dates import utcnow
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer(auto_error=False)
@@ -30,7 +31,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     to_encode.update({"type": "access"})
-    expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
@@ -38,7 +39,7 @@ def create_access_token(data: dict) -> str:
 def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
     to_encode.update({"type": "refresh"})
-    expire = datetime.utcnow() + timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
+    expire = utcnow() + timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
@@ -47,7 +48,7 @@ def create_ws_token(data: dict) -> str:
     """Create a short-lived WebSocket token (60 seconds)."""
     to_encode = data.copy()
     to_encode.update({"type": "ws", "purpose": "ws_connect"})
-    expire = datetime.utcnow() + timedelta(seconds=60)
+    expire = utcnow() + timedelta(seconds=60)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 

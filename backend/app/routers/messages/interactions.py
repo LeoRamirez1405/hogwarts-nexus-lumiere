@@ -1,6 +1,5 @@
 """Message interactions: poll voting and emoji reactions."""
 
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +11,7 @@ from ...models.message import Message, MessageReaction, Poll, PollOption, PollVo
 from ...models.user import User
 from ...schemas.message import MessageReactionResponse, PollVoteRequest, ReactionCreate
 from ...ws_manager import manager
+from app.utils.dates import utcnow
 
 router = APIRouter()
 
@@ -38,7 +38,7 @@ async def _broadcast_reaction_update(db: AsyncSession, message_id: str, sender_i
         "c": message.room_id or message.receiver_id,
         "m": message.id,
         "r": [r.model_dump(mode="json") for r in reactions_out],
-        "ts": int(datetime.utcnow().timestamp() * 1000),
+        "ts": int(utcnow().timestamp() * 1000),
     }
     if message.room_id:
         await manager.broadcast_to_room(message.room_id, payload)

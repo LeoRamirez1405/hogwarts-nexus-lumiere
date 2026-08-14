@@ -1,4 +1,3 @@
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import and_, or_, select
@@ -12,6 +11,7 @@ from ....models.user import User
 from ....services.messages.message_service import delete_message_service
 from ....ws_manager import manager
 from ..serializers.message import _preview_message
+from app.utils.dates import utcnow
 
 router = APIRouter()
 
@@ -66,7 +66,7 @@ async def delete_message(
         "c": room_id or receiver_id,
         "m": message_id,
         "lm": new_last_preview.model_dump(mode="json") if new_last_preview else None,
-        "ts": int(datetime.utcnow().timestamp() * 1000),
+        "ts": int(utcnow().timestamp() * 1000),
     }
     if room_id:
         await manager.broadcast_to_room(room_id, event)

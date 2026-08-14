@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Column, String, Integer, DateTime, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from ..database import Base
+from app.utils.dates import utcnow
 
 
 class CatalogItem(Base):
@@ -18,7 +18,7 @@ class CatalogItem(Base):
     numero = Column(Integer, nullable=False)
     description = Column(Text, nullable=True)
     image_url = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     catalog = relationship("Catalog", back_populates="items")
     favorites = relationship("CatalogItemFavorite", back_populates="item", cascade="all, delete-orphan")

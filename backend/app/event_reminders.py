@@ -4,7 +4,7 @@ Runs every minute to check for upcoming events and send reminders.
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +22,7 @@ from .models.event import (
 from .models.user import User
 from .notifications_service import notify, N
 from .ws_manager import manager
+from app.utils.dates import utcnow
 
 
 # Mapping of reminder time to timedelta before event start
@@ -133,7 +134,7 @@ async def _send_rsvp_reminder(db: AsyncSession, user: User, event: Event, when_s
 async def _process_rsvp_reminders():
     """Send the fixed 1h / 5min reminders to GOING/MAYBE attendees."""
     async with async_session() as db:
-        now = datetime.utcnow()
+        now = utcnow()
 
         # Only events starting within the next ~65 min can have a mark due now.
         events_result = await db.execute(
@@ -187,7 +188,7 @@ async def _process_lifecycle():
     from .services.events.notification_service import notify_event_started
 
     async with async_session() as db:
-        now = datetime.utcnow()
+        now = utcnow()
 
         # Events that just started (still running): notify attendees once.
         started_result = await db.execute(
@@ -237,7 +238,7 @@ async def _process_lifecycle():
 async def _process_reminders():
     """Process all pending reminders that are due."""
     async with async_session() as db:
-        now = datetime.utcnow()
+        now = utcnow()
 
         # Find events that are upcoming (within the next week max)
         max_lookahead = timedelta(weeks=1) + timedelta(minutes=5)  # buffer

@@ -11,7 +11,7 @@ so the delivery loop does not fire them immediately.
 
 import asyncio
 import sys
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 from sqlalchemy import select
@@ -22,6 +22,7 @@ from app.database import async_session
 from app.models.chat_room import ChatRoom
 from app.models.message import Message
 from app.models.user import User
+from app.utils.dates import utcnow
 
 RECIPIENTS = {
     "harry": "00000000-0000-0000-0000-000000000005",
@@ -52,7 +53,7 @@ async def main():
         room_id = room.id if room else None
         room_name = room.name if room else "el grupo"
 
-        now = datetime.utcnow()
+        now = utcnow()
 
         sample = [
             (

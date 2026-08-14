@@ -20,6 +20,7 @@ from ...models.event import (
 )
 from ...models.voice_channel import VoiceChannel, VoiceChannelParticipant
 from ...schemas.voice_channel import VoiceChannelResponse
+from app.utils.dates import utcnow
 
 
 async def check_event_visibility(db: AsyncSession) -> bool:
@@ -106,7 +107,7 @@ async def get_live_event(db: AsyncSession, room_id: str) -> Optional[Event]:
     "one event at a time per room" rule: while a live event exists, no other can
     be created. Cancelled/completed events free the slot.
     """
-    now = datetime.utcnow()
+    now = utcnow()
     result = await db.execute(
         select(Event)
         .options(selectinload(Event.creator), selectinload(Event.voice_channel))
@@ -156,7 +157,7 @@ async def create_event(
     if ends_at <= starts_at:
         raise ValueError("End time must be after start time")
 
-    if starts_at < datetime.utcnow():
+    if starts_at < utcnow():
         raise ValueError("Start time cannot be in the past")
 
     voice_channel_id = None
@@ -205,7 +206,7 @@ async def update_event(
 
     for field, value in update_data.items():
         setattr(event, field, value)
-    event.updated_at = datetime.utcnow()
+    event.updated_at = utcnow()
     await db.commit()
     await db.refresh(event, ["creator", "voice_channel"])
     return event
@@ -214,7 +215,7 @@ async def update_event(
 async def cancel_event(db: AsyncSession, event: Event, cancelled_by: str) -> Event:
     """Soft delete - mark event as cancelled."""
     event.status = EventStatus.CANCELLED
-    event.cancelled_at = datetime.utcnow()
+    event.cancelled_at = utcnow()
     event.cancelled_by = cancelled_by
     await db.commit()
     return event
@@ -239,7 +240,7 @@ async def get_events_list(
     if status_filter:
         query = query.where(Event.status == status_filter)
     elif upcoming_only:
-        query = query.where(Event.starts_at >= datetime.utcnow())
+        query = query.where(Event.starts_at >= utcnow())
 
     # Cancelled and completed events disappear from listings (no history UI):
     # unless a caller explicitly filters by that status, hide them.
@@ -336,7 +337,7 @@ async def link_voice_channel(
     event.voice_channel_id = voice_channel_id
     event.location_type = EventLocationType.VOICE_CHANNEL
     # Location name will be set by router after fetching voice channel
-    event.updated_at = datetime.utcnow()
+    event.updated_at = utcnow()
     await db.commit()
     await db.refresh(event, ["creator", "voice_channel"])
     return event
@@ -347,7 +348,7 @@ async def unlink_voice_channel(db: AsyncSession, event: Event) -> Event:
     event.voice_channel_id = None
     event.location_type = EventLocationType.TEXT_ONLY
     event.location_name = None
-    event.updated_at = datetime.utcnow()
+    event.updated_at = utcnow()
     await db.commit()
     await db.refresh(event, ["creator", "voice_channel"])
     return event
@@ -409,7 +410,7 @@ async def close_event_voice_channel(
 
     # 4) Clear FK on event
     event.voice_channel_id = None
-    event.updated_at = datetime.utcnow()
+    event.updated_at = utcnow()
 
 
 async def get_or_create_visibility_settings(db: AsyncSession, enabled: bool = True, updated_by: str = None) -> EventVisibilitySettings:
@@ -422,7 +423,7 @@ async def get_or_create_visibility_settings(db: AsyncSession, enabled: bool = Tr
     else:
         settings.enabled = enabled
         settings.updated_by = updated_by
-        settings.updated_at = datetime.utcnow()
+        settings.updated_at = utcnow()
     await db.commit()
     await db.refresh(settings)
     return settings

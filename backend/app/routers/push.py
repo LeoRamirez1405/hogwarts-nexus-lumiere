@@ -105,7 +105,7 @@ async def send_test_notification(
         db,
         user_id=current_user.id,
         title="Notificación de prueba",
-        body="Las notificaciones push funcionan correctamente! 💎",
+        body="Las notificaciones push funcionan correctamente! ",
         url="/",
     )
     await db.commit()
