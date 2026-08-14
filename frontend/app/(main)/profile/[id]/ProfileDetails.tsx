@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { api, User } from "@/lib/api";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { api, Badge, User } from "@/lib/api";
 import { GlassCard, ProgressBar, MaterialIcon } from "@/components/ui";
 import { useAuthStore } from "@/lib/authStore";
 
@@ -106,6 +107,20 @@ export default function ProfileDetails({
   const level = profile.magic_level;
   const [titleDraft, setTitleDraft] = useState(profile.official_title || "");
   const [editingTitle, setEditingTitle] = useState(false);
+  const [badges, setBadges] = useState<Badge[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getBadges(profile.id)
+      .then((data) => {
+        if (!cancelled) setBadges(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [profile.id]);
 
   const handleUpdate = async (field: string, value: string | null) => {
     try {
@@ -194,6 +209,39 @@ export default function ProfileDetails({
                 <MaterialIcon name="edit" className="text-sm text-on-surface-variant" />
               </button>
             )}
+          </li>
+        )}
+
+        {/* Pictorium */}
+        <li className="flex items-center gap-3 border-l-4 border-secondary pl-3">
+          <MaterialIcon name="style" className="text-lg text-secondary" />
+          <Link
+            href={`/albums/${profile.id}`}
+            className="text-body-md text-on-surface-variant transition-colors hover:text-primary"
+          >
+            Pictorium
+          </Link>
+        </li>
+
+        {/* Insignias */}
+        {badges.length > 0 && (
+          <li className="flex flex-col gap-2 border-l-4 border-[#c9a227] pl-3">
+            <div className="flex items-center gap-2">
+              <MaterialIcon name="military_tech" className="text-lg text-[#8a6d00]" />
+              <span className="text-body-md font-semibold text-on-surface">Insignias</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {badges.map((badge) => (
+                <span
+                  key={badge.badge_key}
+                  className="inline-flex items-center gap-1 rounded-full bg-[#c9a227]/15 px-2.5 py-1 text-label-sm font-medium text-[#8a6d00]"
+                  title={new Date(badge.granted_at).toLocaleDateString()}
+                >
+                  <MaterialIcon name={badge.icon || "military_tech"} className="text-sm" />
+                  {badge.label}
+                </span>
+              ))}
+            </div>
           </li>
         )}
 

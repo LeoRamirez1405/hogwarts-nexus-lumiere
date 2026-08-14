@@ -29,6 +29,7 @@ export interface User {
   location?: string;
   official_title?: string;
   last_active_at?: string;
+  free_spins?: number;
   magic_level?: MagicLevelInfo;
   sanctuary_penalty?: number;
   receive_marketplace_notifications?: boolean;
@@ -40,6 +41,13 @@ export interface UserSearchResult {
   name: string;
   avatar_url?: string;
   house?: string;
+}
+
+export interface Badge {
+  badge_key: string;
+  label: string;
+  icon?: string;
+  granted_at: string;
 }
 
 export const usersApi = {
@@ -58,6 +66,8 @@ export const usersApi = {
     ),
 
   getUser: (id: string) => request<User>(`/users/${id}`),
+
+  getBadges: (userId: string) => request<Badge[]>(`/users/badges/${userId}`),
 
   updateUser: (id: string, data: Partial<User>) =>
     request<User>(`/users/${id}`, {

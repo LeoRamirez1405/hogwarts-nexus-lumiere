@@ -218,7 +218,7 @@ self.addEventListener('push', (event) => {
     const data = event.data.json();
     const options = {
       body: data.body || 'Nueva notificación',
-      icon: data.icon || '/icons/icon-192-owl-outline.svg',
+      icon: data.icon || '/icons/maskable-192-owl-outline.svg',
       badge: '/icons/icon-192-owl-outline.svg',
       vibrate: data.vibrate || [100, 50, 100],
       tag: data.tag || 'nexus-notification',

@@ -5,7 +5,7 @@
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import List
 
 from sqlalchemy import select, and_, or_
@@ -18,6 +18,7 @@ from .routers.messages import _delete_attachment_file
 from .routers.messages.serializers.message import _preview_message
 from .services.messages.conversation_prefs import update_conversation_preferences_after_delete
 from .ws_manager import manager
+from app.utils.dates import utcnow
 
 
 async def _broadcast_purged_messages(db, rows: List[Message]) -> None:
@@ -81,7 +82,7 @@ async def _broadcast_purged_messages(db, rows: List[Message]) -> None:
             else None
         )
 
-    ts = int(datetime.utcnow().timestamp() * 1000)
+    ts = int(utcnow().timestamp() * 1000)
     for m in rows:
         if m.room_id:
             await manager.broadcast_to_room(
@@ -108,7 +109,7 @@ async def purge_old_messages(days: int) -> dict:
     if days <= 0:
         return {"deleted": 0, "disabled": True}
 
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = utcnow() - timedelta(days=days)
     deleted = 0
     async with async_session() as db:
         rows = (
@@ -188,7 +189,7 @@ async def retention_loop() -> None:
 
 async def purge_expired_disappearing() -> dict:
     """Delete messages whose ``disappear_at`` timestamp has passed."""
-    now = datetime.utcnow()
+    now = utcnow()
     deleted = 0
     async with async_session() as db:
         rows = (

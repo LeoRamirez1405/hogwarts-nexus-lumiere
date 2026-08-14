@@ -22,6 +22,7 @@ import { dashboardApi } from "./admin/dashboard";
 import { consumicionApi } from "./consumicion";
 import { catalogsApi } from "./catalogs";
 import { reactionsApi } from "./reactions";
+import { albumsApi, packsApi, rouletteApi, albumsAdminApi, packsAdminApi, rouletteAdminApi, rewardsAdminApi } from "./albums";
 
 export const api = {
   ...authApi,
@@ -46,6 +47,13 @@ export const api = {
   ...consumicionApi,
   ...catalogsApi,
   ...reactionsApi,
+  ...albumsApi,
+  ...packsApi,
+  ...rouletteApi,
+  ...albumsAdminApi,
+  ...packsAdminApi,
+  ...rouletteAdminApi,
+  ...rewardsAdminApi,
 };
 
 export { request, uploadFile };
@@ -68,3 +76,4 @@ export * from "./admin";
 export * from "./consumicion";
 export * from "./catalogs";
 export * from "./reactions";
+export * from "./albums";

@@ -6,7 +6,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { api, Post, PostComment } from "@/lib/api";
 import { postsApi } from "@/lib/api/posts";
-import { GlassCard, Badge, Button, Avatar, MaterialIcon, MentionInput, MentionText } from "@/components/ui";
+import {
+  GlassCard,
+  Badge,
+  Button,
+  Avatar,
+  MaterialIcon,
+  MentionInput,
+  MentionText,
+} from "@/components/ui";
 import {
   CommentThread,
   countComments,
@@ -16,19 +24,15 @@ import { useAuthStore } from "@/lib/authStore";
 import { toastError } from "@/lib/toastStore";
 import { isStoredUpload } from "@/lib/media";
 import { hapticLight, hapticSelection } from "@/lib/haptics";
-import { buildMembers, extractMentions, fetchMentionedUsers, mergeUniqueMembers, resolveCommentMentions, type MentionMember } from "@/lib/mentions-utils";
-
-function timeAgo(dateStr: string): string {
-  const d = new Date(dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr + "Z");
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins <= 0) return "ahora mismo";
-  if (mins < 60) return `hace ${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `hace ${hrs} h`;
-  const days = Math.floor(hrs / 24);
-  return `hace ${days} d`;
-}
+import { timeAgo } from "@/lib/timeAgo";
+import {
+  buildMembers,
+  extractMentions,
+  fetchMentionedUsers,
+  mergeUniqueMembers,
+  resolveCommentMentions,
+  type MentionMember,
+} from "@/lib/mentions-utils";
 
 function isLocalUpload(src?: string): boolean {
   return isStoredUpload(src);
@@ -59,7 +63,9 @@ export default function PostDetailPage() {
         setPost(found);
 
         // Resolve users mentioned in the post body
-        const bodyMentions = await fetchMentionedUsers(extractMentions(found.body ?? ""));
+        const bodyMentions = await fetchMentionedUsers(
+          extractMentions(found.body ?? ""),
+        );
 
         try {
           const cs = await postsApi.getComments(found.id);
@@ -70,11 +76,12 @@ export default function PostDetailPage() {
           const commentMentions = await resolveCommentMentions(cs);
           setMentionedUsers(mergeUniqueMembers(bodyMentions, commentMentions));
         } catch (e) {
-          if (!cancelled) toastError("No se pudieron cargar los comentarios", e);
+          if (!cancelled)
+            toastError("No se pudieron cargar los comentarios", e);
         }
       } catch (e) {
         if (!cancelled) {
-          toastError("No se pudo abrir la publicacion", e);
+          toastError("No se pudo abrir la publicación", e);
           router.push("/profile");
         }
       } finally {
@@ -123,7 +130,9 @@ export default function PostDetailPage() {
       setComments((prev) => [created, ...prev]);
       setNewComment("");
 
-      const newUsers = await fetchMentionedUsers(extractMentions(newComment.trim()));
+      const newUsers = await fetchMentionedUsers(
+        extractMentions(newComment.trim()),
+      );
       if (newUsers.length > 0) {
         setMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
       }
@@ -135,7 +144,7 @@ export default function PostDetailPage() {
   };
 
   const handleReply = async (parentId: string, text: string) => {
-    if (!post) throw new Error("Publicacion no cargada");
+    if (!post) throw new Error("Publicación no cargada");
     const created = await postsApi.addComment(post.id, text, parentId);
     setComments((prev) => appendReply(prev, parentId, created));
 
@@ -153,7 +162,7 @@ export default function PostDetailPage() {
           className="text-5xl text-outline-variant animate-spin mb-3"
         />
         <p className="text-on-surface-variant text-body-md">
-          Abriendo publicacion...
+          Abriendo publicación...
         </p>
       </div>
     );
@@ -174,7 +183,7 @@ export default function PostDetailPage() {
       <article className="max-w-3xl mx-auto">
         <div className="flex items-center justify-center gap-2 mb-4">
           <Badge variant="tag" color="secondary">
-            Publicacion
+            Publicación
           </Badge>
           {post.is_repost && (
             <Badge variant="rarity" color="secondary">
@@ -214,7 +223,7 @@ export default function PostDetailPage() {
           <div className="relative h-72 md:h-96 rounded-2xl overflow-hidden mb-8">
             <Image
               src={post.image_url}
-              alt="Imagen de la publicacion"
+              alt="Imagen de la publicación"
               fill
               priority
               sizes="(max-width: 768px) 100vw, 768px"
@@ -225,7 +234,17 @@ export default function PostDetailPage() {
         )}
 
         <div className="prose prose-lg max-w-none">
-          <MentionText text={post.body} members={post ? mergeUniqueMembers(buildMembers(post, comments), mentionedUsers) : mentionedUsers} />
+          <MentionText
+            text={post.body}
+            members={
+              post
+                ? mergeUniqueMembers(
+                    buildMembers(post, comments),
+                    mentionedUsers,
+                  )
+                : mentionedUsers
+            }
+          />
         </div>
 
         {/* Post actions */}
@@ -235,13 +254,15 @@ export default function PostDetailPage() {
               onClick={() => {
                 hapticSelection();
                 if (typeof navigator !== "undefined" && navigator.share) {
-                  navigator.share({
-                    title: "Hogwarts Nexus",
-                    text: `Lee esta publicacion en Hogwarts Nexus`,
-                    url: window.location.href,
-                  }).catch(() => {
-                    /* user cancelled — do nothing */
-                  });
+                  navigator
+                    .share({
+                      title: "Hogwarts Nexus",
+                      text: `Lee esta publicación en Hogwarts Nexus`,
+                      url: window.location.href,
+                    })
+                    .catch(() => {
+                      /* user cancelled — do nothing */
+                    });
                 } else {
                   navigator.clipboard?.writeText(window.location.href);
                 }

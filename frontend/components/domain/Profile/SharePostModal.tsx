@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { api, Conversation } from "@/lib/api";
-import { Avatar, Button, MaterialIcon, Modal, BottomSheet } from "@/components/ui";
+import {
+  Avatar,
+  Button,
+  MaterialIcon,
+  Modal,
+  BottomSheet,
+} from "@/components/ui";
 import { hapticLight } from "@/lib/haptics";
 import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";
 
@@ -69,7 +75,7 @@ export function SharePostModal({ post, onClose }: SharePostModalProps) {
     try {
       const data = {
         kind: "post" as const,
-        body: `Compartio una publicacion de ${post.author?.name ?? "un usuario"}`,
+        body: `Compartio una publicación de ${post.author?.name ?? "un usuario"}`,
         metadata: { post: meta },
       };
       if (conv.type === "room") {
@@ -79,7 +85,7 @@ export function SharePostModal({ post, onClose }: SharePostModalProps) {
       }
       setSentIds((prev) => [...prev, conv.id]);
     } catch (error) {
-      console.error('Failed to share post to conversation:', error);
+      console.error("Failed to share post to conversation:", error);
     }
     setSendingId(null);
   };
@@ -90,12 +96,12 @@ export function SharePostModal({ post, onClose }: SharePostModalProps) {
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({
-          title: `Publicacion de ${post.author?.name ?? "un usuario"}`,
+          title: `Publicación de ${post.author?.name ?? "un usuario"}`,
           text: post.body.slice(0, 120),
           url,
         });
       } catch (error) {
-        console.debug('User cancelled native share:', error);
+        console.debug("User cancelled native share:", error);
       }
     } else {
       navigator.clipboard?.writeText(url);
@@ -105,7 +111,7 @@ export function SharePostModal({ post, onClose }: SharePostModalProps) {
 
   const filtered = search
     ? conversations.filter((c) =>
-        c.name.toLowerCase().includes(search.toLowerCase())
+        c.name.toLowerCase().includes(search.toLowerCase()),
       )
     : conversations;
 
@@ -205,14 +211,20 @@ export function SharePostModal({ post, onClose }: SharePostModalProps) {
 
   if (isDesktop) {
     return (
-      <Modal open onClose={onClose} title="Compartir publicacion" size="md" swipeToDismiss>
+      <Modal
+        open
+        onClose={onClose}
+        title="Compartir publicación"
+        size="md"
+        swipeToDismiss
+      >
         {renderBody()}
       </Modal>
     );
   }
 
   return (
-    <BottomSheet open onClose={onClose} title="Compartir publicacion">
+    <BottomSheet open onClose={onClose} title="Compartir publicación">
       {renderBody()}
     </BottomSheet>
   );

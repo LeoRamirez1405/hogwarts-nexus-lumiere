@@ -40,6 +40,7 @@ const mainNavItems: NavItem[] = [
   },
   { icon: "pets", label: "Pet Sanctuary", href: "/pets" },
   { icon: "collections_bookmark", label: "Catálogos", href: "/catalogs" },
+  { icon: "style", label: "Pictorium", href: "/albums" },
 ];
 
 const adminNavItems: NavItem[] = [
@@ -56,6 +57,7 @@ const adminNavItems: NavItem[] = [
   },
   { icon: "restaurant", label: "Consumición", href: "/admin/consumicion" },
   { icon: "collections_bookmark", label: "Catálogos", href: "/admin/catalogs" },
+  { icon: "style", label: "Pictorium", href: "/admin/albums" },
   { icon: "settings", label: "Configuración", href: "/admin/settings" },
 ];
 
@@ -204,7 +206,11 @@ function SidebarContent({
             <li key={item.href} className={item.mobileHidden ? "max-lg:hidden" : ""}>
               <NavLink
                 item={item}
-                isActive={pathname === item.href || pathname.startsWith(item.href + "/")}
+                isActive={
+                  pathname === item.href ||
+                  pathname.startsWith(item.href + "/") ||
+                  (item.href === "/albums" && pathname.startsWith("/album"))
+                }
                 isDark={isDark}
                 onNavigate={onNavigate}
               />

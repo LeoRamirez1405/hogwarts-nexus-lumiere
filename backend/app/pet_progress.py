@@ -5,6 +5,7 @@ Kept separate from the routers so the same rules can be reused and unit-tested.
 from datetime import datetime
 
 from .config import settings
+from app.utils.dates import utcnow
 
 # 11 named pet care levels (index 0 unused; level is 1..11).
 PET_LEVEL_NAMES = [
@@ -33,7 +34,7 @@ def pet_level_name(level: int) -> str:
 def pet_age_days(adopted_at: datetime) -> float:
     if not adopted_at:
         return 0.0
-    return max(0.0, (datetime.utcnow() - adopted_at).total_seconds() / 86400.0)
+    return max(0.0, (utcnow() - adopted_at).total_seconds() / 86400.0)
 
 
 def pet_life_fraction(adopted_at: datetime) -> float:
@@ -81,7 +82,7 @@ def pet_should_escape(uc) -> bool:
         return False
     if not (uc.hunger == 0 or uc.happiness == 0):
         return False
-    hours = (datetime.utcnow() - uc.last_critical_at).total_seconds() / 3600.0
+    hours = (utcnow() - uc.last_critical_at).total_seconds() / 3600.0
     return hours >= settings.PET_ESCAPE_GRACE_HOURS
 
 

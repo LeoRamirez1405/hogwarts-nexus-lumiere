@@ -26,7 +26,7 @@ export const DeletePostModal = memo(function DeletePostModal({
       onDeleted?.(post.id);
       onClose();
     } catch (e) {
-      toastError("No se pudo eliminar la publicacion", e);
+      toastError("No se pudo eliminar la publicación", e);
     } finally {
       setDeleting(false);
     }
@@ -45,11 +45,17 @@ export const DeletePostModal = memo(function DeletePostModal({
             <MaterialIcon name="delete" className="text-xl" />
           </div>
           <p className="text-body-md text-on-surface-variant">
-            ¿Seguro que deseas eliminar esta publicación? Esta acción no se puede deshacer.
+            ¿Seguro que deseas eliminar esta publicación? Esta acción no se
+            puede deshacer.
           </p>
         </div>
         <div className="flex items-center justify-end gap-2 pt-2">
-          <Button variant="ghost" size="sm" onClick={onClose} disabled={deleting}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            disabled={deleting}
+          >
             Cancelar
           </Button>
           <Button

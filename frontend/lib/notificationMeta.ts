@@ -294,6 +294,31 @@ marketplace_purchase: {
     category: "admin",
     route: () => "/admin/consumicion",
   },
+  // Album de figuritas
+  pack_reward: {
+    icon: "style",
+    chip: "bg-primary/10 text-primary",
+    category: "economy",
+    route: () => "/album/abrir",
+  },
+  daily_pack: {
+    icon: "style",
+    chip: "bg-secondary/10 text-secondary",
+    category: "economy",
+    route: () => "/album/abrir",
+  },
+  album_closed: {
+    icon: "collections_bookmark",
+    chip: "bg-tertiary/10 text-tertiary",
+    category: "economy",
+    route: () => "/album",
+  },
+  album_completed: {
+    icon: "workspace_premium",
+    chip: "bg-warning/10 text-warning",
+    category: "economy",
+    route: () => "/album",
+  },
 };
 
 export function notificationMeta(type: string): NotificationMeta {

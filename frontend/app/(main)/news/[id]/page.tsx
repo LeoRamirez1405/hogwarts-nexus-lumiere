@@ -15,6 +15,7 @@ import { useAuthStore } from "@/lib/authStore";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import { isStoredUpload } from "@/lib/media";
 import { hapticLight, hapticSelection } from "@/lib/haptics";
+import { timeAgo } from "@/lib/timeAgo";
 import { buildMembers, extractMentions, fetchMentionedUsers, mergeUniqueMembers, resolveCommentMentions, type MentionMember } from "@/lib/mentions-utils";
 
 function formatDate(dateStr: string): string {
@@ -23,18 +24,6 @@ function formatDate(dateStr: string): string {
     month: "long",
     year: "numeric",
   });
-}
-
-function timeAgo(dateStr: string): string {
-  const d = new Date(dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr + "Z");
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins <= 0) return "ahora mismo";
-  if (mins < 60) return `hace ${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `hace ${hrs} h`;
-  const days = Math.floor(hrs / 24);
-  return `hace ${days} d`;
 }
 
 function isLocalUpload(src?: string): boolean {

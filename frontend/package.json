@@ -28,6 +28,7 @@
     "dompurify": "^3.4.13",
     "jose": "^6.2.5",
     "localforage": "^1.10.0",
+    "motion": "^13.1.0",
     "next": "16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4",

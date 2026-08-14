@@ -35,14 +35,19 @@ export const EditPostModal = memo(function EditPostModal({
       onSaved?.(updated);
       onClose();
     } catch (e) {
-      toastError("No se pudo editar la publicacion", e);
+      toastError("No se pudo editar la publicación", e);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Modal open onClose={() => !saving && onClose()} title="Editar publicación" size="md">
+    <Modal
+      open
+      onClose={() => !saving && onClose()}
+      title="Editar publicación"
+      size="md"
+    >
       <div className="space-y-4">
         <textarea
           value={editText}

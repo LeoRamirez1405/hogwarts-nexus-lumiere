@@ -49,10 +49,20 @@ export function AdminCrudModal({
       )}
       <div className="space-y-4">{children}</div>
       <div className="flex gap-3 pt-4">
-        <Button variant="secondary" onClick={onClose} className="flex-1" disabled={saving}>
+        <Button
+          variant="secondary"
+          onClick={onClose}
+          className="flex-1 !py-2 !text-label-sm sm:!py-3 sm:!text-body-md"
+          disabled={saving}
+        >
           {cancelLabel}
         </Button>
-        <Button variant="primary" onClick={onSave} disabled={saving || saveDisabled} className="flex-1">
+        <Button
+          variant="primary"
+          onClick={onSave}
+          disabled={saving || saveDisabled}
+          className="flex-1 !py-2 !text-label-sm sm:!py-3 sm:!text-body-md"
+        >
           {saving ? "Guardando..." : saveLabel}
         </Button>
       </div>

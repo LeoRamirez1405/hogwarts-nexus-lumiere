@@ -5,12 +5,12 @@ don't linger forever in ``UserConversationPreference`` / ``ChatRoomMember``.
 """
 
 import asyncio
-from datetime import datetime
 
 from sqlalchemy import and_, select
 
 from .database import async_session
 from .models.chat_room import ChatRoomMember, UserConversationPreference
+from app.utils.dates import utcnow
 
 
 async def mute_cleanup_loop():
@@ -27,7 +27,7 @@ async def mute_cleanup_loop():
 async def _cleanup_expired_mutes():
     """Set muted_until = None for every mute that has already expired."""
     async with async_session() as db:
-        now = datetime.utcnow()
+        now = utcnow()
 
         prefs_result = await db.execute(
             select(UserConversationPreference).where(

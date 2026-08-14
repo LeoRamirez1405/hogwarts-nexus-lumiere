@@ -5,6 +5,7 @@ import { PWAProvider } from "@/components/providers/PWAProvider";
 import { ToastViewport } from "@/components/ui/ToastViewport";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import "./globals.css";
+import "@/components/album/card-frames.css";
 
 const ebGaramond = EB_Garamond({
   variable: "--font-display",
