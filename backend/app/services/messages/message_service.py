@@ -20,6 +20,7 @@ from .conversation_prefs import (
     update_conversation_preview_after_edit,
 )
 from ...utils.dates import utcnow
+from .element_deduction import deduct_used_elements
 
 
 async def create_mention_notifications(
@@ -138,6 +139,10 @@ async def validate_and_create_message(
                 option_index=idx,
             )
             db.add(option)
+
+    # Descontar del inventario del emisor los elementos de Borgin & Burkes
+    # referenciados con `!(Nombre)` (solo mensajes no cifrados).
+    await deduct_used_elements(db, current_user.id, message_data.body, is_e2e)
 
     await db.commit()
     await db.refresh(message)
