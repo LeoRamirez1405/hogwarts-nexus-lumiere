@@ -12,11 +12,17 @@ import {
   SPECIAL_MENTIONS,
   commandToSuggestion,
   userToSuggestion,
+  productToSuggestion,
 } from "@/lib/mentions";
 import type { MentionSuggestion } from "@/lib/mentions";
 import { getInitials } from "../helpers";
 import { toastSuccess, toastError } from "@/lib/toastStore";
 import { formatScheduleTime } from "../components/ChatInput/utils/formatScheduleTime";
+import { productsApi, UserProduct } from "@/lib/api/products";
+
+/** Tipo de trigger activo en el composer — `@` para usuarios/comandos,
+ *  `!` para elementos de Borgin & Burkes. */
+type ComposerTriggerKind = "user" | "element" | null;
 
 export function useChatComposer({
   selectedConv,
@@ -42,6 +48,9 @@ export function useChatComposer({
   const [disappearAt, setDisappearAt] = useState<string | undefined>(undefined);
   const [scheduleAt, setScheduleAt] = useState<string | undefined>(undefined);
 
+  /** Trigger activo: `@` (usuarios/comandos) o `!` (elementos de Borgin).
+   *  Solo se permite `!` en grupos (`isRoom === true`). */
+  const triggerKindRef = useRef<ComposerTriggerKind>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const voice = useVoiceRecorder();
@@ -102,6 +111,7 @@ export function useChatComposer({
     setScheduleAt(undefined);
     setMentionSearch("");
     setShowMentionDropdown(false);
+    triggerKindRef.current = null;
     inputRef.current?.focus();
   }, []);
 
@@ -187,10 +197,23 @@ const handleSend = () => {
           }
         }, TYPING_STOP_IDLE_MS);
       }
+
+      // --- Detección de triggers ---
+      // `@` para usuarios / comandos especiales.
       const atIndex = value.lastIndexOf("@");
-      if (atIndex >= 0 && (atIndex === 0 || value[atIndex - 1] === " ")) {
+      const atValid = atIndex >= 0 && (atIndex === 0 || value[atIndex - 1] === " ");
+      // `!` para elementos de Borgin & Burkes — solo en grupos (rooms).
+      const exclaimIndex = value.lastIndexOf("!");
+      const exclaimValid =
+        isRoom &&
+        exclaimIndex >= 0 &&
+        (exclaimIndex === 0 || value[exclaimIndex - 1] === " ");
+
+      // El último trigger válido gana.
+      if (atValid && (!exclaimValid || atIndex > exclaimIndex)) {
         const query = value.slice(atIndex + 1);
         if (!query.includes(" ")) {
+          triggerKindRef.current = "user";
           setMentionSearch(query);
           if (query.length === 0) {
             // "@" a secas: en grupos muestra los comandos especiales con su
@@ -203,6 +226,22 @@ const handleSend = () => {
           return;
         }
       }
+
+      if (exclaimValid && (!atValid || exclaimIndex > atIndex)) {
+        const query = value.slice(exclaimIndex + 1);
+        if (!query.includes(" ")) {
+          triggerKindRef.current = "element";
+          setMentionSearch(query);
+          if (query.length === 0) {
+            setMentionResults([]);
+            setShowMentionDropdown(false);
+          }
+          return;
+        }
+      }
+
+      // Ningún trigger válido — limpiar todo.
+      triggerKindRef.current = null;
       setMentionSearch("");
       setShowMentionDropdown(false);
       setMentionResults([]);
@@ -222,12 +261,52 @@ const handleSend = () => {
 
   // Mention search: en grupos, "@" + prefijo sugiere primero los comandos
   // especiales (@all, @alle, @alla, @allg...) con su significado; luego los
-  // usuarios encontrados.
+  // usuarios encontrados. Si el trigger es "!" (solo en grupos), busca
+  // elementos de Borgin & Burkes en vez de usuarios.
   useEffect(() => {
     if (!mentionSearch) return;
+    const kind = triggerKindRef.current;
     let cancelled = false;
     const timer = setTimeout(async () => {
       const q = mentionSearch.toLowerCase();
+
+      if (kind === "element") {
+        // --- Elementos de Borgin & Burkes: solo los que el usuario posee ---
+        try {
+          const page = await productsApi.getMyPurchases(
+            { skip: 0, limit: 50 },
+            "borgin"
+          );
+          if (!cancelled) {
+            const byProduct = new Map<string, { product: NonNullable<UserProduct["product"]>; quantity: number }>();
+            for (const up of page.items) {
+              if (!up.product) continue;
+              if (!up.product.name.toLowerCase().includes(q)) continue;
+              const entry = byProduct.get(up.product.id);
+              if (entry) {
+                entry.quantity += up.quantity;
+              } else {
+                byProduct.set(up.product.id, { product: up.product, quantity: up.quantity });
+              }
+            }
+            const owned = [...byProduct.values()].map(({ product, quantity }) =>
+              productToSuggestion(product, quantity)
+            );
+            setMentionResults(owned);
+            setShowMentionDropdown(owned.length > 0);
+            setMentionActiveIndex(0);
+          }
+        } catch (error) {
+          console.error("Failed to load owned Borgin elements:", error);
+          if (!cancelled) {
+            setMentionResults([]);
+            setShowMentionDropdown(false);
+          }
+        }
+        return;
+      }
+
+      // --- Búsqueda de usuarios / comandos especiales ---
       const commands = isRoom
         ? SPECIAL_MENTIONS.filter((c) => c.command.toLowerCase().startsWith(`@${q}`)).map(commandToSuggestion)
         : [];
@@ -253,15 +332,21 @@ const handleSend = () => {
   }, [mentionSearch, isRoom]);
 
   const handleSelectMention = (suggestion: MentionSuggestion) => {
-    const atIndex = input.lastIndexOf("@");
-    if (atIndex >= 0) {
-      const before = input.slice(0, atIndex);
-      setInput(`${before}@${suggestion.insertText} `);
+    const trigger = suggestion.kind === "element" ? "!" : "@";
+    const triggerIndex = input.lastIndexOf(trigger);
+    if (triggerIndex >= 0) {
+      const before = input.slice(0, triggerIndex);
+      if (suggestion.kind === "element") {
+        setInput(`${before}!(${suggestion.insertText}) `);
+      } else {
+        setInput(`${before}@${suggestion.insertText} `);
+      }
     }
     setShowMentionDropdown(false);
     setMentionSearch("");
     setMentionResults([]);
     setMentionActiveIndex(0);
+    triggerKindRef.current = null;
     inputRef.current?.focus();
   };
 
@@ -452,7 +537,10 @@ const handleSend = () => {
     onTogglePoll: () => setShowPoll((s) => !s),
     onCancelPoll: () => setShowPoll(false),
     onStickerTabChange: setStickerTab,
-    onDismissMentions: () => setShowMentionDropdown(false),
+    onDismissMentions: () => {
+      setShowMentionDropdown(false);
+      triggerKindRef.current = null;
+    },
     onReply: setReplyingTo,
   disappearAt,
   onDisappearChange: setDisappearAt,

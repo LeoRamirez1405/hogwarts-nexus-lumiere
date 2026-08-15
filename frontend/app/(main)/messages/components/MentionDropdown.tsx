@@ -17,7 +17,8 @@ interface MentionDropdownProps {
  * anclado justo encima de la barra de input. No usa el caret ni un portal, por
  * lo que se posiciona de forma fiable tanto en desktop como en móvil. Debe
  * renderizarse dentro de un contenedor `relative` que abarque la barra de input.
- * Soporta usuarios reales y comandos especiales (@all, @alle, @alla, @allX).
+ * Soporta usuarios reales, comandos especiales (@all, @alle, @alla, @allX) y
+ * elementos de Borgin & Burkes (!elemento con foto circular del producto).
  */
 export default function MentionDropdown({ results, activeIndex, onSelect, onHover }: MentionDropdownProps) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -39,7 +40,7 @@ export default function MentionDropdown({ results, activeIndex, onSelect, onHove
     >
       {results.map((s, idx) => (
         <button
-          key={s.id}
+          key={`${s.kind}-${s.id}`}
           type="button"
           data-mention-index={idx}
           // preventDefault en mousedown para que el textarea no pierda el foco
@@ -76,6 +77,33 @@ export default function MentionDropdown({ results, activeIndex, onSelect, onHove
                 </p>
                 <p className="text-label-sm text-on-surface-variant truncate">{s.sublabel}</p>
               </div>
+            </>
+          ) : s.kind === "element" ? (
+            <>
+              <Avatar
+                src={s.avatarUrl}
+                alt={s.label}
+                size="xs"
+                initials={s.label.slice(0, 1).toUpperCase()}
+                className="shrink-0 ring-1 ring-secondary/30"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-on-surface truncate text-body-md">
+                  <span className="font-mono text-secondary font-semibold">!</span>
+                  {s.label}
+                </p>
+                {s.sublabel && (
+                  <p className="text-label-sm text-on-surface-variant truncate">{s.sublabel}</p>
+                )}
+              </div>
+              <span className="flex items-center gap-1.5 shrink-0">
+                {s.count ? (
+                  <span className="text-xs text-on-surface-variant font-mono rounded-full bg-secondary/10 px-2 py-0.5" title={`Tienes ${s.count} copia(s)`}>
+                    ×{s.count}
+                  </span>
+                ) : null}
+                <span className="text-xs text-on-surface-variant/60 font-mono">B&B</span>
+              </span>
             </>
           ) : (
             <>
