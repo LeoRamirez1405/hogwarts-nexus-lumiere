@@ -34,3 +34,4 @@ export { ReactionBar } from "./ReactionBar";
 export { useReactions } from "./useReactions";
 export { MentionInput } from "./MentionInput";
 export { MentionText } from "./MentionText";
+export { default as ElementBadge } from "./ElementBadge";

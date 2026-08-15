@@ -8,9 +8,13 @@ import rehypeSanitize from "rehype-sanitize";
 import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
 import { SPECIAL_MENTION_DESCRIPTIONS } from "@/lib/mentions";
+import ElementBadge from "./ElementBadge";
 
 const SPECIAL_SOURCE = "@(all[a-z]?)(?![A-Za-z\\u00C0-\\u017F])";
 const NAME_SOURCE = "@([A-Za-z0-9_\\u00C0-\\u017F]+(?: [A-Za-z0-9_\\u00C0-\\u017F]+)*)";
+// Elementos de Borgin & Burkes: `!(Nombre del elemento)` —
+// regex literal: sin problemas de escaping de strings.
+const ELEMENT_SOURCE = /!\(([^)]+)\)/;
 
 interface MentionMember {
   user_id: string;
@@ -42,15 +46,32 @@ function nameMentionHtml(name: string, members?: MentionMember[]): string {
   return `<span class="font-semibold underline text-primary">@${name}</span>`;
 }
 
+/** Inserta un marcador para elemento de Borgin & Burkes. El renderer `span`
+ *  de ReactMarkdown lo detecta por `data-element` y renderiza el componente
+ *  ElementBadge (círculo con imagen + nombre, popover con descripción). */
+function elementMentionHtml(name: string): string {
+  const safeName = name.replace(/"/g, "'");
+  return `<span data-element="${safeName}"></span>`;
+}
+
 function injectMentions(text: string, members?: MentionMember[], isOwn = false): string {
-  const combined = new RegExp(`(?:${SPECIAL_SOURCE})|(?:${NAME_SOURCE})`, "gi");
+  const combined = new RegExp(`(?:${SPECIAL_SOURCE})|(?:${NAME_SOURCE})|(?:${ELEMENT_SOURCE.source})`, "gi");
 
   let processedText = text;
   let offset = 0;
 
   for (const match of text.matchAll(combined)) {
-    const command = match[1] ? match[1].toLowerCase() : null;
-    const html = command ? specialMentionHtml(command, isOwn) : nameMentionHtml(match[2] ?? "", members);
+    let html: string;
+    if (match[1]) {
+      // comando especial @all...
+      html = specialMentionHtml(match[1].toLowerCase(), isOwn);
+    } else if (match[2]) {
+      // @nombre de usuario
+      html = nameMentionHtml(match[2], members);
+    } else {
+      // !(Elemento de Borgin)
+      html = elementMentionHtml(match[3] ?? "");
+    }
     const matchStart = match.index ?? 0;
     const targetStart = matchStart + offset;
     const targetEnd = targetStart + match[0].length;
@@ -69,8 +90,9 @@ const SANITIZE_SCHEMA = {
     "a", "hr", "span", "div"
   ],
   attributes: {
-    a: ["href", "target", "rel", "class"],
-    "*": ["class", "style", "title"]
+    a: ["href", "target", "rel", "className"],
+    span: ["className", "style", "title", "data*"],
+    div: ["className", "style", "title", "data*"]
   }
 };
 
@@ -160,10 +182,16 @@ export const MentionText = ({ text, members, isOwn }: MentionTextProps) => {
     del: ({ children, node: _node, ...props }: MarkdownProps<React.HTMLAttributes<HTMLElement>>) => (
       <del {...props}>{children}</del>
     ),
-    span: ({ children, node: _node, ...props }: MarkdownProps<React.HTMLAttributes<HTMLSpanElement>>) => (
-      <span {...props}>{children}</span>
-    ),
-  }), []);
+    span: ({ children, node: _node, ...props }: MarkdownProps<React.HTMLAttributes<HTMLSpanElement>>) => {
+      // Marcador de elemento de Borgin & Burkes: `!(Nombre)` inyectado por
+      // injectMentions → renderiza el badge con imagen y popover.
+      const elementName = (props as Record<string, unknown>)["data-element"];
+      if (typeof elementName === "string") {
+        return <ElementBadge name={elementName} isOwn={isOwn} />;
+      }
+      return <span {...props}>{children}</span>;
+    },
+  }), [isOwn]);
 
   return (
     <ReactMarkdown

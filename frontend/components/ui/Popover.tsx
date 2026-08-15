@@ -3,6 +3,7 @@
 import {
   PopoverTrigger,
   PopoverContent,
+  PopoverPortal,
   Root,
 } from "@radix-ui/react-popover";
 
@@ -22,14 +23,16 @@ export default function Popover({
   return (
     <Root>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent
-        side={side}
-        align={align}
-        sideOffset={4}
-        className="z-[100] rounded-xl bg-surface-container-highest p-4 shadow-xl border border-outline-variant/20 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
-      >
-        {children}
-      </PopoverContent>
+      <PopoverPortal>
+        <PopoverContent
+          side={side}
+          align={align}
+          sideOffset={4}
+          className="z-[100] rounded-xl bg-surface-container-highest p-4 shadow-xl border border-outline-variant/20 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+        >
+          {children}
+        </PopoverContent>
+      </PopoverPortal>
     </Root>
   );
 }

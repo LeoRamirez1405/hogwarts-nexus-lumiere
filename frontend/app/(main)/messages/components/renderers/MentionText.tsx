@@ -9,12 +9,16 @@ import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
 import type { MentionTextProps } from "./types";
 import { SPECIAL_MENTION_DESCRIPTIONS } from "@/lib/mentions";
+import ElementBadge from "@/components/ui/ElementBadge";
 
 // Patrón del comando grupal (@all/@alle/@alla/@allX). El lookahead negativo
 // evita comer "@allison": si "@"+"all" va seguido de otra letra, falla y
 // cae al patrón de nombre de usuario más abajo.
 const SPECIAL_SOURCE = "@(all[a-z]?)(?![A-Za-z\\u00C0-\\u017F])";
 const NAME_SOURCE = "@([A-Za-z\\u00C0-\\u017F]+(?: [A-Za-z\\u00C0-\\u017F]+)*)";
+// Elementos de Borgin & Burkes: `!(Nombre del elemento)` —
+// regex literal: sin problemas de escaping de strings.
+const ELEMENT_SOURCE = /!\(([^)]+)\)/;
 
 function specialMentionHtml(command: string, isOwn: boolean): string {
   const description = SPECIAL_MENTION_DESCRIPTIONS[command] ?? "Mención grupal";
@@ -33,11 +37,20 @@ function nameMentionHtml(name: string, members?: MentionTextProps["members"]): s
   return `<span class="font-semibold underline">@${name}</span>`;
 }
 
+/** Inserta un marcador para elemento de Borgin & Burkes. El renderer `span`
+ *  de ReactMarkdown lo detecta por `data-element` y renderiza el componente
+ *  ElementBadge (círculo con imagen + nombre, popover con descripción). */
+function elementMentionHtml(name: string): string {
+  const safeName = name.replace(/"/g, "'");
+  return `<span data-element="${safeName}"></span>`;
+}
+
 /**
- * Reemplaza las menciones (@Nombre, @all, @alle, @alla, @allX) por HTML crudo
- * en el texto que recibe ReactMarkdown. remark lo divide en nodos html+texto,
- * pero rehypeRaw lo reensambla y rehype-sanitize conserva span/a con sus
- * clases, de modo que los renderers `span`/`a` propagan el estilo final.
+ * Reemplaza las menciones (@Nombre, @all, @alle, @alla, @allX) y referencias a
+ * elementos de Borgin & Burkes (!(Nombre)) por HTML crudo en el texto que
+ * recibe ReactMarkdown. remark lo divide en nodos html+texto, pero rehypeRaw
+ * lo reensambla y rehype-sanitize conserva span/a con sus classes, de modo que
+ * los renderers `span`/`a` propagan el estilo final.
  *
  * Usa `matchAll` (que no retiene `lastIndex`) en una RegExp local nueva por
  * invocación, evitando estado compartido entre renders del componente.
@@ -45,14 +58,23 @@ function nameMentionHtml(name: string, members?: MentionTextProps["members"]): s
 function injectMentions(text: string, members?: MentionTextProps["members"], isOwn = false): string {
   // Los comandos grupales van primero en la alternancia para que "@all..." no
   // se consuma como un nombre de usuario.
-  const combined = new RegExp(`(?:${SPECIAL_SOURCE})|(?:${NAME_SOURCE})`, "gi");
+  const combined = new RegExp(`(?:${SPECIAL_SOURCE})|(?:${NAME_SOURCE})|(?:${ELEMENT_SOURCE.source})`, "gi");
 
   let processedText = text;
   let offset = 0;
 
   for (const match of text.matchAll(combined)) {
-    const command = match[1] ? match[1].toLowerCase() : null;
-    const html = command ? specialMentionHtml(command, isOwn) : nameMentionHtml(match[2] ?? "", members);
+    let html: string;
+    if (match[1]) {
+      // comando especial @all...
+      html = specialMentionHtml(match[1].toLowerCase(), isOwn);
+    } else if (match[2]) {
+      // @nombre de usuario
+      html = nameMentionHtml(match[2], members);
+    } else {
+      // !(Elemento de Borgin)
+      html = elementMentionHtml(match[3] ?? "");
+    }
     const matchStart = match.index ?? 0;
     const targetStart = matchStart + offset;
     const targetEnd = targetStart + match[0].length;
@@ -72,7 +94,8 @@ const SANITIZE_SCHEMA = {
   ],
   attributes: {
     a: ["href", "target", "rel", "className"],
-    "*": ["className", "style", "title"]
+    span: ["className", "style", "title", "data*"],
+    div: ["className", "style", "title", "data*"]
   }
 };
 
@@ -82,11 +105,6 @@ type MarkdownProps<P> = P & { node?: unknown };
 
 export const MentionText = ({ text, members, isOwn }: MentionTextProps) => {
   const processedText = useMemo(() => injectMentions(text, members, isOwn), [text, members, isOwn]);
-
-  // TEMP: diagnóstico de menciones — quitar tras validar.
-  if (typeof window !== "undefined" && text && text.includes("@")) {
-    console.info("[MentionText] input:", JSON.stringify(text), "=> processed:", JSON.stringify(processedText));
-  }
 
   const components = useMemo(() => ({
     a: ({ children, node: _node, ...props }: MarkdownProps<React.AnchorHTMLAttributes<HTMLAnchorElement>>) => {
@@ -171,12 +189,15 @@ export const MentionText = ({ text, members, isOwn }: MentionTextProps) => {
       <del {...props}>{children}</del>
     ),
     span: ({ children, node: _node, ...props }: MarkdownProps<React.HTMLAttributes<HTMLSpanElement>>) => {
-      if (typeof window !== "undefined") {
-        console.info("[MentionText span renderer] props:", props, "children:", children);
+      // Marcador de elemento de Borgin & Burkes: `!(Nombre)` inyectado por
+      // injectMentions → renderiza el badge con imagen y popover.
+      const elementName = (props as Record<string, unknown>)["data-element"];
+      if (typeof elementName === "string") {
+        return <ElementBadge name={elementName} isOwn={isOwn} />;
       }
       return <span {...props}>{children}</span>;
     },
-  }), []);
+  }), [isOwn]);
 
   return (
     <ReactMarkdown
