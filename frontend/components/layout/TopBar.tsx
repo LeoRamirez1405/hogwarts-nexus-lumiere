@@ -439,7 +439,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             className="w-full flex items-center gap-3 px-4 py-3 text-body-md text-error hover:bg-error/10 transition-colors"
           >
             <MaterialIcon name="logout" className="text-lg" />
-            Cerrar sesion
+            Cerrar sesión
           </button>
         </div>,
         document.body
