@@ -76,6 +76,12 @@ def do_run_migrations(sync_connection):
         render_as_batch=is_sqlite,
         # Include all tables regardless of schema matching
         include_schemas=True,
+        # Alembic 1.18 defaults this to False: on PostgreSQL (transactional
+        # DDL) all migrations then run in ONE transaction, so a single failing
+        # migration rolls back the entire batch (and the alembic_version row),
+        # leaving the app booting against an incomplete schema. Commit each
+        # migration independently so a failure only affects that revision.
+        transaction_per_migration=True,
     )
 
     with context.begin_transaction():

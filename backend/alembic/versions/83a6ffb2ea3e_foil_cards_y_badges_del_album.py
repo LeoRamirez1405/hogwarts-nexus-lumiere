@@ -34,9 +34,12 @@ def upgrade() -> None:
     op.create_index('ix_user_badges_user_id', 'user_badges', ['user_id'], unique=False)
 
     # Variante foil dorada (1%): las filas existentes quedan no-foil.
+    # server_default como string ("0") en vez de sa.text("0"): PostgreSQL
+    # rechaza `DEFAULT 0` (entero) sobre columna BOOLEAN; con "0" emite
+    # `DEFAULT '0'` que Postgres castea a boolean. SQLite acepta ambos.
     with op.batch_alter_table('user_cards', schema=None) as batch_op:
         batch_op.add_column(
-            sa.Column('foil', sa.Boolean(), nullable=False, server_default=sa.text('0'))
+            sa.Column('foil', sa.Boolean(), nullable=False, server_default='0')
         )
 
 
