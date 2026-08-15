@@ -99,7 +99,7 @@ async def seed_data():
                 price=850,
                 category="Reliquia Rara",
                 shop="borgin",
-                image_url=None,
+                image_url="https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=400&fit=crop",
                 stock=3,
             ),
             Product(
@@ -108,7 +108,7 @@ async def seed_data():
                 price=1200,
                 category="Objeto Oscuro",
                 shop="borgin",
-                image_url=None,
+                image_url="https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&h=400&fit=crop",
                 stock=5,
             ),
             Product(
@@ -117,7 +117,7 @@ async def seed_data():
                 price=2500,
                 category="Reliquia Histórica",
                 shop="borgin",
-                image_url=None,
+                image_url="https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=400&fit=crop",
                 stock=1,
             ),
             Product(
@@ -126,7 +126,7 @@ async def seed_data():
                 price=3000,
                 category="Artefacto",
                 shop="borgin",
-                image_url=None,
+                image_url="https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=400&fit=crop",
                 stock=2,
             ),
             Product(
@@ -135,7 +135,7 @@ async def seed_data():
                 price=450,
                 category="Curiosidad",
                 shop="borgin",
-                image_url=None,
+                image_url="https://images.unsplash.com/photo-1584215581721-5c554a5c1a94?w=400&h=400&fit=crop",
                 stock=10,
             ),
         ]
