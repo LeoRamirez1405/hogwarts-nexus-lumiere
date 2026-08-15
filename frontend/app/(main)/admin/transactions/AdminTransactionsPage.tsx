@@ -12,13 +12,16 @@ import TransactionStats from "./components/TransactionStats";
 import TransactionFilters from "./components/TransactionFilters";
 import TransactionCards from "./components/TransactionCards";
 import TransactionsTable from "./components/TransactionsTable";
+import AdminTransactionModal from "./components/AdminTransactionModal";
 import PullToRefresh from "@/components/ui/PullToRefresh";
 import Skeleton from "@/components/ui/Skeleton";
+import Button from "@/components/ui/Button";
 
 export default function AdminTransactionsPage() {
   const { user } = useAuthStore();
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [txModalOpen, setTxModalOpen] = useState(false);
   const debouncedSearch = useDebounce(search, 300);
 
   useEffect(() => {
@@ -32,7 +35,7 @@ export default function AdminTransactionsPage() {
     ...filters.buildFilters(),
     search: debouncedSearch || undefined,
   };
-  const { adminData, isLoading, active } = useTransactions(txFilters, filters.activeTab, user?.role);
+  const { userData, adminData, isLoading, active } = useTransactions(txFilters, filters.activeTab, user?.role);
   const stats = useTransactionStats(adminData.items);
 
   const handleRefresh = useCallback(async () => {
@@ -42,6 +45,11 @@ export default function AdminTransactionsPage() {
       await adminData.refresh();
     }
   }, [filters.activeTab, adminData]);
+
+  const handleCreated = useCallback(() => {
+    void adminData.refresh();
+    void userData.refresh();
+  }, [adminData, userData]);
 
   const visibleTx = active.items;
 
@@ -68,14 +76,35 @@ export default function AdminTransactionsPage() {
               Historial completo de transacciones del sistema
             </p>
           </div>
-          <div className="w-full md:w-80">
-            <SearchBar
-              placeholder="Buscar transacciones..."
-              value={search}
-              onChange={setSearch}
-              size="md"
-            />
+          <div className="flex items-center gap-2">
+            <div className="w-full md:w-80">
+              <SearchBar
+                placeholder="Buscar transacciones..."
+                value={search}
+                onChange={setSearch}
+                size="md"
+              />
+            </div>
+            <div className="hidden md:block">
+              <Button
+                className="shrink-0"
+                icon="add"
+                onClick={() => setTxModalOpen(true)}
+              >
+                Nueva transacción
+              </Button>
+            </div>
           </div>
+        </div>
+
+        <div className="md:hidden">
+          <Button
+            className="w-full !py-2"
+            icon="add"
+            onClick={() => setTxModalOpen(true)}
+          >
+            Nueva transacción
+          </Button>
         </div>
 
         <div className="flex gap-2">
@@ -110,6 +139,12 @@ export default function AdminTransactionsPage() {
           </>
         )}
       </div>
+
+      <AdminTransactionModal
+        open={txModalOpen}
+        onClose={() => setTxModalOpen(false)}
+        onCreated={handleCreated}
+      />
     </PullToRefresh>
   );
 }

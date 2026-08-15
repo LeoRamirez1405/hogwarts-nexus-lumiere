@@ -77,4 +77,16 @@ export const transactionsApi = {
       method: "POST",
       body: JSON.stringify({ receiver_id, amount, description }),
     }),
+
+  adminDeposit: (userIds: string[], amount: number, description: string) =>
+    request<Transaction[]>("/admin/transactions/deposit", {
+      method: "POST",
+      body: JSON.stringify({ user_ids: userIds, amount, description }),
+    }),
+
+  adminWithdraw: (userIds: string[], amount: number, description: string) =>
+    request<Transaction[]>("/admin/transactions/withdraw", {
+      method: "POST",
+      body: JSON.stringify({ user_ids: userIds, amount, description }),
+    }),
 };

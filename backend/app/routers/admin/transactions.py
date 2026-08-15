@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -12,10 +12,105 @@ from ...database import get_db
 from ...middleware.roles import require_role
 from ...models.transaction import Transaction
 from ...models.user import User
+from ...notifications_service import notify, N
 from ...schemas.pagination import Page
-from ...schemas.transaction import TransactionResponse
+from ...schemas.transaction import AdminTransactionCreate, TransactionResponse
 
 router = APIRouter(prefix="/admin/transactions", tags=["admin-transactions"])
+
+
+async def _validate_target_users(db: AsyncSession, user_ids: list[str]) -> list[User]:
+    if not user_ids:
+        raise HTTPException(status_code=400, detail="Selecciona al menos un usuario")
+    users = (await db.execute(select(User).where(User.id.in_(user_ids)))).scalars().all()
+    if len(users) != len(user_ids):
+        raise HTTPException(status_code=404, detail="Uno o más usuarios no existen")
+    return list(users)
+
+
+@router.post("/deposit", response_model=list[TransactionResponse], status_code=status.HTTP_201_CREATED)
+async def admin_deposit(
+    data: AdminTransactionCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="El monto debe ser positivo")
+    users = await _validate_target_users(db, data.user_ids)
+
+    description = data.description
+    body = f"{current_user.name} depositó {data.amount} zerines en tu cuenta. Motivo: {data.description}"
+    transactions = []
+    for user in users:
+        user.zerines += data.amount
+        transaction = Transaction(
+            receiver_id=user.id,
+            amount=data.amount,
+            type="deposit",
+            description=description,
+            status="confirmed",
+        )
+        db.add(transaction)
+        transactions.append(transaction)
+        await notify(
+            db,
+            user_id=user.id,
+            type=N.ZERINES_RECEIVED,
+            title=f"Recibiste {data.amount} zerines",
+            body=body,
+            related_id=transaction.id,
+            actor_id=current_user.id,
+        )
+    await db.commit()
+    for transaction in transactions:
+        await db.refresh(transaction)
+    return transactions
+
+
+@router.post("/withdraw", response_model=list[TransactionResponse], status_code=status.HTTP_201_CREATED)
+async def admin_withdraw(
+    data: AdminTransactionCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="El monto debe ser positivo")
+    users = await _validate_target_users(db, data.user_ids)
+
+    short = [u.name for u in users if u.zerines < data.amount]
+    if short:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Saldo insuficiente: {', '.join(short)}",
+        )
+
+    description = data.description
+    body = f"{current_user.name} retiró {data.amount} zerines de tu cuenta. Motivo: {data.description}"
+    transactions = []
+    for user in users:
+        user.zerines -= data.amount
+        transaction = Transaction(
+            sender_id=user.id,
+            amount=data.amount,
+            type="withdrawal",
+            description=description,
+            status="confirmed",
+        )
+        db.add(transaction)
+        transactions.append(transaction)
+        await notify(
+            db,
+            user_id=user.id,
+            type=N.ZERINES_WITHDRAWN,
+            title=f"Retiro de {data.amount} zerines",
+            body=body,
+            related_id=transaction.id,
+            actor_id=current_user.id,
+        )
+    await db.commit()
+    for transaction in transactions:
+        await db.refresh(transaction)
+    return transactions
 
 
 @router.get("/", response_model=Page[TransactionResponse])

@@ -232,6 +232,12 @@ const META: Record<string, NotificationMeta> = {
     category: "economy",
     route: () => "/treasury",
   },
+  zerines_withdrawn: {
+    icon: "diamond",
+    chip: "bg-error/10 text-error",
+    category: "economy",
+    route: () => "/treasury",
+  },
   // Pets
   pet_needs_attention: {
     icon: "pets",
@@ -382,7 +388,7 @@ export function pathToClearRef(pathname: string): NotificationReadReference | nu
     };
   }
   if (pathname === "/treasury") {
-    return { types: ["zerines_received"] };
+    return { types: ["zerines_received", "zerines_withdrawn"] };
   }
   if (pathname === "/admin/consumicion") {
     return { types: ["marketplace_purchase", "marketplace_purchase_flourish", "marketplace_purchase_borgin"] };

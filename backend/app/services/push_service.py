@@ -99,7 +99,7 @@ def notification_url(
         return "/news"
     if type in ("forum_reply", "forum_mention", "forum_comment_reply", "friend_forum", "forum_reaction", "forum_comment_reaction"):
         return f"/news/thread/{related_id}" if related_id else "/news"
-    if type == "zerines_received":
+    if type in ("zerines_received", "zerines_withdrawn"):
         return "/treasury"
     if type.startswith("pet_"):
         return "/pets"

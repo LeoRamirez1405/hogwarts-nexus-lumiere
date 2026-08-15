@@ -62,6 +62,7 @@ class N:
     FORUM_COMMENT_REPLY = "forum_comment_reply"
     # Economy
     ZERINES_RECEIVED = "zerines_received"
+    ZERINES_WITHDRAWN = "zerines_withdrawn"
     INVENTORY_CONSUMED = "inventory_consumed"
     # Social graph
     FRIEND_REQUEST = "friend_request"

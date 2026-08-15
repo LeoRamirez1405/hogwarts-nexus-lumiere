@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -10,6 +10,12 @@ class TransactionCreate(BaseModel):
 
 class TransferRequest(BaseModel):
     receiver_id: str
+    amount: int
+    description: str = Field(..., min_length=1, max_length=500)
+
+
+class AdminTransactionCreate(BaseModel):
+    user_ids: List[str]
     amount: int
     description: str = Field(..., min_length=1, max_length=500)
 
