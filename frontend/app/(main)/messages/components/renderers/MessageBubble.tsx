@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, memo } from "react";
+import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";
 import { MaterialIcon } from "@/components/ui";
-import { formatMessageTime, parseUtc } from "@/app/(main)/messages/helpers";
+import { formatMessageTime, parseUtc, getInitials } from "@/app/(main)/messages/helpers";
 import { ReplyPreview } from "./ReplyPreview";
 import { PollView } from "./PollView";
 import { PostShareView } from "./PostShareView";
@@ -18,6 +19,7 @@ import { MessageActions } from "./MessageActions";
 import { LinkPreviewView } from "./LinkPreviewView";
 import { detectMessageEffect, MessageEffectBurst } from "@/components/ui/MessageEffects";
 import { hapticLight } from "@/lib/haptics";
+import Avatar from "@/components/ui/Avatar";
 import type { MessageBubbleProps } from "./types";
 
 const formatDisappearTime = (disappearAt: string) => {
@@ -59,6 +61,7 @@ export const MessageBubble = memo(
     members,
     isReplyTarget,
   }: MessageBubbleProps) => {
+  const isDesktop = useIsDesktopMdUp(false);
   const [dataSaver] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("nexus-data-saver") === "true";
@@ -84,6 +87,7 @@ export const MessageBubble = memo(
   // Find sender info from members for group chats
   const sender = members?.find((m) => m.user_id === message.sender_id);
   const senderName = sender?.user?.name || "Desconocido";
+  const senderAvatar = sender?.user?.avatar_url || message.sender?.avatar_url;
   const isGroup = members && members.length > 0;
 
   useEffect(() => {
@@ -201,6 +205,13 @@ export const MessageBubble = memo(
     }
   };
 
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDesktop) return;
+    const target = e.target as HTMLElement;
+    if (target.closest(INTERACTIVE_SELECTOR)) return;
+    setActionsOpen((prev) => !prev);
+  };
+
 return (
     <div
       id={`msg-${message.id}`}
@@ -217,13 +228,16 @@ return (
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
-      onMouseEnter={() => setActionsOpen(true)}
+      onClick={handleContainerClick}
     >
-      {!isOwn && (
-        <div className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant text-label-sm shrink-0 mt-1">
-          <MaterialIcon name="person" className="text-lg" />
-        </div>
-      )}
+{!isOwn && (
+         <Avatar
+           src={senderAvatar}
+           alt={`${senderName}'s avatar`}
+           size="sm"
+           initials={getInitials(senderName)}
+         />
+       )}
 
       {/* Botón "Responder" revelado por el swipe (estilo Telegram) - solo indicador visual, el gesto lo maneja handleTouchEnd */}
       {!message.optimistic && dragging && (
@@ -431,11 +445,14 @@ return (
         )}
       </div>
 
-      {isOwn && (
-        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-label-sm shrink-0 mt-1">
-          <MaterialIcon name="person" className="text-lg" filled />
-        </div>
-      )}
+{isOwn && (
+         <Avatar
+           src={message.sender?.avatar_url}
+           alt="Tu avatar"
+           size="sm"
+           initials={getInitials(message.sender?.name || "Tú")}
+         />
+       )}
     </div>
   );
   },

@@ -65,25 +65,29 @@ export function useChatScroll({
   // A fresh conversation page has arrived (loadNonce is bumped by useMessages
   // after the first page for the conversation loads). ChatMessages remounts
   // the Virtuoso keyed by convId:loadNonce with initialTopMostItemIndex, so
-  // the viewport lands on the unread divider (or at the bottom). Here we only
-  // reset the bookkeeping so this page isn't mistaken for a prepend/append.
+  // the viewport lands on the unread divider (or at the bottom). Here we
+  // instantly scroll to match (Telegram-style: no animation).
   useEffect(() => {
     if (loadNonce === 0 || loadNonce === prevNonceRef.current) return;
     prevNonceRef.current = loadNonce;
     prevFirstIdRef.current = messages[0]?.id ?? null;
     prevLastIdRef.current = messages[messages.length - 1]?.id ?? null;
     prevScrollHeightRef.current = 0;
-    const hasUnread = firstUnreadId
-      ? messages.some((m) => m.id === firstUnreadId)
-      : false;
-    stickToBottomRef.current = !hasUnread;
+    stickToBottomRef.current = true;
 
     requestAnimationFrame(() => {
       // Position-dependent UI resets (after Virtuoso's initial layout settled).
       setNewCount(0);
+      const hasUnread = firstUnreadId
+        ? messages.some((m) => m.id === firstUnreadId)
+        : false;
       setShowScrollBtn(hasUnread);
       const c = containerRef.current;
-      if (c) prevScrollHeightRef.current = c.scrollHeight;
+      if (c) {
+        prevScrollHeightRef.current = c.scrollHeight;
+        // Instant scroll to bottom to match Virtuoso's initialTopMostItemIndex
+        c.scrollTo({ top: c.scrollHeight, behavior: "auto" });
+      }
     });
   }, [loadNonce, messages, firstUnreadId]);
 
