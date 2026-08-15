@@ -90,7 +90,7 @@ export default function ConversationItem({
             {isRoom && (
               <MaterialIcon
                 name="groups"
-                className="text-xs ml-1 text-on-surface-variant"
+                className="text-xs ml-1 text-on-surface-variant inline-block translate-y-1.5"
                 filled
               />
             )}
