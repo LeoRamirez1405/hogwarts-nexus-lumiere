@@ -104,17 +104,17 @@ async def delete_conversation_for_me(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Hard delete for the current user only.
+    """Erase the message history for the current user only.
 
-    The conversation leaves the inbox and the message history before
-    ``deleted_at`` is never shown to this user again. A new message makes the
-    conversation reappear with only the messages sent after the deletion.
+    The conversation stays in the inbox (``hidden`` is untouched) but the
+    message history before ``deleted_at`` is never shown to this user again.
+    A new message restores the preview; only messages sent after the deletion
+    become visible.
     """
     _validate_conv_type(conv_type)
     pref = await _get_or_create_pref(db, current_user.id, conv_type, conv_id)
     pref.deleted_at = utcnow()
     pref.removed_at = None
-    pref.hidden = True
     _clear_conversation_preview(pref)
 
     await db.commit()

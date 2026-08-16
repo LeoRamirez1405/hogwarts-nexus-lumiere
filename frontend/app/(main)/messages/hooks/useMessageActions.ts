@@ -50,7 +50,9 @@ export function useMessageActions({
 
   const refreshIfConversationMissing = useCallback((convId: string) => {
     setConversations((prev) => {
-      if (prev.some((c) => c.id === convId)) return prev;
+      // A hidden conversation counts as missing: the server unhides it when a
+      // new message arrives, so the inbox must refetch to bring it back.
+      if (prev.some((c) => c.id === convId && !c.is_hidden)) return prev;
       // The conversation was deleted/removed and is not in the local inbox;
       // sending a message makes it reappear server-side, so pull the fresh
       // list. The WS never echoes our own messages, so this is the only
@@ -64,7 +66,7 @@ export function useMessageActions({
             try {
               const convs = await api.getConversations();
               setConversations(convs);
-              if (remaining > 0 && !convs.some((c) => c.id === convId)) {
+              if (remaining > 0 && !convs.some((c) => c.id === convId && !c.is_hidden)) {
                 attempt(2000, remaining - 1);
               }
             } catch {
@@ -300,7 +302,9 @@ export function useMessageActions({
   const handleDeleteConversation = useCallback(async (convType: "dm" | "room", convId: string) => {
     try {
       await api.deleteConversation(convType, convId);
-      setConversations((prev) => prev.filter((c) => c.id !== convId));
+      // Erase the history for me, but keep the conversation in the inbox
+      // (server cleared the preview/unread; mirror that locally).
+      setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, last_message: undefined, unread_count: 0 } : c));
     } catch (error) {
       console.error("Failed to delete conversation:", error);
     }
@@ -309,7 +313,7 @@ export function useMessageActions({
   const handleRemoveConversation = useCallback(async (convType: "dm" | "room", convId: string) => {
     try {
       await api.removeConversation(convType, convId);
-      setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, is_archived: true, is_hidden: true } : c));
+      setConversations((prev) => prev.filter((c) => c.id !== convId));
     } catch (error) {
       console.error("Failed to remove conversation:", error);
     }
