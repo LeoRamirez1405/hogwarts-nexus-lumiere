@@ -248,7 +248,7 @@ export default function ThreadDetailPage() {
                 <MentionInput
                   value={newComment}
                   onChange={setNewComment}
-                  placeholder="Escribe tu respuesta... (gana 5 zerines)"
+                  placeholder="Escribe tu respuesta..."
                   minHeight={80}
                   maxHeight={200}
                   disabled={posting}

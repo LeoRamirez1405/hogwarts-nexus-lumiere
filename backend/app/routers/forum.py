@@ -7,7 +7,6 @@ from sqlalchemy.orm import selectinload
 from ..database import get_db
 from ..models.forum import ForumThread, ForumThreadVote, ForumComment, ForumSubscription
 from ..models.user import User
-from ..models.transaction import Transaction
 from ..schemas.forum import (
     ForumThreadCreate, ForumThreadResponse, ForumVoteRequest,
     ForumCommentCreate, ForumCommentResponse,
@@ -20,8 +19,6 @@ from ..services.friend_notifications import notify_friends_of_activity
 from ..services.comment_threads import nest_comments
 
 router = APIRouter()
-
-FORUM_COMMENT_REWARD = 5
 
 
 async def _build_threads_response(
@@ -286,18 +283,6 @@ async def create_thread_comment(
         parent_id=parent.id if parent else None,
     )
     db.add(comment)
-
-    # Reward: 5 zerines per forum comment (as the UI promises).
-    current_user.zerines += FORUM_COMMENT_REWARD
-    db.add(
-        Transaction(
-            receiver_id=current_user.id,
-            amount=FORUM_COMMENT_REWARD,
-            type="reward",
-            description="Recompensa por comentar en el foro",
-            status="confirmed",
-        )
-    )
 
     # Commenter auto-subscribes so they follow replies too.
     already = (
