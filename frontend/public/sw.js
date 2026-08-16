@@ -65,6 +65,12 @@ async function sweepApiCache() {
       if (!req.url.includes('/api/')) {
         continue;
       }
+      // Drop stale entries AND any prekey responses cached by an older SW
+      // version (they are one-time use and must never be served).
+      if (req.url.includes('/prekeys')) {
+        stale.push(req);
+        continue;
+      }
       const res = await cache.match(req);
       const date = res ? new Date(res.headers.get('date') || 0).getTime() : 0;
       if (!date || date < cutoff) {
@@ -94,6 +100,13 @@ self.addEventListener('fetch', (event) => {
   // a cached GET here could pin the UI to a stale auth state (e.g. a 401 body
   // cached while the session was being refreshed).
   if (url.pathname.startsWith('/api/auth/')) {
+    return;
+  }
+
+  // NEVER cache E2E prekeys: they are one-time use and get consumed server-
+  // side. Serving a stale batch from cache would fail session initiation for
+  // the next message. Identity/signed-prekey (long-lived) may stay cached.
+  if (url.pathname.includes('/prekeys')) {
     return;
   }
 
