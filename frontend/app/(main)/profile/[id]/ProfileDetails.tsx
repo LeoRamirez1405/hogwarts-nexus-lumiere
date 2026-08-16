@@ -212,15 +212,6 @@ export default function ProfileDetails({
           </li>
 )}
         
-        {/* Biografía - Usuario editable */}
-        <InlineEditable
-          icon="description"
-          value={profile.bio || ""}
-          placeholder="Cuéntanos sobre ti..."
-          isOwn={isOwn}
-          onSave={(v) => handleUpdate("bio", v)}
-        />
-
         {/* Pictorium */}
         <li className="flex items-center gap-3 border-l-4 border-secondary pl-3">
           <MaterialIcon name="style" className="text-lg text-secondary" />

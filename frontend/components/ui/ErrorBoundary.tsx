@@ -49,7 +49,7 @@ export class ErrorBoundary extends Component<
           className="text-5xl text-error mb-3 block mx-auto"
         />
         <h2 className="font-display text-headline-lg text-on-surface mb-2">
-          Algo salio mal
+          Algo salió mal
         </h2>
         <p className="text-body-md text-on-surface-variant mb-6">
           Ocurrio un error inesperado al mostrar esta seccion.

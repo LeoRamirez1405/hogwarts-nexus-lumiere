@@ -22,7 +22,7 @@ export default function GlobalError({
           className="text-6xl text-error mb-4 block mx-auto"
         />
         <h1 className="font-display text-headline-lg text-on-surface mb-2">
-          Algo salio muy mal
+          Algo salió muy mal
         </h1>
         <p className="text-body-md text-on-surface-variant mb-6">
           Se produjo un error inesperado. Puedes intentar recuperar la

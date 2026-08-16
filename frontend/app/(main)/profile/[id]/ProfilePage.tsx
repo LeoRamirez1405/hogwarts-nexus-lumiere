@@ -12,6 +12,7 @@ import {
 } from "@/components/domain/Profile";
 import { MaterialIcon, Skeleton } from "@/components/ui";
 import ProfileDetails from "./ProfileDetails";
+import { BioSection } from "./components/BioSection";
 import { useProfileData } from "./hooks/useProfileData";
 import { PostComposer } from "./components/PostComposer";
 import { PostsFeed } from "./components/PostsFeed";
@@ -95,15 +96,20 @@ export default function ProfilePage() {
   return (
     <PullToRefresh onRefresh={refreshPosts}>
       <div className="space-y-8 pb-16">
-        <ProfileHeader
-          profile={profile}
-          isOwn={isOwn}
-          onEdit={() => setShowEdit(true)}
-          onMessage={() => router.push(`/messages?user=${profile.id}`)}
-          onFriendAction={friendAction}
-        />
+<ProfileHeader
+           profile={profile}
+           isOwn={isOwn}
+           onEdit={() => setShowEdit(true)}
+           onMessage={() => router.push(`/messages?user=${profile.id}`)}
+           onFriendAction={friendAction}
+         />
 
-        <div className="max-w-4xl mx-auto space-y-6">
+         {/* Bio Section */}
+         <div className="max-w-4xl mx-auto -mt-4">
+           <BioSection profile={profile} />
+         </div>
+
+         <div className="max-w-4xl mx-auto space-y-6">
           <StatsCards
             postsCount={postsTotal}
             friendsCount={friends.length}
