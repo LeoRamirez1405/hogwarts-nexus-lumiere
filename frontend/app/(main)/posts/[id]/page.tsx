@@ -212,8 +212,8 @@ export default function PostDetailPage() {
               </p>
               <p className="text-label-sm text-on-surface-variant">
                 {post.is_repost && post.reposted_by
-                  ? `Reposteado por ${post.reposted_by.name} &middot; {timeAgo(post.reposted_at!)}`
-                  : `Publicado &middot; {timeAgo(post.created_at)}`}
+                  ? `Reposteado por ${post.reposted_by.name} · ${timeAgo(post.reposted_at!)}`
+                  : `Publicado · ${timeAgo(post.created_at)}`}
               </p>
             </div>
           </Link>
