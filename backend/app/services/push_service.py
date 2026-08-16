@@ -188,8 +188,8 @@ async def send_webpush_to_user(
         {
             "title": title,
             "body": body,
-            "icon": "/icons/icon-owl.png",
-            "badge": "/icons/badge-owl.png",
+            "icon": "/icons/icon-owl.svg",
+            "badge": "/icons/badge-owl.svg",
             "tag": tag or "nexus-notification",
             "data": {"url": url or "/notifications"},
         }

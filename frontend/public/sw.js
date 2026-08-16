@@ -265,8 +265,8 @@ self.addEventListener('push', (event) => {
     const data = event.data.json();
     const options = {
       body: data.body || 'Nueva notificación',
-      icon: data.icon || '/icons/icon-owl.png',
-      badge: '/icons/badge-owl.png',
+      icon: data.icon || '/icons/icon-owl.svg',
+      badge: '/icons/badge-owl.svg',
       vibrate: data.vibrate || [100, 50, 100],
       tag: data.tag || 'nexus-notification',
       renotify: data.renotify || false,
