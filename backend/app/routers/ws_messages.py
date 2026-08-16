@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, update
 from sqlalchemy.orm import selectinload
 
-from ..database import get_db
+from ..database import async_session
 from ..models.message import Message
 from ..models.chat_room import ChatRoomMember, UserConversationPreference
 from ..models.user import User
@@ -95,7 +95,6 @@ async def _notify_dm_partners(db: AsyncSession, user_id: str, status: str) -> No
 async def websocket_endpoint(
     websocket: WebSocket,
     current_user: Optional[User] = Depends(get_current_user_ws),
-    db: AsyncSession = Depends(get_db),
 ):
     if not current_user:
         await websocket.close(code=4001, reason="Invalid token")
@@ -105,40 +104,60 @@ async def websocket_endpoint(
 
     # Mark the user as active the moment the socket opens.
     try:
-        current_user.last_active_at = utcnow()
-        await db.commit()
+        async with async_session() as db:
+            current_user.last_active_at = utcnow()
+            await db.commit()
     except Exception:
         pass
 
     # Add user to their rooms
-    room_result = await db.execute(
-        select(ChatRoomMember.room_id).where(ChatRoomMember.user_id == current_user.id)
-    )
-    for (room_id,) in room_result.all():
+    try:
+        async with async_session() as db:
+            room_result = await db.execute(
+                select(ChatRoomMember.room_id).where(ChatRoomMember.user_id == current_user.id)
+            )
+            room_ids = [room_id for (room_id,) in room_result.all()]
+    except Exception:
+        room_ids = []
+    for room_id in room_ids:
         manager.add_user_to_room(current_user.id, room_id)
 
     # Broadcast presence online
     online_payload = {"t": "presence", "u": current_user.id, "s": "online"}
     for room_id in manager.user_rooms.get(current_user.id, set()):
         await manager.broadcast_to_room(room_id, online_payload, exclude_user=current_user.id)
-    await _notify_dm_partners(db, current_user.id, "online")
+    try:
+        async with async_session() as db:
+            await _notify_dm_partners(db, current_user.id, "online")
+    except Exception:
+        pass
 
     try:
         while True:
             data = await websocket.receive_json()
-            await handle_ws_message(current_user.id, data, db)
+            # Short-lived session per WS message: a long-lived session would
+            # pin a pool connection for the whole socket lifetime and exhaust
+            # the QueuePool (10+5) with a few open tabs.
+            try:
+                async with async_session() as db:
+                    await handle_ws_message(current_user.id, data, db)
+            except Exception:
+                continue
     except WebSocketDisconnect:
         pass
     except Exception:
         pass
     finally:
         # Record last activity and broadcast presence offline
-        await _touch_presence(current_user.id, db)
+        try:
+            async with async_session() as db:
+                await _touch_presence(current_user.id, db)
+                await _notify_dm_partners(db, current_user.id, "offline")
+        except Exception:
+            pass
         offline_payload = {"t": "presence", "u": current_user.id, "s": "offline"}
         for room_id in manager.user_rooms.get(current_user.id, set()):
             await manager.broadcast_to_room(room_id, offline_payload, exclude_user=current_user.id)
-        await _notify_dm_partners(db, current_user.id, "offline")
-
         manager.disconnect(current_user.id)
 
 

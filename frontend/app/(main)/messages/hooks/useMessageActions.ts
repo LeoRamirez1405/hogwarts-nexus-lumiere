@@ -9,7 +9,7 @@ import type { Conversation, SelectedConvType, MuteDuration } from "../types";
 
 interface WsClient {
   isConnected: () => boolean;
-  sendMessage: (conversationId: string, data: MessageSendData & { temp_id?: string }) => void;
+  sendMessage: (conversationId: string, data: MessageSendData & { temp_id?: string }, e2e?: boolean) => void;
   markRead: (conversationId: string, messageId: string) => void;
 }
 
@@ -135,11 +135,14 @@ export function useMessageActions({
 
     try {
       if (wsClient.isConnected()) {
-        wsClient.sendMessage(selectedId, messageData);
+        const isE2E = (messageData.metadata as { e2e_encrypted?: boolean } | undefined)?.e2e_encrypted === true;
+        wsClient.sendMessage(selectedId, messageData, isE2E);
       } else {
+        console.warn(`[ws] NO conectado → enviando mensaje ${tempId} por REST (POST /messages/)`);
         const msg = selectedType === "room"
           ? await api.sendRoomMessage(selectedId, data)
           : await api.sendMessage(data);
+        console.info(`[ws] REST ok — mensaje ${tempId} persistido como ${msg.id}`);
         setMessages((prev) =>
           prev
             .filter((m) => m.id !== msg.id)
@@ -157,6 +160,7 @@ export function useMessageActions({
       refreshIfConversationMissing(selectedId);
     } catch (error) {
       console.error("Failed to send message:", error);
+      console.warn(`[ws] REST falló → mensaje ${tempId} va al outbox (se reintentará en el evento 'online')`);
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, sending: false, failed: true } : m));
       addToOutbox(data, selectedId, selectedType);
     }

@@ -13,6 +13,7 @@ interface WSMessage {
   b?: string;
   n?: unknown;
   e?: unknown;
+  e2e?: boolean;
   lm?: unknown;
 }
 
@@ -124,6 +125,7 @@ class WSClient {
       this.ws.onopen = () => {
         this.reconnectAttempts = 0;
         this.startHeartbeat();
+        console.info(`[ws] conectado → ${this.url}`);
         this.emit("open", {});
       };
 
@@ -136,8 +138,14 @@ class WSClient {
         }
       };
 
-      this.ws.onclose = () => {
+      this.ws.onclose = (event) => {
         this.stopHeartbeat();
+        if (this.reconnectAttempts >= this.maxReconnect) {
+          console.warn(`[ws] cerrado (code=${event.code}) — máximo de reconexiones alcanzado (${this.maxReconnect})`);
+        } else {
+          const delay = Math.min(1000 * 2 ** this.reconnectAttempts, 30000);
+          console.warn(`[ws] cerrado (code=${event.code}, reason="${event.reason || ""}") — reconexión en ~${delay}ms (intento ${this.reconnectAttempts + 1}/${this.maxReconnect})`);
+        }
         this.scheduleReconnect();
       };
 
@@ -253,20 +261,25 @@ class WSClient {
     this.emit("catch_up_requested", {});
   }
 
-  send(data: WSMessage) {
+  send(data: WSMessage): boolean {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(data));
+      return true;
     }
+    console.warn(`[ws] socket no abierto (readyState=${this.ws?.readyState ?? "null"}) — ${data.t} no se envió por WS`);
+    return false;
   }
 
   // Client -> Server messages
-  sendMessage(conversationId: string, messageData: unknown) {
-    this.send({
+  sendMessage(conversationId: string, messageData: unknown, e2e = false) {
+    const sent = this.send({
       t: "send_message",
       c: conversationId,
       m: messageData,
+      e2e,
       ts: Date.now(),
     });
+    console.info(`[ws] send_message ${sent ? "enviado por WebSocket" : "DESCARTADO (socket cerrado)"}${e2e ? " (e2e)" : ""}`);
   }
 
   typingStart(conversationId: string) {

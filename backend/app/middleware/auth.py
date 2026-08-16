@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from ..config import settings
-from ..database import get_db
+from ..database import async_session, get_db
 from ..models.user import User
 from app.utils.dates import utcnow
 
@@ -184,7 +184,6 @@ async def get_current_user(
 
 async def get_current_user_ws(
     websocket: WebSocket,
-    db: AsyncSession = Depends(get_db),
 ) -> Optional[User]:
     """WebSocket authentication.
 
@@ -192,6 +191,10 @@ async def get_current_user_ws(
     (the client passes it as the second argument to ``new WebSocket(url, [token])``)
     so it never appears in the URL and therefore never leaks into logs, proxies
     or ``Referer`` headers. Falls back to ``?token=`` for backward compatibility.
+
+    Uses its own short-lived session instead of ``Depends(get_db)``: a
+    dependency session would be held for the whole socket lifetime and pin
+    a pool connection per open tab.
     """
     token = None
     subprotocols = websocket.scope.get("subprotocols") or []
@@ -217,7 +220,8 @@ async def get_current_user_ws(
     if user_id is None:
         return None
 
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
+    async with async_session() as db:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
 
     return user

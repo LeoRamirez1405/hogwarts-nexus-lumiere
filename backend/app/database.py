@@ -68,6 +68,9 @@ if not database_url.startswith("sqlite"):
     # and recycle proactively refreshes connections older than 5 minutes.
     engine_kwargs["pool_pre_ping"] = True
     engine_kwargs["pool_recycle"] = 300
+    # Fail fast instead of hanging 30s when the pool is starved (a starving
+    # request still holds its slot while waiting, deepening the outage).
+    engine_kwargs["pool_timeout"] = 15
 
 engine = create_async_engine(database_url, **engine_kwargs)
 
