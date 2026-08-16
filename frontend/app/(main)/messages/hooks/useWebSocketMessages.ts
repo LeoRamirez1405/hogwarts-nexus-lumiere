@@ -148,7 +148,7 @@ export function useWebSocketMessages({
     const id = selectedIdRef.current;
     const type = selectedTypeRef.current;
     if (id && type) {
-      const oldest = messagesRef.current[0];
+      const oldest = messagesRef.current.find((m) => !m.id.startsWith("temp-"));
       if (oldest) {
         api.getMessagesSince(oldest.id, 50).then((newMessages: Message[]) => {
           setMessages((prev) => {

@@ -420,8 +420,13 @@ async def handle_send_message(user_id: str, data: dict, db: AsyncSession):
 
     if message.room_id:
         await manager.broadcast_to_room(message.room_id, payload, exclude_user=user_id)
+        # Echo back to the sender so the optimistic temp message is replaced
+        # with the persisted one (the REST path returns it in the response;
+        # WS needs the echo — the broadcast excludes the sender).
+        await manager.send_to_user(user_id, payload)
     elif message.receiver_id:
         await manager.send_to_user(message.receiver_id, payload)
+        await manager.send_to_user(user_id, payload)  # Echo back to sender
 
 
 async def handle_typing_start(user_id: str, data: dict):

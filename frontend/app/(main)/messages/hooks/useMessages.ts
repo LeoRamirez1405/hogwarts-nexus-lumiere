@@ -169,7 +169,7 @@ export function useMessages({ selectedId, selectedType, wsClient, setConversatio
     const id = selectedId;
     const type = selectedType;
     if (id && type) {
-      const oldest = messagesRef.current[0];
+const oldest = messagesRef.current.find((m) => !m.id.startsWith("temp-"));
       if (oldest) {
         api.getMessagesSince(oldest.id, PAGE_SIZE).then((newMessages) => {
           setMessages((prev) => {
