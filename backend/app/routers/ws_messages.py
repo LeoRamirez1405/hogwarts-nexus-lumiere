@@ -141,7 +141,10 @@ async def websocket_endpoint(
             try:
                 async with async_session() as db:
                     await handle_ws_message(current_user.id, data, db)
-            except Exception:
+            except Exception as e:
+                # Keep the socket alive, but NEVER silent: a send that persists
+                # while its broadcast fails must be visible in the logs.
+                print(f"[WS] handle_ws_message error ({data.get('t')}): {e!r}")
                 continue
     except WebSocketDisconnect:
         pass

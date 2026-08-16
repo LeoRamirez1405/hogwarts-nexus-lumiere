@@ -25,6 +25,12 @@ interface UseWebSocketMessagesOptions {
   api: { getMessagesSince: (id: string, limit: number) => Promise<Message[]>; getConversations: () => Promise<Conversation[]> };
 }
 
+// Stable module-level reference: a literal object recreated on every render
+// would retrigger useWebSocket's effect (it lists authUser in its deps),
+// detaching/reattaching WS listeners each render and dropping messages that
+// arrive in that gap.
+const AUTH_USER_STUB = { id: "" };
+
 export function useWebSocketMessages({
   selectedId,
   messagesRef,
@@ -165,7 +171,7 @@ export function useWebSocketMessages({
   }, [api, setMessages, setConversations, messagesRef, selectedIdRef, selectedTypeRef]);
 
   useWebSocket({
-    authUser: { id: "" }, // Will be filled by parent
+    authUser: AUTH_USER_STUB,
     selectedId,
     onNewMessage: handleNewMessage,
     onTyping: handleTyping,

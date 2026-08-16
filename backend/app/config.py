@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     # Redis settings for caching and pub/sub
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     REDIS_MAX_CONNECTIONS: int = 10
+    # The WS manager relays through Redis Streams only when the deployment runs
+    # multiple workers. Single-worker deployments (Render free: WEB_CONCURRENCY=1)
+    # deliver in-process; enable streams with WS_STREAMS_ENABLED=1 when scaling.
+    WS_STREAMS_ENABLED: bool = os.getenv("WS_STREAMS_ENABLED", "0") == "1"
 
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""

@@ -44,6 +44,13 @@ class ConnectionManager:
     # ------------------------------------------------------------------ #
     async def start(self) -> None:
         """Connect Redis, create consumer group, and launch the consumer task."""
+        # Render free runs a single worker (WEB_CONCURRENCY=1), so delivery is
+        # in-process; the Redis Streams relay adds a silent failure point
+        # (stream eviction / NOGROUP) with zero benefit. Enable only when the
+        # deployment actually runs multiple uvicorn workers.
+        if not settings.WS_STREAMS_ENABLED:
+            print("[WS Manager] Redis Streams disabled (single worker) — in-memory delivery.")
+            return
         try:
             self._redis = redis.from_url(
                 settings.REDIS_URL,
