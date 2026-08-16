@@ -373,9 +373,10 @@ return (
           <div className={`flex items-center gap-1 mt-1 ${isOwn ? "text-white/60" : "text-on-secondary-container/70"}`}>
             {message.pinned && <MaterialIcon name="push_pin" className="text-[11px]" filled />}
             {message.optimistic && message.sending && (
-              <span className="flex items-center gap-0.5 text-[10px]" title="Enviando...">
-                <MaterialIcon name="progress_activity" className="text-[10px] animate-spin" />
-                <span>Enviando...</span>
+              // WhatsApp-style: the optimistic message is already on its way
+              // (WS/REST), so show a single checkmark instead of a spinner.
+              <span className="flex items-center" title="Enviado">
+                <MaterialIcon name="check" className="text-[12px]" />
               </span>
             )}
             {message.edited && !message.optimistic && (
