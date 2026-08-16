@@ -9,6 +9,8 @@ import type { Conversation, SelectedConvType, MuteDuration } from "../types";
 
 interface WsClient {
   isConnected: () => boolean;
+  readyState: number;
+  connect: (token?: string) => void;
   sendMessage: (conversationId: string, data: MessageSendData & { temp_id?: string }, e2e?: boolean) => void;
   markRead: (conversationId: string, messageId: string) => void;
 }
@@ -138,6 +140,13 @@ export function useMessageActions({
         const isE2E = (messageData.metadata as { e2e_encrypted?: boolean } | undefined)?.e2e_encrypted === true;
         wsClient.sendMessage(selectedId, messageData, isE2E);
       } else {
+        // Self-heal: if the socket died (e.g. max reconnects reached), wake
+        // it up so the NEXT messages go over WS again. The current one still
+        // falls back to REST so the user never sees a failure.
+        if (wsClient.readyState !== WebSocket.CONNECTING) {
+          console.warn(`[ws] no conectado (readyState=${wsClient.readyState}) — reactivando socket`);
+          wsClient.connect();
+        }
         console.warn(`[ws] NO conectado → enviando mensaje ${tempId} por REST (POST /messages/)`);
         const msg = selectedType === "room"
           ? await api.sendRoomMessage(selectedId, data)

@@ -109,6 +109,9 @@ class WSClient {
   connect(token?: string) {
     this.ensureInitialized();
     this.reconnectAttempts = 0;
+    // disconnect() disables reconnection for logout; re-enable on a fresh
+    // connect (login) so the socket can reconnect after future drops.
+    if (this.maxReconnect === 0) this.maxReconnect = 10;
 
     // Already connected or connecting — nothing to do.
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
@@ -210,8 +213,19 @@ class WSClient {
   }
 
   private scheduleReconnect() {
+    // Intentional disconnect (logout): maxReconnect is 0 → never reconnect.
+    if (this.maxReconnect <= 0) return;
+
     if (this.reconnectAttempts >= this.maxReconnect) {
-      this.emit("max_reconnect_reached", {});
+      // Never give up permanently: keep retrying every 30s so the socket
+      // heals by itself (Render restart, network blip) without a reload.
+      this.reconnectAttempts = 0;
+      console.warn(`[ws] ${this.maxReconnect} reintentos fallidos — reintentando cada 30s`);
+      setTimeout(() => {
+        this.fetchWSToken()
+          .then((newToken) => this.connect(newToken))
+          .catch(() => this.scheduleReconnect());
+      }, 30000);
       return;
     }
 

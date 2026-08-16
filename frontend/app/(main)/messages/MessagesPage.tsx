@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, Suspense, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, Suspense, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useAuthStore } from "@/lib/authStore";
 import { useNotificationStore } from "@/lib/notificationStore";
@@ -15,6 +15,7 @@ import { useConversations, useMessages, useWebSocketMessages, useOutboxSync, use
 import { buildSelectedConv, selectConv } from "./utils/conversationHelpers";
 import { markNotifsReadMatching } from "./utils/notificationSync";
 import { MaterialIcon } from "./helpers";
+import { wsClient } from "@/lib/ws";
 import type { SelectedConvType } from "./types";
 import type { ScheduledConvFilter } from "./ScheduledMessagesModal";
 
@@ -90,25 +91,12 @@ export default function MessagesPage() {
     selectedTypeRef.current = selectedType;
   }, [selectedId, selectedType]);
 
-  // Stable no-op WS stub. MUST be memoized: these hooks put wsClient in effect
-  // dep arrays, so a fresh inline object each render retriggers those effects,
-  // which setState → re-render → new object → infinite loop ("Maximum update
-  // depth exceeded"). The real socket is handled by useWebSocket internally.
-  const wsClientStub = useMemo(
-    () => ({
-      isConnected: () => false,
-      sendMessage: () => {},
-      markRead: () => {},
-    }),
-    []
-  );
-
   // Hooks
   const { conversations, setConversations, allUsers, loading } = useConversations(authUser);
   const messagesHook = useMessages({
     selectedId,
     selectedType,
-    wsClient: wsClientStub,
+    wsClient,
     setConversations,
   });
 
@@ -129,7 +117,7 @@ export default function MessagesPage() {
     messagesRef,
     selectedIdRef,
     selectedTypeRef,
-    wsClient: wsClientStub,
+    wsClient,
     setMessages: messagesHook.setMessages,
     setConversations,
     setTypingUsers,
@@ -164,7 +152,7 @@ export default function MessagesPage() {
     selectedId,
     selectedType,
     messagesRef,
-    wsClient: wsClientStub,
+    wsClient,
     e2e,
     setMessages: messagesHook.setMessages,
     setConversations,
