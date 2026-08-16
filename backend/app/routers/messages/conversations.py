@@ -23,6 +23,48 @@ from app.utils.dates import utcnow
 router = APIRouter()
 
 
+def _clear_conversation_preview(pref) -> None:
+    """Reset the denormalized preview/unread fields on a preference row."""
+    pref.last_message_id = None
+    pref.last_message_body = None
+    pref.last_message_at = None
+    pref.last_message_sender_id = None
+    pref.last_message_kind = None
+    pref.last_message_attachment_url = None
+    pref.last_message_attachment_type = None
+    pref.last_message_attachment_name = None
+    pref.unread_count = 0
+
+
+async def _get_or_create_pref(
+    db: AsyncSession, user_id: str, conv_type: str, conv_id: str
+) -> UserConversationPreference:
+    existing = await db.execute(
+        select(UserConversationPreference).where(
+            and_(
+                UserConversationPreference.user_id == user_id,
+                UserConversationPreference.conversation_type == conv_type,
+                UserConversationPreference.conversation_id == conv_id,
+            )
+        )
+    )
+    pref = existing.scalar_one_or_none()
+    if pref:
+        return pref
+    pref = UserConversationPreference(
+        user_id=user_id,
+        conversation_type=conv_type,
+        conversation_id=conv_id,
+    )
+    db.add(pref)
+    return pref
+
+
+def _validate_conv_type(conv_type: str) -> None:
+    if conv_type not in ("dm", "room"):
+        raise HTTPException(status_code=400, detail="conv_type must be 'dm' or 'room'")
+
+
 @router.get("/conversations", response_model=List[ConversationResponse])
 async def get_conversations(
     db: AsyncSession = Depends(get_db),
@@ -46,29 +88,58 @@ async def hide_conversation(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if conv_type not in ("dm", "room"):
-        raise HTTPException(status_code=400, detail="conv_type must be 'dm' or 'room'")
+    _validate_conv_type(conv_type)
+    pref = await _get_or_create_pref(db, current_user.id, conv_type, conv_id)
+    pref.hidden = True
 
-    existing = await db.execute(
-        select(UserConversationPreference).where(
-            and_(
-                UserConversationPreference.user_id == current_user.id,
-                UserConversationPreference.conversation_type == conv_type,
-                UserConversationPreference.conversation_id == conv_id,
-            )
-        )
-    )
-    pref = existing.scalar_one_or_none()
-    if pref:
-        pref.hidden = True
-    else:
-        pref = UserConversationPreference(
-            user_id=current_user.id,
-            conversation_type=conv_type,
-            conversation_id=conv_id,
-            hidden=True,
-        )
-        db.add(pref)
+    await db.commit()
+    await _invalidate_conversations_cache(current_user.id)
+    return {"ok": True}
+
+
+@router.delete("/conversations/{conv_type}/{conv_id}")
+async def delete_conversation_for_me(
+    conv_type: str,
+    conv_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Hard delete for the current user only.
+
+    The conversation leaves the inbox and the message history before
+    ``deleted_at`` is never shown to this user again. A new message makes the
+    conversation reappear with only the messages sent after the deletion.
+    """
+    _validate_conv_type(conv_type)
+    pref = await _get_or_create_pref(db, current_user.id, conv_type, conv_id)
+    pref.deleted_at = utcnow()
+    pref.removed_at = None
+    pref.hidden = True
+    _clear_conversation_preview(pref)
+
+    await db.commit()
+    await _invalidate_conversations_cache(current_user.id)
+    return {"ok": True}
+
+
+@router.post("/conversations/{conv_type}/{conv_id}/remove")
+async def remove_conversation(
+    conv_type: str,
+    conv_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Remove the conversation from the inbox without touching the history.
+
+    Unlike archive, the conversation does not appear in the archived modal.
+    It reappears in the inbox (with the full history) when a new message
+    arrives.
+    """
+    _validate_conv_type(conv_type)
+    pref = await _get_or_create_pref(db, current_user.id, conv_type, conv_id)
+    pref.removed_at = utcnow()
+    pref.hidden = True
+    _clear_conversation_preview(pref)
 
     await db.commit()
     await _invalidate_conversations_cache(current_user.id)

@@ -78,13 +78,14 @@ export const articlesApi = {
 
   getArticle: (id: string) => request<Article>(`/articles/${id}`),
 
-  createArticle: (data: Partial<Article>) => {
-    refreshUserLevelThrottled();
-    return request<Article>("/admin/articles/", {
+  createArticle: (data: Partial<Article>) =>
+    request<Article>("/admin/articles/", {
       method: "POST",
       body: JSON.stringify(data),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   updateArticle: (id: string, data: Partial<Article>) =>
     request<Article>(`/admin/articles/${id}`, {
@@ -133,13 +134,14 @@ export const articlesApi = {
   getArticleComments: (articleId: string) =>
     request<ArticleComment[]>(`/articles/${articleId}/comments`),
 
-  createArticleComment: (articleId: string, body: string, parentId?: string) => {
-    refreshUserLevelThrottled();
-    return request<ArticleComment>(`/articles/${articleId}/comments`, {
+  createArticleComment: (articleId: string, body: string, parentId?: string) =>
+    request<ArticleComment>(`/articles/${articleId}/comments`, {
       method: "POST",
       body: JSON.stringify({ body, parent_id: parentId ?? null }),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   getAnnouncements: (pagination?: PaginationParams) =>
     request<Page<Announcement>>(

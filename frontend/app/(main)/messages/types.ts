@@ -21,7 +21,7 @@ export interface ChatPanelProps {
   showBack: boolean;
   roomMembers?: ChatRoomMemberResponse[];
   membersLoading?: boolean;
-  onHideConversation: (convType: "dm" | "room", convId: string) => Promise<void>;
+  onDeleteConversation: (convType: "dm" | "room", convId: string) => Promise<void>;
   onLeaveRoom: (roomId: string) => Promise<void>;
   onRefresh: () => Promise<void>;
   hasMore: boolean;

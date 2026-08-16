@@ -50,6 +50,18 @@ async def get_room_messages(
     if not member:
         raise HTTPException(status_code=403, detail="Not a member of this room")
 
+    room_cutoff = (
+        await db.execute(
+            select(UserConversationPreference.deleted_at).where(
+                and_(
+                    UserConversationPreference.user_id == current_user.id,
+                    UserConversationPreference.conversation_type == "room",
+                    UserConversationPreference.conversation_id == room_id,
+                )
+            )
+        )
+    ).scalar_one_or_none()
+
     # Unread marker is only meaningful on the initial load (no cursor).
     first_unread_id = None
     unread_count = 0
@@ -61,6 +73,8 @@ async def get_room_messages(
         ]
         if last_read is not None:
             unread_filters.append(Message.created_at > last_read)
+        if room_cutoff is not None:
+            unread_filters.append(Message.created_at > room_cutoff)
         first_unread_id = (
             await db.execute(
                 select(Message.id)
@@ -91,14 +105,16 @@ async def get_room_messages(
     # Always load poll for poll messages
     query_options.append(selectinload(Message.poll).selectinload(Poll.options).selectinload(PollOption.votes))
 
+    room_filters = [
+        Message.room_id == room_id,
+        Message.scheduled_at.is_(None),
+    ]
+    if room_cutoff is not None:
+        room_filters.append(Message.created_at > room_cutoff)
+
     query = (
         select(Message)
-        .where(
-            and_(
-                Message.room_id == room_id,
-                Message.scheduled_at.is_(None),
-            )
-        )
+        .where(and_(*room_filters))
         .options(*query_options)
         .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(eff_limit + 1)

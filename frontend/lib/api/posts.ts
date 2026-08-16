@@ -42,13 +42,14 @@ export const postsApi = {
       `/posts/user/${userId}` + buildQuery(pagination ?? {})
     ),
 
-  createPost: (data: { body?: string; image_url?: string }) => {
-    refreshUserLevelThrottled();
-    return request<Post>("/posts/", {
+  createPost: (data: { body?: string; image_url?: string }) =>
+    request<Post>("/posts/", {
       method: "POST",
       body: JSON.stringify(data),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   updatePost: (id: string, data: { body?: string; image_url?: string }) =>
     request<Post>(`/posts/${id}`, {
@@ -59,26 +60,29 @@ export const postsApi = {
   deletePost: (id: string) =>
     request<void>(`/posts/${id}`, { method: "DELETE" }),
 
-  likePost: (id: string) => {
-    refreshUserLevelThrottled();
-    return request<Post>(`/posts/${id}/like`, { method: "POST" });
-  },
+  likePost: (id: string) =>
+    request<Post>(`/posts/${id}/like`, { method: "POST" }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
-  repostPost: (id: string) => {
-    refreshUserLevelThrottled();
-    return request<Post>(`/posts/${id}/repost`, { method: "POST" });
-  },
+  repostPost: (id: string) =>
+    request<Post>(`/posts/${id}/repost`, { method: "POST" }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   getComments: (postId: string) =>
     request<PostComment[]>(`/posts/${postId}/comments`),
 
-  addComment: (postId: string, body: string, parentId?: string) => {
-    refreshUserLevelThrottled();
-    return request<PostComment>(`/posts/${postId}/comments`, {
+  addComment: (postId: string, body: string, parentId?: string) =>
+    request<PostComment>(`/posts/${postId}/comments`, {
       method: "POST",
       body: JSON.stringify({ body, parent_id: parentId ?? null }),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   getPost: (postId: string) =>
     request<Post>(`/posts/${postId}`),

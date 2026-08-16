@@ -129,29 +129,32 @@ export const creaturesApi = {
   deleteCreature: (id: string) =>
     request<void>(`/admin/creatures/${id}`, { method: "DELETE" }),
 
-  adoptCreature: (id: string, petName?: string) => {
-    refreshUserLevelThrottled();
-    return request<UserCreature>(`/creatures/${id}/adopt`, {
+  adoptCreature: (id: string, petName?: string) =>
+    request<UserCreature>(`/creatures/${id}/adopt`, {
       method: "POST",
       body: JSON.stringify(petName ? { pet_name: petName } : {}),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
-  feedCreature: (userCreatureId: string, itemId: string) => {
-    refreshUserLevelThrottled();
-    return request<UserCreature>(`/creatures/${userCreatureId}/feed`, {
+  feedCreature: (userCreatureId: string, itemId: string) =>
+    request<UserCreature>(`/creatures/${userCreatureId}/feed`, {
       method: "POST",
       body: JSON.stringify({ item_id: itemId }),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
-  playCreature: (userCreatureId: string, itemId: string) => {
-    refreshUserLevelThrottled();
-    return request<UserCreature>(`/creatures/${userCreatureId}/play`, {
+  playCreature: (userCreatureId: string, itemId: string) =>
+    request<UserCreature>(`/creatures/${userCreatureId}/play`, {
       method: "POST",
       body: JSON.stringify({ item_id: itemId }),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   getMyCreatures: () => request<Page<UserCreature>>("/creatures/my"),
 
@@ -195,12 +198,13 @@ export const creaturesApi = {
       method: "DELETE",
     }),
 
-  buyMarketCreature: (userCreatureId: string) => {
-    refreshUserLevelThrottled();
-    return request<UserCreature>(`/creatures/market/${userCreatureId}/buy`, {
+  buyMarketCreature: (userCreatureId: string) =>
+    request<UserCreature>(`/creatures/market/${userCreatureId}/buy`, {
       method: "POST",
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 };
 
 export const petItemsApi = {
@@ -214,13 +218,14 @@ export const petItemsApi = {
 
   getPetInventory: () => request<UserPetItem[]>("/pet-items/inventory"),
 
-  buyPetItem: (id: string, quantity = 1) => {
-    refreshUserLevelThrottled();
-    return request<UserPetItem>(
+  buyPetItem: (id: string, quantity = 1) =>
+    request<UserPetItem>(
       `/pet-items/${id}/buy${buildQuery({ quantity })}`,
       { method: "POST" }
-    );
-  },
+    ).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   createPetItem: (data: Partial<PetItem>) =>
     request<PetItem>("/admin/pet-items/", {

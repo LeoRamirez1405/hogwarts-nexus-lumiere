@@ -46,6 +46,37 @@ export function useMessageActions({
   addToOutbox,
 }: UseMessageActionsOptions) {
   const tempIdCounterRef = useRef(0);
+  const lastConvRefreshRef = useRef(0);
+
+  const refreshIfConversationMissing = useCallback((convId: string) => {
+    setConversations((prev) => {
+      if (prev.some((c) => c.id === convId)) return prev;
+      // The conversation was deleted/removed and is not in the local inbox;
+      // sending a message makes it reappear server-side, so pull the fresh
+      // list. The WS never echoes our own messages, so this is the only
+      // signal the inbox gets on our own sends. The WS send is fire-and-
+      // forget, so retry with delays until the server commits the unhide.
+      const now = Date.now();
+      if (now - lastConvRefreshRef.current > 5000) {
+        lastConvRefreshRef.current = now;
+        const attempt = (delay: number, remaining: number) => {
+          setTimeout(async () => {
+            try {
+              const convs = await api.getConversations();
+              setConversations(convs);
+              if (remaining > 0 && !convs.some((c) => c.id === convId)) {
+                attempt(2000, remaining - 1);
+              }
+            } catch {
+              if (remaining > 0) attempt(2000, remaining - 1);
+            }
+          }, delay);
+        };
+        attempt(1000, 2);
+      }
+      return prev;
+    });
+  }, [setConversations]);
 
   const handleSend = useCallback(async (data: MessageSendData) => {
     if (!selectedId || !selectedType) return;
@@ -120,13 +151,14 @@ export function useMessageActions({
           setConversations((prev) => prev.map((c) => c.id === selectedId ? { ...c, last_message: withPreview } : c));
         }
       }
-      refreshUserLevelThrottled();
+      refreshUserLevelThrottled(0);
+      refreshIfConversationMissing(selectedId);
     } catch (error) {
       console.error("Failed to send message:", error);
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, sending: false, failed: true } : m));
       addToOutbox(data, selectedId, selectedType);
     }
-  }, [selectedId, selectedType, authUser, messagesRef, wsClient, e2e, setMessages, setConversations, addToOutbox]);
+  }, [selectedId, selectedType, authUser, messagesRef, wsClient, e2e, setMessages, setConversations, addToOutbox, refreshIfConversationMissing]);
 
   const handleTogglePin = useCallback(async (m: Message) => {
     try {
@@ -265,6 +297,24 @@ export function useMessageActions({
     }
   }, [setConversations]);
 
+  const handleDeleteConversation = useCallback(async (convType: "dm" | "room", convId: string) => {
+    try {
+      await api.deleteConversation(convType, convId);
+      setConversations((prev) => prev.filter((c) => c.id !== convId));
+    } catch (error) {
+      console.error("Failed to delete conversation:", error);
+    }
+  }, [setConversations]);
+
+  const handleRemoveConversation = useCallback(async (convType: "dm" | "room", convId: string) => {
+    try {
+      await api.removeConversation(convType, convId);
+      setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, is_archived: true, is_hidden: true } : c));
+    } catch (error) {
+      console.error("Failed to remove conversation:", error);
+    }
+  }, [setConversations]);
+
   const handleUnhideConv = useCallback(async (convType: "dm" | "room", convId: string) => {
     try {
       await api.unhideConversation(convType, convId);
@@ -314,6 +364,8 @@ export function useMessageActions({
     handleExportChat,
     handleHideConv,
     handleUnhideConv,
+    handleDeleteConversation,
+    handleRemoveConversation,
     handleLeaveRoom,
     handleArchiveRoom,
     handleUnarchiveRoom,

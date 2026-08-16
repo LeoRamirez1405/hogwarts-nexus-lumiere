@@ -101,6 +101,8 @@ class UserConversationPreference(Base):
     conversation_type = Column(String, nullable=False)  # "dm" | "room"
     conversation_id = Column(String, nullable=False)  # user_id for DM, room_id for room
     hidden = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime, nullable=True)  # hard-delete cut-off: history before this ts is hidden for this user
+    removed_at = Column(DateTime, nullable=True)  # long-press removal: hidden until next message, history preserved
     muted_until = Column(DateTime, nullable=True)  # None = not muted, datetime = muted until
     # Denormalized columns for conversation list performance
     last_message_id = Column(String, nullable=True)

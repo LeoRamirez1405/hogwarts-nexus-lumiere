@@ -52,14 +52,15 @@ export const eventsApi = {
   getCurrent: (roomId: string) =>
     request<Event | null>(`${EVENTS_BASE}/current${buildQuery({ room_id: roomId })}`),
 
-  create: (data: EventCreate) => {
-    refreshUserLevelThrottled();
+  create: (data: EventCreate) =>
     // Trailing slash: backend route is `@router.post("/")`. See note in `list`.
-    return request<Event>(`${EVENTS_BASE}/`, {
+    request<Event>(`${EVENTS_BASE}/`, {
       method: "POST",
       body: JSON.stringify(data),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   update: (eventId: string, data: EventUpdate) =>
     request<Event>(`${EVENTS_BASE}/${eventId}`, {
@@ -71,13 +72,14 @@ export const eventsApi = {
     request<void>(`${EVENTS_BASE}/${eventId}`, { method: "DELETE" }),
 
   // RSVP
-  rsvp: (eventId: string, status: RSVPStatus) => {
-    refreshUserLevelThrottled();
-    return request<RSVPResponse>(`${EVENTS_BASE}/${eventId}/rsvp`, {
+  rsvp: (eventId: string, status: RSVPStatus) =>
+    request<RSVPResponse>(`${EVENTS_BASE}/${eventId}/rsvp`, {
       method: "POST",
       body: JSON.stringify({ status }),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   listRsvps: (eventId: string) => request<RSVPListItem[]>(`${EVENTS_BASE}/${eventId}/rsvps`),
 

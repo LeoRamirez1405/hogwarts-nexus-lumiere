@@ -41,7 +41,7 @@ export default function ChatPanel(props: ChatPanelProps) {
     onRefresh,
     roomMembers,
     membersLoading,
-    onHideConversation,
+    onDeleteConversation,
     onLeaveRoom,
     hasMore,
     loadingOlder,
@@ -359,11 +359,12 @@ export default function ChatPanel(props: ChatPanelProps) {
     setShowMuteMenu(false);
   }, []);
 
-  const handleHideConversation = () => {
+  const handleDeleteConversation = () => {
     if (!selectedConv) return;
     const convType = selectedConv.type === "room" ? "room" : "dm";
-    if (onHideConversation) {
-      onHideConversation(convType, selectedConv.id);
+    if (!confirm("¿Eliminar esta conversación? El historial dejará de mostrarse para ti.")) return;
+    if (onDeleteConversation) {
+      onDeleteConversation(convType, selectedConv.id);
     }
     setShowMenu(false);
   };
@@ -698,7 +699,7 @@ export default function ChatPanel(props: ChatPanelProps) {
           setShowMembers(true);
           setShowMenu(false);
         }}
-        onHideConversation={handleHideConversation}
+        onDeleteConversation={handleDeleteConversation}
         onLeaveRoom={handleLeaveRoom}
         onPin={handlePin}
         onUnpin={handleUnpin}

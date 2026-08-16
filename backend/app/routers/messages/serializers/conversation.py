@@ -110,6 +110,7 @@ async def build_conversations(
             )
 
         is_hidden = pref.conversation_id in hidden_dm_ids
+        is_archived = is_hidden and pref.removed_at is None and pref.deleted_at is None
         dm_map[pref.conversation_id] = ConversationResponse(
             type="direct",
             id=other.id,
@@ -121,7 +122,7 @@ async def build_conversations(
             is_muted=dm_is_muted,
             is_pinned=bool(pref.pinned_at),
             is_hidden=is_hidden,
-            is_archived=is_hidden,
+            is_archived=is_archived,
             hidden=is_hidden,
             last_active_at=other.last_active_at,
         )
@@ -173,6 +174,7 @@ async def build_conversations(
             )
 
         is_hidden_room = pref.conversation_id in hidden_room_ids
+        is_archived_room = is_hidden_room and pref.removed_at is None and pref.deleted_at is None
         room_convs.append(
             ConversationResponse(
                 type="room",
@@ -185,7 +187,7 @@ async def build_conversations(
                 online_count=online_count,
                 is_pinned=bool(pref.pinned_at),
                 is_hidden=is_hidden_room,
-                is_archived=is_hidden_room,
+                is_archived=is_archived_room,
                 hidden=is_hidden_room,
             )
         )

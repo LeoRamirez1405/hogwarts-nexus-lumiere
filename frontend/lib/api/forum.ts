@@ -38,39 +38,43 @@ export const forumApi = {
     title: string;
     body: string;
     category: string;
-  }) => {
-    refreshUserLevelThrottled();
-    return request<ForumThread>("/forum/", {
+  }) =>
+    request<ForumThread>("/forum/", {
       method: "POST",
       body: JSON.stringify(data),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
-  voteThread: (id: string, value: 1 | -1) => {
-    refreshUserLevelThrottled();
-    return request<ForumThread>(`/forum/${id}/vote`, {
+  voteThread: (id: string, value: 1 | -1) =>
+    request<ForumThread>(`/forum/${id}/vote`, {
       method: "POST",
       body: JSON.stringify({ value }),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   getThreadComments: (id: string) =>
     request<ForumComment[]>(`/forum/${id}/comments`),
 
-  createThreadComment: (id: string, body: string, parentId?: string) => {
-    refreshUserLevelThrottled();
-    return request<ForumComment>(`/forum/${id}/comments`, {
+  createThreadComment: (id: string, body: string, parentId?: string) =>
+    request<ForumComment>(`/forum/${id}/comments`, {
       method: "POST",
       body: JSON.stringify({ body, parent_id: parentId ?? null }),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
-  subscribeThread: (id: string) => {
-    refreshUserLevelThrottled();
-    return request<{ subscribed: boolean }>(`/forum/${id}/subscribe`, {
+  subscribeThread: (id: string) =>
+    request<{ subscribed: boolean }>(`/forum/${id}/subscribe`, {
       method: "POST",
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   unsubscribeThread: (id: string) =>
     request<void>(`/forum/${id}/subscribe`, { method: "DELETE" }),

@@ -32,13 +32,14 @@ export const messagesApi = {
       `/messages/${userId}${buildQuery({ limit, before, expand })}`
     ),
 
-  sendMessage: (data: MessageSendData) => {
-    refreshUserLevelThrottled();
-    return request<Message>("/messages/", {
+  sendMessage: (data: MessageSendData) =>
+    request<Message>("/messages/", {
       method: "POST",
       body: JSON.stringify(data),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   getRooms: (all?: boolean, pagination?: PaginationParams, search?: string) =>
     request<Page<ChatRoomBrief>>(
@@ -66,21 +67,23 @@ export const messagesApi = {
   getDmPinned: (userId: string) =>
     request<Message[]>(`/messages/dm/${userId}/pinned`),
 
-  sendRoomMessage: (roomId: string, data: MessageSendData) => {
-    refreshUserLevelThrottled();
-    return request<Message>(`/messages/rooms/${roomId}/messages`, {
+  sendRoomMessage: (roomId: string, data: MessageSendData) =>
+    request<Message>(`/messages/rooms/${roomId}/messages`, {
       method: "POST",
       body: JSON.stringify(data),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
-  createRoom: (data: CreateRoomData) => {
-    refreshUserLevelThrottled();
-    return request<ChatRoomResponse>("/admin/rooms/", {
+  createRoom: (data: CreateRoomData) =>
+    request<ChatRoomResponse>("/admin/rooms/", {
       method: "POST",
       body: JSON.stringify(data),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   updateRoom: (roomId: string, data: UpdateRoomData) =>
     request<ChatRoomResponse>(`/messages/rooms/${roomId}`, {
@@ -117,13 +120,14 @@ export const messagesApi = {
       method: "DELETE",
     }),
 
-  votePoll: (messageId: string, optionIds: string[]) => {
-    refreshUserLevelThrottled();
-    return request<{ ok: boolean }>(`/messages/${messageId}/poll/vote`, {
+  votePoll: (messageId: string, optionIds: string[]) =>
+    request<{ ok: boolean }>(`/messages/${messageId}/poll/vote`, {
       method: "POST",
       body: JSON.stringify({ option_ids: optionIds }),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   removePollVote: (messageId: string, optionId: string) =>
     request<{ ok: boolean }>(
@@ -131,13 +135,14 @@ export const messagesApi = {
       { method: "DELETE" }
     ),
 
-  addReaction: (messageId: string, emoji: string) => {
-    refreshUserLevelThrottled();
-    return request<MessageReaction>(`/messages/${messageId}/reactions`, {
+  addReaction: (messageId: string, emoji: string) =>
+    request<MessageReaction>(`/messages/${messageId}/reactions`, {
       method: "POST",
       body: JSON.stringify({ emoji }),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   removeReaction: (messageId: string, emoji: string) =>
     request<void>(
@@ -170,6 +175,18 @@ export const messagesApi = {
     request<{ ok: boolean }>(
       `/messages/conversations/${convType}/${convId}/hide`,
       { method: "DELETE" }
+    ),
+
+  deleteConversation: (convType: "dm" | "room", convId: string) =>
+    request<{ ok: boolean }>(
+      `/messages/conversations/${convType}/${convId}`,
+      { method: "DELETE" }
+    ),
+
+  removeConversation: (convType: "dm" | "room", convId: string) =>
+    request<{ ok: boolean }>(
+      `/messages/conversations/${convType}/${convId}/remove`,
+      { method: "POST" }
     ),
 
   leaveRoom: (roomId: string) =>

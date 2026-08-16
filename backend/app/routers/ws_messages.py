@@ -15,6 +15,7 @@ from ..models.e2e_encryption import EncryptedMessage
 from ..middleware.auth import get_current_user_ws
 from ..ws_manager import manager
 from ..services.messages.conversation_prefs import (
+    _update_conversation_preferences,
     update_conversation_preferences_after_delete,
     update_conversation_preview_after_edit,
 )
@@ -368,6 +369,11 @@ async def handle_send_message(user_id: str, data: dict, db: AsyncSession):
 
     await db.commit()
     await _touch_presence(user_id, db)
+
+    # Mirror the HTTP send path: update denormalized conversation prefs
+    # (preview, unread counts) and bring back conversations that were
+    # deleted/removed from the sender's or recipients' inbox.
+    await _update_conversation_preferences(db, message, user_id)
 
     # Expunge so the re-query reloads relationships. Explicit selectinload is
     # required because the automatic selectin default is skipped for the

@@ -22,7 +22,7 @@ interface ChatMenuProps {
   onShowVoiceChannels: () => void;
   onShowEditRoom: () => void;
   onShowInvite: () => void;
-  onHideConversation: () => void;
+  onDeleteConversation: () => void;
   onLeaveRoom: () => void;
   onPin: (convType: ConvType) => void;
   onUnpin: (convType: ConvType) => void;
@@ -128,7 +128,7 @@ export default function ChatMenu({
   onShowVoiceChannels,
   onShowEditRoom,
   onShowInvite,
-  onHideConversation,
+  onDeleteConversation,
   onLeaveRoom,
   onPin,
   onUnpin,
@@ -250,7 +250,7 @@ export default function ChatMenu({
           </button>
           <div className="border-t border-outline-variant/20 my-1" />
           <button
-            onClick={onHideConversation}
+            onClick={onDeleteConversation}
             className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface-variant hover:bg-surface-container-high transition-colors w-full text-left"
           >
             <MaterialIcon name="delete" className="text-xl" />
@@ -317,7 +317,7 @@ export default function ChatMenu({
             Exportar chat
           </button>
           <button
-            onClick={onHideConversation}
+            onClick={onDeleteConversation}
             className="flex items-center gap-3 px-4 py-2.5 text-body-md text-error hover:bg-error-container/30 transition-colors w-full text-left"
           >
             <MaterialIcon name="delete" className="text-xl" />

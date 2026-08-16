@@ -29,7 +29,7 @@ async def send_message(
 
     await send_notifications_after_send(db, message, current_user, receiver)
 
-    await _update_conversation_preferences(db, message, current_user)
+    await _update_conversation_preferences(db, message, current_user.id)
 
     message = await reload_message_for_response(db, message)
 

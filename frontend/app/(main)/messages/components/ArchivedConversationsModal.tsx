@@ -64,12 +64,12 @@ export default function ArchivedConversationsModal({
   };
 
   const handleDeletePermanently = async (conv: Conversation) => {
-    if (!confirm("¿Eliminar permanentemente esta conversación? No se puede deshacer.")) return;
+    if (!confirm("¿Eliminar esta conversación? El historial dejará de mostrarse para ti. No se puede deshacer.")) return;
     const convType = conv.type === "room" ? "room" : "dm";
     try {
-      await api.hideConversation(convType, conv.id);
+      await api.deleteConversation(convType, conv.id);
       const convs = await api.getConversations();
-      const dms = convs.filter((c) => c.type === "direct" && c.is_hidden);
+      const dms = convs.filter((c) => c.type === "direct" && c.is_archived);
       const rooms = convs.filter((c) => c.type === "room" && c.is_archived);
       setArchivedDms(dms);
       setArchivedRooms(rooms);

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Conversation } from "@/lib/api";
 import { Avatar, Badge } from "@/components/ui";
 import { MaterialIcon, formatTimestamp, getInitials, computeOnlineStatus } from "./helpers";
@@ -14,6 +15,9 @@ const KIND_LABELS: Record<string, string> = {
   poll: "Encuesta",
   post: "Publicación",
 };
+
+const LONG_PRESS_MS = 500;
+const MOVE_TOLERANCE_PX = 10;
 
 function lastMessagePreview(
   msg: { kind?: string; body?: string; sender_id?: string } | undefined,
@@ -43,12 +47,14 @@ export default function ConversationItem({
   conversation,
   isActive,
   onClick,
+  onLongPress,
   onlineUsers,
   currentUserId,
 }: {
   conversation: Conversation;
   isActive: boolean;
   onClick: () => void;
+  onLongPress?: (e: React.PointerEvent | React.MouseEvent) => void;
   onlineUsers?: Map<string, boolean>;
   currentUserId?: string;
 }) {
@@ -58,10 +64,60 @@ export default function ConversationItem({
   const status = isOnlineNow
     ? "online"
     : computeOnlineStatus(conversation.last_active_at).status;
+
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressClickRef = useRef(false);
+  const startPosRef = useRef({ x: 0, y: 0 });
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => cancelLongPress, []);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    startPosRef.current = { x: e.clientX, y: e.clientY };
+    cancelLongPress();
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTimerRef.current = null;
+      suppressClickRef.current = true;
+      onLongPress?.(e);
+    }, LONG_PRESS_MS);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    const dx = Math.abs(e.clientX - startPosRef.current.x);
+    const dy = Math.abs(e.clientY - startPosRef.current.y);
+    if (dx > MOVE_TOLERANCE_PX || dy > MOVE_TOLERANCE_PX) cancelLongPress();
+  };
+
+  const handleClick = () => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    onClick();
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    suppressClickRef.current = true;
+    onLongPress?.(e);
+  };
+
   return (
     <button
-      onClick={onClick}
-      className={`flex items-center gap-3 p-4 w-full text-left transition-colors cursor-pointer ${
+      onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerUp={cancelLongPress}
+      onPointerMove={handlePointerMove}
+      onPointerCancel={cancelLongPress}
+      onPointerLeave={cancelLongPress}
+      onContextMenu={handleContextMenu}
+      className={`flex items-center gap-3 p-4 w-full text-left transition-colors cursor-pointer touch-manipulation ${
         isActive
           ? "bg-secondary-container/40"
           : "hover:bg-surface-container-high"

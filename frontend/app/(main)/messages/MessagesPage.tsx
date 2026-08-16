@@ -4,12 +4,13 @@ import { useState, useCallback, Suspense, useRef, useEffect, useMemo } from "rea
 import dynamic from "next/dynamic";
 import { useAuthStore } from "@/lib/authStore";
 import { useNotificationStore } from "@/lib/notificationStore";
-import { api, Message, PollResponse } from "@/lib/api";
+import { api, Message, PollResponse, Conversation } from "@/lib/api";
 import { useOutbox } from "@/hooks/useIndexedDB";
 import { useE2EEncryption } from "@/hooks/useE2EEncryption";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Virtuoso } from "react-virtuoso";
 import ConversationItem from "./ConversationItem";
+import { FloatingPopover } from "./components/FloatingPopover";
 import { useConversations, useMessages, useWebSocketMessages, useOutboxSync, useMessageActions, useE2ESafety } from "./hooks";
 import { buildSelectedConv, selectConv } from "./utils/conversationHelpers";
 import { markNotifsReadMatching } from "./utils/notificationSync";
@@ -72,6 +73,11 @@ export default function MessagesPage() {
   const [typingUsers, setTypingUsers] = useState<Map<string, Map<string, string>>>(new Map());
   const [onlineUsers, setOnlineUsers] = useState<Map<string, boolean>>(new Map());
   const [targetMessageId, setTargetMessageId] = useState<string | null>(null);
+  const [longPressMenu, setLongPressMenu] = useState<{
+    conv: Conversation;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const selectedIdRef = useRef(selectedId);
   const selectedTypeRef = useRef(selectedType);
@@ -148,6 +154,8 @@ export default function MessagesPage() {
     handleExportChat,
     handleHideConv,
     handleUnhideConv,
+    handleDeleteConversation,
+    handleRemoveConversation,
     handleLeaveRoom,
     handleArchiveRoom,
     handleUnarchiveRoom,
@@ -217,6 +225,16 @@ export default function MessagesPage() {
   const handleShowMediaGallery = useCallback(() => {
     if (selectedId && selectedType) setShowMediaGallery(true);
   }, [selectedId, selectedType]);
+
+  const handleDeleteSelected = useCallback(async (convType: "dm" | "room", convId: string) => {
+    await handleDeleteConversation(convType, convId);
+    if (selectedId === convId) {
+      setSelectedId(null);
+      setSelectedType(null);
+      messagesHook.setMessages([]);
+      messagesHook.setRoomMembers([]);
+    }
+  }, [handleDeleteConversation, selectedId, setSelectedId, setSelectedType, messagesHook]);
 
   const handleForwardMessage = useCallback(async (message: Message) => {
     setForwardMessage(message);
@@ -332,6 +350,7 @@ export default function MessagesPage() {
                     isActive={conv.id === selectedId}
                     onlineUsers={onlineUsers}
                     onClick={() => handleSelectConv(conv.id, conv.type as SelectedConvType)}
+                    onLongPress={(e) => setLongPressMenu({ conv, x: e.clientX, y: e.clientY })}
                     currentUserId={authUser?.id}
                   />
                 )}
@@ -339,6 +358,34 @@ export default function MessagesPage() {
             )}
           </div>
         </div>
+
+        {longPressMenu && (
+          <FloatingPopover
+            clientX={longPressMenu.x}
+            clientY={longPressMenu.y}
+            open={!!longPressMenu}
+            onRequestClose={() => setLongPressMenu(null)}
+            placement="bottom"
+            className="w-56"
+          >
+            <div className="py-1">
+              <p className="px-4 py-2 text-label-xs text-on-surface-variant truncate">
+                {longPressMenu.conv.name}
+              </p>
+              <button
+                onClick={() => {
+                  const convType = longPressMenu.conv.type === "room" ? "room" : "dm";
+                  handleRemoveConversation(convType, longPressMenu.conv.id);
+                  setLongPressMenu(null);
+                }}
+                className="flex items-center gap-3 px-4 py-2.5 w-full text-left text-body-md text-error hover:bg-error-container/30 transition-colors"
+              >
+                <MaterialIcon name="delete" className="text-xl" />
+                Eliminar
+              </button>
+            </div>
+          </FloatingPopover>
+        )}
 
         <div className={`${selectedId ? "flex" : "hidden xl:flex"} flex-1 flex-col min-w-0`}>
           {selectedConv ? (
@@ -351,7 +398,7 @@ export default function MessagesPage() {
                 showBack
                 roomMembers={selectedType === "room" ? messagesHook.roomMembers : undefined}
                 membersLoading={messagesHook.membersLoading}
-                onHideConversation={handleHideConv}
+                onDeleteConversation={handleDeleteSelected}
                 onLeaveRoom={handleLeaveRoom}
                 onRefresh={messagesHook.handleRefresh}
                 hasMore={messagesHook.hasMore}

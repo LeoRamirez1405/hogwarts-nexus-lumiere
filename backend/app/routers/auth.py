@@ -21,6 +21,7 @@ from ..middleware.auth import (
     clear_auth_cookies,
 )
 from ..rate_limit import limiter
+from ..utils.user_helpers import enrich_user
 from app.utils.dates import utcnow
 
 router = APIRouter()
@@ -111,7 +112,7 @@ async def login(
 
     return {
         "token_type": "bearer",
-        "user": UserResponse.model_validate(user),
+        "user": UserResponse.model_validate(await enrich_user(db, user)),
     }
 
 
@@ -158,8 +159,11 @@ async def logout(response: Response):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+async def get_me(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await enrich_user(db, current_user)
 
 
 @router.get("/ws-token")

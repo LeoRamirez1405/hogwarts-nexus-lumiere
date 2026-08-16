@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models.chat_room import ChatRoomMember, UserConversationPreference
 from ...models.message import Message
-from ...models.user import User
 from ...routers.messages.deps import _invalidate_conversations_caches
 from app.utils.dates import utcnow
 
@@ -52,7 +51,7 @@ async def is_conversation_muted(
 
 
 async def _update_conversation_preferences(
-    db: AsyncSession, message: Message, sender: User
+    db: AsyncSession, message: Message, sender_id: str
 ):
     body_preview = (message.body or "")[:200] if message.body else ""
     if not body_preview and message.attachment_url:
@@ -74,7 +73,7 @@ async def _update_conversation_preferences(
         conversation_type = "dm"
         recipient_ids = [message.receiver_id] if message.receiver_id else []
 
-    affected_user_ids = {sender.id}
+    affected_user_ids = {sender_id}
     affected_user_ids.update(recipient_ids)
 
     if message.room_id:
@@ -84,13 +83,13 @@ async def _update_conversation_preferences(
 
     await _upsert_conversation_pref(
         db,
-        user_id=sender.id,
+        user_id=sender_id,
         conversation_type=conversation_type,
         conversation_id=sender_conversation_id,
         last_message_id=message.id,
         last_message_body=body_preview,
         last_message_at=message.created_at,
-        last_message_sender_id=sender.id,
+        last_message_sender_id=sender_id,
         last_message_kind=kind,
         last_message_attachment_url=attachment_url,
         last_message_attachment_type=attachment_type,
@@ -99,9 +98,9 @@ async def _update_conversation_preferences(
     )
 
     for recipient_id in recipient_ids:
-        if recipient_id == sender.id:
+        if recipient_id == sender_id:
             continue
-        recipient_conversation_id = message.room_id if message.room_id else sender.id
+        recipient_conversation_id = message.room_id if message.room_id else sender_id
         await _upsert_conversation_pref(
             db,
             user_id=recipient_id,
@@ -110,7 +109,7 @@ async def _update_conversation_preferences(
             last_message_id=message.id,
             last_message_body=body_preview,
             last_message_at=message.created_at,
-            last_message_sender_id=sender.id,
+            last_message_sender_id=sender_id,
             last_message_kind=kind,
             last_message_attachment_url=attachment_url,
             last_message_attachment_type=attachment_type,
@@ -160,6 +159,15 @@ async def _upsert_conversation_pref(
         pref.last_message_attachment_name = last_message_attachment_name
         if unread_increment > 0:
             pref.unread_count += unread_increment
+        if pref.removed_at is not None:
+            # Long-press removal: a new message brings the conversation back
+            # to the inbox with its full history.
+            pref.removed_at = None
+            pref.hidden = False
+        elif pref.deleted_at is not None:
+            # Hard delete: reappear on new message, but the history before
+            # deleted_at stays hidden (deleted_at persists as the cut-off).
+            pref.hidden = False
     else:
         pref = UserConversationPreference(
             user_id=user_id,

@@ -35,13 +35,14 @@ export const reactionsApi = {
     targetType: ReactionTargetType,
     targetId: string,
     emoji: string
-  ) => {
-    refreshUserLevelThrottled();
-    return request<ReactionToggleResult>("/reactions/", {
+  ) =>
+    request<ReactionToggleResult>("/reactions/", {
       method: "POST",
       body: JSON.stringify({ target_type: targetType, target_id: targetId, emoji }),
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   getReactions: (targetType: ReactionTargetType, targetId: string) =>
     request<ReactionList>(

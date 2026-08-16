@@ -58,7 +58,7 @@ async def deliver_due_scheduled_messages() -> int:
 
             # Mirror the regular send path: update inbox previews/unread counts
             # and fire notifications (mentions in rooms, DM alerts).
-            await _update_conversation_preferences(db, message, sender)
+            await _update_conversation_preferences(db, message, sender.id)
             await send_notifications_after_send(db, message, sender, message.receiver)
 
             serialized = await serialize_message(

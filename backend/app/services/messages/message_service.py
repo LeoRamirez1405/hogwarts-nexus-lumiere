@@ -423,7 +423,7 @@ async def forward_message_service(
     await db.commit()
     await db.refresh(new_msg)
 
-    await _update_conversation_preferences(db, new_msg, current_user)
+    await _update_conversation_preferences(db, new_msg, current_user.id)
 
     db.expunge(new_msg)
     msg_result = await db.execute(

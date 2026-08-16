@@ -38,12 +38,13 @@ export const friendRequestsApi = {
       body: JSON.stringify({ receiver_id }),
     }),
 
-  acceptFriendRequest: (id: string) => {
-    refreshUserLevelThrottled();
-    return request<FriendRequest>(`/friend-requests/${id}/accept`, {
+  acceptFriendRequest: (id: string) =>
+    request<FriendRequest>(`/friend-requests/${id}/accept`, {
       method: "PUT",
-    });
-  },
+    }).then((res) => {
+      refreshUserLevelThrottled(0);
+      return res;
+    }),
 
   rejectFriendRequest: (id: string) =>
     request<FriendRequest>(`/friend-requests/${id}/reject`, {

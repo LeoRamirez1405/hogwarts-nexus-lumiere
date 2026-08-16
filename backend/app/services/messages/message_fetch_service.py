@@ -15,6 +15,21 @@ from ...routers.messages.deps import (
 )
 
 
+async def _get_dm_cutoff(db: AsyncSession, user_id: str, partner_id: str):
+    """History cut-off (deleted_at) for a DM, or None."""
+    pref_result = await db.execute(
+        select(UserConversationPreference).where(
+            and_(
+                UserConversationPreference.user_id == user_id,
+                UserConversationPreference.conversation_type == "dm",
+                UserConversationPreference.conversation_id == partner_id,
+            )
+        )
+    )
+    pref = pref_result.scalar_one_or_none()
+    return pref.deleted_at if pref else None
+
+
 async def get_messages_service(
     db: AsyncSession,
     user_id: str,
@@ -38,6 +53,10 @@ async def get_messages_service(
     )
     convo_filter = and_(convo_filter, Message.scheduled_at.is_(None))
 
+    cutoff = await _get_dm_cutoff(db, current_user.id, user_id)
+    if cutoff is not None:
+        convo_filter = and_(convo_filter, Message.created_at > cutoff)
+
     first_unread_id = None
     unread_count = 0
     if not before:
@@ -46,6 +65,8 @@ async def get_messages_service(
             Message.sender_id == user_id,
             Message.read.is_(False),
         ]
+        if cutoff is not None:
+            unread_filters.append(Message.created_at > cutoff)
         first_unread_id = (
             await db.execute(
                 select(Message.id)
@@ -175,5 +196,52 @@ async def get_messages_since_service(
         .limit(limit)
     )
 
+    cutoff_terms = await _build_cutoff_terms(db, current_user.id)
+    if cutoff_terms:
+        query = query.where(~or_(*cutoff_terms))
+
     result = await db.execute(query)
     return result.scalars().all()
+
+
+async def _build_cutoff_terms(db: AsyncSession, user_id: str) -> list:
+    """OR-terms that match messages hidden by a hard-delete cut-off.
+
+    A term matches when the message belongs to a conversation with a
+    ``deleted_at`` set and was created at or before that timestamp. Excluding
+    the whole OR keeps deleted history out of WS catch-up refreshes.
+    """
+    prefs_result = await db.execute(
+        select(UserConversationPreference).where(
+            and_(
+                UserConversationPreference.user_id == user_id,
+                UserConversationPreference.deleted_at.is_not(None),
+            )
+        )
+    )
+    terms = []
+    for pref in prefs_result.scalars().all():
+        if pref.conversation_type == "dm":
+            terms.append(
+                and_(
+                    Message.created_at <= pref.deleted_at,
+                    or_(
+                        and_(
+                            Message.sender_id == pref.conversation_id,
+                            Message.receiver_id == user_id,
+                        ),
+                        and_(
+                            Message.sender_id == user_id,
+                            Message.receiver_id == pref.conversation_id,
+                        ),
+                    ),
+                )
+            )
+        else:
+            terms.append(
+                and_(
+                    Message.room_id == pref.conversation_id,
+                    Message.created_at <= pref.deleted_at,
+                )
+            )
+    return terms

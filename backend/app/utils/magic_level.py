@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.user import User
 from ..models.user_creature import UserCreature
 from ..models.post import Post, PostLike, PostRepost, PostComment
-from ..models.article import Article, ArticleComment
+from ..models.article import ArticleComment
 from ..models.article_subscription import ArticleSubscription
 from ..models.forum import ForumThread, ForumThreadVote, ForumComment, ForumSubscription
 from ..models.message import Message, Poll, PollVote, MessageReaction
@@ -45,7 +45,6 @@ ACTIVITY_XP = {
     "play_creature": 1,
     "buy_pet_item": 2,
     "create_post": 3,
-    "create_article": 8,
     "create_thread": 5,
     "create_event": 10,
     "create_room": 3,
@@ -75,7 +74,6 @@ ACTIVITY_XP = {
 
 SIMPLE_COUNT_MODELS = (
     (Post, Post.author_id, "create_post"),
-    (Article, Article.author_id, "create_article"),
     (ForumThread, ForumThread.author_id, "create_thread"),
     (PostComment, PostComment.user_id, "comment"),
     (ArticleComment, ArticleComment.user_id, "comment"),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useWebSocket } from "./useWebSocket";
 import { markMessageDeleting, healConversationPreview } from "../utils/messageLifecycle";
 import type { Message, Conversation, SelectedConvType } from "../types";
@@ -37,6 +37,22 @@ export function useWebSocketMessages({
   setOnlineUsers,
   api,
 }: UseWebSocketMessagesOptions) {
+  const lastListRefreshRef = useRef(0);
+
+  const refreshConversationListIfMissing = useCallback((conversationId: string) => {
+    setConversations((prev: Conversation[]) => {
+      if (prev.some((c) => c.id === conversationId)) return prev;
+      // A conversation that left the inbox (deleted/removed) reappears when a
+      // new message arrives; pull the fresh list from the server, throttled.
+      const now = Date.now();
+      if (now - lastListRefreshRef.current > 5000) {
+        lastListRefreshRef.current = now;
+        api.getConversations().then((convs: Conversation[]) => setConversations(convs)).catch(() => {});
+      }
+      return prev;
+    });
+  }, [api, setConversations]);
+
   const handleNewMessage = useCallback((_conversationId: string, message: Message) => {
     if (selectedIdRef.current === _conversationId) {
       setMessages((prev) => {
@@ -51,6 +67,7 @@ export function useWebSocketMessages({
         wsClient.markRead(_conversationId, message.id);
       }
     }
+    refreshConversationListIfMissing(_conversationId);
     setConversations((prev: Conversation[]) =>
       prev.map((c) =>
         c.id === _conversationId
@@ -58,7 +75,7 @@ export function useWebSocketMessages({
           : c
       )
     );
-  }, [wsClient, setMessages, setConversations, selectedIdRef]);
+  }, [wsClient, setMessages, setConversations, selectedIdRef, refreshConversationListIfMissing]);
 
   const handleTyping = useCallback((conversationId: string, userId: string) => {
     setTypingUsers((prev) => {
