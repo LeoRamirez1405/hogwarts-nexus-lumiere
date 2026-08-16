@@ -17,7 +17,7 @@ const tabs: TabItem[] = [
   { icon: "home", label: "Inicio", href: "/dashboard" },
   { icon: "account_balance", label: "Bóveda", href: "/treasury" },
   { icon: "pets", label: "Mascotas", href: "/pets" },
-  { icon: "style", label: "Pictorium", href: "/albums" },
+  { icon: "collections_bookmark", label: "Catálogos", href: "/catalogs" },
   { icon: "newspaper", label: "Prensa", href: "/news" },
   { icon: "person", label: "Perfil", href: "/profile" },
 ];
@@ -74,8 +74,7 @@ export default function BottomNav() {
 {tabs.map((tab) => {
             const isActive =
               pathname === tab.href ||
-              pathname.startsWith(tab.href + "/") ||
-              (tab.href === "/albums" && pathname.startsWith("/album"));
+              pathname.startsWith(tab.href + "/");
             return (
               <BottomNavTab
                 key={tab.href}
