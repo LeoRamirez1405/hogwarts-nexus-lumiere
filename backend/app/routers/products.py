@@ -1,8 +1,9 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, or_, select, update
 
+from ..cache import cache_get, cache_set
 from ..database import get_db
 from ..models.product import Product
 from ..models.user import User
@@ -22,9 +23,12 @@ from ..middleware.auth import get_current_user
 
 router = APIRouter()
 
+_PRODUCTS_TTL = 120
+
 
 @router.get("/", response_model=Page[ProductResponse])
 async def list_products(
+    response: Response,
     shop: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
@@ -33,6 +37,11 @@ async def list_products(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    cache_key = f"products:{shop}:{category}:{search}:{skip}:{limit}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        response.headers["Cache-Control"] = f"private, max-age={_PRODUCTS_TTL}"
+        return cached
     query = select(Product)
     count_query = select(func.count(Product.id))
     if shop:
@@ -56,13 +65,16 @@ async def list_products(
     items = items[:limit]
     total_result = await db.execute(count_query)
     total = total_result.scalar_one()
-    return Page(
-        items=items,
+    payload = Page(
+        items=[ProductResponse.model_validate(item) for item in items],
         total=total,
         skip=skip,
         limit=limit,
         has_more=has_more,
     )
+    cache_set(cache_key, payload, _PRODUCTS_TTL)
+    response.headers["Cache-Control"] = f"private, max-age={_PRODUCTS_TTL}"
+    return payload
 
 
 @router.get("/popular/{shop}", response_model=List[ProductResponse])

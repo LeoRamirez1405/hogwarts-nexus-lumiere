@@ -8,8 +8,12 @@ import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persist
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
-      gcTime: 5 * 60 * 1000,
+      // 60s freshness: within it React Query serves memory/localStorage data
+      // without refetching; beyond it, data refreshes in the background. The
+      // persisted cache (24h) + SW stale-while-revalidate make repeat visits
+      // paint instantly even when the backend is cold.
+      staleTime: 60_000,
+      gcTime: 15 * 60 * 1000,
       retry: 2,
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,

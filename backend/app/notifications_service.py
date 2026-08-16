@@ -335,8 +335,8 @@ async def notify_all_users(
                                     {
                                         "title": title,
                                         "body": body,
-                                        "icon": "/icons/maskable-192-owl-outline.svg",
-                                        "badge": "/icons/icon-192-owl-outline.svg",
+                                        "icon": "/icons/icon-owl.png",
+                                        "badge": "/icons/badge-owl.png",
                                         "tag": f"nexus-broadcast-{type}",
                                         "data": {"url": url or "/notifications"},
                                     }

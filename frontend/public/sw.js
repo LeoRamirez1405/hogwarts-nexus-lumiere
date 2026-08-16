@@ -3,11 +3,12 @@
  * Handles: Push notifications, offline caching, background sync
  */
 
-// Bumped to v3: fixes the "Response body is already used" clone race (clone
-// was happening after `await caches.open()`, by which time the page had
-// already consumed the response body) and stops intercepting Next.js RSC
-// fetches. v2 purged the v1 HTML cache; we still never cache HTML pages.
-const CACHE_NAME = 'nexus-lumiere-v6';
+// Bumped to v4 (cache v7): API GETs move from networkFirst to
+// stale-while-revalidate so views paint instantly from the local cache while
+// fresh data is fetched in the background — the backend (Render free) sleeps
+// after 15 min idle, so a cold-start round trip would otherwise block every
+// first paint. Auth endpoints stay on the network (never cached).
+const CACHE_NAME = 'nexus-lumiere-v7';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/offline.html',
@@ -15,12 +16,13 @@ const STATIC_ASSETS = [
 
 // Cache strategies
 const CACHE_STRATEGIES = {
-  // Network first, fallback to cache (for API calls)
-  networkFirst: ['/api/', '/_next/static/'],
+  // Network first, fallback to cache (for Next.js build assets)
+  networkFirst: ['/_next/static/'],
   // Cache first, fallback to network (for static assets)
   cacheFirst: ['/icons/', '/fallbacks/'],
-  // Stale while revalidate (for pages)
-  staleWhileRevalidate: ['/'],
+  // Stale while revalidate: serve cached instantly, refresh in background
+  // (for API GETs and pages)
+  staleWhileRevalidate: ['/api/', '/'],
 };
 
 self.addEventListener('install', (event) => {
@@ -40,7 +42,7 @@ self.addEventListener('activate', (event) => {
           .filter((name) => name !== CACHE_NAME)
           .map((name) => caches.delete(name))
       );
-    })
+    }).then(() => sweepApiCache())
   );
   // IMPORTANT: do NOT call clients.claim() here. Claiming takes control of
   // already-open pages mid-load, which fires `controllerchange` in the page.
@@ -49,6 +51,31 @@ self.addEventListener('activate', (event) => {
   // subsequent HTML navigation. Without claim, the SW only controls pages
   // loaded AFTER activation: no mid-session control switch, no race.
 });
+
+// Bound the API cache: stale-while-revalidate accumulates per-user responses
+// (chats, catalogs, feeds), so drop entries older than 7 days to keep the
+// origin quota from filling up.
+async function sweepApiCache() {
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const keys = await cache.keys();
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const stale = [];
+    for (const req of keys) {
+      if (!req.url.includes('/api/')) {
+        continue;
+      }
+      const res = await cache.match(req);
+      const date = res ? new Date(res.headers.get('date') || 0).getTime() : 0;
+      if (!date || date < cutoff) {
+        stale.push(req);
+      }
+    }
+    await Promise.all(stale.map((req) => cache.delete(req)));
+  } catch {
+    // Sweep is best-effort; never fail activation because of it.
+  }
+}
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
@@ -60,6 +87,13 @@ self.addEventListener('fetch', (event) => {
 
   // Skip cross-origin requests
   if (url.origin !== location.origin) {
+    return;
+  }
+
+  // NEVER cache auth endpoints. Login/refresh are POSTs (skipped above), but
+  // a cached GET here could pin the UI to a stale auth state (e.g. a 401 body
+  // cached while the session was being refreshed).
+  if (url.pathname.startsWith('/api/auth/')) {
     return;
   }
 
@@ -218,8 +252,8 @@ self.addEventListener('push', (event) => {
     const data = event.data.json();
     const options = {
       body: data.body || 'Nueva notificación',
-      icon: data.icon || '/icons/maskable-192-owl-outline.svg',
-      badge: '/icons/icon-192-owl-outline.svg',
+      icon: data.icon || '/icons/icon-owl.png',
+      badge: '/icons/badge-owl.png',
       vibrate: data.vibrate || [100, 50, 100],
       tag: data.tag || 'nexus-notification',
       renotify: data.renotify || false,

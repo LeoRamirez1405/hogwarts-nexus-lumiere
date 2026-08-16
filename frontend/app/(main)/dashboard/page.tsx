@@ -16,7 +16,8 @@ export default function DashboardPage() {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => api.getDashboard(),
-    refetchInterval: 60_000,
+    staleTime: 60_000,
+    refetchInterval: 120_000,
   });
 
   const handleRefresh = useCallback(async () => {

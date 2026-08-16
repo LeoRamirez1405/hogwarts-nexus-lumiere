@@ -1,6 +1,6 @@
 import asyncio
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -8,10 +8,11 @@ from contextlib import asynccontextmanager
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from brotli_asgi import BrotliMiddleware
+from sqlalchemy import text
 
 from .config import settings
 from .rate_limit import limiter
-from .database import init_db
+from .database import init_db, engine
 from .routers import auth, users, products, articles, creatures, messages, posts, reactions, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, ws_messages, push, voice_channels, e2e_encryption, events, catalogs
 from .routers.albums import catalog as albums_catalog
 from .routers.albums import collection as albums_collection
@@ -167,6 +168,24 @@ _uploads_dir.mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
     return {"message": "Hogwarts Nexus Lumiere API"}
+
+
+@app.api_route("/health", methods=["GET", "HEAD"])
+async def health(response: Response):
+    """Liveness/readiness probe for uptime monitors.
+
+    Touches the database so a periodic ping (UptimeRobot, cron-job.org, ...)
+    keeps BOTH the Render instance and the Neon compute from sleeping on free
+    tier. HEAD is supported so monitors that probe with HEAD get a 200 instead
+    of a 405.
+    """
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception:
+        raise HTTPException(status_code=503, detail="database unreachable")
+    response.headers["Cache-Control"] = "no-store"
+    return {"status": "ok"}

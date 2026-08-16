@@ -1,8 +1,9 @@
 from typing import Any
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
+from ..cache import cache_get, cache_set
 from ..database import get_db
 from ..models.user import User
 from ..models.product import Product
@@ -13,12 +14,23 @@ from ..middleware.auth import get_current_user
 
 router = APIRouter()
 
+_DASHBOARD_TTL = 30
+
 
 @router.get("/")
 async def get_dashboard(
+    response: Response,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
+    cache_key = f"dashboard:{current_user.id}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        response.headers["Cache-Control"] = f"private, max-age={_DASHBOARD_TTL}"
+        return cached
+
+    payload: dict[str, Any]
+
     if current_user.role == "admin":
         total_users = (await db.execute(select(func.count(User.id)))).scalar() or 0
         total_products = (await db.execute(select(func.count(Product.id)))).scalar() or 0
@@ -42,7 +54,7 @@ async def get_dashboard(
         )
         recent_transactions = recent_result.scalars().all()
 
-        return {
+        payload = {
             "role": "admin",
             "total_users": total_users,
             "total_products": total_products,
@@ -103,7 +115,7 @@ async def get_dashboard(
     )
     unread_messages = unread_result.scalar() or 0
 
-    return {
+    payload = {
         "role": "user",
         "zerines": current_user.zerines,
         "my_creatures": my_creatures_count,
@@ -124,3 +136,7 @@ async def get_dashboard(
             for t in recent_transactions[:10]
         ],
     }
+
+    cache_set(cache_key, payload, _DASHBOARD_TTL)
+    response.headers["Cache-Control"] = f"private, max-age={_DASHBOARD_TTL}"
+    return payload

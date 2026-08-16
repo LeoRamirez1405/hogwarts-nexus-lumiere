@@ -3,10 +3,11 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..cache import cache_get, cache_set
 from ..database import get_db
 from ..middleware.auth import get_current_user
 from ..models.catalog import Catalog
@@ -27,15 +28,23 @@ from ..services.catalog_service import (
 
 router = APIRouter()
 
+_CATALOGS_TTL = 120
+
 
 @router.get("/", response_model=Page[CatalogResponse])
 async def list_catalogs(
+    response: Response,
     skip: int = Query(0, ge=0),
     limit: int = Query(12, ge=1, le=100),
     search: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    cache_key = f"catalogs:{skip}:{limit}:{search}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        response.headers["Cache-Control"] = f"private, max-age={_CATALOGS_TTL}"
+        return cached
     query = select(Catalog)
     count_query = select(func.count(Catalog.id))
     if search:
@@ -54,14 +63,16 @@ async def list_catalogs(
     items = items[:limit]
     total_result = await db.execute(count_query)
     total = total_result.scalar_one()
-    items = [await catalog_response(c, db) for c in items]
-    return Page(
-        items=items,
+    payload = Page(
+        items=[await catalog_response(c, db) for c in items],
         total=total,
         skip=skip,
         limit=limit,
         has_more=has_more,
     )
+    cache_set(cache_key, payload, _CATALOGS_TTL)
+    response.headers["Cache-Control"] = f"private, max-age={_CATALOGS_TTL}"
+    return payload
 
 
 @router.get("/{catalog_id}", response_model=CatalogResponse)
