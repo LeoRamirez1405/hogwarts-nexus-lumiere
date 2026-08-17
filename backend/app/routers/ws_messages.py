@@ -1,5 +1,6 @@
 import json
 import base64
+import logging
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
@@ -23,6 +24,8 @@ from .messages import serialize_message
 from .messages.serializers.message import _preview_message
 from ..services.messages.message_service import send_notifications_after_send
 from app.utils.dates import utcnow
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
@@ -49,8 +52,8 @@ async def _invalidate_user_conversations_cache(user_id: str) -> None:
         )
         await r.delete(f"conv:{user_id}")
         await r.close()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to invalidate conversations cache for user %s: %s", user_id, e)
 
 
 async def _touch_presence(user_id: str, db: AsyncSession) -> None:
@@ -65,8 +68,8 @@ async def _touch_presence(user_id: str, db: AsyncSession) -> None:
             update(User).where(User.id == user_id).values(last_active_at=utcnow())
         )
         await db.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to touch presence for user %s: %s", user_id, e)
 
 
 async def _notify_dm_partners(db: AsyncSession, user_id: str, status: str) -> None:
@@ -88,8 +91,8 @@ async def _notify_dm_partners(db: AsyncSession, user_id: str, status: str) -> No
         )
         for (partner_id,) in result.all():
             await manager.send_to_user(partner_id, payload)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to notify DM partners for user %s: %s", user_id, e)
 
 
 @router.websocket("/ws")
@@ -108,8 +111,8 @@ async def websocket_endpoint(
         async with async_session() as db:
             current_user.last_active_at = utcnow()
             await db.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to mark user %s as active on WS connect: %s", current_user.id, e)
 
     # Add user to their rooms
     try:
@@ -118,7 +121,8 @@ async def websocket_endpoint(
                 select(ChatRoomMember.room_id).where(ChatRoomMember.user_id == current_user.id)
             )
             room_ids = [room_id for (room_id,) in room_result.all()]
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to fetch rooms for user %s: %s", current_user.id, e)
         room_ids = []
     for room_id in room_ids:
         manager.add_user_to_room(current_user.id, room_id)
@@ -130,8 +134,8 @@ async def websocket_endpoint(
     try:
         async with async_session() as db:
             await _notify_dm_partners(db, current_user.id, "online")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to broadcast online presence for user %s: %s", current_user.id, e)
 
     try:
         while True:
@@ -149,16 +153,16 @@ async def websocket_endpoint(
                 continue
     except WebSocketDisconnect:
         pass
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[WS] Unexpected error in websocket loop: {e!r}")
     finally:
         # Record last activity and broadcast presence offline
         try:
             async with async_session() as db:
                 await _touch_presence(current_user.id, db)
                 await _notify_dm_partners(db, current_user.id, "offline")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to record offline presence for user %s: %s", current_user.id, e)
         offline_payload = {"t": "presence", "u": current_user.id, "s": "offline"}
         for room_id in manager.user_rooms.get(current_user.id, set()):
             await manager.broadcast_to_room(room_id, offline_payload, exclude_user=current_user.id)
