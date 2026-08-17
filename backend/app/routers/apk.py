@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse, RedirectResponse
 from pathlib import Path
 
@@ -11,25 +11,30 @@ router = APIRouter(tags=["apk"])
 # Ruta al APK firmado en filesystem local (dev). Configurable via APK_FILE_PATH.
 APK_PATH = Path(settings.APK_FILE_PATH)
 
-# URL del último APK en GitHub Releases. El CI (build-android-apk.yml) sube el
-# APK a cada Release, así que en prod no hay que almacenar el archivo en el
-# servidor: solo redirigimos al asset del último release.
+# Ruta del APK commiteado por el CI en el repo (backend/static/app-release.apk).
+# En prod (Render, filesystem efímero) el checkout lo trae, así el backend lo
+# sirve directo sin depender de GitHub Releases.
+CHECKOUT_APK_PATH = Path(__file__).parent.parent.parent / "static" / "app-release.apk"
+
+# URL del último APK en GitHub Releases. Fallback si no hay archivo local.
 GITHUB_APK_URL = (
     f"https://github.com/{settings.GITHUB_REPO}/releases/latest/download/"
     "app-release.apk"
 )
 
 
-def _serve_local_apk() -> FileResponse:
-    if not APK_PATH.exists():
-        raise HTTPException(
-            status_code=404,
-            detail="APK no disponible. Ejecuta 'npx capacitor build android' en el frontend para generarlo.",
-        )
-    if APK_PATH.stat().st_size == 0:
-        raise HTTPException(status_code=500, detail="APK corrupto (archivo vacío)")
+def _resolve_apk() -> Path | None:
+    """Primer candidato existente: APK_FILE_PATH (dev) → backend/static (prod)."""
+    if APK_PATH.exists() and APK_PATH.stat().st_size > 0:
+        return APK_PATH
+    if CHECKOUT_APK_PATH.exists() and CHECKOUT_APK_PATH.stat().st_size > 0:
+        return CHECKOUT_APK_PATH
+    return None
+
+
+def _serve_apk(apk: Path) -> FileResponse:
     return FileResponse(
-        path=str(APK_PATH),
+        path=str(apk),
         filename="hogwarts-nexus.apk",
         media_type="application/vnd.android.package-archive",
         headers={
@@ -46,12 +51,12 @@ async def download_apk(current_user: User = Depends(get_current_user)):
     Descarga el APK firmado para instalación directa (sideload) en Android.
     Requiere autenticación (usuario logueado).
 
-    En dev sirve el archivo local; en prod redirige al GitHub Release.
+    En dev sirve el archivo local; en prod sirve el APK del checkout del repo;
+    si no hay archivo, redirige al GitHub Release.
     """
-    # En desarrollo (filesystem local presente) servimos el archivo directo.
-    if APK_PATH.exists():
-        return _serve_local_apk()
-    # En producción no hay APK en el servidor: redirigimos al Release de GitHub.
+    apk = _resolve_apk()
+    if apk is not None:
+        return _serve_apk(apk)
     return RedirectResponse(url=GITHUB_APK_URL, status_code=307)
 
 
@@ -60,8 +65,9 @@ async def apk_info(current_user: User = Depends(get_current_user)):
     """
     Información sobre el APK disponible (versión, tamaño, fecha).
     """
-    if APK_PATH.exists():
-        stat = APK_PATH.stat()
+    apk = _resolve_apk()
+    if apk is not None:
+        stat = apk.stat()
         return {
             "available": True,
             "filename": "hogwarts-nexus.apk",
@@ -70,7 +76,7 @@ async def apk_info(current_user: User = Depends(get_current_user)):
             "modified": stat.st_mtime,
             "download_url": "/api/app/apk",
         }
-    # En prod sin archivo local: el APK vive en GitHub Releases.
+    # Sin archivo local: el APK vive en GitHub Releases.
     return {
         "available": True,
         "filename": "app-release.apk",

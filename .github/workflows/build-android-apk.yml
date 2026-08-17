@@ -170,6 +170,16 @@ jobs:
           path: ${{ env.FRONTEND_DIR }}/android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
 
+      - name: Commit APK to repo (backend serves it from checkout)
+        run: |
+          mkdir -p backend/static
+          cp ${{ env.FRONTEND_DIR }}/android/app/build/outputs/apk/release/app-release.apk backend/static/app-release.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/static/app-release.apk
+          git commit -m "chore: add signed APK v${{ steps.version.outputs.version }} [skip ci]"
+          git push
+
       - name: Create GitHub Release (optional)
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
