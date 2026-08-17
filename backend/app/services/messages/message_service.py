@@ -163,16 +163,46 @@ async def send_notifications_after_send(
 ):
     notified = False
 
-    if message.room_id and message.body and "@" in message.body:
+    if message.room_id:
         room_result = await db.execute(
             select(ChatRoom).where(ChatRoom.id == message.room_id)
         )
         room_obj = room_result.scalar_one_or_none()
         room_name = room_obj.name if room_obj else "el grupo"
-        await create_mention_notifications(
-            db, sender, message.body, room_name, message.room_id, message.id
+
+        preview = (message.body or "").strip()
+        if not preview:
+            preview = "📎 Adjunto" if message.attachment_url else "Nuevo mensaje"
+
+        members_result = await db.execute(
+            select(ChatRoomMember).where(
+                and_(
+                    ChatRoomMember.room_id == message.room_id,
+                    ChatRoomMember.user_id != sender.id,
+                    ChatRoomMember.archived == False,  # noqa: E712
+                )
+            )
         )
+        members = members_result.scalars().all()
+
+        for member in members:
+            if member.muted_until and member.muted_until > utcnow():
+                continue
+            await notify(
+                db,
+                user_id=member.user_id,
+                type=N.DM_MESSAGE,
+                title=f"{sender.name} en {room_name}",
+                body=preview[:200],
+                related_id=message.room_id,
+                actor_id=sender.id,
+            )
         notified = True
+
+        if message.body and "@" in message.body:
+            await create_mention_notifications(
+                db, sender, message.body, room_name, message.room_id, message.id
+            )
 
     if message.receiver_id and not message.room_id:
         preview = (message.body or "").strip()

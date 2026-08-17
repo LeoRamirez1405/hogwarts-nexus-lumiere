@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback, useRef } from "react";
 import { useAuthStore } from "@/lib/authStore";
+import { toastInfo } from "@/lib/toastStore";
 
 declare global {
   interface Window {
@@ -127,6 +128,9 @@ export function useFCM() {
       "pushNotificationReceived",
       (notification: CapacitorPushNotificationReceived) => {
         console.log("[FCM] Push received in foreground:", notification);
+        const title = (notification.data?.title as string) || "Nuevo mensaje";
+        const body = (notification.data?.body as string) || "";
+        toastInfo(title, body);
       }
     );
 

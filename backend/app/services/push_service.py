@@ -277,15 +277,13 @@ async def send_fcm_to_user(
                 data={
                     **(data or {}),
                     "url": url or "/notifications",
-                    "click_action": "FLUTTER_NOTIFICATION_CLICK",
                 },
                 android=messaging.AndroidConfig(
                     priority="high",
                     notification=messaging.AndroidNotification(
-                        icon="ic_notification",
+                        icon="ic_launcher",
                         color="#0e3b60",
                         sound="default",
-                        click_action="FLUTTER_NOTIFICATION_CLICK",
                     ),
                 ),
                 apns=messaging.APNSConfig(

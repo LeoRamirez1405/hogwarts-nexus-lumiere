@@ -33,6 +33,14 @@ function getClientX(e: MouseEvent | TouchEvent): number {
   return "touches" in e ? e.touches[0]?.clientX ?? 0 : e.clientX;
 }
 
+function timeToPercent(t: number, duration: number): number {
+  return duration > 0 ? (t / duration) * 100 : 0;
+}
+
+function percentToTime(p: number, duration: number): number {
+  return (p / 100) * duration;
+}
+
 export function VideoTrimModal({ file, onCancel, onConfirm }: VideoTrimModalProps) {
   const isDesktop = useIsDesktopMdUp(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -49,6 +57,7 @@ export function VideoTrimModal({ file, onCancel, onConfirm }: VideoTrimModalProp
   // Use refs for values needed in event handlers (avoid stale closures)
   const draggingWhichRef = useRef<"start" | "end" | null>(null);
   const windowDurationRef = useRef<number>(VIDEO_CONSTRAINTS.maxDuration);
+  const handleUpRef = useRef<() => void>(() => {});
   const [draggingWhich, setDraggingWhich] = useState<"start" | "end" | null>(null);
 
   // Sync ref with state for rendering (transform scale)
@@ -107,9 +116,6 @@ export function VideoTrimModal({ file, onCancel, onConfirm }: VideoTrimModalProp
     setPlaying(false);
   };
 
-  const timeToPercent = (t: number) => (duration > 0 ? (t / duration) * 100 : 0);
-  const percentToTime = (p: number) => (p / 100) * duration;
-
   // --- Unified drag handlers (mouse + touch) ---
   const handleMove = useCallback((e: MouseEvent | TouchEvent) => {
     const which = draggingWhichRef.current;
@@ -117,7 +123,7 @@ export function VideoTrimModal({ file, onCancel, onConfirm }: VideoTrimModalProp
     e.preventDefault(); // prevent scrolling while dragging
     const rect = trackRef.current.getBoundingClientRect();
     const percent = Math.max(0, Math.min(100, ((getClientX(e) - rect.left) / rect.width) * 100));
-    const t = percentToTime(percent);
+    const t = percentToTime(percent, duration);
 
     if (which === "start") {
       const windowDur = windowDurationRef.current;
@@ -136,17 +142,22 @@ export function VideoTrimModal({ file, onCancel, onConfirm }: VideoTrimModalProp
       const v = videoRef.current;
       if (v && !playing) v.currentTime = newEnd;
     }
-  }, [duration, end, start, playing]);
+  }, [duration, start, playing]);
 
-  const handleUp = () => {
+  const handleUp = useCallback(() => {
     draggingWhichRef.current = null;
     setDraggingWhich(null);
     window.removeEventListener("mousemove", handleMove);
-    window.removeEventListener("mouseup", handleUp);
+    window.removeEventListener("mouseup", handleUpRef.current);
     window.removeEventListener("touchmove", handleMove);
-    window.removeEventListener("touchend", handleUp);
-    window.removeEventListener("touchcancel", handleUp);
-  };
+    window.removeEventListener("touchend", handleUpRef.current);
+    window.removeEventListener("touchcancel", handleUpRef.current);
+  }, [handleMove]);
+
+  // Sync handleUp ref
+  useEffect(() => {
+    handleUpRef.current = handleUp;
+  }, [handleUp]);
 
   const handleStartDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
@@ -178,7 +189,7 @@ export function VideoTrimModal({ file, onCancel, onConfirm }: VideoTrimModalProp
     const rect = trackRef.current?.getBoundingClientRect();
     if (!rect) return;
     const percent = ((e.clientX - rect.left) / rect.width) * 100;
-    const t = percentToTime(percent);
+    const t = percentToTime(percent, duration);
     if (Math.abs(t - start) < Math.abs(t - end)) {
       const windowDur = windowDurationRef.current;
       const maxStart = Math.max(0, duration - windowDur);
@@ -210,8 +221,8 @@ export function VideoTrimModal({ file, onCancel, onConfirm }: VideoTrimModalProp
 
   const clipDuration = end - start;
   const previewProgress = duration > 0 ? ((currentTime - start) / clipDuration) * 100 : 0;
-  const startPercent = timeToPercent(start);
-  const endPercent = timeToPercent(end);
+  const startPercent = timeToPercent(start, duration);
+  const endPercent = timeToPercent(end, duration);
 
   const renderBody = () => (
     <div className="space-y-4">
