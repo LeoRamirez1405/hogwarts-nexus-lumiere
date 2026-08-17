@@ -221,7 +221,7 @@ export function useFCM() {
       let token: string;
       try {
         token = await getToken(msg, { vapidKey });
-      } catch (_swError: unknown) {
+      } catch {
         console.warn("[FCM] Firebase getToken failed, trying direct subscription...");
         const swReg = await navigator.serviceWorker.ready;
         const sub = await swReg.pushManager.subscribe({
