@@ -82,7 +82,7 @@ class Settings(BaseSettings):
     # VAPID keys for Web Push
     VAPID_PUBLIC_KEY: str = os.getenv("VAPID_PUBLIC_KEY", "")
     VAPID_PRIVATE_KEY: str = os.getenv("VAPID_PRIVATE_KEY", "")
-    VAPID_SUBJECT: str = os.getenv("VAPID_SUBJECT", "mailto:admin@hogwarts-nexus.example")
+    VAPID_SUBJECT: str = os.getenv("VAPID_SUBJECT", "https://hogwarts-nexus-lumiere.vercel.app")
 
     # At-rest encryption key for sensitive data (private keys, etc.)
     # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
