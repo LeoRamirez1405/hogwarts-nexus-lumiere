@@ -179,6 +179,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add backend/static/Nexus.apk
           git commit -m "chore: add signed APK v${{ steps.version.outputs.version }} [skip ci]"
+          git fetch origin master
           git push --force-with-lease origin HEAD:master
 
       - name: Create GitHub Release (optional)
