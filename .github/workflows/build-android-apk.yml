@@ -148,7 +148,7 @@ jobs:
 
       - name: Write google-services.json
         working-directory: ${{ env.FRONTEND_DIR }}
-        if: ${{ secrets.GOOGLE_SERVICES_JSON != '' }}
+        if: secrets.GOOGLE_SERVICES_JSON != ''
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
