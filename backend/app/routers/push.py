@@ -129,8 +129,8 @@ async def list_subscriptions(
 
 
 class FCMTokenRequest(BaseModel):
-    fcm_token: str
-    platform: str = "android"
+    token: str
+    platform: str = "web"
     user_agent: str | None = None
 
 
@@ -146,7 +146,7 @@ async def register_fcm_token(
     current_user: User = Depends(get_current_user),
 ):
     """Register an FCM token for the current user (native Android/iOS)."""
-    if not payload.fcm_token:
+    if not payload.token:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="FCM token is required",
@@ -156,7 +156,7 @@ async def register_fcm_token(
     existing = await db.execute(
         select(FCMToken).where(
             FCMToken.user_id == current_user.id,
-            FCMToken.token == payload.fcm_token,
+            FCMToken.token == payload.token,
         )
     )
     existing_token = existing.scalar_one_or_none()
@@ -174,7 +174,7 @@ async def register_fcm_token(
     # Create new FCM token
     token = FCMToken(
         user_id=current_user.id,
-        token=payload.fcm_token,
+        token=payload.token,
         platform=payload.platform,
         user_agent=payload.user_agent,
         active=True,
@@ -193,7 +193,7 @@ async def unregister_fcm_token(
     current_user: User = Depends(get_current_user),
 ):
     """Unregister an FCM token for the current user."""
-    if not payload.fcm_token:
+    if not payload.token:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="FCM token is required",
@@ -202,7 +202,7 @@ async def unregister_fcm_token(
     result = await db.execute(
         select(FCMToken).where(
             FCMToken.user_id == current_user.id,
-            FCMToken.token == payload.fcm_token,
+            FCMToken.token == payload.token,
         )
     )
     token = result.scalar_one_or_none()
