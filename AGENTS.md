@@ -136,3 +136,135 @@ find frontend/app -name "*.tsx" -o -name "*.ts" | xargs wc -l | awk '$1 > 500 {p
 
 **Si el CI falla por tamaño de archivo → bloquear merge hasta modularizar.**
 
+---
+
+## Auto-Update Flow (Android APK + PWA)
+
+### Objetivo
+Actualización estilo WhatsApp: push a main → CI builda APK firmado → usuarios con versión vieja reciben notificación y actualizan con un click.
+
+### Arquitectura
+
+```
+┌─────────────┐     Push a main      ┌──────────────────┐
+│  Developer  │ ──────────────────►  │ GitHub Actions   │
+└─────────────┘                      │ .github/workflows│
+                                     │ build-android-   │
+                                     │ apk.yml          │
+                                     └────────┬─────────┘
+                                              │
+                                              ▼
+                                     ┌──────────────────┐
+                                     │ 1. Build frontend│
+                                     │ 2. Bump version  │
+                                     │    (patch/minor/ │
+                                     │     major via    │
+                                     │     workflow_    │
+                                     │     dispatch)    │
+                                     │ 3. Sign APK      │
+                                     │    (keystore     │
+                                     │     from secrets)│
+                                     │ 4. Upload artifact│
+                                     │ 5. Create GH     │
+                                     │    Release       │
+                                     │ 6. POST webhook  │
+                                     │    to backend    │
+                                     └────────┬─────────┘
+                                              │
+                                              ▼
+                                     ┌──────────────────┐
+                                     │ Backend          │
+                                     │ version_info.json│
+                                     │ /api/app/version │
+                                     │ /api/app/apk     │
+                                     └────────┬─────────┘
+                                              │
+                        ┌─────────────────────┼─────────────────────┐
+                        ▼                     ▼                     ▼
+               ┌───────────────┐     ┌───────────────┐     ┌───────────────┐
+               │ Android App   │     │ Web PWA       │     │ iOS PWA       │
+               │ (Capacitor)   │     │ (ServiceWorkr)│     │ (Add to Home) │
+               └───────┬───────┘     └───────┬───────┘     └───────┬───────┘
+                       │                     │                     │
+                       ▼                     ▼                     ▼
+               useAppVersion.ts       useServiceWorker    useAppVersion.ts
+               (polling 1h)           (updatefound)       (polling 1h)
+                       │                     │                     │
+                       ▼                     ▼                     ▼
+               SWUpdateNotifier       SWUpdateNotifier    SWUpdateNotifier
+               (toast + APK           (toast + reload)    (toast + reload)
+               download)
+```
+
+### Componentes Clave
+
+| Archivo | Responsabilidad |
+|---------|-----------------|
+| `.github/workflows/build-android-apk.yml` | CI: build, sign, version bump, release, webhook |
+| `backend/app/routers/version.py` | `GET /api/app/version` + `POST /api/app/version` (webhook) |
+| `backend/app/routers/apk.py` | `GET /api/app/apk` (descarga APK firmado, auth required) |
+| `frontend/hooks/usePWA.ts` | `useAppVersion()` (polling + version compare) + `useServiceWorker()` (SW updates) |
+| `frontend/components/ui/SWUpdateNotifier.tsx` | Toast unificado: APK download (Android) / SW reload (Web/iOS) |
+| `frontend/components/ui/APKInstallBanner.tsx` | Banner "Instalar App" solo Android Web, usuarios logueados |
+
+### Versionado
+
+- **SemVer**: `MAJOR.MINOR.PATCH` (ej: `1.0.1`)
+- **Android versionCode**: `MAJOR*10000 + MINOR*100 + PATCH` (ej: `10001`)
+- Bump controlado por `workflow_dispatch.inputs.version_bump` (default: `patch`)
+
+### Backend Version Info (`version_info.json`)
+
+```json
+{
+  "current": "1.0.0",
+  "latest": "1.0.1",
+  "version_code": 10001,
+  "apk_download_url": "/api/app/apk",
+  "release_notes": "Bug fixes y mejoras de rendimiento",
+  "force_update": false,
+  "min_supported_version": "0.1.0"
+}
+```
+
+### Flujo Usuario
+
+1. **Push a main** → CI builda APK `1.0.1` → actualiza `version_info.json` via webhook
+2. **Usuario abre app** (v1.0.0) → `useAppVersion` poll cada 1h detecta `latest != current`
+3. **Toast aparece**: "Actualización 1.0.1 disponible. Toca para instalar."
+4. **Click en toast**:
+   - Android Capacitor → `window.location.href = /api/app/apk` → descarga APK → instalador nativo
+   - Web PWA / iOS → `window.location.reload()` → SW aplica update
+5. **App reinicia** en v1.0.1
+
+### Force Update & Min Supported
+
+- `force_update: true` → toast persistente, bloquea uso hasta actualizar
+- `min_supported_version` → versiones abajo son incompatibles, fuerza update
+
+### Configuración Requerida (Secrets)
+
+| Secret | Descripción |
+|--------|-------------|
+| `ANDROID_KEYSTORE_BASE64` | Keystore codificado en base64 (`base64 -w0 release.keystore`) |
+| `ANDROID_KEYSTORE_PASSWORD` | Store password |
+| `ANDROID_KEY_ALIAS` | Key alias |
+| `ANDROID_KEY_PASSWORD` | Key password |
+| `BACKEND_DEPLOY_WEBHOOK` | (Opcional) URL para notificar al backend del nuevo release |
+
+### Comandos Útiles
+
+```bash
+# Version bump manual
+gh workflow run build-android-apk.yml -f version_bump=minor
+
+# Ver APK generado localmente
+cd frontend && npx capacitor build android
+# APK en: android/app/build/outputs/apk/release/app-release.apk
+
+# Backend: actualizar versión manualmente
+curl -X POST https://api.tudominio.com/api/app/version \
+  -H "Content-Type: application/json" \
+  -d '{"version":"1.0.2","version_code":10002,"release_notes":"Hotfix login"}'
+```
+

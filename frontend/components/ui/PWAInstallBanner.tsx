@@ -13,6 +13,8 @@ export default function PWAInstallBanner() {
   const isAndroid = typeof window !== "undefined"
     ? /Android/i.test(navigator.userAgent)
     : false;
+  const isCapacitor = typeof window !== "undefined" &&
+    !!(window as { Capacitor?: { isNative?: boolean } }).Capacitor?.isNative;
 
   const [dismissed, setDismissed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -20,6 +22,11 @@ export default function PWAInstallBanner() {
     }
     return false;
   });
+
+  // En app nativa Capacitor no mostramos banner de instalación PWA
+  if (isCapacitor) {
+    return null;
+  }
 
   // Banner solo si hay prompt nativo o es iOS (nunca dispara beforeinstallprompt).
   if (!isInstallable && !isIOS) {

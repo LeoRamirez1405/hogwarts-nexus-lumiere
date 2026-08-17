@@ -12,6 +12,10 @@
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
     "@floating-ui/dom": "^1.8.0",
     "@floating-ui/react": "^0.27.20",
     "@radix-ui/react-context-menu": "^2.3.7",
@@ -42,6 +46,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@next/bundle-analyzer": "^16.2.12",
     "@tailwindcss/postcss": "^4",
     "@types/dompurify": "^3.0.5",

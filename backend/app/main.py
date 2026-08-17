@@ -13,7 +13,7 @@ from sqlalchemy import text
 from .config import settings
 from .rate_limit import limiter
 from .database import init_db, engine
-from .routers import auth, users, products, articles, creatures, messages, posts, reactions, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, ws_messages, push, voice_channels, e2e_encryption, events, catalogs
+from .routers import auth, users, products, articles, creatures, messages, posts, reactions, transactions, dashboard, friend_requests, upload, notifications, pet_items, support, announcements, classifieds, forum, enum_types, feature_flags, ws_messages, push, voice_channels, e2e_encryption, events, catalogs, version, apk
 from .routers.albums import catalog as albums_catalog
 from .routers.albums import collection as albums_collection
 from .routers.albums import gallery as albums_gallery
@@ -159,6 +159,8 @@ app.include_router(push.router, tags=["push"])
 app.include_router(voice_channels.rest_router, prefix="/messages/voice", tags=["voice"])
 app.include_router(events.router, prefix="/events", tags=["events"])
 app.include_router(e2e_encryption, tags=["e2e-encryption"])
+app.include_router(version.router, tags=["version"])
+app.include_router(apk.router, prefix="/api/app", tags=["apk"])
 
 # Serve locally-stored uploads (avatars, post images, etc.) as static files so
 # the frontend can load them by absolute URL. In production Cloudinary is used

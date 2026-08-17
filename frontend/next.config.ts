@@ -10,6 +10,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 // externos no confiables, inyeccion de objetos, exfiltracion via connect-src
 // y clickjacking.
 const isDev = process.env.NODE_ENV === "development";
+const _appVersion = process.env.NEXT_PUBLIC_APP_VERSION || "0.1.0"; // Used for Capacitor app versioning
 
 // Size budget thresholds (KiB, gzipped). If a chunk exceeds its limit the
 // build will emit a warning (non-fatal) so we catch regressions early.

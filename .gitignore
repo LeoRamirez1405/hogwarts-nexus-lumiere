@@ -82,3 +82,7 @@ auth-wal
 bunker_bot.zip
 *.pdf
 spam_pages/
+# Android signing (NUNCA subir)
+frontend/android/app/*.keystore
+frontend/android/keystore.properties
+frontend/android/*.keystore

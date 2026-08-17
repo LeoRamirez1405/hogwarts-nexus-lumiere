@@ -8,6 +8,7 @@ import BottomNav from "./BottomNav";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { useBorginZone } from "@/hooks/useBorginZone";
 import PWAInstallBanner from "@/components/ui/PWAInstallBanner";
+import APKInstallBanner from "@/components/ui/APKInstallBanner";
 import { SWUpdateNotifier } from "@/components/ui/SWUpdateNotifier";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -83,6 +84,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* PWA Install Banner — appears below topbar when installable */}
       <PWAInstallBanner />
+
+      {/* APK Install Banner (Android only, authenticated users) */}
+      <APKInstallBanner />
 
       {/* SW Update Notifier */}
       <SWUpdateNotifier />

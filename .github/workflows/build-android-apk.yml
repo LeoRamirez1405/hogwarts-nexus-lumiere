@@ -1,0 +1,184 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+env:
+  NODE_VERSION: '20'
+  JAVA_VERSION: '17'
+  ANDROID_SDK_VERSION: '34'
+  FRONTEND_DIR: 'frontend'
+
+jobs:
+  build-android-apk:
+    name: Build Signed Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # for pushing version bump commit
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # needed for git history to bump version
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.FRONTEND_DIR }}/package-lock.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: ${{ env.ANDROID_SDK_VERSION }}
+          ndk-version: r26c
+          cache-key: android-sdk-${{ runner.os }}-${{ env.ANDROID_SDK_VERSION }}
+
+      - name: Install frontend dependencies
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: npm ci
+
+      - name: Build frontend (production)
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: npm run build
+
+      - name: Determine next version
+        id: version
+        run: |
+          # Read current version from package.json or capacitor.config.ts
+          CURRENT_VERSION=$(node -p "require('./${{ env.FRONTEND_DIR }}/package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Parse version parts
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          
+          # Bump based on input or default to patch
+          BUMP_TYPE="${{ github.event.inputs.version_bump || 'patch' }}"
+          case $BUMP_TYPE in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+          
+          NEXT_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          
+          echo "Next version: $NEXT_VERSION"
+          echo "Version code: $VERSION_CODE"
+          
+          echo "version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+
+      - name: Update version in package.json
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: |
+          npm version ${{ steps.version.outputs.version }} --no-git-tag-version
+
+      - name: Update version in capacitor.config.ts
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: |
+          # Update capacitor.config.ts with new version
+          sed -i "s/version: \"[^\"]*\"/version: \"${{ steps.version.outputs.version }}\"/" capacitor.config.ts
+          # Update android versionCode/versionName in build.gradle
+          sed -i "s/versionCode [0-9]*/versionCode ${{ steps.version.outputs.version_code }}/" ../android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"${{ steps.version.outputs.version }}\"/" ../android/app/build.gradle
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ${{ env.FRONTEND_DIR }}/package.json ${{ env.FRONTEND_DIR }}/capacitor.config.ts android/app/build.gradle
+          git commit -m "chore: bump version to ${{ steps.version.outputs.version }} (code ${{ steps.version.outputs.version_code }}) [skip ci]"
+          git push
+
+      - name: Sync Capacitor
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: npx capacitor sync android
+
+      - name: Configure Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > ../android/app/release.keystore
+          cat > ../android/keystore.properties <<EOF
+          storeFile=../app/release.keystore
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      - name: Build Signed Release APK
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: |
+          cd ../android
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Verify APK
+        run: |
+          APK_PATH="${{ env.FRONTEND_DIR }}/android/app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$APK_PATH" ]; then
+            echo "APK not found at $APK_PATH"
+            exit 1
+          fi
+          APK_SIZE=$(stat -c%s "$APK_PATH")
+          echo "APK size: $APK_SIZE bytes ($((APK_SIZE / 1024 / 1024)) MB)"
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+
+      - name: Upload APK as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hogwarts-nexus-apk
+          path: ${{ env.FRONTEND_DIR }}/android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
+
+      - name: Create GitHub Release (optional)
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Hogwarts Nexus v${{ steps.version.outputs.version }}
+          body: |
+            ## Hogwarts Nexus v${{ steps.version.outputs.version }}
+            
+            Android APK built automatically from commit ${{ github.sha }}.
+            
+            **Version Code:** ${{ steps.version.outputs.version_code }}
+            **Download:** APK attached below or from the [Releases](https://github.com/${{ github.repository }}/releases) page.
+          files: ${{ env.FRONTEND_DIR }}/android/app/build/outputs/apk/release/app-release.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify Backend of New Version (webhook)
+        if: github.event_name == 'push'
+        run: |
+          # This would call your backend deployment webhook to update /api/app/version
+          # Example: curl -X POST ${{ secrets.BACKEND_DEPLOY_WEBHOOK }} -d '{"version": "${{ steps.version.outputs.version }}", "version_code": "${{ steps.version.outputs.version_code }}"}'
+          echo "TODO: Configure BACKEND_DEPLOY_WEBHOOK secret to trigger backend version update"

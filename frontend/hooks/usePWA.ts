@@ -12,15 +12,24 @@ interface PushSubscriptionData {
   };
 }
 
+interface AppVersionInfo {
+  current: string;
+  latest: string;
+  version_code: number;
+  apk_download_url: string;
+  release_notes: string;
+  force_update: boolean;
+  min_supported_version: string;
+  available_update: boolean;
+}
+
 export function useServiceWorker() {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
   const [isSupported, setIsSupported] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  // The page NEVER reloads on its own when a service worker activates: that
-  // races the initial load on iOS Safari ("This page couldn't load" on every
-  // later navigation). The only reload is the one the user triggers by
-  // accepting an update banner, gated through this flag.
+  const [latestVersion, _setLatestVersion] = useState<string | null>(null);
+  const [availableUpdate, _setAvailableUpdate] = useState<boolean | null>(null);
   const swReloadPending = useRef(false);
 
   useEffect(() => {
@@ -52,12 +61,10 @@ export function useServiceWorker() {
         setIsRegistered(true);
         console.log("[SW] Registered:", reg.scope);
 
-        // Check for updates periodically
         setInterval(() => {
           reg.update();
         }, 60 * 60 * 1000);
 
-        // Listen for SW update
         reg.addEventListener("updatefound", () => {
           const newWorker = reg.installing;
           if (!newWorker) return;
@@ -76,10 +83,6 @@ export function useServiceWorker() {
         }
       });
 
-    // Reload ONLY when the user explicitly accepted an update (applyUpdate
-    // set the flag). Uncontrolled SW activations (first install, deploy
-    // updates) never reload the page: taking over mid-session on iOS Safari
-    // breaks subsequent HTML navigations with "This page couldn't load".
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (!swReloadPending.current) return;
       swReloadPending.current = false;
@@ -95,7 +98,114 @@ export function useServiceWorker() {
     setUpdateAvailable(false);
   }, [registration]);
 
-  return { registration, isSupported, isRegistered, updateAvailable, applyUpdate };
+  return {
+    registration,
+    isSupported,
+    isRegistered,
+    updateAvailable,
+    latestVersion: latestVersion ?? "0.1.0",
+    availableUpdate: availableUpdate ?? false,
+    applyUpdate,
+  };
+}
+
+export function useAppVersion() {
+  const [versionInfo, setVersionInfo] = useState<AppVersionInfo | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [lastChecked, setLastChecked] = useState<number | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const initializedRef = useRef(false);
+
+  const isCapacitor = typeof window !== "undefined" &&
+    !!(window as { Capacitor?: { isNative?: boolean } }).Capacitor?.isNative;
+  const isAndroid = typeof window !== "undefined"
+    ? /Android/i.test(navigator.userAgent)
+    : false;
+
+  const fetchVersion = useCallback(async () => {
+    if (checking) return;
+    setChecking(true);
+    try {
+      const res = await fetch("/api/app/version", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error("version check failed");
+      const data = await res.json();
+      setVersionInfo(data);
+      setLastChecked(Date.now());
+    } catch (error) {
+      console.error("Failed to check app version:", error);
+    } finally {
+      setChecking(false);
+    }
+  }, [checking]);
+
+  const startPeriodicCheck = useCallback((intervalMs = 60 * 60 * 1000) => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(fetchVersion, intervalMs);
+  }, [fetchVersion]);
+
+  const stopPeriodicCheck = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
+  // Initial fetch (runs once on mount)
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      fetchVersion();
+    }
+  }, [fetchVersion]);
+
+  // Periodic check
+  useEffect(() => {
+    startPeriodicCheck();
+    return () => stopPeriodicCheck();
+  }, [startPeriodicCheck, stopPeriodicCheck]);
+
+  const currentVersion = process.env.NEXT_PUBLIC_APP_VERSION || "0.1.0";
+  const hasUpdate = versionInfo?.available_update ?? false;
+  const isForceUpdate = versionInfo?.force_update ?? false;
+  const isMinSupported = versionInfo
+    ? compareVersions(currentVersion, versionInfo.min_supported_version) >= 0
+    : true;
+
+  return {
+    versionInfo,
+    currentVersion,
+    latestVersion: versionInfo?.latest ?? currentVersion,
+    hasUpdate,
+    isForceUpdate,
+    isMinSupported,
+    isChecking: checking,
+    lastChecked,
+    apkDownloadUrl: versionInfo?.apk_download_url,
+    releaseNotes: versionInfo?.release_notes,
+    versionCode: versionInfo?.version_code,
+    isCapacitor,
+    isAndroid,
+    // For Capacitor Android: APK update available
+    isApkUpdateAvailable: isCapacitor && isAndroid && hasUpdate,
+    // For PWA: Service Worker update available
+    isSwUpdateAvailable: !isCapacitor && hasUpdate,
+    refresh: fetchVersion,
+  };
+}
+
+// Simple semantic version comparison
+function compareVersions(a: string, b: string): number {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = pa[i] ?? 0;
+    const nb = pb[i] ?? 0;
+    if (na !== nb) return na - nb;
+  }
+  return 0;
 }
 
 export function usePushSubscription() {
@@ -105,7 +215,6 @@ export function usePushSubscription() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Convert base64 VAPID key to Uint8Array
   const urlBase64ToUint8Array = useCallback((base64String: string): BufferSource => {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -129,10 +238,6 @@ export function usePushSubscription() {
     }
   }, []);
 
-  // `silent` suppresses user-facing error toasts. Used by the automatic
-  // subscribe-on-login flow, where a push-service failure (common on
-  // localhost/dev, where the browser push service is unreachable) should not
-  // spam the user with an error toast on every login.
   const ensureRegistration = useCallback(async (silent: boolean): Promise<ServiceWorkerRegistration | null> => {
     if (registration) return registration;
     try {
@@ -161,9 +266,6 @@ export function usePushSubscription() {
     const silent = opts?.silent ?? false;
     if (!user) return;
 
-    // Web Push only works in secure contexts (HTTPS or localhost). Catching
-    // this early gives a human-readable message instead of the browser's
-    // cryptic "Registration failed - push service error".
     if (typeof window !== "undefined" && !window.isSecureContext) {
       if (!silent) {
         toastError(
@@ -195,7 +297,6 @@ export function usePushSubscription() {
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
 
-      // Send to backend
       const subscriptionData = sub.toJSON();
       const res = await fetch("/api/push/subscribe", {
         method: "POST",
@@ -221,14 +322,7 @@ export function usePushSubscription() {
         return;
       }
       console.error("Subscribe error:", error);
-      // The browser refuses to register a subscription when the push service
-      // is unreachable (FCM blocked, corporate network, offline) or when the
-      // origin is not secure.
       if (err.name === "AbortError" || /push service|registration failed/i.test(err.message || "")) {
-        // Chrome/FCM refuses push subscriptions for IP-address origins
-        // (e.g. https://192.168.x.x) — only hostnames and localhost work.
-        // A self-signed cert not trusted by this device has the same symptom.
-        // Brave additionally disables the Google push service by default.
         const isBrave = typeof window !== "undefined" && (window as { brave?: unknown }).brave !== undefined;
         if (isBrave) {
           toastError(
@@ -305,11 +399,6 @@ export function usePushSubscription() {
     }
   }, [registration, subscription]);
 
-  // Check existing subscription on mount. Guard pushManager: iOS < 16.4 does
-  // NOT expose ServiceWorkerRegistration.pushManager, and accessing it throws
-  // "undefined is not an object" which crashed the root provider on every
-  // visit (page never rendered for iPhone users). Web Push was never usable
-  // there anyway (PushManager in window guard in subscribe()).
   useEffect(() => {
     if (!registration || !("pushManager" in registration)) return;
 
@@ -393,7 +482,6 @@ export function usePWAInstall() {
   return { isInstallable, isInstalled, isStandalone, isSecureContext, install };
 }
 
-// Extend Window interface for BeforeInstallPromptEvent
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;

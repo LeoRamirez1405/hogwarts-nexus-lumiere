@@ -12,7 +12,7 @@ class UserProduct(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    product_id = Column(String, ForeignKey("products.id"), nullable=False)
+    product_id = Column(String, ForeignKey("products.id", ondelete="CASCADE", name="fk_user_products_product_id_products"), nullable=False)
     quantity = Column(Integer, default=1, nullable=False)
     specification = Column(Text, nullable=True)
     purchased_at = Column(DateTime, default=utcnow, nullable=False)

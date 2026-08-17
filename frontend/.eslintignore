@@ -1,0 +1,10 @@
+# Capacitor native build folders
+android/
+ios/
+
+# Next.js build output
+.next/
+out/
+
+# Node modules
+node_modules/
