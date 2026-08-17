@@ -148,12 +148,15 @@ jobs:
 
       - name: Write google-services.json
         working-directory: ${{ env.FRONTEND_DIR }}
-        if: env.GOOGLE_SERVICES_JSON != ''
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
-          echo "google-services.json written"
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
+            echo "google-services.json written"
+          else
+            echo "GOOGLE_SERVICES_JSON secret not set, skipping"
+          fi
 
       - name: Build Signed Release APK
         working-directory: ${{ env.FRONTEND_DIR }}
