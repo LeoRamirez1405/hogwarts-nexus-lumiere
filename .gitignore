@@ -86,3 +86,4 @@ spam_pages/
 frontend/android/app/*.keystore
 frontend/android/keystore.properties
 frontend/android/*.keystore
+backend/static/*.apk
