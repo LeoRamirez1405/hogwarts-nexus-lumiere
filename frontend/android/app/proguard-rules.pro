@@ -9,7 +9,7 @@
 # and specify the fully qualified class name to the JavaScript interface
 # class:
 #-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
+#  public *;
 #}
 
 # Uncomment this to preserve the line number information for
@@ -19,3 +19,10 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep FCM service classes
+-keep class com.capacitorjs.plugins.pushnotifications.** { *; }
+-keep class com.google.firebase.messaging.** { *; }
+
+# Keep Firebase classes
+-keep class com.google.firebase.** { *; }
