@@ -51,7 +51,18 @@ export function useAPKInstall(): UseAPKInstallReturn {
     toastInfo("Descargando APK", "Preparando instalación...");
 
     try {
-      const res = await fetch(apkInfo.download_url, {
+      const url = apkInfo.download_url;
+
+      // URL absoluta (GitHub Releases): GitHub bloquea CORS para fetch(), así
+      // que hay que navegar directamente — el browser descarga el archivo.
+      if (/^https?:\/\//.test(url)) {
+        window.location.href = url;
+        setDownloading(false);
+        return;
+      }
+
+      // URL relativa (backend local /api/app/apk): fetch con credentials.
+      const res = await fetch(url, {
         credentials: "include",
       });
 
@@ -61,17 +72,17 @@ export function useAPKInstall(): UseAPKInstallReturn {
       }
 
       const blob = await res.blob();
-      
+
       // Crear URL del blob y desencadenar descarga
-      const url = window.URL.createObjectURL(blob);
+      const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
+      a.href = blobUrl;
       a.download = apkInfo.filename || "hogwarts-nexus.apk";
       a.style.display = "none";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(blobUrl);
 
       toastSuccess(
         "APK descargado",
