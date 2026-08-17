@@ -11,10 +11,10 @@ router = APIRouter(tags=["apk"])
 # Ruta al APK firmado en filesystem local (dev). Configurable via APK_FILE_PATH.
 APK_PATH = Path(settings.APK_FILE_PATH)
 
-# Ruta del APK commiteado por el CI en el repo (backend/static/app-release.apk).
+# Ruta del APK commiteado por el CI en el repo (backend/static/Nexus.apk).
 # En prod (Render, filesystem efímero) el checkout lo trae, así el backend lo
 # sirve directo sin depender de GitHub Releases.
-CHECKOUT_APK_PATH = Path(__file__).parent.parent.parent / "static" / "app-release.apk"
+CHECKOUT_APK_PATH = Path(__file__).parent.parent.parent / "static" / "Nexus.apk"
 
 # URL del último APK en GitHub Releases. Fallback si no hay archivo local.
 GITHUB_APK_URL = (
@@ -35,10 +35,10 @@ def _resolve_apk() -> Path | None:
 def _serve_apk(apk: Path) -> FileResponse:
     return FileResponse(
         path=str(apk),
-        filename="hogwarts-nexus.apk",
+        filename="Nexus.apk",
         media_type="application/vnd.android.package-archive",
         headers={
-            "Content-Disposition": 'attachment; filename="hogwarts-nexus.apk"',
+            "Content-Disposition": 'attachment; filename="Nexus.apk"',
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "X-Content-Type-Options": "nosniff",
         },
@@ -70,7 +70,7 @@ async def apk_info(current_user: User = Depends(get_current_user)):
         stat = apk.stat()
         return {
             "available": True,
-            "filename": "hogwarts-nexus.apk",
+            "filename": "Nexus.apk",
             "size_bytes": stat.st_size,
             "size_mb": round(stat.st_size / (1024 * 1024), 2),
             "modified": stat.st_mtime,

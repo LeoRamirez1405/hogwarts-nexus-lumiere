@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { toastInfo, toastError, toastSuccess } from "@/lib/toastStore";
+import { toastInfo, toastError } from "@/lib/toastStore";
 
 interface APKInfo {
   available: boolean;
@@ -53,40 +53,18 @@ export function useAPKInstall(): UseAPKInstallReturn {
     try {
       const url = apkInfo.download_url;
 
-      // URL absoluta (GitHub Releases): GitHub bloquea CORS para fetch(), así
-      // que hay que navegar directamente — el browser descarga el archivo.
-      if (/^https?:\/\//.test(url)) {
-        window.location.href = url;
-        setDownloading(false);
-        return;
-      }
-
-      // URL relativa (backend local /api/app/apk): fetch con credentials.
-      const res = await fetch(url, {
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Error al descargar APK");
-      }
-
-      const blob = await res.blob();
-
-      // Crear URL del blob y desencadenar descarga
-      const blobUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = apkInfo.filename || "hogwarts-nexus.apk";
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(blobUrl);
-
-      toastSuccess(
-        "APK descargado",
-        "Abre el archivo desde las notificaciones o la app Archivos para instalar. Si no se abre automáticamente, ve a Configuración → Apps → Acceso especial → Instalar apps desconocidas y habilita tu navegador."
+      // Navegación directa en ambos casos:
+      // - URL absoluta (GitHub): GitHub bloquea CORS para fetch(), hay que navegar.
+      // - URL relativa (backend /api/app/apk): el response trae Content-Disposition:
+      //   attachment, así el browser inicia la descarga nativa sin salir de la app,
+      //   y las cookies de auth se envían automáticamente (mismo origen).
+      // fetch()+blob() + revokeObjectURL inmediato aborta la descarga en Chrome
+      // móvil ("no termina de descargar nunca"), por eso no se usa.
+      window.location.href = url;
+      setDownloading(false);
+      toastInfo(
+        "Descarga iniciada",
+        "Revisa el área de descargas de tu navegador. Cuando termine, toca el archivo Nexus.apk para instalar."
       );
     } catch (error) {
       console.error("APK download failed:", error);
