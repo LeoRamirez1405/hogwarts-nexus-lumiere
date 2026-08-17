@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey, PrimaryKeyConstraint
+from sqlalchemy import Column, String, DateTime, Text, Float, ForeignKey, PrimaryKeyConstraint
 from sqlalchemy.orm import relationship
 
 from ..database import Base
@@ -14,13 +14,21 @@ class Post(Base):
     author_id = Column(String, ForeignKey("users.id"), nullable=False)
     body = Column(Text, nullable=False)
     image_url = Column(String, nullable=True)
+    video_url = Column(String, nullable=True)
+    video_poster_url = Column(String, nullable=True)
+    video_duration = Column(Float, nullable=True)
     created_at = Column(DateTime, default=utcnow, nullable=False)
     edited_at = Column(DateTime, nullable=True)
     edited_by = Column(String, ForeignKey("users.id"), nullable=True)
 
     author = relationship("User", foreign_keys=[author_id], back_populates="posts", lazy="selectin")
     edits_by_user = relationship("User", foreign_keys=[edited_by], lazy="selectin")
-    likes = relationship("PostLike", back_populates="post", lazy="selectin")
+    likes = relationship(
+        "PostLike",
+        back_populates="post",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
     reposts = relationship(
         "PostRepost",
         back_populates="post",

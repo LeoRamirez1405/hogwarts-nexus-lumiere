@@ -184,6 +184,8 @@ export interface SharedPostMeta {
   author_avatar?: string;
   body: string;
   image_url?: string;
+  video_url?: string;
+  video_poster_url?: string;
   created_at?: string;
 }
 

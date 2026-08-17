@@ -23,6 +23,7 @@ from ..services.friend_notifications import (
 )
 from ..services.post_response import build_posts_response, build_post_response
 from ..services.comment_threads import nest_comments
+from .messages.deps import _delete_attachment_file
 from app.utils.dates import utcnow
 
 router = APIRouter()
@@ -130,6 +131,9 @@ async def create_post(
         author_id=current_user.id,
         body=(post_data.body or "").strip(),
         image_url=(post_data.image_url or "").strip() or None,
+        video_url=(post_data.video_url or "").strip() or None,
+        video_poster_url=(post_data.video_poster_url or "").strip() or None,
+        video_duration=post_data.video_duration,
     )
     db.add(post)
     await db.commit()
@@ -378,11 +382,18 @@ async def update_post(
 
     body = (post_data.body or "").strip()
     image_url = (post_data.image_url or "").strip()
-    if not body and not image_url:
-        raise HTTPException(status_code=400, detail="Post must have either body text or an image")
+    video_url = (post_data.video_url or "").strip()
+    if not body and not image_url and not video_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Post must have either body text, an image or a video",
+        )
 
     post.body = body
     post.image_url = image_url or None
+    post.video_url = video_url or None
+    post.video_poster_url = (post_data.video_poster_url or "").strip() or None
+    post.video_duration = post_data.video_duration
     post.edited_at = utcnow()
     post.edited_by = current_user.id
 
@@ -407,6 +418,9 @@ async def delete_post(
     if post.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="Cannot delete another user's post")
 
+    media_urls = [post.image_url, post.video_url, post.video_poster_url]
     await db.delete(post)
     await db.commit()
+    for url in media_urls:
+        _delete_attachment_file(url)
     return None

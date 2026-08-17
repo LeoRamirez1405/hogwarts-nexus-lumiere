@@ -9,6 +9,9 @@ export interface Post {
   author?: User;
   body: string;
   image_url?: string;
+  video_url?: string;
+  video_poster_url?: string;
+  video_duration?: number;
   likes_count?: number;
   liked_by_me?: boolean;
   reposts_count?: number;
@@ -33,6 +36,14 @@ export interface PostComment {
   created_at: string;
 }
 
+export interface PostInput {
+  body?: string;
+  image_url?: string;
+  video_url?: string;
+  video_poster_url?: string;
+  video_duration?: number;
+}
+
 export const postsApi = {
   getPosts: (pagination?: PaginationParams) =>
     request<Page<Post>>("/posts/" + buildQuery(pagination ?? {})),
@@ -42,7 +53,7 @@ export const postsApi = {
       `/posts/user/${userId}` + buildQuery(pagination ?? {})
     ),
 
-  createPost: (data: { body?: string; image_url?: string }) =>
+  createPost: (data: PostInput) =>
     request<Post>("/posts/", {
       method: "POST",
       body: JSON.stringify(data),
@@ -51,7 +62,7 @@ export const postsApi = {
       return res;
     }),
 
-  updatePost: (id: string, data: { body?: string; image_url?: string }) =>
+  updatePost: (id: string, data: PostInput) =>
     request<Post>(`/posts/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),

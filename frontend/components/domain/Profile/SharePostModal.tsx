@@ -19,6 +19,8 @@ interface SharedPostMeta {
   author_avatar?: string;
   body: string;
   image_url?: string;
+  video_url?: string;
+  video_poster_url?: string;
   created_at: string;
 }
 
@@ -29,6 +31,8 @@ interface SharePostModalProps {
     author?: { name: string; avatar_url?: string };
     body: string;
     image_url?: string;
+    video_url?: string;
+    video_poster_url?: string;
     created_at: string;
   };
   onClose: () => void;
@@ -65,6 +69,8 @@ export function SharePostModal({ post, onClose }: SharePostModalProps) {
     author_avatar: post.author?.avatar_url,
     body: post.body,
     image_url: post.image_url,
+    video_url: post.video_url,
+    video_poster_url: post.video_poster_url,
     created_at: post.created_at,
   };
 

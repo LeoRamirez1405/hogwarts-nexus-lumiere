@@ -8,13 +8,18 @@ from .user import UserResponse
 class PostCreate(BaseModel):
     body: Optional[str] = None
     image_url: Optional[str] = None
+    video_url: Optional[str] = None
+    video_poster_url: Optional[str] = None
+    video_duration: Optional[float] = None
 
     @model_validator(mode="after")
     def at_least_one_field(self):
-        """Allow posts with only an image — body becomes empty string when
-        omitted, but at least one of body/image_url must be present."""
-        if not (self.body or "").strip() and not (self.image_url or "").strip():
-            raise ValueError("Post must have either body text or an image")
+        """Allow posts with only media — body becomes empty string when
+        omitted, but at least one of body/image_url/video_url must be present."""
+        if not (self.body or "").strip() and not (
+            (self.image_url or "").strip() or (self.video_url or "").strip()
+        ):
+            raise ValueError("Post must have either body text, an image or a video")
         return self
 
 
@@ -40,11 +45,16 @@ class CommentResponse(BaseModel):
 class PostUpdate(BaseModel):
     body: Optional[str] = None
     image_url: Optional[str] = None
+    video_url: Optional[str] = None
+    video_poster_url: Optional[str] = None
+    video_duration: Optional[float] = None
 
     @model_validator(mode="after")
     def at_least_one_field(self):
-        if not (self.body or "").strip() and not (self.image_url or "").strip():
-            raise ValueError("Post must have either body text or an image")
+        if not (self.body or "").strip() and not (
+            (self.image_url or "").strip() or (self.video_url or "").strip()
+        ):
+            raise ValueError("Post must have either body text, an image or a video")
         return self
 
 
@@ -54,6 +64,9 @@ class PostResponse(BaseModel):
     author: Optional[UserResponse] = None
     body: str
     image_url: Optional[str] = None
+    video_url: Optional[str] = None
+    video_poster_url: Optional[str] = None
+    video_duration: Optional[float] = None
     created_at: datetime
     edited_at: Optional[datetime] = None
     edited_by: Optional[UserResponse] = None

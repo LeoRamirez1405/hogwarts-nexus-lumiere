@@ -20,8 +20,11 @@ import {
   countComments,
   appendReply,
 } from "@/components/domain/comments/CommentThread";
+import { EditPostModal } from "@/components/domain/Profile/EditPostModal";
+import { DeletePostModal } from "@/components/domain/Profile/DeletePostModal";
+import { PostVideo } from "@/components/domain/Profile/PostVideo";
 import { useAuthStore } from "@/lib/authStore";
-import { toastError } from "@/lib/toastStore";
+import { toastError, toastSuccess } from "@/lib/toastStore";
 import { isStoredUpload } from "@/lib/media";
 import { hapticLight, hapticSelection } from "@/lib/haptics";
 import { timeAgo } from "@/lib/timeAgo";
@@ -50,6 +53,8 @@ export default function PostDetailPage() {
   const [posting, setPosting] = useState(false);
   const [liking, setLiking] = useState(false);
   const [reposting, setReposting] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const [mentionedUsers, setMentionedUsers] = useState<MentionMember[]>([]);
 
   useEffect(() => {
@@ -219,7 +224,15 @@ export default function PostDetailPage() {
           </Link>
         )}
 
-        {post.image_url && (
+        {post.video_url ? (
+          <div className="relative mb-8">
+            <PostVideo
+              src={post.video_url}
+              poster={post.video_poster_url}
+              duration={post.video_duration ?? undefined}
+            />
+          </div>
+        ) : post.image_url ? (
           <div className="relative h-72 md:h-96 rounded-2xl overflow-hidden mb-8">
             <Image
               src={post.image_url}
@@ -231,7 +244,7 @@ export default function PostDetailPage() {
               unoptimized={isLocalUpload(post.image_url)}
             />
           </div>
-        )}
+        ) : null}
 
         <div className="prose prose-lg max-w-none">
           <MentionText
@@ -250,6 +263,32 @@ export default function PostDetailPage() {
         {/* Post actions */}
         <div className="flex items-center justify-between mt-8 pt-6 border-t border-outline-variant/20">
           <div className="flex items-center gap-2">
+            {authUser?.id === post.author_id && (
+              <>
+                <button
+                  onClick={() => {
+                    hapticLight();
+                    setShowEdit(true);
+                  }}
+                  className="w-10 h-10 inline-flex items-center justify-center rounded-full bg-surface-container-high hover:bg-primary-container text-on-surface-variant hover:text-on-primary-container transition-colors"
+                  aria-label="Editar publicación"
+                  title="Editar publicación"
+                >
+                  <MaterialIcon name="edit" className="text-xl" />
+                </button>
+                <button
+                  onClick={() => {
+                    hapticLight();
+                    setShowDelete(true);
+                  }}
+                  className="w-10 h-10 inline-flex items-center justify-center rounded-full bg-surface-container-high hover:bg-error/10 text-on-surface-variant hover:text-error transition-colors"
+                  aria-label="Eliminar publicación"
+                  title="Eliminar publicación"
+                >
+                  <MaterialIcon name="delete" className="text-xl" />
+                </button>
+              </>
+            )}
             <button
               onClick={() => {
                 hapticSelection();
@@ -358,6 +397,28 @@ export default function PostDetailPage() {
           additionalMembers={mentionedUsers}
         />
       </section>
+
+      {showEdit && (
+        <EditPostModal
+          post={post}
+          onClose={() => setShowEdit(false)}
+          onSaved={(updated) => {
+            setPost(updated);
+            setShowEdit(false);
+          }}
+        />
+      )}
+
+      {showDelete && (
+        <DeletePostModal
+          post={post}
+          onClose={() => setShowDelete(false)}
+          onDeleted={() => {
+            toastSuccess("Publicación eliminada");
+            router.push("/profile");
+          }}
+        />
+      )}
     </div>
   );
 }

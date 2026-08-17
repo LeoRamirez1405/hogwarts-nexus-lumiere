@@ -264,10 +264,19 @@ export function useProfileData(profileId: string) {
   );
 
   const createPost = useCallback(
-    async (input: { body?: string; image_url?: string }) => {
+    async (input: {
+      body?: string;
+      image_url?: string;
+      video_url?: string;
+      video_poster_url?: string;
+      video_duration?: number;
+    }) => {
       await api.createPost({
         body: input.body,
         image_url: input.image_url,
+        video_url: input.video_url,
+        video_poster_url: input.video_poster_url,
+        video_duration: input.video_duration,
       });
       await queryClient.invalidateQueries({ queryKey: ["profile-feed", profileId] });
     },

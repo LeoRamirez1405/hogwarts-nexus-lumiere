@@ -66,6 +66,18 @@ export const PostShareView = ({ message, isOwn }: PostShareViewProps) => {
             {post.body}
           </p>
         </div>
+        {post.video_url && (
+          <div className="relative bg-black">
+            <video
+              src={mediaSrc(post.video_url)}
+              poster={post.video_poster_url ? mediaSrc(post.video_poster_url) : undefined}
+              className="w-full max-h-40 object-cover"
+              controls
+              playsInline
+              preload="metadata"
+            />
+          </div>
+        )}
         {post.image_url && (
           <Image
             src={mediaSrc(post.image_url)}

@@ -9,6 +9,7 @@ import { GlassCard, Avatar, MaterialIcon, Lightbox } from "@/components/ui";
 import { CommentSection } from "./CommentSection";
 import { EditPostModal } from "./EditPostModal";
 import { DeletePostModal } from "./DeletePostModal";
+import { PostVideo } from "./PostVideo";
 import { hapticLight, hapticSelection } from "@/lib/haptics";
 
 interface PostCardProps {
@@ -127,7 +128,15 @@ function PostCardComponent({
         <p className="text-body-md text-on-surface mb-4 whitespace-pre-wrap">
           {post.body}
         </p>
-        {post.image_url && (
+        {post.video_url ? (
+          <div className="mb-4">
+            <PostVideo
+              src={post.video_url}
+              poster={post.video_poster_url}
+              duration={post.video_duration ?? undefined}
+            />
+          </div>
+        ) : post.image_url ? (
           <div className="mb-4 rounded-xl overflow-hidden">
             <Image
               src={mediaSrc(post.image_url)}
@@ -139,7 +148,7 @@ function PostCardComponent({
               onClick={() => setShowLightbox(true)}
             />
           </div>
-        )}
+        ) : null}
         <div className="flex items-center justify-between sm:justify-start sm:gap-x-6 gap-1 pt-3 border-t border-outline-variant/20">
           <button
             onClick={() => { hapticLight(); onLike(post.id); }}

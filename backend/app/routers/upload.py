@@ -126,8 +126,12 @@ async def upload_file(
 
     # Comprimir antes del chequeo de tamano: asi los originales grandes
     # (fotos de catalogo, pantallas de alta resolucion) entran como JPEG/PNG
-    # livianos y no fallan por el limite de 10MB.
-    if len(content) > COMPRESS_THRESHOLD:
+    # livianos y no fallan por el limite de 10MB. Los videos se omiten: ya
+    # llegan recortados y comprimidos desde el cliente (MediaRecorder) y
+    # Pillow no puede procesarlos.
+    if len(content) > COMPRESS_THRESHOLD and not file.content_type.startswith(
+        "video/"
+    ):
         content, compressed_ext = _compress_image(content, file.content_type)
         if compressed_ext:
             ext = compressed_ext

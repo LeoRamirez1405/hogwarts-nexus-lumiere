@@ -21,6 +21,7 @@ from ..services.messages.conversation_prefs import (
 )
 from .messages import serialize_message
 from .messages.serializers.message import _preview_message
+from ..services.messages.message_service import send_notifications_after_send
 from app.utils.dates import utcnow
 
 
@@ -396,6 +397,16 @@ async def handle_send_message(user_id: str, data: dict, db: AsyncSession):
     # (preview, unread counts) and bring back conversations that were
     # deleted/removed from the sender's or recipients' inbox.
     await _update_conversation_preferences(db, message, user_id)
+
+    # Send notifications (similar to HTTP flow)
+    from ..models.user import User
+    sender_result = await db.execute(select(User).where(User.id == user_id))
+    sender_user = sender_result.scalar_one_or_none()
+    receiver_user = None
+    if message.receiver_id:
+        receiver_result = await db.execute(select(User).where(User.id == message.receiver_id))
+        receiver_user = receiver_result.scalar_one_or_none()
+    await send_notifications_after_send(db, message, sender_user, receiver_user)
 
     # Expunge so the re-query reloads relationships. Explicit selectinload is
     # required because the automatic selectin default is skipped for the
