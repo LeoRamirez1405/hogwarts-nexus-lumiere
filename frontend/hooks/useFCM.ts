@@ -185,7 +185,7 @@ export function useFCM() {
     if (!msg) return;
 
     try {
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "BMBOeAvDpfiaGzVKCxmxo3MdtX_8l5z7kdRxQbfGxTcYHfv5Unec7Dg-0AWRZdRFR6qQDdgwJrs0czrM0IoBCzY";
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
       const token = await getToken(msg, { vapidKey });
       if (token) {
         console.log("[FCM] Web push token:", token);
