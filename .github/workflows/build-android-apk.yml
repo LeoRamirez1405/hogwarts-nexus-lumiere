@@ -108,11 +108,25 @@ jobs:
           sed -i "s/versionCode [0-9]*/versionCode ${{ steps.version.outputs.version_code }}/" ../android/app/build.gradle
           sed -i "s/versionName \"[^\"]*\"/versionName \"${{ steps.version.outputs.version }}\"/" ../android/app/build.gradle
 
+      - name: Write version_info.json (backend reads it from repo checkout)
+        run: |
+          cat > backend/version_info.json <<EOF
+          {
+            "current": "${{ steps.version.outputs.version }}",
+            "latest": "${{ steps.version.outputs.version }}",
+            "version_code": ${{ steps.version.outputs.version_code }},
+            "apk_download_url": "/api/app/apk",
+            "release_notes": "Release ${{ steps.version.outputs.version }} - build automatico desde CI",
+            "force_update": false,
+            "min_supported_version": "0.1.0"
+          }
+          EOF
+
       - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ${{ env.FRONTEND_DIR }}/package.json ${{ env.FRONTEND_DIR }}/capacitor.config.ts android/app/build.gradle
+          git add ${{ env.FRONTEND_DIR }}/package.json ${{ env.FRONTEND_DIR }}/capacitor.config.ts android/app/build.gradle backend/version_info.json
           git commit -m "chore: bump version to ${{ steps.version.outputs.version }} (code ${{ steps.version.outputs.version_code }}) [skip ci]"
           git push
 
@@ -181,6 +195,9 @@ jobs:
       - name: Notify Backend of New Version (webhook)
         if: github.event_name == 'push'
         run: |
-          # This would call your backend deployment webhook to update /api/app/version
-          # Example: curl -X POST ${{ secrets.BACKEND_DEPLOY_WEBHOOK }} -d '{"version": "${{ steps.version.outputs.version }}", "version_code": "${{ steps.version.outputs.version_code }}"}'
-          echo "TODO: Configure BACKEND_DEPLOY_WEBHOOK secret to trigger backend version update"
+          # version_info.json ya fue commiteado en el paso "Write version_info.json".
+          # Si el backend está en Render con auto-deploy on push, este commit
+          # [skip ci] dispara el redeploy y el backend lee el nuevo archivo del
+          # checkout. Si NO usas auto-deploy, activa un webhook aquí:
+          # Example: curl -X POST ${{ secrets.BACKEND_DEPLOY_WEBHOOK }} -H "Content-Type: application/json" -d '{"version": "${{ steps.version.outputs.version }}", "version_code": "${{ steps.version.outputs.version_code }}"}'
+          echo "version_info.json committed. Render auto-deploy picks it up."

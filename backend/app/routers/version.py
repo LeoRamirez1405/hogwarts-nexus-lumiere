@@ -3,10 +3,15 @@ from pathlib import Path
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from ..config import settings
+
 router = APIRouter(tags=["version"])
 
-# Version info file - updated by CI/CD webhook or deployment script
-VERSION_FILE = Path(__file__).parent.parent.parent / "version_info.json"
+# Version info file - updated by CI/CD webhook or deployment script.
+# Configurable via VERSION_FILE_PATH (útil en prod con filesystem efímero).
+VERSION_FILE = Path(settings.VERSION_FILE_PATH) if settings.VERSION_FILE_PATH else (
+    Path(__file__).parent.parent.parent / "version_info.json"
+)
 
 
 def load_version_info() -> dict:

@@ -89,11 +89,21 @@ class Settings(BaseSettings):
     ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY", "")
 
     # Ruta al APK firmado servido por /api/app/apk. En local apunta a la salida
-    # de `npx capacitor build android`; en prod debe apuntar a donde se suba el
-    # APK (ej: /data/apk/hogwarts-nexus.apk en Render/Railway).
+    # de `npx capacitor build android`; en prod no hace falta configurarla porque
+    # el backend redirige al GitHub Release (GITHUB_REPO).
     APK_FILE_PATH: str = os.getenv(
         "APK_FILE_PATH",
         "../frontend/android/app/build/outputs/apk/release/app-release.apk",
+    )
+
+    # Repo GitHub que publica los APK (owner/nombre). Se usa para construir la
+    # URL del último release en prod: https://github.com/{GITHUB_REPO}/releases/latest/download/app-release.apk
+    GITHUB_REPO: str = os.getenv("GITHUB_REPO", "LeoRamirez1405/hogwarts-nexus-lumiere")
+
+    # Ruta al archivo de versiones (version_info.json). En prod (Render free,
+    # filesystem efímero) debe apuntar a un disco persistente o a Cloudinary.
+    VERSION_FILE_PATH: str = os.getenv(
+        "VERSION_FILE_PATH", ""
     )
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
