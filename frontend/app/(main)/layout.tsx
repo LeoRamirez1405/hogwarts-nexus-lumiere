@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { useFeatureFlagStore } from "@/lib/featureFlagStore";
 import { LevelUpCelebration } from "@/components/ui";
 import { useLevelUpWatcher } from "@/hooks/useLevelUpWatcher";
+import { useFCMInit } from "@/hooks/useFCM";
 import AppShell from "@/components/layout/AppShell";
 
 export default function AuthProvider({
@@ -19,6 +20,9 @@ export default function AuthProvider({
   const loadFlags = useFeatureFlagStore((s) => s.load);
   const validatedRef = useRef(false);
   const levelUp = useLevelUpWatcher();
+
+  // Initialize FCM (Web Push for PWA, FCM for native Capacitor apps)
+  useFCMInit();
 
   useEffect(() => {
     if (validatedRef.current) return;

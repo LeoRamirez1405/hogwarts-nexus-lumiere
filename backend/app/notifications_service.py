@@ -25,7 +25,7 @@ from .models.post import PostLike
 # Re-exported for backwards compatibility: articles/forum/posts still import
 # `resolve_mentions` from this module.
 from .services.mentions import resolve_mentions  # noqa: F401
-from .services.push_service import notification_url, send_webpush_to_user
+from .services.push_service import notification_url, send_push_to_user
 from .ws_manager import manager
 from app.utils.dates import utcnow
 
@@ -153,7 +153,7 @@ async def notify(
     await _push_notification(n)
     # Browser push (best-effort) so the user is alerted even with the app closed.
     try:
-        await send_webpush_to_user(
+        await send_push_to_user(
             db,
             user_id=user_id,
             title=title,
@@ -208,7 +208,7 @@ async def notify_like(db: AsyncSession, post, actor: User) -> Optional[Notificat
         await _push_notification(existing)
         # Browser push for the aggregated like (best-effort).
         try:
-            await send_webpush_to_user(
+            await send_push_to_user(
                 db,
                 user_id=post.author_id,
                 title=existing.title,
@@ -250,8 +250,6 @@ async def notify_all_users(
     """
     import asyncio
 
-    from .models.push_subscription import PushSubscription
-
     dialect = getattr(getattr(db, "bind", None), "dialect", None)
     if dialect is not None and dialect.name == "postgresql":
         id_expr = func.gen_random_uuid().cast(String)
@@ -291,7 +289,7 @@ async def notify_all_users(
         if uid != exclude_id:
             await manager.send_to_user(uid, {"t": "notification_refresh"})
 
-    # Best-effort Web Push for offline/installed-PWA users.
+    # Best-effort push (Web Push + FCM) for offline/installed-PWA/native users.
     # Fetch user_ids that were notified (excluding exclude_id) to target push.
     if count > 0:
         try:
@@ -301,78 +299,36 @@ async def notify_all_users(
             notified_user_ids = [row[0] for row in user_ids_result.all()]
 
             if notified_user_ids:
-                # Fetch all push subscriptions for these users in one query
-                subs_stmt = select(PushSubscription).where(
-                    PushSubscription.user_id.in_(notified_user_ids)
-                )
-                subs_result = await db.execute(subs_stmt)
-                subscriptions = subs_result.scalars().all()
+                url = notification_url(type, related_id, exclude_id)
+                # Send push to each user (Web Push + FCM)
+                import asyncio
 
-                if subscriptions:
-                    # Group subscriptions by user_id
-                    from collections import defaultdict
-                    subs_by_user: dict[str, list] = defaultdict(list)
-                    for sub in subscriptions:
-                        subs_by_user[sub.user_id].append(sub)
+                semaphore = asyncio.Semaphore(10)
+                batch_size = 50
 
-                    # Send WebPush in batches to avoid overwhelming the push service
-                    url = notification_url(type, related_id, exclude_id)
-                    batch_size = 50
-                    semaphore = asyncio.Semaphore(10)  # Limit concurrent sends
+                async def send_to_user(user_id: str):
+                    async with semaphore:
+                        try:
+                            await send_push_to_user(
+                                db,
+                                user_id=user_id,
+                                title=title,
+                                body=body,
+                                url=url,
+                                tag=f"nexus-broadcast-{type}",
+                            )
+                        except Exception:
+                            pass
 
-                    async def send_to_user_batch(user_id: str, user_subs: list):
-                        async with semaphore:
-                            try:
-                                # Use existing send_webpush_to_user logic but with pre-fetched subs
-                                from .services.push_service import get_webpush, _parse_subscription
-                                import json
-
-                                wp = get_webpush()
-                                if not wp:
-                                    return 0
-
-                                payload = json.dumps(
-                                    {
-                                        "title": title,
-                                        "body": body,
-                                        "icon": "/icons/icon-owl.svg",
-                                        "badge": "/icons/badge-owl.svg",
-                                        "tag": f"nexus-broadcast-{type}",
-                                        "data": {"url": url or "/notifications"},
-                                    }
-                                )
-
-                                pairs = [(sub.id, sub.subscription_json) for sub in user_subs]
-                                sent = 0
-                                expired_ids = []
-                                for sub_id, sub_json in pairs:
-                                    try:
-                                        wp.send(subscription=_parse_subscription(sub_json), data=payload)
-                                        sent += 1
-                                    except Exception:
-                                        expired_ids.append(sub_id)
-
-                                # Clean up expired subscriptions
-                                for sub_id in expired_ids:
-                                    sub = next((s for s in user_subs if s.id == sub_id), None)
-                                    if sub is not None:
-                                        await db.delete(sub)
-
-                                return sent
-                            except Exception:
-                                return 0
-
-                    # Process in batches
-                    user_items = list(subs_by_user.items())
-                    for i in range(0, len(user_items), batch_size):
-                        batch = user_items[i : i + batch_size]
-                        await asyncio.gather(
-                            *[send_to_user_batch(uid, subs) for uid, subs in batch],
-                            return_exceptions=True,
-                        )
-                        # Small delay between batches to be nice to push services
-                        if i + batch_size < len(user_items):
-                            await asyncio.sleep(0.1)
+                user_items = list(notified_user_ids)
+                for i in range(0, len(user_items), batch_size):
+                    batch = user_items[i : i + batch_size]
+                    await asyncio.gather(
+                        *[send_to_user(uid) for uid in batch],
+                        return_exceptions=True,
+                    )
+                    if i + batch_size < len(user_items):
+                        await asyncio.sleep(0.1)
 
         except Exception:
             # Best-effort: never let push failures break the main notification flow
@@ -409,7 +365,7 @@ async def notify_friends_of_post(
         await _push_notification(n)
         # Browser push for the friend's new post (best-effort).
         try:
-            await send_webpush_to_user(
+            await send_push_to_user(
                 db,
                 user_id=fid,
                 title=f"{actor.name} publicó algo nuevo",

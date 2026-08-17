@@ -86,3 +86,7 @@ spam_pages/
 frontend/android/app/*.keystore
 frontend/android/keystore.properties
 frontend/android/*.keystore
+
+# Firebase secrets (NUNCA subir)
+backend/firebase-service-account.json
+frontend/android/app/google-services.json

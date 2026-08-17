@@ -53,3 +53,4 @@ class User(Base):
     chat_rooms = relationship("ChatRoomMember", back_populates="user", lazy="raise")
     chat_rooms_created = relationship("ChatRoom", foreign_keys="ChatRoom.created_by", lazy="raise")
     push_subscriptions = relationship("PushSubscription", back_populates="user", lazy="raise")
+    fcm_tokens = relationship("FCMToken", back_populates="user", lazy="raise")

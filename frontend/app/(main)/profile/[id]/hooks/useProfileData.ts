@@ -271,16 +271,58 @@ export function useProfileData(profileId: string) {
       video_poster_url?: string;
       video_duration?: number;
     }) => {
-      await api.createPost({
-        body: input.body,
+      const queryKey = ["profile-feed", profileId];
+      const tempId = `temp-${Date.now()}`;
+      const now = new Date().toISOString();
+
+      const optimisticPost: Post = {
+        id: tempId,
+        author_id: authUser?.id ?? profileId,
+        author: authUser ?? undefined,
+        body: input.body ?? "",
         image_url: input.image_url,
         video_url: input.video_url,
         video_poster_url: input.video_poster_url,
         video_duration: input.video_duration,
+        likes_count: 0,
+        liked_by_me: false,
+        reposts_count: 0,
+        reposted_by_me: false,
+        comments_count: 0,
+        is_repost: false,
+        created_at: now,
+      };
+
+      queryClient.setQueryData<{ pages?: { items: Post[] }[] }>(queryKey, (old) => {
+        if (!old?.pages?.length) return old;
+        return {
+          ...old,
+          pages: [
+            {
+              ...old.pages[0],
+              items: [optimisticPost, ...old.pages[0].items],
+            },
+            ...old.pages.slice(1),
+          ],
+        };
       });
-      await queryClient.invalidateQueries({ queryKey: ["profile-feed", profileId] });
+
+      try {
+        await api.createPost({
+          body: input.body,
+          image_url: input.image_url,
+          video_url: input.video_url,
+          video_poster_url: input.video_poster_url,
+          video_duration: input.video_duration,
+        });
+        toastSuccess("Publicado");
+      } catch (e) {
+        queryClient.invalidateQueries({ queryKey });
+        throw e;
+      }
+      await queryClient.invalidateQueries({ queryKey });
     },
-    [profileId]
+    [profileId, authUser]
   );
 
   const saveProfile = useCallback(

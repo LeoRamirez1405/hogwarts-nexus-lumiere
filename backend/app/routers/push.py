@@ -2,14 +2,17 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from pydantic import BaseModel
 
 from ..config import settings
 from ..database import get_db
 from ..models.user import User
 from ..models.push_subscription import PushSubscription
+from ..models.fcm_token import FCMToken
 from ..schemas.push_subscription import PushSubscriptionCreate, PushSubscriptionResponse, PushSubscriptionDelete
 from ..middleware.auth import get_current_user
 from ..services.push_service import _parse_subscription, send_webpush_to_user
+from app.utils.dates import utcnow
 
 router = APIRouter(prefix="/push", tags=["push"])
 
@@ -123,3 +126,94 @@ async def list_subscriptions(
         select(PushSubscription).where(PushSubscription.user_id == current_user.id)
     )
     return result.scalars().all()
+
+
+class FCMTokenRequest(BaseModel):
+    fcm_token: str
+    platform: str = "android"
+    user_agent: str | None = None
+
+
+class FCMTokenResponse(BaseModel):
+    success: bool
+    token_id: str | None = None
+
+
+@router.post("/fcm-token", response_model=FCMTokenResponse)
+async def register_fcm_token(
+    payload: FCMTokenRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Register an FCM token for the current user (native Android/iOS)."""
+    if not payload.fcm_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="FCM token is required",
+        )
+
+    # Check if token already exists for this user
+    existing = await db.execute(
+        select(FCMToken).where(
+            FCMToken.user_id == current_user.id,
+            FCMToken.token == payload.fcm_token,
+        )
+    )
+    existing_token = existing.scalar_one_or_none()
+
+    if existing_token:
+        # Update platform and user_agent if different
+        existing_token.platform = payload.platform
+        existing_token.user_agent = payload.user_agent
+        existing_token.active = True
+        existing_token.last_used_at = utcnow()
+        await db.commit()
+        await db.refresh(existing_token)
+        return FCMTokenResponse(success=True, token_id=existing_token.id)
+
+    # Create new FCM token
+    token = FCMToken(
+        user_id=current_user.id,
+        token=payload.fcm_token,
+        platform=payload.platform,
+        user_agent=payload.user_agent,
+        active=True,
+    )
+    db.add(token)
+    await db.commit()
+    await db.refresh(token)
+
+    return FCMTokenResponse(success=True, token_id=token.id)
+
+
+@router.delete("/fcm-token")
+async def unregister_fcm_token(
+    payload: FCMTokenRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Unregister an FCM token for the current user."""
+    if not payload.fcm_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="FCM token is required",
+        )
+
+    result = await db.execute(
+        select(FCMToken).where(
+            FCMToken.user_id == current_user.id,
+            FCMToken.token == payload.fcm_token,
+        )
+    )
+    token = result.scalar_one_or_none()
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="FCM token not found",
+        )
+
+    token.active = False
+    await db.commit()
+
+    return {"success": True}

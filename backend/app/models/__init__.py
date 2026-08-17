@@ -38,6 +38,7 @@ from .enum_type import EnumCategory, EnumValue
 from .feature_flag import FeatureFlag
 from .audit_log import AuditLog, AuditAction
 from .push_subscription import PushSubscription
+from .fcm_token import FCMToken
 from .catalog import Catalog
 from .catalog_item import CatalogItem
 from .catalog_item_favorite import CatalogItemFavorite
@@ -103,6 +104,7 @@ __all__ = [
     "AuditLog",
     "AuditAction",
     "PushSubscription",
+    "FCMToken",
     "Catalog",
     "CatalogItem",
     "CatalogItemFavorite",

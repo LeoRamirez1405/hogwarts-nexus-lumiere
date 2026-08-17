@@ -84,6 +84,18 @@ export function useServiceWorker() {
         }
       });
 
+    // Register FCM messaging Service Worker (for background FCM messages)
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("/firebase-messaging-sw.js", { scope: "/" })
+        .then((reg) => {
+          console.log("[FCM SW] Registered:", reg.scope);
+        })
+        .catch((error) => {
+          console.warn("[FCM SW] Registration failed:", error);
+        });
+    }
+
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (!swReloadPending.current) return;
       swReloadPending.current = false;

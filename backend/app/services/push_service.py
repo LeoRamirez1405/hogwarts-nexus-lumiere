@@ -1,14 +1,15 @@
-"""Web Push delivery service.
+"""Push delivery service (Web Push + FCM).
 
 The REST router (``app/routers/push.py``) manages subscriptions; this module
-is the single place that actually delivers browser pushes so ``notify()`` and
+is the single place that actually delivers pushes so ``notify()`` and
 friends can fire a push whenever an in-app notification is created. Delivering
-is always best-effort: if VAPID keys are missing (dev) or a push fails, the
-in-app notification still stands and the caller never sees an error.
+is always best-effort: if VAPID keys or FCM config are missing (dev) or a
+push fails, the in-app notification still stands and the caller never sees an error.
 """
 
 import json
 import base64
+import os
 from io import BytesIO
 from typing import List, Optional, Tuple
 
@@ -24,9 +25,40 @@ from cryptography.hazmat.primitives import serialization
 
 from ..config import settings
 from ..models.push_subscription import PushSubscription
+from ..models.fcm_token import FCMToken
 
 # HTTP client shared by all push deliveries (connection pooling).
 _HTTP = httpx.AsyncClient(timeout=10.0)
+
+# Firebase Admin initialization
+_firebase_app = None
+
+
+def _init_firebase_admin() -> bool:
+    """Initialize Firebase Admin SDK if credentials are available."""
+    global _firebase_app
+    if _firebase_app is not None:
+        return True
+
+    cred_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "firebase-service-account.json")
+    if not os.path.exists(cred_path):
+        # Try relative to backend root
+        cred_path = os.path.join(os.path.dirname(__file__), "..", "..", "firebase-service-account.json")
+        cred_path = os.path.normpath(cred_path)
+
+    if not os.path.exists(cred_path):
+        return False
+
+    try:
+        import firebase_admin
+        from firebase_admin import credentials
+
+        cred = credentials.Certificate(cred_path)
+        _firebase_app = firebase_admin.initialize_app(cred)
+        return True
+    except Exception as e:
+        print(f"[FCM] Failed to initialize Firebase Admin: {e}")
+        return False
 
 
 def _b64url_decode(value: str) -> bytes:
@@ -203,3 +235,123 @@ async def send_webpush_to_user(
             await db.delete(sub)
 
     return sent
+
+
+async def send_fcm_to_user(
+    db: AsyncSession,
+    user_id: str,
+    title: str,
+    body: str,
+    url: Optional[str] = None,
+    data: Optional[dict] = None,
+) -> int:
+    """Deliver an FCM push to every active token of ``user_id``.
+
+    Returns the number of pushes delivered. Invalid tokens are marked inactive.
+    No-op when FCM is not configured.
+    """
+    if not _init_firebase_admin():
+        return 0
+
+    try:
+        from firebase_admin import messaging
+    except Exception:
+        return 0
+
+    result = await db.execute(
+        select(FCMToken).where(
+            FCMToken.user_id == user_id,
+            FCMToken.active == True,  # noqa: E712
+        )
+    )
+    tokens = result.scalars().all()
+    if not tokens:
+        return 0
+
+    sent = 0
+    for token_row in tokens:
+        try:
+            message = messaging.Message(
+                token=token_row.token,
+                notification=messaging.Notification(title=title, body=body),
+                data={
+                    **(data or {}),
+                    "url": url or "/notifications",
+                    "click_action": "FLUTTER_NOTIFICATION_CLICK",
+                },
+                android=messaging.AndroidConfig(
+                    priority="high",
+                    notification=messaging.AndroidNotification(
+                        icon="ic_notification",
+                        color="#0e3b60",
+                        sound="default",
+                        click_action="FLUTTER_NOTIFICATION_CLICK",
+                    ),
+                ),
+                apns=messaging.APNSConfig(
+                    payload=messaging.APNSPayload(
+                        aps=messaging.Aps(
+                            alert=messaging.ApsAlert(title=title, body=body),
+                            sound="default",
+                            category="NEW_MESSAGE",
+                        )
+                    ),
+                ),
+            )
+
+            messaging.send(message, app=_firebase_app)
+            sent += 1
+
+            # Update last_used_at
+            from app.utils.dates import utcnow
+            token_row.last_used_at = utcnow()
+
+        except Exception as e:
+            error_msg = str(e)
+            # Token invalid/unregistered -> mark inactive
+            if any(
+                code in error_msg
+                for code in [
+                    "UNREGISTERED",
+                    "INVALID_ARGUMENT",
+                    "NOT_FOUND",
+                    "INVALID_TOKEN",
+                ]
+            ):
+                token_row.active = False
+                print(f"[FCM] Deactivated invalid token for user {user_id}: {error_msg}")
+            else:
+                print(f"[FCM] Send error for user {user_id}: {error_msg}")
+
+    await db.commit()
+    return sent
+
+
+async def send_push_to_user(
+    db: AsyncSession,
+    user_id: str,
+    title: str,
+    body: str,
+    url: Optional[str] = None,
+    tag: Optional[str] = None,
+    data: Optional[dict] = None,
+) -> int:
+    """Send push via both Web Push (browser/PWA) and FCM (native apps).
+
+    Returns total sent across both channels.
+    """
+    total = 0
+
+    # Web Push (browser/PWA)
+    try:
+        total += await send_webpush_to_user(db, user_id, title, body, url, tag)
+    except Exception:
+        pass
+
+    # FCM (native Android/iOS)
+    try:
+        total += await send_fcm_to_user(db, user_id, title, body, url, data)
+    except Exception:
+        pass
+
+    return total
