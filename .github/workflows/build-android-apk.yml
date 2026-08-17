@@ -146,6 +146,15 @@ jobs:
           keyPassword=$KEY_PASSWORD
           EOF
 
+      - name: Write google-services.json
+        working-directory: ${{ env.FRONTEND_DIR }}
+        if: ${{ secrets.GOOGLE_SERVICES_JSON != '' }}
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
+          echo "google-services.json written"
+
       - name: Build Signed Release APK
         working-directory: ${{ env.FRONTEND_DIR }}
         run: |
