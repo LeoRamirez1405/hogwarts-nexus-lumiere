@@ -18,7 +18,6 @@ on:
 env:
   NODE_VERSION: '20'
   JAVA_VERSION: '17'
-  ANDROID_SDK_VERSION: '34'
   FRONTEND_DIR: 'frontend'
 
 jobs:
@@ -50,12 +49,8 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: gradle
 
-      - name: Setup Android SDK
+      - name: Setup Android SDK (accept licenses; SDK is preinstalled on runners)
         uses: android-actions/setup-android@v3
-        with:
-          api-level: ${{ env.ANDROID_SDK_VERSION }}
-          ndk-version: r26c
-          cache-key: android-sdk-${{ runner.os }}-${{ env.ANDROID_SDK_VERSION }}
 
       - name: Install frontend dependencies
         working-directory: ${{ env.FRONTEND_DIR }}
@@ -198,6 +193,6 @@ jobs:
           # version_info.json ya fue commiteado en el paso "Write version_info.json".
           # Si el backend está en Render con auto-deploy on push, este commit
           # [skip ci] dispara el redeploy y el backend lee el nuevo archivo del
-          # checkout. Si NO usas auto-deploy, activa un webhook aquí:
-          # Example: curl -X POST ${{ secrets.BACKEND_DEPLOY_WEBHOOK }} -H "Content-Type: application/json" -d '{"version": "${{ steps.version.outputs.version }}", "version_code": "${{ steps.version.outputs.version_code }}"}'
+          # checkout. Si NO usas auto-deploy, activa un webhook manualmente
+          # (secrets.BACKEND_DEPLOY_WEBHOOK) para que Render redeploye.
           echo "version_info.json committed. Render auto-deploy picks it up."
