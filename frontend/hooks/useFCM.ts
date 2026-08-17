@@ -88,7 +88,7 @@ export function useFCM() {
   const registerFCMToken = useCallback(async (token: string) => {
     if (!user) return;
     try {
-      const res = await fetch("/api/push/fcm-token", {
+      const res = await fetch(`${getApiBase()}/api/push/fcm-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -181,9 +181,16 @@ export function useFCM() {
     listenersRef.current.push(() => unsubscribeForeground());
   }, []);
 
+  function getApiBase(): string {
+  if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+  }
+  return "";
+}
+
   const fetchVapidKey = useCallback(async (): Promise<string | null> => {
     try {
-      const res = await fetch("/api/push/vapid-public-key");
+      const res = await fetch(`${getApiBase()}/api/push/vapid-public-key`);
       if (!res.ok) return null;
       const data = await res.json();
       return data.public_key;
