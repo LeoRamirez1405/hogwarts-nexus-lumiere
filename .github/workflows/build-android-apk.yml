@@ -16,7 +16,7 @@ on:
           - major
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
   JAVA_VERSION: '17'
   FRONTEND_DIR: 'frontend'
 
