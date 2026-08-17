@@ -204,14 +204,8 @@ export function useFCM() {
       }
       console.log("[FCM] VAPID key (first 20 chars):", vapidKey.slice(0, 20) + "...");
 
-      const swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
-      console.log("[FCM] SW registration ready, scope:", swReg.scope);
-
-      console.log("[FCM] Calling getToken...");
-      const token = await getToken(msg, {
-        vapidKey,
-        serviceWorkerRegistration: swReg,
-      });
+      console.log("[FCM] Calling getToken (let Firebase auto-register SW)...");
+      const token = await getToken(msg, { vapidKey });
       console.log("[FCM] getToken returned:", token ? "SUCCESS" : "null/empty");
       if (token) {
         console.log("[FCM] Web push token:", token);
