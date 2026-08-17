@@ -21,12 +21,12 @@ const SIZE_BUDGET_KIB = {
 
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""};
+  script-src 'self' 'unsafe-inline' https://www.gstatic.com${isDev ? " 'unsafe-eval'" : ""};
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   img-src 'self' blob: data: https://res.cloudinary.com https://img.freepik.com https://images.unsplash.com https://picsum.photos https://fastly.picsum.photos https://via.placeholder.com http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com;
   font-src 'self' https://fonts.gstatic.com;
   media-src 'self' blob: data: https://res.cloudinary.com http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com;
-  connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com ${isDev ? "ws: wss:" : "wss://nexus-backend-kkq8.onrender.com"};
+  connect-src 'self' https://www.gstatic.com http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com ${isDev ? "ws: wss:" : "wss://nexus-backend-kkq8.onrender.com"};
   object-src 'none';
   base-uri 'self';
   form-action 'self';
@@ -138,6 +138,24 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value: "default-src 'self'; script-src 'self'",
+          },
+        ],
+      },
+      // Headers para Firebase Messaging Service Worker (evita redirect + CSP)
+      {
+        source: "/firebase-messaging-sw.js",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/javascript; charset=utf-8",
+          },
+          {
+            key: "Cache-Control",
+            value: "no-cache, no-store, must-revalidate",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'self'; script-src 'self' https://www.gstatic.com",
           },
         ],
       },
