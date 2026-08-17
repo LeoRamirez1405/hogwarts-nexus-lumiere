@@ -14,7 +14,7 @@ from ..middleware.auth import get_current_user
 from ..services.push_service import _parse_subscription, send_webpush_to_user
 from app.utils.dates import utcnow
 
-router = APIRouter(prefix="/push", tags=["push"])
+router = APIRouter(tags=["push"])
 
 
 @router.get("/vapid-public-key")
