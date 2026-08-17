@@ -1,0 +1,9 @@
+{
+  "current": "0.1.1",
+  "latest": "0.1.1",
+  "version_code": 101,
+  "apk_download_url": "/api/app/apk",
+  "release_notes": "Release 0.1.1 - build automatico desde CI",
+  "force_update": false,
+  "min_supported_version": "0.1.0"
+}
