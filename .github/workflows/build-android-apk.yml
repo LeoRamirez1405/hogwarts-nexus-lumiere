@@ -200,11 +200,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Notify Backend of New Version (webhook)
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && env.BACKEND_DEPLOY_WEBHOOK != ''
+        env:
+          BACKEND_DEPLOY_WEBHOOK: ${{ secrets.BACKEND_DEPLOY_WEBHOOK }}
         run: |
-          # version_info.json ya fue commiteado en el paso "Write version_info.json".
-          # Si el backend está en Render con auto-deploy on push, este commit
-          # [skip ci] dispara el redeploy y el backend lee el nuevo archivo del
-          # checkout. Si NO usas auto-deploy, activa un webhook manualmente
-          # (secrets.BACKEND_DEPLOY_WEBHOOK) para que Render redeploye.
+          echo "Notifying backend at $BACKEND_DEPLOY_WEBHOOK"
+          curl -X POST "$BACKEND_DEPLOY_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "{\"version\":\"${{ steps.version.outputs.version }}\",\"version_code\":${{ steps.version.outputs.version_code }},\"release_notes\":\"Release ${{ steps.version.outputs.version }} - build automatico desde CI\"}"
+          echo "Backend notified successfully"
+
+      - name: Notify Backend (auto-deploy fallback)
+        if: github.event_name == 'push' && env.BACKEND_DEPLOY_WEBHOOK == ''
+        run: |
+          echo "BACKEND_DEPLOY_WEBHOOK not set. Relying on Render auto-deploy to pick up version_info.json commit."
           echo "version_info.json committed. Render auto-deploy picks it up."

@@ -35,3 +35,9 @@ services:
         sync: false
       - key: COOKIE_SECURE
         value: "true"
+      - key: VERSION_FILE_PATH
+        value: "/opt/render/project/src/backend/version_info.json"
+      - key: FIREBASE_SERVICE_ACCOUNT_PATH
+        value: "/opt/render/project/src/firebase-service-account.json"
+      - key: BACKEND_DEPLOY_WEBHOOK
+        sync: false
