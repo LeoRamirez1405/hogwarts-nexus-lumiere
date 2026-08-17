@@ -13,7 +13,7 @@ import { getAccessTokenFromCookie } from "@/lib/cookies";
 import Avatar from "@/components/ui/Avatar";
 import { MaterialIcon } from "@/components/ui";
 import { timeAgo } from "@/lib/timeAgo";
-import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
+import InstallMenuItem from "@/components/pwa/InstallMenuItem";
 import { usePushSubscription } from "@/hooks/usePWA";
 import { usePrefetchOnTouch } from "@/hooks/usePrefetchOnTouch";
 import { useHapticLight } from "@/hooks/useHapticFeedback";
@@ -429,7 +429,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             Mi Perfil
           </Link>
           <div className="border-t border-outline-variant/20">
-            <PWAInstallPrompt variant="row" />
+            <InstallMenuItem />
           </div>
           <div className="border-t border-outline-variant/20">
             <PushNotificationMenuItem />

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuthStore } from "@/lib/authStore";
 import { toastInfo, toastError } from "@/lib/toastStore";
+import { isAndroidWeb, isNativeApp } from "@/lib/native";
 
 interface PushSubscriptionData {
   endpoint: string;
@@ -116,11 +117,8 @@ export function useAppVersion() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const initializedRef = useRef(false);
 
-  const isCapacitor = typeof window !== "undefined" &&
-    !!(window as { Capacitor?: { isNative?: boolean } }).Capacitor?.isNative;
-  const isAndroid = typeof window !== "undefined"
-    ? /Android/i.test(navigator.userAgent)
-    : false;
+  const isCapacitor = isNativeApp();
+  const isAndroid = isAndroidWeb();
 
   const fetchVersion = useCallback(async () => {
     if (checking) return;
@@ -430,7 +428,8 @@ export function usePWAInstall() {
         (navigator as { standalone?: boolean }).standalone === true;
       setIsStandalone(standalone);
       setIsSecureContext(Boolean(window.isSecureContext));
-      if (standalone) {
+      // En app nativa Capacitor no hay instalación PWA posible
+      if (isNativeApp() || standalone) {
         setIsInstalled(true);
         return;
       }

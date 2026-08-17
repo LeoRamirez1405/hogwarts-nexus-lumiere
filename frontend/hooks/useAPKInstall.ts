@@ -15,7 +15,7 @@ interface UseAPKInstallReturn {
   apkInfo: APKInfo | null;
   loading: boolean;
   downloading: boolean;
-  fetchAPKInfo: () => Promise<void>;
+  fetchAPKInfo: () => Promise<APKInfo | null>;
   downloadAndInstall: () => Promise<void>;
 }
 
@@ -24,7 +24,7 @@ export function useAPKInstall(): UseAPKInstallReturn {
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const fetchAPKInfo = useCallback(async () => {
+  const fetchAPKInfo = useCallback(async (): Promise<APKInfo | null> => {
     setLoading(true);
     try {
       const res = await fetch("/api/app/apk/info", {
@@ -33,9 +33,11 @@ export function useAPKInstall(): UseAPKInstallReturn {
       if (!res.ok) throw new Error("Failed to fetch APK info");
       const data = await res.json();
       setApkInfo(data);
+      return data;
     } catch (error) {
       console.error("Failed to fetch APK info:", error);
       setApkInfo({ available: false, message: "Error al verificar APK" });
+      return null;
     } finally {
       setLoading(false);
     }

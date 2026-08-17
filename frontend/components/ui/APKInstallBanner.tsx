@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAPKInstall } from "@/hooks/useAPKInstall";
 import { MaterialIcon } from "@/components/ui/MaterialIcon";
 import { useAuthStore } from "@/lib/authStore";
+import { isAndroidWeb, isNativeApp } from "@/lib/native";
 
 export default function APKInstallBanner() {
   const { apkInfo, loading, downloading, fetchAPKInfo, downloadAndInstall } = useAPKInstall();
@@ -11,11 +12,8 @@ export default function APKInstallBanner() {
   const [dismissed, setDismissed] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
-  const isAndroid = typeof window !== "undefined"
-    ? /Android/i.test(navigator.userAgent)
-    : false;
-  const isCapacitor = typeof window !== "undefined" &&
-    !!(window as { Capacitor?: { isNative?: boolean } }).Capacitor?.isNative;
+  const isAndroid = isAndroidWeb();
+  const isCapacitor = isNativeApp();
 
   useEffect(() => {
     if (isAndroid && !isCapacitor && user && !dismissed) {

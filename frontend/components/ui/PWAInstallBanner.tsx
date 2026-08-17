@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { usePWAInstall } from "@/hooks/usePWA";
 import { MaterialIcon } from "./MaterialIcon";
+import { isAndroidWeb, isNativeApp } from "@/lib/native";
 
 export default function PWAInstallBanner() {
   const { isInstallable, isInstalled, isStandalone, install } = usePWAInstall();
@@ -10,11 +11,8 @@ export default function PWAInstallBanner() {
   const isIOS = typeof window !== "undefined"
     ? /iPad|iPhone|iPod/.test(navigator.userAgent) && !("MSStream" in window)
     : false;
-  const isAndroid = typeof window !== "undefined"
-    ? /Android/i.test(navigator.userAgent)
-    : false;
-  const isCapacitor = typeof window !== "undefined" &&
-    !!(window as { Capacitor?: { isNative?: boolean } }).Capacitor?.isNative;
+  const isAndroid = isAndroidWeb();
+  const isCapacitor = isNativeApp();
 
   const [dismissed, setDismissed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -23,8 +21,9 @@ export default function PWAInstallBanner() {
     return false;
   });
 
-  // En app nativa Capacitor no mostramos banner de instalación PWA
-  if (isCapacitor) {
+  // En Android (app nativa o web) la instalación es vía APK, nunca PWA.
+  // En app nativa Capacitor tampoco hay banner de instalación PWA.
+  if (isCapacitor || isAndroid) {
     return null;
   }
 
