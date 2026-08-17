@@ -226,12 +226,16 @@ export function useFCM() {
       console.log("[FCM] Calling getToken...");
       const vapidKeyBytes = urlBase64ToUint8Array(vapidKey) as BufferSource;
       let token: string;
+      let firebaseSW = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
+      if (!firebaseSW) {
+        console.log("[FCM] Registering firebase-messaging-sw.js explicitly...");
+        firebaseSW = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
+      }
       try {
-        token = await getToken(msg, { vapidKey });
+        token = await getToken(msg, { vapidKey, serviceWorkerRegistration: firebaseSW });
       } catch {
         console.warn("[FCM] Firebase getToken failed, trying direct subscription...");
-        const swReg = await navigator.serviceWorker.ready;
-        const sub = await swReg.pushManager.subscribe({
+        const sub = await firebaseSW.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: vapidKeyBytes,
         });
