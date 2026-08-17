@@ -169,6 +169,18 @@ export function useFCM() {
     listenersRef.current.push(() => unsubscribeForeground());
   }, []);
 
+  const fetchVapidKey = useCallback(async (): Promise<string | null> => {
+    try {
+      const res = await fetch("/api/push/vapid-public-key");
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.public_key;
+    } catch (error) {
+      console.error("[FCM] Failed to fetch VAPID key:", error);
+      return null;
+    }
+  }, []);
+
   const requestWebPushPermission = useCallback(async () => {
     if (typeof window === "undefined" || window.Capacitor?.isNativePlatform()) return;
 
@@ -185,7 +197,11 @@ export function useFCM() {
     if (!msg) return;
 
     try {
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
+      const vapidKey = await fetchVapidKey();
+      if (!vapidKey) {
+        console.error("[FCM] No VAPID key available from backend");
+        return;
+      }
       const token = await getToken(msg, { vapidKey });
       if (token) {
         console.log("[FCM] Web push token:", token);
@@ -194,7 +210,7 @@ export function useFCM() {
     } catch (error) {
       console.error("[FCM] Error getting web push token:", error);
     }
-  }, [registerFCMToken]);
+  }, [registerFCMToken, fetchVapidKey]);
 
   useEffect(() => {
     if (!user || initializedRef.current) return;
