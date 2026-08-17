@@ -88,6 +88,14 @@ class Settings(BaseSettings):
     # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
     ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY", "")
 
+    # Ruta al APK firmado servido por /api/app/apk. En local apunta a la salida
+    # de `npx capacitor build android`; en prod debe apuntar a donde se suba el
+    # APK (ej: /data/apk/hogwarts-nexus.apk en Render/Railway).
+    APK_FILE_PATH: str = os.getenv(
+        "APK_FILE_PATH",
+        "../frontend/android/app/build/outputs/apk/release/app-release.apk",
+    )
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @model_validator(mode="after")

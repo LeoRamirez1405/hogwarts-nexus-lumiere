@@ -3,12 +3,13 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 
 from .auth import get_current_user
+from ..config import settings
 from ..models import User
 
 router = APIRouter(tags=["apk"])
 
-# Ruta donde se espera el APK firmado (generado por `npx capacitor build android`)
-APK_PATH = Path("../frontend/android/app/build/outputs/apk/release/app-release.apk")
+# Ruta al APK firmado. Configurable via APK_FILE_PATH (ver app/config.py).
+APK_PATH = Path(settings.APK_FILE_PATH)
 
 
 @router.get("/app/apk", tags=["apk"])

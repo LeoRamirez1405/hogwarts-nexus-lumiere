@@ -61,10 +61,6 @@ jobs:
         working-directory: ${{ env.FRONTEND_DIR }}
         run: npm ci
 
-      - name: Build frontend (production)
-        working-directory: ${{ env.FRONTEND_DIR }}
-        run: npm run build
-
       - name: Determine next version
         id: version
         run: |
@@ -96,6 +92,12 @@ jobs:
         working-directory: ${{ env.FRONTEND_DIR }}
         run: |
           npm version ${{ steps.version.outputs.version }} --no-git-tag-version
+
+      - name: Build frontend (production) with new version
+        working-directory: ${{ env.FRONTEND_DIR }}
+        env:
+          NEXT_PUBLIC_APP_VERSION: ${{ steps.version.outputs.version }}
+        run: npm run build
 
       - name: Update version in capacitor.config.ts
         working-directory: ${{ env.FRONTEND_DIR }}
