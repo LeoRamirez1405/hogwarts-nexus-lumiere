@@ -99,9 +99,9 @@ jobs:
         run: |
           # Update capacitor.config.ts with new version
           sed -i "s/version: \"[^\"]*\"/version: \"${{ steps.version.outputs.version }}\"/" capacitor.config.ts
-          # Update android versionCode/versionName in build.gradle
-          sed -i "s/versionCode [0-9]*/versionCode ${{ steps.version.outputs.version_code }}/" ../android/app/build.gradle
-          sed -i "s/versionName \"[^\"]*\"/versionName \"${{ steps.version.outputs.version }}\"/" ../android/app/build.gradle
+          # Update android versionCode/versionName in build.gradle (frontend/android)
+          sed -i "s/versionCode [0-9]*/versionCode ${{ steps.version.outputs.version_code }}/" android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"${{ steps.version.outputs.version }}\"/" android/app/build.gradle
 
       - name: Write version_info.json (backend reads it from repo checkout)
         run: |
@@ -121,7 +121,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ${{ env.FRONTEND_DIR }}/package.json ${{ env.FRONTEND_DIR }}/capacitor.config.ts android/app/build.gradle backend/version_info.json
+          git add ${{ env.FRONTEND_DIR }}/package.json ${{ env.FRONTEND_DIR }}/capacitor.config.ts ${{ env.FRONTEND_DIR }}/android/app/build.gradle backend/version_info.json
           git commit -m "chore: bump version to ${{ steps.version.outputs.version }} (code ${{ steps.version.outputs.version_code }}) [skip ci]"
           git push
 
@@ -130,14 +130,15 @@ jobs:
         run: npx capacitor sync android
 
       - name: Configure Keystore
+        working-directory: ${{ env.FRONTEND_DIR }}
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > ../android/app/release.keystore
-          cat > ../android/keystore.properties <<EOF
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          cat > android/keystore.properties <<EOF
           storeFile=../app/release.keystore
           storePassword=$KEYSTORE_PASSWORD
           keyAlias=$KEY_ALIAS
@@ -147,7 +148,7 @@ jobs:
       - name: Build Signed Release APK
         working-directory: ${{ env.FRONTEND_DIR }}
         run: |
-          cd ../android
+          cd android
           ./gradlew assembleRelease --no-daemon
 
       - name: Verify APK
