@@ -148,6 +148,7 @@ jobs:
       - name: Build Signed Release APK
         working-directory: ${{ env.FRONTEND_DIR }}
         run: |
+          chmod +x android/gradlew
           cd android
           ./gradlew assembleRelease --no-daemon
 
