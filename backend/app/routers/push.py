@@ -1,3 +1,4 @@
+import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,8 @@ from ..schemas.push_subscription import PushSubscriptionCreate, PushSubscription
 from ..middleware.auth import get_current_user
 from ..services.push_service import _parse_subscription, send_webpush_to_user
 from app.utils.dates import utcnow
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["push"])
 
@@ -146,44 +149,50 @@ async def register_fcm_token(
     current_user: User = Depends(get_current_user),
 ):
     """Register an FCM token for the current user (native Android/iOS)."""
+    logger.info(f"Registering FCM token for user {current_user.id}")
     if not payload.token:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="FCM token is required",
         )
 
-    # Check if token already exists for this user
-    existing = await db.execute(
-        select(FCMToken).where(
-            FCMToken.user_id == current_user.id,
-            FCMToken.token == payload.token,
+    try:
+        # Check if token already exists for this user
+        existing = await db.execute(
+            select(FCMToken).where(
+                FCMToken.user_id == current_user.id,
+                FCMToken.token == payload.token,
+            )
         )
-    )
-    existing_token = existing.scalar_one_or_none()
+        existing_token = existing.scalar_one_or_none()
 
-    if existing_token:
-        # Update platform and user_agent if different
-        existing_token.platform = payload.platform
-        existing_token.user_agent = payload.user_agent
-        existing_token.active = True
-        existing_token.last_used_at = utcnow()
+        if existing_token:
+            # Update platform and user_agent if different
+            existing_token.platform = payload.platform
+            existing_token.user_agent = payload.user_agent
+            existing_token.active = True
+            existing_token.last_used_at = utcnow()
+            await db.commit()
+            await db.refresh(existing_token)
+            return FCMTokenResponse(success=True, token_id=existing_token.id)
+
+        # Create new FCM token
+        token = FCMToken(
+            user_id=current_user.id,
+            token=payload.token,
+            platform=payload.platform,
+            user_agent=payload.user_agent,
+            active=True,
+        )
+        db.add(token)
         await db.commit()
-        await db.refresh(existing_token)
-        return FCMTokenResponse(success=True, token_id=existing_token.id)
+        await db.refresh(token)
 
-    # Create new FCM token
-    token = FCMToken(
-        user_id=current_user.id,
-        token=payload.token,
-        platform=payload.platform,
-        user_agent=payload.user_agent,
-        active=True,
-    )
-    db.add(token)
-    await db.commit()
-    await db.refresh(token)
-
-    return FCMTokenResponse(success=True, token_id=token.id)
+        logger.info(f"FCM token registered successfully: {token.id}")
+        return FCMTokenResponse(success=True, token_id=token.id)
+    except Exception as e:
+        logger.exception(f"Error registering FCM token for user {current_user.id}: {e}")
+        raise
 
 
 @router.delete("/fcm-token")
