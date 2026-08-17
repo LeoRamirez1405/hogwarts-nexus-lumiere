@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // Capacitor native build folders
     "android/**",
     "ios/**",
+    // Standalone node scripts (sharp icon generation, etc.)
+    "scripts/**",
   ]),
   {
     rules: {
