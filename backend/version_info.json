@@ -1,9 +1,9 @@
 {
-  "current": "0.2.10",
-  "latest": "0.2.10",
-  "version_code": 210,
+  "current": "0.2.11",
+  "latest": "0.2.11",
+  "version_code": 211,
   "apk_download_url": "/api/app/apk",
-  "release_notes": "Release 0.2.10 - build automatico desde CI",
+  "release_notes": "Release 0.2.11 - build automatico desde CI",
   "force_update": false,
   "min_supported_version": "0.1.0"
 }
