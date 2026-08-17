@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   workflow_dispatch:
     inputs:
       version_bump:
