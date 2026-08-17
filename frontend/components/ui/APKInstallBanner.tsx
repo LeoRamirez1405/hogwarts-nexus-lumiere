@@ -133,7 +133,7 @@ export default function APKInstallBanner() {
                 Instala Hogwarts Nexus
               </h3>
               <p className="text-body-sm text-on-surface-variant mt-1">
-                Descarga la app nativa para Android ({apkInfo.size_mb} MB). Acceso rápido, notificaciones push y experiencia completa.
+                Descarga la app nativa para Android. Acceso rápido, notificaciones push y experiencia completa.
               </p>
             </div>
             <button
