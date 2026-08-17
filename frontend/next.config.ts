@@ -155,7 +155,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self' https://www.gstatic.com",
+            value: "default-src 'self'; script-src 'self' https://www.gstatic.com; script-src-elem 'self' https://www.gstatic.com; worker-src 'self' blob:;",
           },
         ],
       },
