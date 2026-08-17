@@ -85,12 +85,17 @@ export function useFCM() {
   const initializedRef = useRef(false);
   const listenersRef = useRef<Array<() => void>>([]);
 
-  const registerFCMToken = useCallback(async (token: string) => {
+const registerFCMToken = useCallback(async (token: string) => {
     if (!user) return;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const { accessToken } = useAuthStore.getState();
+    if (accessToken) {
+      headers["Authorization"] = `Bearer ${accessToken}`;
+    }
     try {
       const res = await fetch(`${getApiBase()}/api/push/fcm-token`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         credentials: "include",
         body: JSON.stringify({
           token,
@@ -99,7 +104,7 @@ export function useFCM() {
         })
       });
       if (!res.ok) {
-        console.error("[FCM] Failed to register token:", await res.text());
+        console.error("[FCM] Failed to register token:", res.status, await res.text());
       } else {
         console.log("[FCM] Token registered with backend");
       }
