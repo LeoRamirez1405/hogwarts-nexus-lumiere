@@ -59,7 +59,7 @@ export const config = {
      *  is behind a redirect").
       */
     {
-      source: "/((?!api|_next/static|_next/image|favicon.ico|sw\.js|manifest\.json|manifest\.webmanifest|offline\.html|rootCA\.crt|rootCA\.pem|icons/.*|fallbacks/.*).*)",
+      source: "/((?!api|_next/static|_next/image|favicon.ico|sw\.js|firebase-messaging-sw\.js|manifest\.json|manifest\.webmanifest|offline\.html|rootCA\.crt|rootCA\.pem|icons/.*|fallbacks/.*).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },
