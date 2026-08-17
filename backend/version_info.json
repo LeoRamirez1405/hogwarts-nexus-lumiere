@@ -1,9 +1,9 @@
 {
-  "current": "0.1.8",
-  "latest": "0.1.8",
-  "version_code": 108,
+  "current": "0.1.9",
+  "latest": "0.1.9",
+  "version_code": 109,
   "apk_download_url": "/api/app/apk",
-  "release_notes": "Release 0.1.8 - build automatico desde CI",
+  "release_notes": "Release 0.1.9 - build automatico desde CI",
   "force_update": false,
   "min_supported_version": "0.1.0"
 }
