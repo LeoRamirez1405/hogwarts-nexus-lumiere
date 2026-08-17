@@ -123,6 +123,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add ${{ env.FRONTEND_DIR }}/package.json ${{ env.FRONTEND_DIR }}/capacitor.config.ts ${{ env.FRONTEND_DIR }}/android/app/build.gradle backend/version_info.json
           git commit -m "chore: bump version to ${{ steps.version.outputs.version }} (code ${{ steps.version.outputs.version_code }}) [skip ci]"
+          git pull --rebase origin master
           git push
 
       - name: Sync Capacitor
@@ -178,6 +179,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add backend/static/Nexus.apk
           git commit -m "chore: add signed APK v${{ steps.version.outputs.version }} [skip ci]"
+          git pull --rebase origin master
           git push
 
       - name: Create GitHub Release (optional)
