@@ -12,6 +12,18 @@ declare global {
   }
 }
 
+function urlBase64ToUint8Array(base64: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  const base64Url = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64Url);
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
+function bufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  return btoa(String.fromCharCode(...bytes));
+}
+
 const firebaseConfig = {
   apiKey: "AIzaSyDJcEB8PnUA_7RyZEI9E-oGv5qRfRoX--U",
   authDomain: "nexus-13780.firebaseapp.com",
@@ -81,8 +93,8 @@ export function useFCM() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          fcm_token: token,
-          platform: "android",
+          token,
+          platform: "web",
           user_agent: navigator.userAgent
         })
       });
@@ -204,8 +216,23 @@ export function useFCM() {
       }
       console.log("[FCM] VAPID key (first 20 chars):", vapidKey.slice(0, 20) + "...");
 
-      console.log("[FCM] Calling getToken (let Firebase auto-register SW)...");
-      const token = await getToken(msg, { vapidKey });
+      console.log("[FCM] Calling getToken...");
+      const vapidKeyBytes = urlBase64ToUint8Array(vapidKey) as BufferSource;
+      let token: string;
+      try {
+        token = await getToken(msg, { vapidKey });
+      } catch (_swError: unknown) {
+        console.warn("[FCM] Firebase getToken failed, trying direct subscription...");
+        const swReg = await navigator.serviceWorker.ready;
+        const sub = await swReg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: vapidKeyBytes,
+        });
+        const endpoint = sub.endpoint;
+        const p256dh = bufferToBase64(sub.getKey("p256dh")!);
+        const auth = bufferToBase64(sub.getKey("auth")!);
+        token = `webpush_${endpoint}|${p256dh}|${auth}`;
+      }
       console.log("[FCM] getToken returned:", token ? "SUCCESS" : "null/empty");
       if (token) {
         console.log("[FCM] Web push token:", token);
@@ -213,11 +240,10 @@ export function useFCM() {
       }
     } catch (error) {
       const err = error as Record<string, unknown>;
-      console.error("[FCM] Full error object:", JSON.stringify({
+      console.error("[FCM] Full error:", JSON.stringify({
         name: err.name,
         message: err.message,
         code: err.code,
-        stack: err.stack?.toString().split('\n').slice(0, 3).join('\n')
       }, null, 2));
       console.error("[FCM] Error getting web push token:", error);
     }
