@@ -192,17 +192,9 @@ export function useFCM() {
       return;
     }
 
-    const { getToken, registerServiceWorker } = await import("firebase/messaging");
+    const { getToken } = await import("firebase/messaging");
     const msg = await getMessaging();
     if (!msg) return;
-
-    try {
-      // Explicitly register the FCM SW so Firebase uses the right one
-      await registerServiceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
-      console.log("[FCM] SW explicitly registered via registerServiceWorker");
-    } catch (swErr) {
-      console.warn("[FCM] SW explicit register failed (may be already registered):", swErr);
-    }
 
     try {
       const vapidKey = await fetchVapidKey();
@@ -211,8 +203,15 @@ export function useFCM() {
         return;
       }
       console.log("[FCM] VAPID key (first 20 chars):", vapidKey.slice(0, 20) + "...");
-      console.log("[FCM] Calling getToken with vapidKey (swScope='/')...");
-      const token = await getToken(msg, { vapidKey, swScope: "/" });
+
+      const swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
+      console.log("[FCM] SW registration ready, scope:", swReg.scope);
+
+      console.log("[FCM] Calling getToken...");
+      const token = await getToken(msg, {
+        vapidKey,
+        serviceWorkerRegistration: swReg,
+      });
       console.log("[FCM] getToken returned:", token ? "SUCCESS" : "null/empty");
       if (token) {
         console.log("[FCM] Web push token:", token);
