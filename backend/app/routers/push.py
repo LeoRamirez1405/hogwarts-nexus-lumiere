@@ -2,7 +2,7 @@ import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, text
 from pydantic import BaseModel
 
 from ..config import settings
@@ -18,6 +18,34 @@ from app.utils.dates import utcnow
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["push"])
+
+
+@router.get("/debug/db-info")
+async def debug_db_info(db: AsyncSession = Depends(get_db)):
+    """Debug endpoint to check database state."""
+    result = {}
+    
+    # Check alembic version
+    try:
+        alembic_version = await db.execute(text("SELECT version_num FROM alembic_version"))
+        result["alembic_version"] = alembic_version.scalar_one_or_none()
+    except Exception as e:
+        result["alembic_version_error"] = str(e)
+    
+    # Check if fcm_tokens table exists
+    try:
+        table_exists = await db.execute(text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'fcm_tokens'
+            )
+        """))
+        result["fcm_tokens_table_exists"] = table_exists.scalar_one()
+    except Exception as e:
+        result["fcm_tokens_table_error"] = str(e)
+    
+    return result
 
 
 @router.get("/vapid-public-key")
