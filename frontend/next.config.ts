@@ -26,7 +26,7 @@ const cspHeader = `
   img-src 'self' blob: data: https://res.cloudinary.com https://img.freepik.com https://images.unsplash.com https://picsum.photos https://fastly.picsum.photos https://via.placeholder.com http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com;
   font-src 'self' https://fonts.gstatic.com;
   media-src 'self' blob: data: https://res.cloudinary.com http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com;
-  connect-src 'self' https://www.gstatic.com http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com ${isDev ? "ws: wss:" : "wss://nexus-backend-kkq8.onrender.com"};
+  connect-src 'self' https://www.gstatic.com https://firebaseinstallations.googleapis.com https://fcm.googleapis.com http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com ${isDev ? "ws: wss:" : "wss://nexus-backend-kkq8.onrender.com"};
   object-src 'none';
   base-uri 'self';
   form-action 'self';

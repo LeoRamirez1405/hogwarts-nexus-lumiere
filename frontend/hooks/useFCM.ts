@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback, useRef } from "react";
 import { useAuthStore } from "@/lib/authStore";
+import { request } from "@/lib/api/core/client";
 import { toastInfo, toastError } from "@/lib/toastStore";
 
 declare global {
@@ -87,27 +88,16 @@ export function useFCM() {
 
 const registerFCMToken = useCallback(async (token: string) => {
     if (!user) return;
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    const { accessToken } = useAuthStore.getState();
-    if (accessToken) {
-      headers["Authorization"] = `Bearer ${accessToken}`;
-    }
     try {
-      const res = await fetch(`${getApiBase()}/api/push/fcm-token`, {
+      const res = await request(`/push/fcm-token`, {
         method: "POST",
-        headers,
-        credentials: "include",
         body: JSON.stringify({
           token,
           platform: "web",
           user_agent: navigator.userAgent
         })
       });
-      if (!res.ok) {
-        console.error("[FCM] Failed to register token:", res.status, await res.text());
-      } else {
-        console.log("[FCM] Token registered with backend");
-      }
+      console.log("[FCM] Token registered with backend", res);
     } catch (error) {
       console.error("[FCM] Error registering token:", error);
     }
@@ -186,16 +176,9 @@ const registerFCMToken = useCallback(async (token: string) => {
     listenersRef.current.push(() => unsubscribeForeground());
   }, []);
 
-  function getApiBase(): string {
-  if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
-  }
-  return "";
-}
-
   const fetchVapidKey = useCallback(async (): Promise<string | null> => {
     try {
-      const res = await fetch(`${getApiBase()}/api/push/vapid-public-key`);
+      const res = await fetch("/api/push/vapid-public-key");
       if (!res.ok) return null;
       const data = await res.json();
       return data.public_key;

@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "analyze": "ANALYZE=true next build"
+    "analyze": "ANALYZE=true next build",
+    "verify:push": "node scripts/verify-fcm.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
