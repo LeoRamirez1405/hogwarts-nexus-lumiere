@@ -57,3 +57,15 @@ Each view has desktop and mobile variants — **the final app is ONE responsive 
 - Global skill: `graphify` — run `/graphify` over the repo once code exists to get a navigable knowledge graph of the codebase.
 - `PLAN.md` at the repo root holds the step-by-step execution plan.
 - `DESIGN.md` is the canonical design system.
+
+## Push notifications (FCM web + PWA) — hard-won facts
+
+- **Browser auth is ALWAYS same-origin** via the `/api` proxy (`request()` in `frontend/lib/api/core/client.ts`). Direct calls to `NEXT_PUBLIC_API_URL` (onrender) become third-party cookies → 401 in Brave/mobile. NEVER call the backend directly from browser code.
+- The Next rewrite `/api/:path(.*)` → `${target}/:path` **strips `/api`**, so backend routers must NOT be mounted with `prefix="/api/..."` (push router = `prefix="/push"`).
+- **Single service worker**: FCM compat messaging lives inside `/sw.js`; registering a second SW at the same scope makes `pushManager.subscribe()` fail with `AbortError code 20`. `navigator.serviceWorker.ready` is the correct registration for getToken.
+- **CSP `connect-src` needs all three Firebase domains**: `https://firebaseinstallations.googleapis.com`, `https://fcm.googleapis.com`, AND `https://fcmregistrations.googleapis.com` (Firebase JS v12 calls the last one for getToken). Missing any → `getToken` throws and the app falls back to a `webpush_` custom token (registered but only useful as web push via `PushSubscription`, not FCM).
+- VAPID: backend `settings.VAPID_PUBLIC_KEY` must equal the Firebase Console web push certificate. Verified value: `BI2DibizVDOqLri-HD8OuYI9Sooc7AZ9mDnIZIr2Ur4eNzH5tc-ZJSCPO9-yRv6-q9NJWplmBAqFWQ1-4SkF5ow`.
+- **Pre-push gate**: run `cd frontend && npm run verify:push` (script `frontend/scripts/verify-fcm.mjs`) BEFORE pushing any FCM/push change — builds, asserts chunks are same-origin (no `onrender.com/api/push`), CSP has the 3 domains, and the proxied endpoints respond (VAPID 200, unauth POST → 401). `--live` mode re-checks production after deploy (lazy useFCM chunk is behind auth → SKIP note; local gate covers it).
+- **Vercel Hobby rate-limits deployments** ("Deployment rate limited — retry in 24 hours"). The Android workflow pushes 2 `[skip ci]` commits per release (bump + APK), each triggering a Vercel build — `vercel.json` now has an `ignoreCommand` skipping `[skip ci]` commits. If rate-limited: wait ~24h, then push a trivial commit or Redeploy from the dashboard.
+- After ANY change, `git pull --no-edit --rebase` before pushing — the version-bump workflow + other sessions push to master concurrently; unrebased/force-pushed work has been lost twice (verify with `gh api repos/.../commits/master` after pushing).
+- Backend `POST /push/fcm-token` is idempotent under the `uq_user_fcm_token` constraint (IntegrityError → treat as existing); double-invocation of the FCM hook is expected.
