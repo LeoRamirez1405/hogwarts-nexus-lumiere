@@ -231,11 +231,10 @@ const registerFCMToken = useCallback(async (token: string) => {
       console.log("[FCM] Calling getToken...");
       const vapidKeyBytes = urlBase64ToUint8Array(vapidKey) as BufferSource;
       let token: string;
-      let firebaseSW = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
-      if (!firebaseSW) {
-        console.log("[FCM] Registering firebase-messaging-sw.js explicitly...");
-        firebaseSW = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
-      }
+      // Single-SW strategy: FCM runs inside /sw.js (the controlling worker).
+      // Registering a separate worker at the same scope makes it redundant and
+      // pushManager.subscribe() fails with AbortError code 20.
+      const firebaseSW = await navigator.serviceWorker.ready;
       try {
         token = await getToken(msg, { vapidKey, serviceWorkerRegistration: firebaseSW });
       } catch {

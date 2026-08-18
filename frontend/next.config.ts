@@ -137,25 +137,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self'",
-          },
-        ],
-      },
-      // Headers para Firebase Messaging Service Worker (evita redirect + CSP)
-      {
-        source: "/firebase-messaging-sw.js",
-        headers: [
-          {
-            key: "Content-Type",
-            value: "application/javascript; charset=utf-8",
-          },
-          {
-            key: "Cache-Control",
-            value: "no-cache, no-store, must-revalidate",
-          },
-          {
-            key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self' https://www.gstatic.com; script-src-elem 'self' https://www.gstatic.com; worker-src 'self' blob:;",
+            value: "default-src 'self'; script-src 'self' https://www.gstatic.com; script-src-elem 'self' https://www.gstatic.com; worker-src 'self' blob:",
           },
         ],
       },

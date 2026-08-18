@@ -1,7 +1,52 @@
 /**
  * Service Worker for Hogwarts Nexus Lumière PWA
- * Handles: Push notifications, offline caching, background sync
+ * Handles: Push notifications (FCM), offline caching, background sync
+ *
+ * SINGLE-SW strategy: Firebase Messaging runs inside THIS worker. Registering
+ * a second worker (/firebase-messaging-sw.js) at the same scope "/" makes one
+ * of them redundant, and pushManager.subscribe() on a redundant registration
+ * fails with "AbortError: Registration failed - push service error" (code 20).
  */
+
+// Firebase Messaging (compat) — must run before anything else uses messaging.
+importScripts('https://www.gstatic.com/firebasejs/12.17.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/12.17.1/firebase-messaging-compat.js');
+
+firebase.initializeApp({
+  apiKey: "AIzaSyDJcEB8PnUA_7RyZEI9E-oGv5qRfRoX--U",
+  authDomain: "nexus-13780.firebaseapp.com",
+  projectId: "nexus-13780",
+  storageBucket: "nexus-13780.firebasestorage.app",
+  messagingSenderId: "22980815550",
+  appId: "1:22980815550:web:de1854bf9b39e4bfa98cef",
+  measurementId: "G-3LFFMR42JS"
+});
+
+const messaging = firebase.messaging();
+
+messaging.onBackgroundMessage((payload) => {
+  console.log('[FCM] Background message received:', payload);
+
+  const notificationTitle = payload.notification?.title || 'Nueva notificación';
+  const notificationOptions = {
+    body: payload.notification?.body || '',
+    icon: '/icons/icon-owl.svg',
+    badge: '/icons/badge-owl.svg',
+    image: payload.notification?.image,
+    data: {
+      url: payload.data?.url || '/notifications',
+      ...payload.data
+    },
+    actions: [
+      { action: 'open', title: 'Abrir' },
+      { action: 'dismiss', title: 'Descartar' }
+    ],
+    requireInteraction: true,
+    tag: payload.collapseKey || 'nexus-fcm-notification'
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});
 
 // Bumped to v4 (cache v7): API GETs move from networkFirst to
 // stale-while-revalidate so views paint instantly from the local cache while
@@ -263,6 +308,12 @@ self.addEventListener('push', (event) => {
 
   try {
     const data = event.data.json();
+    // FCM-formatted messages carry a "from" field; they are rendered by the
+    // firebase messaging onBackgroundMessage handler above. Skipping them
+    // here avoids showing two notifications for the same message.
+    if (data.from || data.notification) {
+      return;
+    }
     const options = {
       body: data.body || 'Nueva notificación',
       icon: data.icon || '/icons/icon-owl.svg',

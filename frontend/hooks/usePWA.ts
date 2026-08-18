@@ -84,17 +84,9 @@ export function useServiceWorker() {
         }
       });
 
-    // Register FCM messaging Service Worker (for background FCM messages)
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("/firebase-messaging-sw.js", { scope: "/" })
-        .then((reg) => {
-          console.log("[FCM SW] Registered:", reg.scope);
-        })
-        .catch((error) => {
-          console.warn("[FCM SW] Registration failed:", error);
-        });
-    }
+    // FCM messaging runs inside /sw.js (single-SW strategy). Registering a
+    // separate /firebase-messaging-sw.js at the same scope "/" makes one of
+    // them redundant and pushManager.subscribe() fails with AbortError code 20.
 
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (!swReloadPending.current) return;
