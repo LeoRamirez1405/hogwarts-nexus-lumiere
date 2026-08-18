@@ -79,6 +79,11 @@ function checkCsp(csp, label) {
     csp.includes("fcm.googleapis.com"),
     "connect-src missing fcm.googleapis.com"
   );
+  check(
+    `${label}: CSP allows fcmregistrations.googleapis.com`,
+    csp.includes("fcmregistrations.googleapis.com"),
+    "connect-src missing fcmregistrations.googleapis.com (FCM v12 calls it for getToken)"
+  );
 }
 
 // BFS over chunk references so lazy chunks referenced only from other chunks
@@ -212,6 +217,22 @@ async function verifyLocal() {
       vapid.ok,
       `status ${vapid.status}`
     );
+
+    // Unauthenticated POST must be 401 (route exists, server healthy) — NOT
+    // 404 (router misaligned) and NOT 500 (crash on the endpoint).
+    const unauthed = await fetch(
+      `${base}/api/push/fcm-token`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: "verify-probe", platform: "web" }),
+      }
+    );
+    check(
+      "unauthenticated POST /api/push/fcm-token -> 401 (route OK)",
+      unauthed.status === 401,
+      `status ${unauthed.status}`
+    );
   } finally {
     killTree(server);
   }
@@ -256,6 +277,17 @@ async function verifyLive() {
     "production /api/push/vapid-public-key returns 200",
     vapid.ok,
     `status ${vapid.status}`
+  );
+
+  const unauthed = await fetch(`${PROD_URL}/api/push/fcm-token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: "verify-probe", platform: "web" }),
+  });
+  check(
+    "production unauthenticated POST /api/push/fcm-token -> 401 (route OK)",
+    unauthed.status === 401,
+    `status ${unauthed.status}`
   );
 }
 
