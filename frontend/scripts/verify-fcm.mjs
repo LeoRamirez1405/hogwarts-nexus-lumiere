@@ -42,7 +42,7 @@ function collectChunks(dir, acc = []) {
   return acc;
 }
 
-function scanChunkTexts(entries, label) {
+function scanChunkTexts(entries, label, { skipFcmToken = false } = {}) {
   const texts = entries.map((e) => (typeof e.text === "string" ? e.text : readFileSync(e.path, "utf8")));
   const oldDirect = texts.filter((t) => t.includes(`${BACKEND}/api/push`)).length;
   const hasVapidSameOrigin = texts.some((t) =>
@@ -59,11 +59,13 @@ function scanChunkTexts(entries, label) {
     hasVapidSameOrigin,
     "no chunk contains /api/push/vapid-public-key"
   );
-  check(
-    `${label}: same-origin fcm-token registration present`,
-    hasFcmTokenSameOrigin,
-    "no chunk contains /push/fcm-token"
-  );
+  if (!skipFcmToken) {
+    check(
+      `${label}: same-origin fcm-token registration present`,
+      hasFcmTokenSameOrigin,
+      "no chunk contains /push/fcm-token"
+    );
+  }
 }
 
 function checkCsp(csp, label) {
@@ -77,6 +79,37 @@ function checkCsp(csp, label) {
     csp.includes("fcm.googleapis.com"),
     "connect-src missing fcm.googleapis.com"
   );
+}
+
+// BFS over chunk references so lazy chunks referenced only from other chunks
+// are also scanned (Turbopack emits `static/chunks/<name>.js` URLs inside the
+// loader chunks).
+async function fetchChunkGraph(pageUrl, html) {
+  const seen = new Set();
+  const texts = [];
+  const queue = [
+    ...[...html.matchAll(/\/_next\/static\/chunks\/[^"\\\s]+\.js/g)].map((m) =>
+      m[0].replace(/\\$/, "")
+    ),
+  ];
+  while (queue.length > 0) {
+    const src = queue.shift();
+    if (seen.has(src)) continue;
+    seen.add(src);
+    const res = await fetch(`${pageUrl}${src}`);
+    if (!res.ok) continue;
+    const text = await res.text();
+    texts.push({ name: src, text });
+    for (const m of text.matchAll(
+      /static\/chunks\/[a-z0-9_-]+\.js|"chunks?\/[a-z0-9_-]+\.js"/g
+    )) {
+      const ref = m[0].includes("static/")
+        ? `/_next/${m[0]}`
+        : `/_next/static/${m[0]}`;
+      if (!seen.has(ref)) queue.push(ref);
+    }
+  }
+  return texts;
 }
 
 async function fetchWithRetry(url, opts = {}, attempts = 12, delayMs = 10000) {
@@ -193,21 +226,25 @@ async function verifyLive() {
   checkCsp(home.headers.get("content-security-policy") || "", "production");
 
   const html = await home.text();
-  const scriptSrcs = [...html.matchAll(/src="(\/_next\/static\/chunks\/[^"]+\.js)"/g)]
-    .map((m) => m[1])
-    .concat(
-      [...html.matchAll(/href="(\/_next\/static\/chunks\/[^"]+\.js)"/g)].map(
-        (m) => m[1]
-      )
+  const chunkTexts = await fetchChunkGraph(PROD_URL, html);
+  check(
+    "production chunks fetched (BFS, incl. lazy)",
+    chunkTexts.length > 0,
+    "no chunks reachable from production HTML"
+  );
+  const hasFcmToken = chunkTexts.some((c) => c.text.includes("/push/fcm-token"));
+  if (hasFcmToken) {
+    check("production: same-origin fcm-token registration present", true);
+  } else {
+    // The useFCM chunk is lazy-loaded only inside the authenticated (main)
+    // layout; the login page's graph can't reach it. The local build gate
+    // covers it; the browser console is the final proof.
+    console.log(
+      "  SKIP  production: same-origin fcm-token chunk (lazy, behind auth) — " +
+        "covered by the local build gate; verify in the logged-in browser"
     );
-  check("production HTML references chunks", scriptSrcs.length > 0);
-  const chunkTexts = [];
-  for (const src of scriptSrcs) {
-    const res = await fetch(`${PROD_URL}${src}`);
-    if (res.ok) chunkTexts.push({ name: src, text: await res.text() });
   }
-  check("production chunks fetched", chunkTexts.length > 0);
-  scanChunkTexts(chunkTexts, "production");
+  scanChunkTexts(chunkTexts, "production", { skipFcmToken: true });
 
   const vapid = await fetchWithRetry(
     `${PROD_URL}/api/push/vapid-public-key`,
