@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useRef } from "react";
 import { useAuthStore } from "@/lib/authStore";
-import { toastInfo } from "@/lib/toastStore";
+import { toastInfo, toastError } from "@/lib/toastStore";
 
 declare global {
   interface Window {
@@ -261,6 +261,18 @@ const registerFCMToken = useCallback(async (token: string) => {
         code: err.code,
       }, null, 2));
       console.error("[FCM] Error getting web push token:", error);
+      // Brave blocks Google's push service by default: pushManager.subscribe()
+      // fails with AbortError code 20 until the user opts in.
+      const isBrave =
+        typeof window !== "undefined" && (window as { brave?: unknown }).brave !== undefined;
+      if (isBrave && err.name === "AbortError") {
+        toastError(
+          "Brave bloquea el push",
+          new Error(
+            "Abre brave://settings/privacy y activa 'Use Google services for push messaging'. Luego reinicia Brave."
+          )
+        );
+      }
     }
   }, [registerFCMToken, fetchVapidKey]);
 
