@@ -77,65 +77,66 @@ async def get_dashboard(
             ],
         }
 
-    user_result = await db.execute(
-        select(Transaction)
-        .where(
-            (Transaction.sender_id == current_user.id)
-            | (Transaction.receiver_id == current_user.id)
+    else:
+        user_result = await db.execute(
+            select(Transaction)
+            .where(
+                (Transaction.sender_id == current_user.id)
+                | (Transaction.receiver_id == current_user.id)
+            )
+            .order_by(Transaction.created_at.desc())
         )
-        .order_by(Transaction.created_at.desc())
-    )
-    recent_transactions = user_result.scalars().all()
+        recent_transactions = user_result.scalars().all()
 
-    from ..models.user_creature import UserCreature
-    creatures_result = await db.execute(
-        select(func.count(UserCreature.id)).where(UserCreature.user_id == current_user.id)
-    )
-    my_creatures_count = creatures_result.scalar() or 0
-
-    from ..models.post import Post, PostLike
-    posts_result = await db.execute(
-        select(func.count(Post.id)).where(Post.author_id == current_user.id)
-    )
-    my_posts_count = posts_result.scalar() or 0
-
-    likes_result = await db.execute(
-        select(func.count(PostLike.user_id))
-        .join(Post, Post.id == PostLike.post_id)
-        .where(Post.author_id == current_user.id)
-    )
-    total_likes_received = likes_result.scalar() or 0
-
-    from ..models.message import Message
-    unread_result = await db.execute(
-        select(func.count(Message.id)).where(
-            Message.receiver_id == current_user.id,
-            Message.read.is_(False),
+        from ..models.user_creature import UserCreature
+        creatures_result = await db.execute(
+            select(func.count(UserCreature.id)).where(UserCreature.user_id == current_user.id)
         )
-    )
-    unread_messages = unread_result.scalar() or 0
+        my_creatures_count = creatures_result.scalar() or 0
 
-    payload = {
-        "role": "user",
-        "zerines": current_user.zerines,
-        "my_creatures": my_creatures_count,
-        "my_posts": my_posts_count,
-        "total_likes_received": total_likes_received,
-        "unread_messages": unread_messages,
-        "recent_transactions": [
-            {
-                "id": t.id,
-                "sender_id": t.sender_id,
-                "receiver_id": t.receiver_id,
-                "amount": t.amount,
-                "type": t.type,
-                "description": t.description,
-                "status": t.status,
-                "created_at": t.created_at.isoformat(),
-            }
-            for t in recent_transactions[:10]
-        ],
-    }
+        from ..models.post import Post, PostLike
+        posts_result = await db.execute(
+            select(func.count(Post.id)).where(Post.author_id == current_user.id)
+        )
+        my_posts_count = posts_result.scalar() or 0
+
+        likes_result = await db.execute(
+            select(func.count(PostLike.user_id))
+            .join(Post, Post.id == PostLike.post_id)
+            .where(Post.author_id == current_user.id)
+        )
+        total_likes_received = likes_result.scalar() or 0
+
+        from ..models.message import Message
+        unread_result = await db.execute(
+            select(func.count(Message.id)).where(
+                Message.receiver_id == current_user.id,
+                Message.read.is_(False),
+            )
+        )
+        unread_messages = unread_result.scalar() or 0
+
+        payload = {
+            "role": "user",
+            "zerines": current_user.zerines,
+            "my_creatures": my_creatures_count,
+            "my_posts": my_posts_count,
+            "total_likes_received": total_likes_received,
+            "unread_messages": unread_messages,
+            "recent_transactions": [
+                {
+                    "id": t.id,
+                    "sender_id": t.sender_id,
+                    "receiver_id": t.receiver_id,
+                    "amount": t.amount,
+                    "type": t.type,
+                    "description": t.description,
+                    "status": t.status,
+                    "created_at": t.created_at.isoformat(),
+                }
+                for t in recent_transactions[:10]
+            ],
+        }
 
     cache_set(cache_key, payload, _DASHBOARD_TTL)
     response.headers["Cache-Control"] = f"private, max-age={_DASHBOARD_TTL}"
