@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import rehypeSanitize from "rehype-sanitize";
 import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
@@ -27,6 +28,7 @@ interface MentionTextProps {
   text: string;
   members?: MentionMember[];
   isOwn?: boolean;
+  className?: string;
 }
 
 function specialMentionHtml(command: string, isOwn: boolean): string {
@@ -98,7 +100,7 @@ const SANITIZE_SCHEMA = {
 
 type MarkdownProps<P> = P & { node?: unknown };
 
-export const MentionText = ({ text, members, isOwn }: MentionTextProps) => {
+export const MentionText = ({ text, members, isOwn, className }: MentionTextProps) => {
   const processedText = useMemo(() => injectMentions(text, members, isOwn), [text, members, isOwn]);
 
   const components = useMemo(() => ({
@@ -194,22 +196,24 @@ export const MentionText = ({ text, members, isOwn }: MentionTextProps) => {
   }), [isOwn]);
 
   return (
-    <ReactMarkdown
-      components={components}
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[
-        rehypeRaw,
-        [rehypeSanitize, SANITIZE_SCHEMA],
-        rehypeHighlight,
-      ]}
-      allowedElements={[
-        "p", "br", "strong", "em", "del", "code", "pre", "blockquote",
-        "h1", "h2", "h3", "h4", "h5", "h6",
-        "ul", "ol", "li", "table", "thead", "tbody", "tr", "th", "td",
-        "a", "hr", "span", "div"
-      ]}
-    >
-      {processedText}
-    </ReactMarkdown>
+    <div className={className}>
+      <ReactMarkdown
+        components={components}
+        remarkPlugins={[remarkGfm, remarkBreaks]}
+        rehypePlugins={[
+          rehypeRaw,
+          [rehypeSanitize, SANITIZE_SCHEMA],
+          rehypeHighlight,
+        ]}
+        allowedElements={[
+          "p", "br", "strong", "em", "del", "code", "pre", "blockquote",
+          "h1", "h2", "h3", "h4", "h5", "h6",
+          "ul", "ol", "li", "table", "thead", "tbody", "tr", "th", "td",
+          "a", "hr", "span", "div"
+        ]}
+      >
+        {processedText}
+      </ReactMarkdown>
+    </div>
   );
 };

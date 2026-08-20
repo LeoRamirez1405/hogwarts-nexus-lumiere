@@ -2,10 +2,11 @@
 
 import { memo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Post, User } from "@/lib/api";
 import { mediaSrc } from "@/lib/media";
-import { GlassCard, Avatar, MaterialIcon, Lightbox } from "@/components/ui";
+import { GlassCard, Avatar, MaterialIcon, Lightbox, MentionText } from "@/components/ui";
 import { CommentSection } from "./CommentSection";
 import { EditPostModal } from "./EditPostModal";
 import { DeletePostModal } from "./DeletePostModal";
@@ -57,6 +58,7 @@ function PostCardComponent({
   onDelete,
   currentUser,
 }: PostCardProps) {
+  const router = useRouter();
   const [showComments, setShowComments] = useState(false);
   const [commentCount, setCommentCount] = useState(post.comments_count ?? 0);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -125,9 +127,16 @@ function PostCardComponent({
             </div>
           )}
         </div>
-        <p className="text-body-md text-on-surface mb-4 whitespace-pre-wrap">
-          {post.body}
-        </p>
+        <div
+          onClick={() => router.push(`/posts/${post.id}`)}
+          className="cursor-pointer"
+        >
+          <MentionText
+            text={post.body}
+            members={post.author ? [{ user_id: post.author.id, user: { name: post.author.name } }] : []}
+            className="text-body-md text-on-surface mb-4"
+          />
+        </div>
         {post.video_url ? (
           <div className="mb-4">
             <PostVideo

@@ -75,6 +75,7 @@ export interface MentionTextProps {
   text: string;
   isOwn: boolean;
   members?: ChatRoomMemberResponse[];
+  className?: string;
 }
 
 export interface MessageActionsProps {
