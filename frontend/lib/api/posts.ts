@@ -31,6 +31,10 @@ export interface PostComment {
   user_id: string;
   author?: User;
   body: string;
+  image_url?: string;
+  video_url?: string;
+  video_poster_url?: string;
+  video_duration?: number;
   parent_id?: string | null;
   replies?: PostComment[];
   created_at: string;

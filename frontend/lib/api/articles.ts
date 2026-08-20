@@ -11,6 +11,9 @@ export interface Article {
   author?: User;
   category: string;
   image_url?: string;
+  video_url?: string;
+  video_poster_url?: string;
+  video_duration?: number;
   featured: boolean;
   pinned?: boolean;
   created_at: string;
@@ -29,6 +32,10 @@ export interface ArticleComment {
   article_id: string;
   user_id: string;
   body: string;
+  image_url?: string;
+  video_url?: string;
+  video_poster_url?: string;
+  video_duration?: number;
   parent_id?: string | null;
   replies?: ArticleComment[];
   created_at: string;

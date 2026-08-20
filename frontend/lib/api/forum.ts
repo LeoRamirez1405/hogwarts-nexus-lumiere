@@ -22,6 +22,10 @@ export interface ForumComment {
   thread_id: string;
   user_id: string;
   body: string;
+  image_url?: string;
+  video_url?: string;
+  video_poster_url?: string;
+  video_duration?: number;
   parent_id?: string | null;
   replies?: ForumComment[];
   created_at: string;
