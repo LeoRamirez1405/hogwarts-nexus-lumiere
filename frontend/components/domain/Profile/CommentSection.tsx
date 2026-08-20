@@ -3,7 +3,7 @@
 import { memo, useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { api, PostComment, User } from "@/lib/api";
-import { MaterialIcon, MentionInput } from "@/components/ui";
+import { MentionInput } from "@/components/ui";
 import { toastError } from "@/lib/toastStore";
 import {
   CommentThread,

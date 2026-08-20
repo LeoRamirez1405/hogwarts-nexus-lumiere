@@ -6,6 +6,7 @@ import { useVideoUpload } from "@/hooks/useVideoUpload";
 import { MaterialIcon, MentionInput } from "@/components/ui";
 import Image from "next/image";
 import { hapticLight } from "@/lib/haptics";
+import { mediaSrc } from "@/lib/media";
 import { VideoTrimModal } from "@/components/domain/Profile/VideoTrimModal";
 import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";
 import BottomSheet from "@/components/ui/BottomSheet";
@@ -228,7 +229,7 @@ export function CommentComposer({
             <>
               <MaterialIcon name="image" className="text-lg text-primary" />
               <Image
-                src={imageUrl}
+                src={mediaSrc(imageUrl)}
                 alt="Preview"
                 width={64}
                 height={64}
@@ -241,8 +242,8 @@ export function CommentComposer({
             <>
               <MaterialIcon name="videocam" className="text-lg text-primary" />
               <video
-                src={video.videoUrl}
-                poster={video.posterUrl}
+                src={mediaSrc(video.videoUrl)}
+                poster={mediaSrc(video.posterUrl)}
                 className="w-16 h-16 object-cover rounded-md"
                 muted
                 preload="metadata"
