@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { api, Article, ArticleComment } from "@/lib/api";
-import { GlassCard, Badge, Button, Avatar, MaterialIcon, ReactionBar, MentionInput, MentionText } from "@/components/ui";
+import { GlassCard, Badge, Button, Avatar, MaterialIcon, ReactionBar, MentionText } from "@/components/ui";
 import {
   CommentThread,
   countComments,
@@ -13,6 +13,7 @@ import {
   findCommentNode,
   type ThreadComment,
 } from "@/components/domain/comments/CommentThread";
+import { CommentComposer } from "@/components/domain/comments/CommentComposer";
 import { useAuthStore } from "@/lib/authStore";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import { isStoredUpload } from "@/lib/media";
@@ -42,16 +43,15 @@ export default function ArticleDetailPage() {
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState<ArticleComment[]>([]);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const [newComment, setNewComment] = useState("");
-  const [posting, setPosting] = useState(false);
-  const [subscribed, setSubscribed] = useState(false);
-  const [subscribing, setSubscribing] = useState(false);
-  const [mentionedUsers, setMentionedUsers] = useState<MentionMember[]>([]);
   const [replyTarget, setReplyTarget] = useState<{
     parentId: string;
     authorName: string;
     preview: string;
   } | null>(null);
+  const [posting, setPosting] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
+  const [mentionedUsers, setMentionedUsers] = useState<MentionMember[]>([]);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -123,24 +123,29 @@ export default function ArticleDetailPage() {
     }
   };
 
-  const handleSubmitComment = async () => {
-    const text = newComment.trim();
-    if (!text || !authUser || !article || posting) return;
+  const handleSubmitComment = async (input: {
+    body?: string;
+    image_url?: string;
+    video_url?: string;
+    video_poster_url?: string;
+    video_duration?: number;
+  }) => {
+    const { body, image_url, video_url, video_poster_url, video_duration } = input;
+    if ((!body || !body.trim()) && !image_url && !video_url) return;
+    if (!authUser || !article || posting) return;
     hapticLight();
     setPosting(true);
     try {
       const parentExists = !!replyTarget && !!findCommentNode(comments, replyTarget.parentId);
       const created = parentExists
-        ? await api.createArticleComment(article.id, text, replyTarget!.parentId)
-        : await api.createArticleComment(article.id, text);
+        ? await api.createArticleComment(article.id, body ?? "", replyTarget!.parentId, image_url, video_url, video_poster_url, video_duration)
+        : await api.createArticleComment(article.id, body ?? "", undefined, image_url, video_url, video_poster_url, video_duration);
       setComments((prev) =>
         parentExists ? appendReply(prev, replyTarget!.parentId, created) : [created, ...prev],
       );
       setHighlightedId(created.id);
-      setNewComment("");
 
-      // Resolve newly mentioned users so the link becomes clickable
-      const newUsers = await fetchMentionedUsers(extractMentions(text));
+      const newUsers = await fetchMentionedUsers(extractMentions(body ?? ""));
       if (newUsers.length > 0) {
         setMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
       }
@@ -357,49 +362,14 @@ export default function ArticleDetailPage() {
       {authUser ? (
         <div className="sticky bottom-0 shrink-0 z-30 bg-surface/95 backdrop-blur-md -mx-4 md:-mx-10 -mb-6 md:-mb-8 px-4 md:px-10 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
           <div className="max-w-3xl mx-auto">
-            {replyTarget && (
-              <div className="mb-2 flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
-                <MaterialIcon name="reply" className="text-primary text-lg shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-label-sm font-medium text-primary">
-                    Respondiendo a {replyTarget.authorName}
-                  </p>
-                  <p className="text-label-sm text-on-surface-variant truncate">
-                    {replyTarget.preview}
-                  </p>
-                </div>
-                <button
-                  onClick={cancelReply}
-                  className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant"
-                  aria-label="Cancelar respuesta"
-                >
-                  <MaterialIcon name="close" className="text-lg" />
-                </button>
-              </div>
-            )}
-            <div className="flex items-center gap-2 bg-surface-container-low rounded-full px-3 md:px-4 py-2">
-              <div className="relative flex-1">
-<MentionInput
-                  ref={composerInputRef}
-                  value={newComment}
-                  onChange={setNewComment}
-                  placeholder={replyTarget ? "Escribe tu respuesta..." : "Escribe una carta..."}
-                  minHeight={40}
-                  maxHeight={120}
-                  disabled={posting}
-                  onSubmit={handleSubmitComment}
-                  rows={1}
-                />
-              </div>
-              <button
-                onClick={handleSubmitComment}
-                disabled={!newComment.trim() || posting}
-                className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full transition-all hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none"
-                aria-label="Enviar carta"
-              >
-                <MaterialIcon name="send" className="text-lg" />
-              </button>
-            </div>
+            <CommentComposer
+              placeholder={replyTarget ? "Escribe tu respuesta..." : "Escribe una carta..."}
+              replyTarget={replyTarget}
+              onCancelReply={cancelReply}
+              onSubmit={handleSubmitComment}
+              posting={posting}
+              composerInputRef={composerInputRef}
+            />
           </div>
         </div>
       ) : (

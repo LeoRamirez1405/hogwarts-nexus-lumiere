@@ -2,17 +2,24 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Avatar, MaterialIcon, ReactionBar, MentionText, MentionInput } from "@/components/ui";
 import type { User, ReactionTargetType } from "@/lib/api";
 import { toastError } from "@/lib/toastStore";
 import { hapticLight } from "@/lib/haptics";
 import { buildMembers, mergeUniqueMembers, type MentionMember } from "@/lib/mentions-utils";
+import { PostVideo } from "@/components/domain/Profile/PostVideo";
+import { mediaSrc } from "@/lib/media";
 
 export interface ThreadComment {
   id: string;
   user_id: string;
   author?: User;
   body: string;
+  image_url?: string;
+  video_url?: string;
+  video_poster_url?: string;
+  video_duration?: number;
   created_at: string;
   replies?: ThreadComment[];
 }
@@ -155,6 +162,26 @@ function CommentNode({
             <div className="text-body-md text-on-surface break-words">
               <MentionText text={comment.body} members={members} />
             </div>
+            {comment.image_url && (
+              <div className="mt-2 rounded-xl overflow-hidden">
+                <Image
+                  src={mediaSrc(comment.image_url)}
+                  alt=""
+                  width={400}
+                  height={250}
+                  className="w-full h-40 object-cover rounded-xl"
+                  unoptimized
+                />
+              </div>
+            )}
+            {comment.video_url && (
+              <PostVideo
+                src={comment.video_url}
+                poster={comment.video_poster_url}
+                duration={comment.video_duration}
+                className="mt-2"
+              />
+            )}
           </div>
           {currentUser && (
             <button

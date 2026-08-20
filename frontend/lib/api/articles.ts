@@ -134,10 +134,25 @@ export const articlesApi = {
   getArticleComments: (articleId: string) =>
     request<ArticleComment[]>(`/articles/${articleId}/comments`),
 
-  createArticleComment: (articleId: string, body: string, parentId?: string) =>
+  createArticleComment: (
+    articleId: string,
+    body: string,
+    parentId?: string,
+    image_url?: string,
+    video_url?: string,
+    video_poster_url?: string,
+    video_duration?: number
+  ) =>
     request<ArticleComment>(`/articles/${articleId}/comments`, {
       method: "POST",
-      body: JSON.stringify({ body, parent_id: parentId ?? null }),
+      body: JSON.stringify({
+        body,
+        parent_id: parentId ?? null,
+        image_url,
+        video_url,
+        video_poster_url,
+        video_duration,
+      }),
     }).then((res) => {
       refreshUserLevelThrottled(0);
       return res;
