@@ -175,9 +175,6 @@ function CommentNode({
                   className="w-full h-40 object-cover rounded-xl transition-transform hover:scale-[1.02]"
                   unoptimized
                 />
-                <div className="absolute bottom-2 right-2 p-1.5 bg-black/60 text-white rounded-full">
-                  <MaterialIcon name="zoom_in" className="text-sm" />
-                </div>
               </div>
             )}
             {comment.video_url && (
