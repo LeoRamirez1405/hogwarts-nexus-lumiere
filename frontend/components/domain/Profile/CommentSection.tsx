@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { api, PostComment, User } from "@/lib/api";
 import { MaterialIcon, MentionInput } from "@/components/ui";
@@ -12,6 +12,9 @@ import {
   findCommentNode,
   type ThreadComment,
 } from "@/components/domain/comments/CommentThread";
+import { CommentComposer } from "@/components/domain/comments/CommentComposer";
+import { useImageUpload } from "@/hooks/useFileUpload";
+import { useVideoUpload } from "@/hooks/useVideoUpload";
 import { useHapticLight, useHapticSelection } from "@/hooks/useHapticFeedback";
 import {
   extractMentions,
@@ -22,12 +25,6 @@ import {
 } from "@/lib/mentions-utils";
 import { timeAgo } from "@/lib/timeAgo";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
-
-const EMOJIS = [
-  "😀","😂","😍","🥳","😎","🤩","💀","👻","🔥","✨",
-  "❤️","💎","⚡","🌟","🎉","🎊","🦋","🐱","🦉","🏰",
-  "🪄","📜","🧪","⚗️","🔮","🗝️","🧣","📚","🍲","🧙",
-];
 
 interface CommentSectionProps {
   postId: string;
@@ -49,18 +46,39 @@ export const CommentSection = memo(function CommentSection({
   const [comments, setComments] = useState<PostComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [commentText, setCommentText] = useState("");
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [replyTarget, setReplyTarget] = useState<{
     parentId: string;
     authorName: string;
     preview: string;
   } | null>(null);
   const [localMentionedUsers, setLocalMentionedUsers] = useState<MentionMember[]>([]);
+  const [imageUrl, setImageUrl] = useState("");
+  const [posting, setPosting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const hapticLight = useHapticLight();
   const hapticSelection = useHapticSelection();
   const { isKeyboardOpen, keyboardHeight } = useVisualViewport();
+
+  const { handleFileSelect: handlePostImageUpload, uploading: uploadingPostImage } = useImageUpload({
+    onSuccess: (result) => {
+      setImageUrl(result.url);
+      video.clear();
+    },
+  });
+
+  const video = useVideoUpload({
+    onReady: () => {
+      setImageUrl("");
+    },
+  });
+
+  useEffect(() => {
+    if (video.error) {
+      console.error(video.error);
+    }
+  }, [video.error]);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,34 +105,39 @@ export const CommentSection = memo(function CommentSection({
     };
   }, [postId, onLoadedCount]);
 
-  const handleComment = async () => {
-    const text = commentText.trim();
-    if (!text || sending) return;
+  const handleComment = useCallback(async (input: {
+    body?: string;
+    image_url?: string;
+    video_url?: string;
+    video_poster_url?: string;
+    video_duration?: number;
+  }) => {
+    const { body, image_url, video_url, video_poster_url, video_duration } = input;
+    if ((!body || !body.trim()) && !image_url && !video_url) return;
+    if (!currentUser || sending) return;
+    hapticLight();
     setSending(true);
     try {
       const parentExists = !!replyTarget && !!findCommentNode(comments, replyTarget.parentId);
       const created = parentExists
-        ? await api.addComment(postId, text, replyTarget!.parentId)
-        : await api.addComment(postId, text);
-      const newComments = parentExists
-        ? appendReply(comments, replyTarget!.parentId, created)
-        : [...comments, created];
-      setComments(newComments);
-      onLoadedCount?.(countComments(newComments));
-      setCommentText("");
-      void (async () => {
-        const newUsers = await fetchMentionedUsers(extractMentions(text));
-        if (newUsers.length > 0) {
-          setLocalMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
-        }
-      })();
+        ? await api.addComment(postId, body ?? "", replyTarget!.parentId, image_url, video_url, video_poster_url, video_duration)
+        : await api.addComment(postId, body ?? "", undefined, image_url, video_url, video_poster_url, video_duration);
+      setComments((prev) =>
+        parentExists ? appendReply(prev, replyTarget!.parentId, created) : [created, ...prev],
+      );
+      onLoadedCount?.(countComments((replyTarget ? appendReply(comments, replyTarget.parentId, created) : [created, ...comments]) as PostComment[]));
+
+      const newUsers = await fetchMentionedUsers(extractMentions(body ?? ""));
+      if (newUsers.length > 0) {
+        setLocalMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
+      }
     } catch (e) {
       toastError("No se pudo enviar el comentario", e);
     } finally {
       setReplyTarget(null);
       setSending(false);
     }
-  };
+  }, [comments, currentUser, replyTarget, sending]);
 
   const requestReply = (comment: ThreadComment) => {
     hapticSelection();
@@ -127,11 +150,6 @@ export const CommentSection = memo(function CommentSection({
   };
 
   const cancelReply = () => setReplyTarget(null);
-
-  const insertEmoji = (emoji: string) => {
-    setCommentText((prev) => prev + emoji);
-    setShowEmojiPicker(false);
-  };
 
   return (
     <div className="mt-4 pt-4 border-t border-outline-variant/20 space-y-3">
@@ -168,70 +186,14 @@ export const CommentSection = memo(function CommentSection({
             style={{ bottom: isKeyboardOpen ? `${keyboardHeight}px` : "var(--bottomnav-h)" }}
           >
             <div className="max-w-3xl mx-auto">
-              {replyTarget && (
-                <div className="mb-2 flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
-                  <MaterialIcon name="reply" className="text-primary text-lg shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-label-sm font-medium text-primary">
-                      Respondiendo a {replyTarget.authorName}
-                    </p>
-                    <p className="text-label-sm text-on-surface-variant truncate">
-                      {replyTarget.preview}
-                    </p>
-                  </div>
-                  <button
-                    onClick={cancelReply}
-                    className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant"
-                    aria-label="Cancelar respuesta"
-                  >
-                    <MaterialIcon name="close" className="text-lg" />
-                  </button>
-                </div>
-              )}
-              <div className="flex items-center gap-2 bg-surface-container-low rounded-full px-3 md:px-4 py-2">
-                <button
-                  onClick={() => { hapticLight(); setShowEmojiPicker(!showEmojiPicker); }}
-                  className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary transition-colors"
-                  aria-label="Insertar emoji"
-                >
-                  <MaterialIcon name="mood" className="text-xl" />
-                </button>
-                <div className="relative flex-1">
-                  <MentionInput
-                    ref={composerInputRef}
-                    value={commentText}
-                    onChange={setCommentText}
-                    placeholder={replyTarget ? "Escribe tu respuesta..." : "Escribe un comentario..."}
-                    minHeight={40}
-                    maxHeight={120}
-                    disabled={sending}
-                    onSubmit={handleComment}
-                    rows={1}
-                    textareaClassName="block w-full bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50 resize-none min-h-[2.5rem] max-h-[8rem] leading-6 py-2"
-                  />
-                  {showEmojiPicker && (
-                    <div className="absolute bottom-full left-0 mb-2 bg-surface-container-highest rounded-xl shadow-xl p-3 grid grid-cols-5 gap-1 z-20 w-64">
-                      {EMOJIS.map((e) => (
-                        <button
-                          key={e}
-                          onClick={() => { hapticSelection(); insertEmoji(e); }}
-                          className="p-1.5 rounded-lg hover:bg-surface-container-high text-lg transition-colors"
-                        >
-                          {e}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => { hapticLight(); handleComment(); }}
-                  disabled={!commentText.trim() || sending}
-                  className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full transition-all hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none"
-                  aria-label="Enviar comentario"
-                >
-                  <MaterialIcon name="send" className="text-lg" />
-                </button>
-              </div>
+              <CommentComposer
+                placeholder={replyTarget ? "Escribe tu respuesta..." : "Escribe un comentario..."}
+                replyTarget={replyTarget}
+                onCancelReply={cancelReply}
+                onSubmit={handleComment}
+                posting={sending}
+                composerInputRef={composerInputRef}
+              />
             </div>
           </div>
         ) : (

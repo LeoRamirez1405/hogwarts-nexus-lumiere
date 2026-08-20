@@ -7,6 +7,8 @@ import { MaterialIcon, MentionInput } from "@/components/ui";
 import Image from "next/image";
 import { hapticLight } from "@/lib/haptics";
 import { VideoTrimModal } from "@/components/domain/Profile/VideoTrimModal";
+import { useIsDesktopMdUp } from "@/hooks/useMediaQuery";
+import BottomSheet from "@/components/ui/BottomSheet";
 
 interface ReplyTarget {
   parentId: string;
@@ -40,6 +42,8 @@ export function CommentComposer({
   const [commentText, setCommentText] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showAttachmentSheet, setShowAttachmentSheet] = useState(false);
+  const isDesktop = useIsDesktopMdUp(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
@@ -132,44 +136,69 @@ export function CommentComposer({
         }}
       />
       <div className="flex items-center gap-2 bg-surface-container-low rounded-full px-3 md:px-4 py-2">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => {
-              hapticLight();
-              fileInputRef.current?.click();
-            }}
-            className={`w-9 h-9 inline-flex items-center justify-center rounded-full transition-colors ${
-              imageUrl
-                ? "bg-primary/10 text-primary"
-                : "hover:bg-surface-container-high text-on-surface-variant"
-            }`}
-            title="Adjuntar imagen"
-            disabled={uploadingPostImage || video.uploading}
-          >
-            <MaterialIcon name="image" className="text-xl" />
-          </button>
-          <button
-            onClick={() => {
-              hapticLight();
-              videoInputRef.current?.click();
-            }}
-            className={`w-9 h-9 inline-flex items-center justify-center rounded-full transition-colors ${
-              video.videoUrl
-                ? "bg-primary/10 text-primary"
-                : "hover:bg-surface-container-high text-on-surface-variant"
-            }`}
-            title="Adjuntar video (máx 30s)"
-            disabled={uploadingPostImage || video.uploading}
-          >
-            <MaterialIcon name="videocam" className="text-xl" />
-          </button>
-          {mediaBusy && (
-            <MaterialIcon
-              name="progress_activity"
-              className="text-lg text-on-surface-variant animate-spin"
-            />
-          )}
-        </div>
+        {/* Desktop: two separate buttons */}
+        {isDesktop && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                hapticLight();
+                fileInputRef.current?.click();
+              }}
+              className={`w-9 h-9 inline-flex items-center justify-center rounded-full transition-colors ${
+                imageUrl
+                  ? "bg-primary/10 text-primary"
+                  : "hover:bg-surface-container-high text-on-surface-variant"
+              }`}
+              title="Adjuntar imagen"
+              disabled={uploadingPostImage || video.uploading}
+            >
+              <MaterialIcon name="image" className="text-xl" />
+            </button>
+            <button
+              onClick={() => {
+                hapticLight();
+                videoInputRef.current?.click();
+              }}
+              className={`w-9 h-9 inline-flex items-center justify-center rounded-full transition-colors ${
+                video.videoUrl
+                  ? "bg-primary/10 text-primary"
+                  : "hover:bg-surface-container-high text-on-surface-variant"
+              }`}
+              title="Adjuntar video (máx 30s)"
+              disabled={uploadingPostImage || video.uploading}
+            >
+              <MaterialIcon name="videocam" className="text-xl" />
+            </button>
+            {mediaBusy && (
+              <MaterialIcon
+                name="progress_activity"
+                className="text-lg text-on-surface-variant animate-spin"
+              />
+            )}
+          </div>
+        )}
+        {/* Mobile: single "+" button that opens bottom sheet */}
+        {!isDesktop && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                hapticLight();
+                setShowAttachmentSheet(true);
+              }}
+              className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary transition-colors"
+              disabled={mediaBusy}
+              aria-label="Adjuntar"
+            >
+              <MaterialIcon name="add_circle" className="text-xl" />
+            </button>
+            {mediaBusy && (
+              <MaterialIcon
+                name="progress_activity"
+                className="text-lg text-on-surface-variant animate-spin"
+              />
+            )}
+          </div>
+        )}
         <div className="relative flex-1 ml-2">
           <MentionInput
             ref={composerInputRef}
@@ -249,6 +278,44 @@ export function CommentComposer({
           onConfirm={video.confirmTrim}
         />
       )}
+      {/* Mobile attachment picker bottom sheet */}
+      <BottomSheet
+        open={showAttachmentSheet}
+        onClose={() => setShowAttachmentSheet(false)}
+        title="Adjuntar"
+        showTitle
+      >
+        <div className="grid grid-cols-2 gap-4 justify-items-center">
+          <button
+            onClick={() => {
+              hapticLight();
+              setShowAttachmentSheet(false);
+              fileInputRef.current?.click();
+            }}
+            className="flex flex-col items-center gap-3 p-6 bg-surface-container rounded-xl border border-outline-variant/20 transition-colors hover:bg-surface-container-high"
+            disabled={uploadingPostImage}
+          >
+            <div className="w-16 h-16 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary">
+              <MaterialIcon name="image" className="text-3xl" />
+            </div>
+            <span className="text-body-md font-medium text-on-surface">Foto</span>
+          </button>
+          <button
+            onClick={() => {
+              hapticLight();
+              setShowAttachmentSheet(false);
+              videoInputRef.current?.click();
+            }}
+            className="flex flex-col items-center gap-3 p-6 bg-surface-container rounded-xl border border-outline-variant/20 transition-colors hover:bg-surface-container-high"
+            disabled={video.uploading}
+          >
+            <div className="w-16 h-16 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary">
+              <MaterialIcon name="videocam" className="text-3xl" />
+            </div>
+            <span className="text-body-md font-medium text-on-surface">Video</span>
+          </button>
+        </div>
+      </BottomSheet>
     </>
   );
 }
