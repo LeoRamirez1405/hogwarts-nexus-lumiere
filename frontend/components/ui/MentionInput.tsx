@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, forwardRef, useEffect, useLayoutEffect, useCallback, useState } from "react";
+import { useRef, forwardRef, useLayoutEffect, useCallback, useState } from "react";
 import type { TextareaHTMLAttributes, ForwardedRef } from "react";
 import MentionDropdown from "@/app/(main)/messages/components/MentionDropdown";
 import { useMentions } from "@/hooks/useMentions";
@@ -12,9 +12,11 @@ interface MentionInputProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElem
   isGroup?: boolean;
   friendsOnly?: boolean;
   className?: string;
+  textareaClassName?: string;
   maxHeight?: number;
   minHeight?: number;
   disabled?: boolean;
+  onSubmit?: () => void;
 }
 
 export const MentionInput = forwardRef<HTMLTextAreaElement, MentionInputProps>(
@@ -26,9 +28,11 @@ export const MentionInput = forwardRef<HTMLTextAreaElement, MentionInputProps>(
       isGroup = false,
       friendsOnly = false,
       className = "",
+      textareaClassName,
       maxHeight = 200,
       minHeight = 80,
       disabled = false,
+      onSubmit,
       ...props
     },
     ref: ForwardedRef<HTMLTextAreaElement>
@@ -77,16 +81,7 @@ export const MentionInput = forwardRef<HTMLTextAreaElement, MentionInputProps>(
 
     useLayoutEffect(() => {
       resize();
-    }, [resize]);
-
-    useEffect(() => {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-
-      const handleInput = () => resize();
-      textarea.addEventListener("input", handleInput);
-      return () => textarea.removeEventListener("input", handleInput);
-    }, [resize]);
+    }, [resize, value]);
 
     // Merge refs
     const setCombinedRef = (el: HTMLTextAreaElement | null) => {
@@ -97,19 +92,45 @@ export const MentionInput = forwardRef<HTMLTextAreaElement, MentionInputProps>(
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (!mentionOpen) return;
-      if (e.key === "Enter" || e.key === "Tab") {
-        e.preventDefault();
-        onMentionConfirm();
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault();
-        onMentionMove(1);
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        onMentionMove(-1);
-      } else if (e.key === "Escape") {
-        onDismissMentions();
+      if (mentionOpen) {
+        if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          onMentionConfirm();
+        } else if (e.key === "ArrowDown") {
+          e.preventDefault();
+          onMentionMove(1);
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          onMentionMove(-1);
+        } else if (e.key === "Escape") {
+          onDismissMentions();
+        }
+        return;
       }
+
+      if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+
+      if (e.shiftKey) {
+        // Shift+Enter = nueva línea. Se inserta manualmente en la posición del
+        // cursor para que el primer salto no se pierda por el redondeo del
+        // textarea controlado (el navegador inserta el \n antes de que React
+        // sincronice el value y el re-render lo descarta).
+        e.preventDefault();
+        const el = textareaRef.current;
+        if (!el) return;
+        const start = el.selectionStart ?? value.length;
+        const end = el.selectionEnd ?? value.length;
+        handleInputChange(`${value.slice(0, start)}\n${value.slice(end)}`);
+        requestAnimationFrame(() => {
+          const pos = start + 1;
+          el.setSelectionRange(pos, pos);
+        });
+        return;
+      }
+
+      // Enter envía (estilo chat).
+      e.preventDefault();
+      onSubmit?.();
     };
 
     const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
@@ -128,7 +149,7 @@ export const MentionInput = forwardRef<HTMLTextAreaElement, MentionInputProps>(
           onBlur={handleBlur}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none resize-none border border-outline-variant/20 focus:border-primary/40 transition-colors"
+          className={textareaClassName ?? "w-full bg-surface-container-low rounded-xl px-4 py-3 text-body-md text-on-surface placeholder:text-on-surface-variant/50 outline-none resize-none border border-outline-variant/20 focus:border-primary/40 transition-colors"}
           style={{ height }}
           inputMode="text"
           autoComplete="off"

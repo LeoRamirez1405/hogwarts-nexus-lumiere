@@ -68,12 +68,28 @@ export function useChatInput({
         return;
       }
 
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        onSend();
+      if (e.key === "Enter") {
+        // Shift+Enter = nueva línea. Inserto manual para que el primer salto
+        // no se pierda por el redondeo del textarea controlado.
+        if (e.shiftKey && !e.nativeEvent.isComposing) {
+          e.preventDefault();
+          const el = e.currentTarget;
+          const start = el.selectionStart ?? el.value.length;
+          const end = el.selectionEnd ?? el.value.length;
+          onInputChange(`${el.value.slice(0, start)}\n${el.value.slice(end)}`);
+          requestAnimationFrame(() => {
+            const pos = start + 1;
+            el.setSelectionRange(pos, pos);
+          });
+          return;
+        }
+        if (!e.nativeEvent.isComposing) {
+          e.preventDefault();
+          onSend();
+        }
       }
     },
-    [mentionOpen, onMentionMove, onMentionConfirm, onSend, onDismissMentions, onCancelEdit]
+    [mentionOpen, onMentionMove, onMentionConfirm, onSend, onDismissMentions, onCancelEdit, onInputChange]
   );
 
   const handleBlur = useCallback(() => {
