@@ -236,7 +236,7 @@ async def list_thread_comments(
         await db.execute(
             select(ForumComment)
             .where(ForumComment.thread_id == thread_id)
-            .order_by(ForumComment.created_at.asc())
+            .order_by(ForumComment.created_at.desc())
         )
     ).scalars().all()
     return nest_comments(comments, lambda c: _forum_comment_response(c))
