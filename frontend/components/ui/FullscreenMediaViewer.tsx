@@ -91,19 +91,21 @@ export function FullscreenMediaViewer({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      {/* Close button fixed to viewport top-right, always visible */}
+      <button
+        onClick={onClose}
+        className="fixed top-4 right-4 z-20 w-10 h-10 inline-flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+        aria-label="Cerrar"
+      >
+        <MaterialIcon name="close" className="text-xl" />
+      </button>
+
       <div
         ref={elementRef}
         className="relative w-full max-w-[90vw] max-h-[90vh] p-4"
         style={contentStyle}
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          onClick={onClose}
-          className="absolute -top-12 right-0 z-10 w-10 h-10 inline-flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-          aria-label="Cerrar"
-        >
-          <MaterialIcon name="close" className="text-xl" />
-        </button>
 
         {type === "image" ? (
           <div className="relative w-full h-[85vh] max-h-[85vh]">
