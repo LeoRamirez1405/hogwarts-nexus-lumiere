@@ -10,6 +10,7 @@ import { hapticLight } from "@/lib/haptics";
 import { buildMembers, mergeUniqueMembers, type MentionMember } from "@/lib/mentions-utils";
 import { PostVideo } from "@/components/domain/Profile/PostVideo";
 import { mediaSrc } from "@/lib/media";
+import { useFullscreenMedia } from "@/components/ui/FullscreenMediaViewer";
 
 export interface ThreadComment {
   id: string;
@@ -96,6 +97,8 @@ function CommentNode({
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
   const replies = comment.replies ?? [];
+
+  const { open: openFullscreen, FullscreenViewer } = useFullscreenMedia();
   const nodeRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -163,15 +166,18 @@ function CommentNode({
               <MentionText text={comment.body} members={members} />
             </div>
             {comment.image_url && (
-              <div className="mt-2 rounded-xl overflow-hidden">
+              <div className="mt-2 rounded-xl overflow-hidden cursor-pointer" onClick={() => openFullscreen({ src: comment.image_url!, type: "image", alt: "Imagen del comentario" })}>
                 <Image
                   src={mediaSrc(comment.image_url)}
                   alt=""
                   width={400}
                   height={250}
-                  className="w-full h-40 object-cover rounded-xl"
+                  className="w-full h-40 object-cover rounded-xl transition-transform hover:scale-[1.02]"
                   unoptimized
                 />
+                <div className="absolute bottom-2 right-2 p-1.5 bg-black/60 text-white rounded-full">
+                  <MaterialIcon name="zoom_in" className="text-sm" />
+                </div>
               </div>
             )}
             {comment.video_url && (
@@ -180,8 +186,10 @@ function CommentNode({
                 poster={comment.video_poster_url}
                 duration={comment.video_duration}
                 className="mt-2"
+                onOpenFullscreen={() => openFullscreen({ src: comment.video_url!, type: "video", poster: comment.video_poster_url, alt: "Video del comentario" })}
               />
             )}
+            <FullscreenViewer />
           </div>
           {currentUser && (
             <button
