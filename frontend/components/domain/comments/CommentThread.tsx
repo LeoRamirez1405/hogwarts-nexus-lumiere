@@ -10,7 +10,7 @@ import { hapticLight } from "@/lib/haptics";
 import { buildMembers, mergeUniqueMembers, type MentionMember } from "@/lib/mentions-utils";
 import { PostVideo } from "@/components/domain/Profile/PostVideo";
 import { mediaSrc } from "@/lib/media";
-import { useFullscreenMedia } from "@/components/ui/FullscreenMediaViewer";
+import { useFullscreenMedia } from "@/components/ui/FullscreenMediaProvider";
 
 export interface ThreadComment {
   id: string;
@@ -98,7 +98,7 @@ function CommentNode({
   const [sending, setSending] = useState(false);
   const replies = comment.replies ?? [];
 
-  const { open: openFullscreen, FullscreenViewer } = useFullscreenMedia();
+  const { open: openFullscreen } = useFullscreenMedia();
   const nodeRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -186,7 +186,6 @@ function CommentNode({
                 onOpenFullscreen={() => openFullscreen({ src: comment.video_url!, type: "video", poster: comment.video_poster_url, alt: "Video del comentario" })}
               />
             )}
-            <FullscreenViewer />
           </div>
           {currentUser && (
             <button

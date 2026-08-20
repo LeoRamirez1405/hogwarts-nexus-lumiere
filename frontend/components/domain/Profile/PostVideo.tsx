@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { MaterialIcon } from "@/components/ui";
 import { mediaSrc } from "@/lib/media";
-import { useFullscreenMedia } from "@/components/ui/FullscreenMediaViewer";
+import { useFullscreenMedia } from "@/components/ui/FullscreenMediaProvider";
 
 function formatDuration(seconds?: number): string {
   if (!seconds || !Number.isFinite(seconds) || seconds <= 0) return "";
@@ -62,18 +62,15 @@ export function PostVideo({ src, poster, duration, className, onOpenFullscreen }
 }
 
 export function PostVideoWithFullscreen({ src, poster, duration, className }: PostVideoProps) {
-  const { open, FullscreenViewer } = useFullscreenMedia();
+  const { open } = useFullscreenMedia();
 
   return (
-    <>
-      <PostVideo
-        src={src}
-        poster={poster}
-        duration={duration}
-        className={className}
-        onOpenFullscreen={() => open({ src, type: "video", poster, alt: "Video" })}
-      />
-      <FullscreenViewer />
-    </>
+    <PostVideo
+      src={src}
+      poster={poster}
+      duration={duration}
+      className={className}
+      onOpenFullscreen={() => open({ src, type: "video", poster, alt: "Video" })}
+    />
   );
 }

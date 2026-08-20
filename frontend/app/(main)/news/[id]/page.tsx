@@ -21,7 +21,7 @@ import { isStoredUpload } from "@/lib/media";
 import { hapticLight, hapticSelection } from "@/lib/haptics";
 import { timeAgo } from "@/lib/timeAgo";
 import { buildMembers, extractMentions, fetchMentionedUsers, mergeUniqueMembers, resolveCommentMentions, type MentionMember } from "@/lib/mentions-utils";
-import { useFullscreenMedia } from "@/components/ui/FullscreenMediaViewer";
+import { useFullscreenMedia } from "@/components/ui/FullscreenMediaProvider";
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("es-ES", {
@@ -55,7 +55,7 @@ export default function ArticleDetailPage() {
   const [subscribing, setSubscribing] = useState(false);
   const [mentionedUsers, setMentionedUsers] = useState<MentionMember[]>([]);
 
-  const { open: openFullscreen, FullscreenViewer } = useFullscreenMedia();
+  const { open: openFullscreen } = useFullscreenMedia();
 
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -270,7 +270,6 @@ export default function ArticleDetailPage() {
             />
           </div>
         ) : null}
-        <FullscreenViewer />
 
         <div className="prose prose-lg max-w-none">
           <MentionText text={article.body} members={article ? mergeUniqueMembers(buildMembers(article, comments), mentionedUsers) : mentionedUsers} />
