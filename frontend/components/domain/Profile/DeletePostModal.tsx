@@ -23,7 +23,7 @@ export const DeletePostModal = memo(function DeletePostModal({
     setDeleting(true);
     try {
       await api.deletePost(post.id);
-      onDeleted?.(post.id);
+      await onDeleted?.(post.id);
       onClose();
     } catch (e) {
       toastError("No se pudo eliminar la publicación", e);

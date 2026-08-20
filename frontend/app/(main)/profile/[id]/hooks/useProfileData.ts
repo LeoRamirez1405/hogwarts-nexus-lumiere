@@ -251,13 +251,13 @@ export function useProfileData(profileId: string) {
   }, [profileId]);
 
   const deletePost = useCallback(
-    async (postId: string) => {
+    async (_postId: string) => {
+      // El borrado real lo hace DeletePostModal; aquí solo se refresca el
+      // feed tras la eliminación.
       try {
-        await api.deletePost(postId);
         queryClient.invalidateQueries({ queryKey: ["profile-feed", profileId] });
       } catch (err) {
-        console.error("Error deleting post:", err);
-        throw err;
+        console.error("Error invalidando el feed tras borrar el post:", err);
       }
     },
     [profileId]
