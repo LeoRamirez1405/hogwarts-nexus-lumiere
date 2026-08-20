@@ -23,10 +23,10 @@ const cspHeader = `
   default-src 'self';
   script-src 'self' 'unsafe-inline' https://www.gstatic.com${isDev ? " 'unsafe-eval'" : ""};
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-  img-src 'self' blob: data: https://res.cloudinary.com https://img.freepik.com https://images.unsplash.com https://picsum.photos https://fastly.picsum.photos https://via.placeholder.com http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com;
+  img-src 'self' blob: data: https://res.cloudinary.com https://img.freepik.com https://images.unsplash.com https://picsum.photos https://fastly.picsum.photos https://via.placeholder.com http://localhost:8082 http://127.0.0.1:8082 http://10.0.0.47:8082 https://nexus-backend-kkq8.onrender.com;
   font-src 'self' https://fonts.gstatic.com;
-  media-src 'self' blob: data: https://res.cloudinary.com http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com;
-  connect-src 'self' https://www.gstatic.com https://firebaseinstallations.googleapis.com https://fcm.googleapis.com https://fcmregistrations.googleapis.com http://localhost:8000 http://127.0.0.1:8000 http://10.0.0.47:8000 https://nexus-backend-kkq8.onrender.com ${isDev ? "ws: wss:" : "wss://nexus-backend-kkq8.onrender.com"};
+  media-src 'self' blob: data: https://res.cloudinary.com http://localhost:8082 http://127.0.0.1:8082 http://10.0.0.47:8082 https://nexus-backend-kkq8.onrender.com;
+  connect-src 'self' https://www.gstatic.com https://firebaseinstallations.googleapis.com https://fcm.googleapis.com https://fcmregistrations.googleapis.com http://localhost:8082 http://127.0.0.1:8082 http://10.0.0.47:8082 https://nexus-backend-kkq8.onrender.com ${isDev ? "ws: wss:" : "wss://nexus-backend-kkq8.onrender.com"};
   object-src 'none';
   base-uri 'self';
   form-action 'self';
@@ -65,9 +65,9 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "fastly.picsum.photos" },
       { protocol: "https", hostname: "via.placeholder.com" },
       { protocol: "https", hostname: "res.cloudinary.com" },
-      { protocol: "http", hostname: "localhost", port: "8000", pathname: "/uploads/**" },
-      { protocol: "http", hostname: "127.0.0.1", port: "8000", pathname: "/uploads/**" },
-      { protocol: "http", hostname: "10.0.0.47", port: "8000", pathname: "/uploads/**" },
+      { protocol: "http", hostname: "localhost", port: "8082", pathname: "/uploads/**" },
+      { protocol: "http", hostname: "127.0.0.1", port: "8082", pathname: "/uploads/**" },
+      { protocol: "http", hostname: "10.0.0.47", port: "8082", pathname: "/uploads/**" },
       { protocol: "https", hostname: "nexus-backend-kkq8.onrender.com", pathname: "/uploads/**" },
     ],
   },
@@ -78,7 +78,7 @@ const nextConfig: NextConfig = {
   // https (mixed content) -> "Failed to fetch".
   skipTrailingSlashRedirect: true,
   async rewrites() {
-    const target = process.env.API_PROXY_TARGET || "http://localhost:8000";
+    const target = process.env.API_PROXY_TARGET || "http://localhost:8082";
     return [
       {
         source: "/api/:path(.*)",

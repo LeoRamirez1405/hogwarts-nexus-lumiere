@@ -37,4 +37,4 @@ if __name__ == "__main__":
     _key = os.path.abspath(os.getenv("SSL_KEYFILE") or os.path.join(_here, "..", "frontend", "certs", "nexus-dev-key.pem"))
     ws_tls_bridge.start_in_thread(_cert, _key)
 
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="127.0.0.1", port=8082, reload=True)

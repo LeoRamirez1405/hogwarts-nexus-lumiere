@@ -10,7 +10,7 @@ import { compressImageFile } from "@/lib/image/compress";
 const API_BASE =
   typeof window !== "undefined"
     ? `${window.location.origin}/api`
-    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082";
 
 export async function attemptRefresh(): Promise<boolean> {
   if (typeof window === "undefined") return false;
