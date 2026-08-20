@@ -208,8 +208,13 @@ async def create_article_comment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    body = data.body.strip()
-    if not body:
+    body = (data.body or "").strip()
+    image_url = (data.image_url or "").strip() or None
+    video_url = (data.video_url or "").strip() or None
+    video_poster_url = (data.video_poster_url or "").strip() or None
+    video_duration = data.video_duration
+
+    if not body and not image_url and not video_url:
         raise HTTPException(status_code=400, detail="El comentario no puede estar vacío")
 
     article = (
@@ -233,6 +238,10 @@ async def create_article_comment(
         article_id=article_id,
         user_id=current_user.id,
         body=body,
+        image_url=image_url,
+        video_url=video_url,
+        video_poster_url=video_poster_url,
+        video_duration=video_duration,
         parent_id=parent.id if parent else None,
     )
     db.add(comment)
@@ -275,6 +284,8 @@ async def create_article_comment(
         recipients.add(u.id)
     recipients.discard(current_user.id)
 
+    preview = body[:200] if body else ("[Imagen]" if image_url else "[Video]")
+
     # A direct reply gets its own, more specific notification — take that
     # recipient out of the generic batch so they receive exactly one alert.
     reply_target = parent.user_id if parent is not None else None
@@ -285,7 +296,7 @@ async def create_article_comment(
             user_id=reply_target,
             type=N.ARTICLE_COMMENT_REPLY,
             title=f"{current_user.name} respondió a tu comentario en {article.title}",
-            body=body[:200],
+            body=preview,
             related_id=article_id,
             actor_id=current_user.id,
         )
@@ -296,7 +307,7 @@ async def create_article_comment(
             user_id=uid,
             type=N.ARTICLE_COMMENT,
             title=f"{current_user.name} comentó en {article.title}",
-            body=body[:200],
+            body=preview,
             related_id=article_id,
             actor_id=current_user.id,
         )
@@ -312,7 +323,7 @@ async def create_article_comment(
         current_user,
         type=N.FRIEND_ARTICLE_COMMENT,
         title=f"Tu amigo {current_user.name} comentó el artículo {article.title}",
-        body=body[:200],
+        body=preview,
         related_id=article_id,
         exclude_ids=exclude_ids,
     )

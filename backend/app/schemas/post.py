@@ -24,8 +24,20 @@ class PostCreate(BaseModel):
 
 
 class CommentCreate(BaseModel):
-    body: str
+    body: Optional[str] = None
+    image_url: Optional[str] = None
+    video_url: Optional[str] = None
+    video_poster_url: Optional[str] = None
+    video_duration: Optional[float] = None
     parent_id: Optional[str] = None
+
+    @model_validator(mode="after")
+    def at_least_one_field(self):
+        if not (self.body or "").strip() and not (
+            (self.image_url or "").strip() or (self.video_url or "").strip()
+        ):
+            raise ValueError("Comment must have either body text, an image or a video")
+        return self
 
 
 class CommentResponse(BaseModel):
@@ -34,6 +46,10 @@ class CommentResponse(BaseModel):
     user_id: str
     author: Optional[UserResponse] = None
     body: str
+    image_url: Optional[str] = None
+    video_url: Optional[str] = None
+    video_poster_url: Optional[str] = None
+    video_duration: Optional[float] = None
     parent_id: Optional[str] = None
     replies: list["CommentResponse"] = []
     created_at: datetime

@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from .user import UserResponse
 
@@ -33,8 +33,20 @@ class ForumVoteRequest(BaseModel):
 
 
 class ForumCommentCreate(BaseModel):
-    body: str
+    body: Optional[str] = None
+    image_url: Optional[str] = None
+    video_url: Optional[str] = None
+    video_poster_url: Optional[str] = None
+    video_duration: Optional[float] = None
     parent_id: Optional[str] = None
+
+    @model_validator(mode="after")
+    def at_least_one_field(self):
+        if not (self.body or "").strip() and not (
+            (self.image_url or "").strip() or (self.video_url or "").strip()
+        ):
+            raise ValueError("Comment must have either body text, an image or a video")
+        return self
 
 
 class ForumCommentResponse(BaseModel):
@@ -42,6 +54,10 @@ class ForumCommentResponse(BaseModel):
     thread_id: str
     user_id: str
     body: str
+    image_url: Optional[str] = None
+    video_url: Optional[str] = None
+    video_poster_url: Optional[str] = None
+    video_duration: Optional[float] = None
     parent_id: Optional[str] = None
     replies: list["ForumCommentResponse"] = []
     created_at: datetime

@@ -1,9 +1,10 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+import logging
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
-from ..database import get_db
+from ..database import async_session, get_db
 from ..models.post import Post, PostLike, PostRepost, PostComment
 from ..models.user import User
 from ..schemas.post import PostCreate, PostUpdate, PostResponse, CommentCreate, CommentResponse
@@ -27,6 +28,43 @@ from .messages.deps import _delete_attachment_file
 from app.utils.dates import utcnow
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
+
+
+async def _notify_post_fanout(post_id: str, actor_id: str) -> None:
+    """Fan out friend + mention notifications after the response is sent.
+
+    The per-recipient WS/FCM pushes can take seconds when the author has many
+    friends; running them inline made the author's own feed wait for the whole
+    loop before refreshing."""
+    async with async_session() as db:
+        try:
+            post = (
+                await db.execute(select(Post).where(Post.id == post_id))
+            ).scalar_one_or_none()
+            actor = (
+                await db.execute(select(User).where(User.id == actor_id))
+            ).scalar_one_or_none()
+            if post is None or actor is None:
+                return
+
+            await notify_friends_of_post(db, post, actor)
+
+            mentioned = await resolve_mentions(db, post.body)
+            for user in mentioned:
+                await notify(
+                    db,
+                    user_id=user.id,
+                    type=N.POST_MENTION,
+                    title=f"{actor.name} te mencionó en una publicación",
+                    body=(post.body or "")[:200],
+                    related_id=post.id,
+                    actor_id=actor.id,
+                )
+            await db.commit()
+        except Exception:
+            logger.exception("Post notification fanout failed")
 
 
 @router.get("/", response_model=Page[PostResponse])
@@ -124,6 +162,7 @@ async def list_user_feed(
 @router.post("/", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 async def create_post(
     post_data: PostCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -139,25 +178,9 @@ async def create_post(
     await db.commit()
     await db.refresh(post)
 
-    # Notify friends about the new post.
-    await notify_friends_of_post(db, post, current_user)
-    await db.commit()
-    await db.refresh(post)
-
-    # Notify anyone @mentioned in the post body.
-    mentioned = await resolve_mentions(db, post.body)
-    if mentioned:
-        for user in mentioned:
-            await notify(
-                db,
-                user_id=user.id,
-                type=N.POST_MENTION,
-                title=f"{current_user.name} te mencionó en una publicación",
-                body=(post.body or "")[:200],
-                related_id=post.id,
-                actor_id=current_user.id,
-            )
-        await db.commit()
+    # Notifications run after the response is sent so the author's feed
+    # refreshes immediately instead of waiting for the per-recipient pushes.
+    background_tasks.add_task(_notify_post_fanout, post.id, current_user.id)
 
     response = PostResponse.model_validate(post)
     response.likes_count = 0
@@ -281,8 +304,13 @@ async def create_comment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    body = comment_data.body.strip()
-    if not body:
+    body = (comment_data.body or "").strip()
+    image_url = (comment_data.image_url or "").strip() or None
+    video_url = (comment_data.video_url or "").strip() or None
+    video_poster_url = (comment_data.video_poster_url or "").strip() or None
+    video_duration = comment_data.video_duration
+
+    if not body and not image_url and not video_url:
         raise HTTPException(status_code=400, detail="Comment cannot be empty")
 
     post = (
@@ -306,18 +334,23 @@ async def create_comment(
         post_id=post_id,
         user_id=current_user.id,
         body=body,
+        image_url=image_url,
+        video_url=video_url,
+        video_poster_url=video_poster_url,
+        video_duration=video_duration,
         parent_id=parent.id if parent else None,
     )
     db.add(comment)
     await db.flush()
 
     # Notify the post author, plus anyone @mentioned in the comment.
+    preview = body[:200] if body else ("[Imagen]" if image_url else "[Video]")
     await notify(
         db,
         user_id=post.author_id,
         type=N.POST_COMMENT,
         title=f"{current_user.name} comentó tu publicación",
-        body=body[:200],
+        body=preview,
         related_id=post_id,
         actor_id=current_user.id,
     )
@@ -331,7 +364,7 @@ async def create_comment(
             user_id=parent.user_id,
             type=N.POST_REPLY,
             title=f"{current_user.name} respondió a tu comentario",
-            body=body[:200],
+            body=preview,
             related_id=post_id,
             actor_id=current_user.id,
         )

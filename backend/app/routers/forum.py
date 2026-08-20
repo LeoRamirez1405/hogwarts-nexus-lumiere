@@ -260,9 +260,15 @@ async def create_thread_comment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    body = data.body.strip()
-    if not body:
+    body = (data.body or "").strip()
+    image_url = (data.image_url or "").strip() or None
+    video_url = (data.video_url or "").strip() or None
+    video_poster_url = (data.video_poster_url or "").strip() or None
+    video_duration = data.video_duration
+
+    if not body and not image_url and not video_url:
         raise HTTPException(status_code=400, detail="El comentario no puede estar vacío")
+
     thread = await _get_thread(db, thread_id)
 
     # Validate an optional parent (threaded replies live on the same thread).
@@ -280,6 +286,10 @@ async def create_thread_comment(
         thread_id=thread_id,
         user_id=current_user.id,
         body=body,
+        image_url=image_url,
+        video_url=video_url,
+        video_poster_url=video_poster_url,
+        video_duration=video_duration,
         parent_id=parent.id if parent else None,
     )
     db.add(comment)
@@ -307,9 +317,12 @@ async def create_thread_comment(
         )
     ).scalars().all()
     recipients = {thread.author_id, *subs}
-    mentioned_ids = {u.id for u in await resolve_mentions(db, body)}
+    mentioned = await resolve_mentions(db, body)
+    mentioned_ids = {u.id for u in mentioned}
     recipients |= mentioned_ids
     recipients.discard(current_user.id)
+
+    preview = body[:200] if body else ("[Imagen]" if image_url else "[Video]")
 
     # A direct reply gets its own notification; remove that recipient from the
     # generic batch so they receive exactly one alert.
@@ -321,7 +334,7 @@ async def create_thread_comment(
             user_id=reply_target,
             type=N.FORUM_COMMENT_REPLY,
             title=f"{current_user.name} respondió a tu comentario en {thread.title}",
-            body=body[:200],
+            body=preview,
             related_id=thread_id,
             actor_id=current_user.id,
         )
@@ -338,7 +351,7 @@ async def create_thread_comment(
             user_id=uid,
             type=ntype,
             title=title,
-            body=body[:200],
+            body=preview,
             related_id=thread_id,
             actor_id=current_user.id,
         )
@@ -354,7 +367,7 @@ async def create_thread_comment(
         current_user,
         type=N.FRIEND_FORUM,
         title=f"Tu amigo {current_user.name} participó en el debate {thread.title}",
-        body=body[:200],
+        body=preview,
         related_id=thread_id,
         exclude_ids=exclude_ids,
     )

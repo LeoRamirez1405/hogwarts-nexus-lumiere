@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, String, DateTime, Text, Float, ForeignKey, PrimaryKeyConstraint
+from sqlalchemy import Column, String, DateTime, Text, Float, ForeignKey, PrimaryKeyConstraint, Integer
 from sqlalchemy.orm import relationship
 
 from ..database import Base
@@ -80,6 +80,10 @@ class PostComment(Base):
     post_id = Column(String, ForeignKey("posts.id"), nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     body = Column(Text, nullable=False)
+    image_url = Column(String, nullable=True)
+    video_url = Column(String, nullable=True)
+    video_poster_url = Column(String, nullable=True)
+    video_duration = Column(Integer, nullable=True)
     parent_id = Column(String, ForeignKey("post_comments.id"), nullable=True)
     created_at = Column(DateTime, default=utcnow, nullable=False)
 
