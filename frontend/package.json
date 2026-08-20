@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.2.49",
+  "version": "0.2.50",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack --experimental-https --experimental-https-cert ./certs/nexus-dev.pem --experimental-https-key ./certs/nexus-dev-key.pem",
