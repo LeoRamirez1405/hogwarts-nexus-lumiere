@@ -3,7 +3,6 @@
 import { memo, useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { api, PostComment, User } from "@/lib/api";
-import { MentionInput } from "@/components/ui";
 import { toastError } from "@/lib/toastStore";
 import {
   CommentThread,
@@ -13,8 +12,6 @@ import {
   type ThreadComment,
 } from "@/components/domain/comments/CommentThread";
 import { CommentComposer } from "@/components/domain/comments/CommentComposer";
-import { useImageUpload } from "@/hooks/useFileUpload";
-import { useVideoUpload } from "@/hooks/useVideoUpload";
 import { useHapticLight, useHapticSelection } from "@/hooks/useHapticFeedback";
 import {
   extractMentions,
@@ -52,33 +49,10 @@ export const CommentSection = memo(function CommentSection({
     preview: string;
   } | null>(null);
   const [localMentionedUsers, setLocalMentionedUsers] = useState<MentionMember[]>([]);
-  const [imageUrl, setImageUrl] = useState("");
-  const [posting, setPosting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const hapticLight = useHapticLight();
   const hapticSelection = useHapticSelection();
   const { isKeyboardOpen, keyboardHeight } = useVisualViewport();
-
-  const { handleFileSelect: handlePostImageUpload, uploading: uploadingPostImage } = useImageUpload({
-    onSuccess: (result) => {
-      setImageUrl(result.url);
-      video.clear();
-    },
-  });
-
-  const video = useVideoUpload({
-    onReady: () => {
-      setImageUrl("");
-    },
-  });
-
-  useEffect(() => {
-    if (video.error) {
-      console.error(video.error);
-    }
-  }, [video.error]);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,7 +111,7 @@ export const CommentSection = memo(function CommentSection({
       setReplyTarget(null);
       setSending(false);
     }
-  }, [comments, currentUser, replyTarget, sending]);
+  }, [comments, currentUser, replyTarget, sending, postId, onLoadedCount, hapticLight]);
 
   const requestReply = (comment: ThreadComment) => {
     hapticSelection();

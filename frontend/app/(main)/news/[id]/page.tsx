@@ -21,7 +21,7 @@ import { isStoredUpload } from "@/lib/media";
 import { hapticLight, hapticSelection } from "@/lib/haptics";
 import { timeAgo } from "@/lib/timeAgo";
 import { buildMembers, extractMentions, fetchMentionedUsers, mergeUniqueMembers, resolveCommentMentions, type MentionMember } from "@/lib/mentions-utils";
-import { useFullscreenMedia, FullscreenMediaViewer } from "@/components/ui/FullscreenMediaViewer";
+import { useFullscreenMedia } from "@/components/ui/FullscreenMediaViewer";
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("es-ES", {
@@ -55,7 +55,7 @@ export default function ArticleDetailPage() {
   const [subscribing, setSubscribing] = useState(false);
   const [mentionedUsers, setMentionedUsers] = useState<MentionMember[]>([]);
 
-  const { open: openFullscreen, close: closeFullscreen, FullscreenViewer } = useFullscreenMedia();
+  const { open: openFullscreen, FullscreenViewer } = useFullscreenMedia();
 
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
 

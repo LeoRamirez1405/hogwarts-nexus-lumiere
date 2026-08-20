@@ -29,7 +29,7 @@ import { toastError, toastSuccess } from "@/lib/toastStore";
 import { isStoredUpload } from "@/lib/media";
 import { hapticLight, hapticSelection } from "@/lib/haptics";
 import { timeAgo } from "@/lib/timeAgo";
-import { useFullscreenMedia, FullscreenMediaViewer } from "@/components/ui/FullscreenMediaViewer";
+import { useFullscreenMedia } from "@/components/ui/FullscreenMediaViewer";
 import {
   buildMembers,
   extractMentions,
@@ -64,7 +64,7 @@ export default function PostDetailPage() {
   const [showDelete, setShowDelete] = useState(false);
   const [mentionedUsers, setMentionedUsers] = useState<MentionMember[]>([]);
 
-  const { open: openFullscreen, close: closeFullscreen, FullscreenViewer } = useFullscreenMedia();
+  const { open: openFullscreen, FullscreenViewer } = useFullscreenMedia();
 
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
 
