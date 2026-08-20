@@ -9,6 +9,7 @@ import { LevelUpCelebration } from "@/components/ui";
 import { useLevelUpWatcher } from "@/hooks/useLevelUpWatcher";
 import { useFCMInit } from "@/hooks/useFCM";
 import AppShell from "@/components/layout/AppShell";
+import { FullscreenMediaProvider } from "@/components/ui/FullscreenMediaProvider";
 
 export default function AuthProvider({
   children,
@@ -63,13 +64,15 @@ export default function AuthProvider({
   }
 
   return (
-    <>
-      <LevelUpCelebration
-        key={levelUp.event?.id ?? "none"}
-        event={levelUp.event}
-        onDone={levelUp.dismiss}
-      />
-      <AppShell>{children}</AppShell>
-    </>
+    <FullscreenMediaProvider>
+      <>
+        <LevelUpCelebration
+          key={levelUp.event?.id ?? "none"}
+          event={levelUp.event}
+          onDone={levelUp.dismiss}
+        />
+        <AppShell>{children}</AppShell>
+      </>
+    </FullscreenMediaProvider>
   );
 }
