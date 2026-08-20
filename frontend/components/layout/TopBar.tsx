@@ -190,7 +190,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   return (
     <header
       role="banner"
-      className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-xl border-b shadow-sm ${
+      className={`z-50 shrink-0 backdrop-blur-xl border-b shadow-sm ${
         isBorgin
           ? "bg-[#1c1b1b]/85 border-secondary/20"
           : "bg-surface/80 border-outline-variant/30"

@@ -54,7 +54,7 @@ export default function ChatHeader({
         : computeOnlineStatus(selectedConv?.last_active_at).text;
 
   return (
-    <div className="relative z-50 flex items-center gap-3 px-4 py-3 border-b border-outline-variant/20 bg-surface/80 backdrop-blur-sm">
+    <div className="relative flex items-center gap-3 px-4 py-3 border-b border-outline-variant/20 bg-surface/80 backdrop-blur-sm">
       {showBack && (
         <button
           onClick={onBack}

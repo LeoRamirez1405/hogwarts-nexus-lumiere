@@ -64,7 +64,7 @@ export default function BottomNav() {
     <nav
       role="navigation"
       aria-label="Navegación inferior"
-      className={`md:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-xl border-t shadow-lg rounded-t-xl pb-safe ${
+      className={`md:hidden z-50 shrink-0 backdrop-blur-xl border-t shadow-lg rounded-t-xl pb-safe ${
         isBorgin
           ? "bg-[#1c1b1b]/90 border-secondary/15"
           : "bg-surface/90 border-outline-variant/20"
