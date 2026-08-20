@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -10,6 +10,8 @@ import {
   CommentThread,
   countComments,
   appendReply,
+  findCommentNode,
+  type ThreadComment,
 } from "@/components/domain/comments/CommentThread";
 import { useAuthStore } from "@/lib/authStore";
 import { toastError, toastSuccess } from "@/lib/toastStore";
@@ -39,11 +41,18 @@ export default function ArticleDetailPage() {
   const [related, setRelated] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState<ArticleComment[]>([]);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [newComment, setNewComment] = useState("");
   const [posting, setPosting] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const [mentionedUsers, setMentionedUsers] = useState<MentionMember[]>([]);
+  const [replyTarget, setReplyTarget] = useState<{
+    parentId: string;
+    authorName: string;
+    preview: string;
+  } | null>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!params.id) return;
@@ -115,36 +124,45 @@ export default function ArticleDetailPage() {
   };
 
   const handleSubmitComment = async () => {
-    if (!newComment.trim() || !authUser || !article || posting) return;
+    const text = newComment.trim();
+    if (!text || !authUser || !article || posting) return;
     hapticLight();
     setPosting(true);
     try {
-      const created = await api.createArticleComment(article.id, newComment.trim());
-      setComments((prev) => [created, ...prev]);
+      const parentExists = !!replyTarget && !!findCommentNode(comments, replyTarget.parentId);
+      const created = parentExists
+        ? await api.createArticleComment(article.id, text, replyTarget!.parentId)
+        : await api.createArticleComment(article.id, text);
+      setComments((prev) =>
+        parentExists ? appendReply(prev, replyTarget!.parentId, created) : [created, ...prev],
+      );
+      setHighlightedId(created.id);
       setNewComment("");
 
       // Resolve newly mentioned users so the link becomes clickable
-      const newUsers = await fetchMentionedUsers(extractMentions(newComment.trim()));
+      const newUsers = await fetchMentionedUsers(extractMentions(text));
       if (newUsers.length > 0) {
         setMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
       }
     } catch (e) {
       toastError("No se pudo enviar tu carta", e);
     } finally {
+      setReplyTarget(null);
       setPosting(false);
     }
   };
 
-  const handleReply = async (parentId: string, text: string) => {
-    if (!article) throw new Error("Articulo no cargado");
-    const created = await api.createArticleComment(article.id, text, parentId);
-    setComments((prev) => appendReply(prev, parentId, created));
-
-    const newUsers = await fetchMentionedUsers(extractMentions(text));
-    if (newUsers.length > 0) {
-      setMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
-    }
+  const requestReply = (comment: ThreadComment) => {
+    hapticSelection();
+    setReplyTarget({
+      parentId: comment.id,
+      authorName: comment.author?.name ?? "Usuario",
+      preview: comment.body.slice(0, 80),
+    });
+    setTimeout(() => composerInputRef.current?.focus(), 0);
   };
+
+  const cancelReply = () => setReplyTarget(null);
 
   if (loading || !article) {
     return (
@@ -161,7 +179,8 @@ export default function ArticleDetailPage() {
   }
 
   return (
-    <div className="pb-16 space-y-8">
+    <div className="flex-1 flex flex-col">
+      <div className="flex-1 min-h-0 space-y-8">
       {/* Back link */}
       <button
         onClick={() => router.push("/news")}
@@ -296,50 +315,15 @@ export default function ArticleDetailPage() {
           Cartas al Director ({countComments(comments)})
         </h2>
 
-        {authUser && (
-          <GlassCard className="p-4 mb-4">
-            <div className="flex gap-3">
-              <Avatar
-                src={authUser.avatar_url}
-                alt={authUser.name}
-                size="sm"
-                initials={authUser.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
-              />
-              <div className="flex-1">
-                <MentionInput
-                  value={newComment}
-                  onChange={setNewComment}
-                  placeholder="Escribe tu carta..."
-                  minHeight={80}
-                  maxHeight={200}
-                  disabled={posting}
-                />
-                <div className="flex justify-end mt-2">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon="send"
-                    onClick={handleSubmitComment}
-                    disabled={posting || !newComment.trim()}
-                  >
-                    {posting ? "Enviando..." : "Enviar"}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </GlassCard>
-        )}
-
         <CommentThread
           comments={comments}
           currentUser={authUser}
-          onReply={handleReply}
+          onReply={async () => {}}
           timeAgo={timeAgo}
           reactionTargetType="article_comment"
           additionalMembers={mentionedUsers}
+          onRequestReply={requestReply}
+          highlightId={highlightedId}
         />
       </section>
 
@@ -366,6 +350,62 @@ export default function ArticleDetailPage() {
             ))}
           </div>
         </section>
+      )}
+      </div>
+
+      {/* Composer bar (estilo chat) — en flujo, sticky al fondo del main */}
+      {authUser ? (
+        <div className="sticky bottom-0 shrink-0 z-30 bg-surface/95 backdrop-blur-md -mx-4 md:-mx-10 -mb-6 md:-mb-8 px-4 md:px-10 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+          <div className="max-w-3xl mx-auto">
+            {replyTarget && (
+              <div className="mb-2 flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
+                <MaterialIcon name="reply" className="text-primary text-lg shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-label-sm font-medium text-primary">
+                    Respondiendo a {replyTarget.authorName}
+                  </p>
+                  <p className="text-label-sm text-on-surface-variant truncate">
+                    {replyTarget.preview}
+                  </p>
+                </div>
+                <button
+                  onClick={cancelReply}
+                  className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant"
+                  aria-label="Cancelar respuesta"
+                >
+                  <MaterialIcon name="close" className="text-lg" />
+                </button>
+              </div>
+            )}
+            <div className="flex items-center gap-2 bg-surface-container-low rounded-full px-3 md:px-4 py-2">
+              <div className="relative flex-1">
+<MentionInput
+                  ref={composerInputRef}
+                  value={newComment}
+                  onChange={setNewComment}
+                  placeholder={replyTarget ? "Escribe tu respuesta..." : "Escribe una carta..."}
+                  minHeight={40}
+                  maxHeight={120}
+                  disabled={posting}
+                  onSubmit={handleSubmitComment}
+                  rows={1}
+                />
+              </div>
+              <button
+                onClick={handleSubmitComment}
+                disabled={!newComment.trim() || posting}
+                className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full transition-all hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none"
+                aria-label="Enviar carta"
+              >
+                <MaterialIcon name="send" className="text-lg" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="text-center text-body-md text-on-surface-variant py-2">
+          Inicia sesión para escribir una carta
+        </p>
       )}
     </div>
   );

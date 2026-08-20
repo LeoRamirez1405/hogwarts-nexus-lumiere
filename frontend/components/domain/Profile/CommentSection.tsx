@@ -1,13 +1,16 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api, PostComment, User } from "@/lib/api";
-import { Avatar, MaterialIcon, MentionInput } from "@/components/ui";
+import { MaterialIcon, MentionInput } from "@/components/ui";
 import { toastError } from "@/lib/toastStore";
 import {
   CommentThread,
   countComments,
   appendReply,
+  findCommentNode,
+  type ThreadComment,
 } from "@/components/domain/comments/CommentThread";
 import { useHapticLight, useHapticSelection } from "@/hooks/useHapticFeedback";
 import {
@@ -18,19 +21,13 @@ import {
   type MentionMember,
 } from "@/lib/mentions-utils";
 import { timeAgo } from "@/lib/timeAgo";
+import { useVisualViewport } from "@/hooks/useVisualViewport";
 
 const EMOJIS = [
   "😀","😂","😍","🥳","😎","🤩","💀","👻","🔥","✨",
   "❤️","💎","⚡","🌟","🎉","🎊","🦋","🐱","🦉","🏰",
   "🪄","📜","🧪","⚗️","🔮","🗝️","🧣","📚","🍲","🧙",
 ];
-
-function initialsOf(name?: string): string {
-  return (name ?? "")
-    .split(" ")
-    .map((n) => n[0])
-    .join("");
-}
 
 interface CommentSectionProps {
   postId: string;
@@ -39,8 +36,10 @@ interface CommentSectionProps {
   additionalMembers?: MentionMember[];
 }
 
-/** Expandible comment thread + composer for a single post. Loads comments on
- * mount (it only mounts once the user expands the section). */
+/** Expandible comment thread + fixed chat-style composer for a single post.
+ * Loads comments on mount (it only mounts once the user expands the section).
+ * The composer is portaled so the GlassCard hover transform can't break its
+ * fixed positioning. */
 export const CommentSection = memo(function CommentSection({
   postId,
   currentUser,
@@ -52,9 +51,16 @@ export const CommentSection = memo(function CommentSection({
   const [sending, setSending] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [replyTarget, setReplyTarget] = useState<{
+    parentId: string;
+    authorName: string;
+    preview: string;
+  } | null>(null);
   const [localMentionedUsers, setLocalMentionedUsers] = useState<MentionMember[]>([]);
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const hapticLight = useHapticLight();
   const hapticSelection = useHapticSelection();
+  const { isKeyboardOpen, keyboardHeight } = useVisualViewport();
 
   useEffect(() => {
     let cancelled = false;
@@ -86,8 +92,13 @@ export const CommentSection = memo(function CommentSection({
     if (!text || sending) return;
     setSending(true);
     try {
-      const created = await api.addComment(postId, text);
-      const newComments = [...comments, created];
+      const parentExists = !!replyTarget && !!findCommentNode(comments, replyTarget.parentId);
+      const created = parentExists
+        ? await api.addComment(postId, text, replyTarget!.parentId)
+        : await api.addComment(postId, text);
+      const newComments = parentExists
+        ? appendReply(comments, replyTarget!.parentId, created)
+        : [...comments, created];
       setComments(newComments);
       onLoadedCount?.(countComments(newComments));
       setCommentText("");
@@ -100,21 +111,22 @@ export const CommentSection = memo(function CommentSection({
     } catch (e) {
       toastError("No se pudo enviar el comentario", e);
     } finally {
+      setReplyTarget(null);
       setSending(false);
     }
   };
 
-  const handleReply = async (parentId: string, text: string) => {
-    const created = await api.addComment(postId, text, parentId);
-    setComments((prev) => appendReply(prev, parentId, created));
-    onLoadedCount?.(countComments(comments) + 1);
-    void (async () => {
-      const newUsers = await fetchMentionedUsers(extractMentions(text));
-      if (newUsers.length > 0) {
-        setLocalMentionedUsers((prev) => mergeUniqueMembers(prev, newUsers));
-      }
-    })();
+  const requestReply = (comment: ThreadComment) => {
+    hapticSelection();
+    setReplyTarget({
+      parentId: comment.id,
+      authorName: comment.author?.name ?? "Usuario",
+      preview: comment.body.slice(0, 80),
+    });
+    setTimeout(() => composerInputRef.current?.focus(), 0);
   };
+
+  const cancelReply = () => setReplyTarget(null);
 
   const insertEmoji = (emoji: string) => {
     setCommentText((prev) => prev + emoji);
@@ -137,59 +149,98 @@ export const CommentSection = memo(function CommentSection({
         <CommentThread
           comments={comments}
           currentUser={currentUser}
-          onReply={handleReply}
+          onReply={async () => {}}
           timeAgo={timeAgo}
           reactionTargetType="post_comment"
           additionalMembers={mergeUniqueMembers(additionalMembers, localMentionedUsers)}
+          onRequestReply={requestReply}
         />
       )}
-      <div className="flex items-start gap-2 relative">
-        <Avatar
-          size="sm"
-          src={currentUser?.avatar_url}
-          alt={currentUser?.name}
-          initials={initialsOf(currentUser?.name) || "?"}
-          className="w-7! h-7!"
-        />
-        <div className="flex-1 relative">
-          <MentionInput
-            value={commentText}
-            onChange={setCommentText}
-            placeholder="Escribe un comentario..."
-            minHeight={40}
-            maxHeight={100}
-            disabled={sending}
-          />
-          <button
-            onClick={() => { hapticLight(); setShowEmojiPicker(!showEmojiPicker); }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
-            aria-label="Insertar emoji"
+
+      {/* Spacer so the fixed composer bar never covers the last comment */}
+      <div className="h-20" aria-hidden="true" />
+
+      {/* Composer bar (estilo chat) — fija, sobre el BottomNav en el feed */}
+      {createPortal(
+        currentUser ? (
+          <div
+            className="fixed left-0 right-0 lg:left-72 z-30 bg-surface/95 backdrop-blur-md px-4 md:px-10 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]"
+            style={{ bottom: isKeyboardOpen ? `${keyboardHeight}px` : "var(--bottomnav-h)" }}
           >
-            <MaterialIcon name="mood" className="text-lg" />
-          </button>
-          {showEmojiPicker && (
-            <div className="absolute bottom-full right-0 mb-2 bg-surface-container-highest rounded-xl shadow-xl p-3 grid grid-cols-5 gap-1 z-20 w-64">
-              {EMOJIS.map((e) => (
+            <div className="max-w-3xl mx-auto">
+              {replyTarget && (
+                <div className="mb-2 flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
+                  <MaterialIcon name="reply" className="text-primary text-lg shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-label-sm font-medium text-primary">
+                      Respondiendo a {replyTarget.authorName}
+                    </p>
+                    <p className="text-label-sm text-on-surface-variant truncate">
+                      {replyTarget.preview}
+                    </p>
+                  </div>
+                  <button
+                    onClick={cancelReply}
+                    className="p-1 rounded-full hover:bg-surface-container-high text-on-surface-variant"
+                    aria-label="Cancelar respuesta"
+                  >
+                    <MaterialIcon name="close" className="text-lg" />
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-2 bg-surface-container-low rounded-full px-3 md:px-4 py-2">
                 <button
-                  key={e}
-                  onClick={() => { hapticSelection(); insertEmoji(e); }}
-                  className="p-1.5 rounded-lg hover:bg-surface-container-high text-lg transition-colors"
+                  onClick={() => { hapticLight(); setShowEmojiPicker(!showEmojiPicker); }}
+                  className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary transition-colors"
+                  aria-label="Insertar emoji"
                 >
-                  {e}
+                  <MaterialIcon name="mood" className="text-xl" />
                 </button>
-              ))}
+                <div className="relative flex-1">
+                  <MentionInput
+                    ref={composerInputRef}
+                    value={commentText}
+                    onChange={setCommentText}
+                    placeholder={replyTarget ? "Escribe tu respuesta..." : "Escribe un comentario..."}
+                    minHeight={40}
+                    maxHeight={120}
+                    disabled={sending}
+                    onSubmit={handleComment}
+                    rows={1}
+                    textareaClassName="block w-full bg-transparent outline-none text-body-md text-on-surface placeholder:text-on-surface-variant/50 resize-none min-h-[2.5rem] max-h-[8rem] leading-6 py-2"
+                  />
+                  {showEmojiPicker && (
+                    <div className="absolute bottom-full left-0 mb-2 bg-surface-container-highest rounded-xl shadow-xl p-3 grid grid-cols-5 gap-1 z-20 w-64">
+                      {EMOJIS.map((e) => (
+                        <button
+                          key={e}
+                          onClick={() => { hapticSelection(); insertEmoji(e); }}
+                          className="p-1.5 rounded-lg hover:bg-surface-container-high text-lg transition-colors"
+                        >
+                          {e}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => { hapticLight(); handleComment(); }}
+                  disabled={!commentText.trim() || sending}
+                  className="w-9 h-9 flex items-center justify-center bg-primary text-on-primary rounded-full transition-all hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none"
+                  aria-label="Enviar comentario"
+                >
+                  <MaterialIcon name="send" className="text-lg" />
+                </button>
+              </div>
             </div>
-          )}
-        </div>
-        <button
-          onClick={() => { hapticLight(); handleComment(); }}
-          disabled={!commentText.trim() || sending}
-          className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-30 transition-opacity"
-          aria-label="Enviar comentario"
-        >
-          <MaterialIcon name="send" className="text-lg" />
-        </button>
-      </div>
+          </div>
+        ) : (
+          <p className="text-center text-body-md text-on-surface-variant py-2">
+            Inicia sesión para comentar
+          </p>
+        ),
+        document.body
+      )}
     </div>
   );
 });

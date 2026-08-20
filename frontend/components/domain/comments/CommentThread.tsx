@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Avatar, MaterialIcon, ReactionBar, MentionText, MentionInput } from "@/components/ui";
 import type { User, ReactionTargetType } from "@/lib/api";
@@ -48,6 +48,20 @@ export function appendReply<T extends ThreadComment>(
   });
 }
 
+export function findCommentNode<T extends ThreadComment>(
+  list: T[],
+  id: string
+): T | null {
+  for (const c of list) {
+    if (c.id === id) return c;
+    if (c.replies?.length) {
+      const found = findCommentNode(c.replies as T[], id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 interface CommentNodeProps {
   comment: ThreadComment;
   currentUser?: User | null;
@@ -56,6 +70,8 @@ interface CommentNodeProps {
   depth?: number;
   reactionTargetType?: ReactionTargetType;
   members: MentionMember[];
+  onRequestReply?: (comment: ThreadComment) => void;
+  highlightId?: string | null;
 }
 
 function CommentNode({
@@ -66,11 +82,27 @@ function CommentNode({
   depth = 0,
   reactionTargetType,
   members,
+  onRequestReply,
+  highlightId,
 }: CommentNodeProps) {
   const [replying, setReplying] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
   const replies = comment.replies ?? [];
+  const nodeRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (highlightId !== comment.id) return;
+    const el = nodeRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("comment-flash");
+    const t = setTimeout(() => el.classList.remove("comment-flash"), 2600);
+    return () => {
+      clearTimeout(t);
+      el.classList.remove("comment-flash");
+    };
+  }, [highlightId, comment.id]);
 
   const submitReply = async () => {
     const text = replyText.trim();
@@ -104,7 +136,11 @@ function CommentNode({
           />
         </Link>
         <div className="flex-1 min-w-0">
-          <div className="bg-surface-container-low rounded-xl px-3 py-2">
+          <div
+            ref={nodeRef}
+            id={`comment-${comment.id}`}
+            className="bg-surface-container-low rounded-xl px-3 py-2"
+          >
             <div className="flex items-center justify-between gap-2">
               <Link
                 href={`/profile/${comment.user_id}`}
@@ -124,7 +160,11 @@ function CommentNode({
             <button
               onClick={() => {
                 hapticLight();
-                setReplying((v) => !v);
+                if (onRequestReply) {
+                  onRequestReply(comment);
+                } else {
+                  setReplying((v) => !v);
+                }
               }}
               className="mt-1 text-label-sm text-on-surface-variant hover:text-primary transition-colors inline-flex items-center gap-1"
             >
@@ -139,7 +179,7 @@ function CommentNode({
               className="mt-1"
             />
           )}
-          {replying && (
+          {!onRequestReply && replying && (
             <div className="mt-2 flex items-start gap-2">
               <Avatar
                 size="sm"
@@ -156,6 +196,7 @@ function CommentNode({
                   minHeight={40}
                   maxHeight={120}
                   disabled={sending}
+                  onSubmit={submitReply}
                   autoFocus
                 />
                 <button
@@ -186,6 +227,8 @@ function CommentNode({
               depth={depth + 1}
               reactionTargetType={reactionTargetType}
               members={members}
+              onRequestReply={onRequestReply}
+              highlightId={highlightId}
             />
           ))}
         </div>
@@ -201,6 +244,8 @@ interface CommentThreadProps {
   timeAgo: (dateStr: string) => string;
   reactionTargetType?: ReactionTargetType;
   additionalMembers?: MentionMember[];
+  onRequestReply?: (comment: ThreadComment) => void;
+  highlightId?: string | null;
 }
 
 export const CommentThread = memo(function CommentThread({
@@ -210,6 +255,8 @@ export const CommentThread = memo(function CommentThread({
   timeAgo,
   reactionTargetType,
   additionalMembers = [],
+  onRequestReply,
+  highlightId,
 }: CommentThreadProps) {
   const members = mergeUniqueMembers(buildMembers(null, comments), additionalMembers);
   if (comments.length === 0) {
@@ -230,6 +277,8 @@ export const CommentThread = memo(function CommentThread({
           timeAgo={timeAgo}
           reactionTargetType={reactionTargetType}
           members={members}
+          onRequestReply={onRequestReply}
+          highlightId={highlightId}
         />
       ))}
     </div>
