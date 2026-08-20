@@ -2,8 +2,9 @@
 
 import { useEffect, useCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Image from "next/image";
 import { MaterialIcon } from "@/components/ui";
-import { mediaSrc } from "@/lib/media";
+import { mediaSrc, isStoredUpload } from "@/lib/media";
 
 interface FullscreenMediaViewerProps {
   isOpen: boolean;
@@ -105,12 +106,18 @@ export function FullscreenMediaViewer({
         </button>
 
         {type === "image" ? (
-          <img
-            src={normalizedSrc}
-            alt={alt}
-            className="w-full h-auto max-h-[85vh] object-contain rounded-xl shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
+          <div className="relative w-full h-[85vh] max-h-[85vh]">
+            <Image
+              src={normalizedSrc}
+              alt={alt}
+              fill
+              className="object-contain rounded-xl shadow-2xl"
+              unoptimized={isStoredUpload(normalizedSrc)}
+              priority
+              sizes="(max-width: 768px) 90vw, 80vw"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
         ) : (
           <video
             src={normalizedSrc}
