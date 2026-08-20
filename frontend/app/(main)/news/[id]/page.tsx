@@ -14,12 +14,14 @@ import {
   type ThreadComment,
 } from "@/components/domain/comments/CommentThread";
 import { CommentComposer } from "@/components/domain/comments/CommentComposer";
+import { PostVideo } from "@/components/domain/Profile/PostVideo";
 import { useAuthStore } from "@/lib/authStore";
 import { toastError, toastSuccess } from "@/lib/toastStore";
 import { isStoredUpload } from "@/lib/media";
 import { hapticLight, hapticSelection } from "@/lib/haptics";
 import { timeAgo } from "@/lib/timeAgo";
 import { buildMembers, extractMentions, fetchMentionedUsers, mergeUniqueMembers, resolveCommentMentions, type MentionMember } from "@/lib/mentions-utils";
+import { useFullscreenMedia, FullscreenMediaViewer } from "@/components/ui/FullscreenMediaViewer";
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("es-ES", {
@@ -52,6 +54,9 @@ export default function ArticleDetailPage() {
   const [subscribed, setSubscribed] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const [mentionedUsers, setMentionedUsers] = useState<MentionMember[]>([]);
+
+  const { open: openFullscreen, close: closeFullscreen, FullscreenViewer } = useFullscreenMedia();
+
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -243,19 +248,32 @@ export default function ArticleDetailPage() {
           </Link>
         )}
 
-        {article.image_url && (
-          <div className="relative h-72 md:h-96 rounded-2xl overflow-hidden mb-8">
+        {article.video_url ? (
+          <div className="relative mb-8">
+            <PostVideo
+              src={article.video_url}
+              poster={article.video_poster_url}
+              duration={article.video_duration ?? undefined}
+              onOpenFullscreen={() => openFullscreen({ src: article.video_url!, type: "video", poster: article.video_poster_url, alt: "Video del artículo" })}
+            />
+          </div>
+        ) : article.image_url ? (
+          <div className="relative h-72 md:h-96 rounded-2xl overflow-hidden mb-8 cursor-pointer" onClick={() => openFullscreen({ src: article.image_url!, type: "image", alt: article.title ?? "Imagen del artículo" })}>
             <Image
               src={article.image_url}
               alt={article.title}
               fill
               priority
               sizes="(max-width: 768px) 100vw, 768px"
-              className="object-cover"
+              className="object-cover transition-transform hover:scale-[1.02]"
               unoptimized={isLocalUpload(article.image_url)}
             />
+            <div className="absolute bottom-4 right-4 p-2 bg-black/60 text-white rounded-full">
+              <MaterialIcon name="zoom_in" className="text-base" />
+            </div>
           </div>
-        )}
+        ) : null}
+        <FullscreenViewer />
 
         <div className="prose prose-lg max-w-none">
           <MentionText text={article.body} members={article ? mergeUniqueMembers(buildMembers(article, comments), mentionedUsers) : mentionedUsers} />
