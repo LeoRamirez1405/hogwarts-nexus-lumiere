@@ -270,9 +270,6 @@ export default function PostDetailPage() {
               className="object-cover transition-transform hover:scale-[1.02]"
               unoptimized={isLocalUpload(post.image_url)}
             />
-            <div className="absolute bottom-4 right-4 p-2 bg-black/60 text-white rounded-full">
-              <MaterialIcon name="zoom_in" className="text-base" />
-            </div>
           </div>
         ) : null}
         <FullscreenViewer />
