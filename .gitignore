@@ -92,3 +92,6 @@ backend/firebase-service-account.json
 frontend/android/app/google-services.json
 
 wheel.md
+
+neon_dump_full.sql
+nexus_dump.sql

@@ -162,7 +162,7 @@ function CommentNode({
                 {timeAgo(comment.created_at)}
               </span>
             </div>
-            <div className="text-body-md text-on-surface break-words">
+            <div className="text-body-md text-on-surface wrap-break-word">
               <MentionText text={comment.body} members={members} />
             </div>
             {comment.image_url && (
