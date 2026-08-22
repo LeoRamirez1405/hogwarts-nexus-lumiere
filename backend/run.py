@@ -1,6 +1,15 @@
 import os
+import sys
 import psutil
 import uvicorn
+
+# psycopg (psycopg3) requires SelectorEventLoop on Windows.
+# On Linux (production) this is the default, so it's a no-op.
+if sys.platform == "win32":
+    import asyncio
+    import selectors
+    if not isinstance(asyncio.get_event_loop(), asyncio.SelectorEventLoop):
+        asyncio.set_event_loop(asyncio.SelectorEventLoop(selectors.SelectSelector()))
 
 import ws_tls_bridge
 

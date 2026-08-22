@@ -7,32 +7,29 @@ from .config import settings
 def _prepare_url(raw: str) -> tuple[str, bool]:
     """Return (async_sqlalchemy_url, ssl_required).
 
-      - postgres://... / postgresql://...  -> postgresql+asyncpg://...
+      - postgres://... / postgresql://...  -> postgresql+psycopg://...
       - sqlite+aiosqlite:///./nexus.db     -> unchanged (local dev)
 
-    Hosted Postgres (Neon, Supabase, Render, …) is rewritten to the async
-    ``asyncpg`` driver. asyncpg does not understand libpq query params such
-    as ``sslmode``; those are stripped, and ``sslmode`` is translated into an
-    ``ssl=True`` connect arg (Neon/Supabase require TLS).
+    Hosted Postgres (Supabase, Neon, Render, …) is rewritten to the async
+    ``psycopg`` driver. Unlike asyncpg, psycopg uses the simple query protocol
+    and works natively with pgbouncer (Supabase pooler).
     """
     url = raw or "sqlite+aiosqlite:///./nexus.db"
 
     if url.startswith("postgres://"):
-        url = "postgresql+asyncpg://" + url[len("postgres://"):]
+        url = "postgresql+psycopg://" + url[len("postgres://"):]
     elif url.startswith("postgresql://"):
-        url = "postgresql+asyncpg://" + url[len("postgresql://"):]
+        url = "postgresql+psycopg://" + url[len("postgresql://"):]
 
     ssl_required = False
-    if url.startswith("postgresql+asyncpg://"):
-        from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
+    if url.startswith("postgresql+psycopg://"):
+        from urllib.parse import urlparse
         parsed = urlparse(url)
-        params = dict(parse_qsl(parsed.query))
-        sslmode = params.pop("sslmode", None)
-        params.pop("channel_binding", None)
-        params.pop("target_session_attrs", None)
-        # Any sslmode other than explicit "disable" means TLS is expected.
+        params = dict(
+            __import__("urllib.parse", fromlist=["parse_qsl"]).parse_qsl(parsed.query)
+        )
+        sslmode = params.get("sslmode", None)
         ssl_required = sslmode is not None and sslmode != "disable"
-        url = urlunparse(parsed._replace(query=urlencode(params)))
 
     return url, ssl_required
 
@@ -47,8 +44,8 @@ def get_connect_args():
     args = {}
     if db_url.startswith("sqlite"):
         args["check_same_thread"] = False
-    elif ssl_required:
-        args["ssl"] = True
+    # psycopg handles TLS via sslmode in the URL, not via connect_args.
+    # No additional connect_args needed for PostgreSQL.
     return args
 
 
@@ -56,21 +53,17 @@ database_url = get_database_url()
 
 engine_kwargs = {
     "echo": False,
-    "connect_args": get_connect_args(),
 }
-# pool_size / max_overflow only apply to real pooled backends (Postgres).
-# SQLite uses SingletonThreadPool, which rejects those options.
 if not database_url.startswith("sqlite"):
-    engine_kwargs["pool_size"] = 10
-    engine_kwargs["max_overflow"] = 5
-    # Neon (serverless) suspends compute and drops idle connections. pre_ping
-    # transparently discards dead connections instead of erroring on first use,
-    # and recycle proactively refreshes connections older than 5 minutes.
+    # Supabase pooler (pgbouncer transaction mode) does NOT support prepared
+    # statements. psycopg uses the simple query protocol and works natively
+    # with pgbouncer. Use NullPool since Supabase handles pooling server-side.
+    from sqlalchemy.pool import NullPool
+    engine_kwargs["poolclass"] = NullPool
+    engine_kwargs["connect_args"] = get_connect_args()
     engine_kwargs["pool_pre_ping"] = True
-    engine_kwargs["pool_recycle"] = 300
-    # Fail fast instead of hanging 30s when the pool is starved (a starving
-    # request still holds its slot while waiting, deepening the outage).
-    engine_kwargs["pool_timeout"] = 15
+else:
+    engine_kwargs["connect_args"] = get_connect_args()
 
 engine = create_async_engine(database_url, **engine_kwargs)
 

@@ -121,7 +121,12 @@ def run_migrations_online() -> None:
 
         def run_in_loop():
             try:
-                asyncio.run(run_async_migrations())
+                # psycopg requires SelectorEventLoop on Windows
+                if __import__("sys").platform == "win32":
+                    import selectors
+                    asyncio.run(run_async_migrations(), loop_factory=asyncio.SelectorEventLoop)
+                else:
+                    asyncio.run(run_async_migrations())
                 future.set_result(None)
             except Exception as e:
                 future.set_exception(e)
@@ -133,7 +138,12 @@ def run_migrations_online() -> None:
         thread.join()
         future.result()
     else:
-        asyncio.run(run_async_migrations())
+        # psycopg requires SelectorEventLoop on Windows
+        if __import__("sys").platform == "win32":
+            import selectors
+            asyncio.run(run_async_migrations(), loop_factory=asyncio.SelectorEventLoop)
+        else:
+            asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():

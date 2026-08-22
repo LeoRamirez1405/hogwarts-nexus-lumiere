@@ -4,14 +4,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # Database configuration - supports both local SQLite and Turso (libsql)
-    # For local dev: sqlite+aiosqlite:///./nexus.db
-    # For Turso: sqlite+libsql://<db-name>.turso.io?auth_token=<token>
+    # Database: PostgreSQL (Supabase) or local SQLite for dev
+    # PostgreSQL: postgresql+asyncpg://user:pass@host/db?sslmode=require
+    # Local dev: sqlite+aiosqlite:///./nexus.db (default when DATABASE_URL is empty)
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./nexus.db")
-    
-    # Turso specific settings (alternative to embedding in DATABASE_URL)
-    TURSO_DATABASE_URL: str = os.getenv("TURSO_DATABASE_URL", "")
-    TURSO_AUTH_TOKEN: str = os.getenv("TURSO_AUTH_TOKEN", "")
     
     # CORS: comma-separated list of allowed frontend origins for production,
     # e.g. "https://mi-app.vercel.app,https://mi-dominio.com". If empty, a safe
