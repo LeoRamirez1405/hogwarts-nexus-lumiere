@@ -74,7 +74,15 @@ if not database_url.startswith("sqlite"):
 
     @event.listens_for(engine.sync_engine, "connect")
     def _disable_prepared_stmts(dbapi_conn, _rec):
-        dbapi_conn.prepare_threshold = 0
+        # SQLAlchemy hands us its async adapter wrapper; the real
+        # psycopg connection lives on ._connection.
+        # NOTE: prepare_threshold=None DISABLES auto-preparation.
+        # (0 would mean "prepare on first execute", the opposite!)
+        conn = getattr(dbapi_conn, "_connection", dbapi_conn)
+        try:
+            conn.prepare_threshold = None
+        except AttributeError:
+            pass
 
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
