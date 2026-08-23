@@ -44,8 +44,6 @@ def get_connect_args():
     args = {}
     if db_url.startswith("sqlite"):
         args["check_same_thread"] = False
-    # psycopg handles TLS via sslmode in the URL, not via connect_args.
-    # No additional connect_args needed for PostgreSQL.
     return args
 
 
@@ -66,6 +64,17 @@ else:
     engine_kwargs["connect_args"] = get_connect_args()
 
 engine = create_async_engine(database_url, **engine_kwargs)
+
+# Disable psycopg prepared statements AFTER each connection is created.
+# pgbouncer (Supabase pooler, transaction mode) does not support them.
+# prepare_threshold in connect_args doesn't always reach the dialect init
+# path, so we set it on every raw dbapi connection via an event listener.
+if not database_url.startswith("sqlite"):
+    from sqlalchemy import event
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _disable_prepared_stmts(dbapi_conn, _rec):
+        dbapi_conn.prepare_threshold = 0
 
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
