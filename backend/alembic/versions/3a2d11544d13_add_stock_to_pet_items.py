@@ -1,7 +1,7 @@
 """add stock to pet items
 
 Revision ID: 3a2d11544d13
-Revises: b20b89ff5194
+Revises: c7f8e9d0b1a2
 Create Date: 2026-09-04 23:47:20.451362
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '3a2d11544d13'
-down_revision: Union[str, None] = 'b20b89ff5194'
+down_revision: Union[str, None] = 'c7f8e9d0b1a2'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
