@@ -100,7 +100,6 @@ export function usePetActions({
       const mode = item.pet_item.kind === "food" ? "feed" : "play";
       setUsing(item.id);
       const prevCreatures = myCreatures;
-      const prevInventory = inventory;
       try {
         const updated =
           mode === "feed"
@@ -117,14 +116,17 @@ export function usePetActions({
         );
         await refreshStats();
       } catch (e) {
+        // Keep local state intact — do NOT delete inventory rows. Availability
+        // is enforced server-side and the no-store fetches keep the catalog
+        // fresh, so the row reconciles on the next full load.
         setMyCreatures(prevCreatures);
-        setInventory(prevInventory);
-        toastError("No se pudo usar el item", e);
+        await refreshStats();
+        toastError("No se pudo usar el objeto", e);
       } finally {
         setUsing(null);
       }
     },
-    [myCreatures, inventory, setMyCreatures, setInventory, detectPetLevelUp, refreshStats]
+    [myCreatures, setMyCreatures, setInventory, detectPetLevelUp, refreshStats]
   );
 
   const handleListForSale = useCallback(

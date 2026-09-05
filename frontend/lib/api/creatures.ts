@@ -95,6 +95,7 @@ export interface PetItem {
   price: number;
   restore_amount: number;
   pack_size: number;
+  stock: number;
   image_url?: string;
   created_at: string;
 }
@@ -156,22 +157,25 @@ export const creaturesApi = {
       return res;
     }),
 
-  getMyCreatures: () => request<Page<UserCreature>>("/creatures/my"),
+  getMyCreatures: () =>
+    request<Page<UserCreature>>("/creatures/my", { cache: "no-store" }),
 
   getMyCreaturesPage: (pagination?: PaginationParams) =>
     request<Page<UserCreature>>(
-      "/creatures/my" + buildQuery(pagination ?? {})
+      "/creatures/my" + buildQuery(pagination ?? {}),
+      { cache: "no-store" }
     ),
 
   getSanctuaryStats: () =>
-    request<SanctuaryStats>("/creatures/stats"),
+    request<SanctuaryStats>("/creatures/stats", { cache: "no-store" }),
 
   getCreatureMarket: () =>
-    request<Page<MarketCreature>>("/creatures/market"),
+    request<Page<MarketCreature>>("/creatures/market", { cache: "no-store" }),
 
   getCreatureMarketPage: (pagination?: PaginationParams) =>
     request<Page<MarketCreature>>(
-      "/creatures/market" + buildQuery(pagination ?? {})
+      "/creatures/market" + buildQuery(pagination ?? {}),
+      { cache: "no-store" }
     ),
 
   getMyFullState: (
@@ -184,7 +188,8 @@ export const creaturesApi = {
     request<MyFullState>(
       `/creatures/my-full-state?include_market=${includeMarket ? "true" : "false"}` +
         `&my_skip=${mySkip}&my_limit=${myLimit}` +
-        `&market_skip=${marketSkip}&market_limit=${marketLimit}`
+        `&market_skip=${marketSkip}&market_limit=${marketLimit}`,
+      { cache: "no-store" }
     ),
 
   listCreatureForSale: (userCreatureId: string, price: number) =>
@@ -216,7 +221,8 @@ export const petItemsApi = {
       `/admin/pet-items/${buildQuery({ ...(params ?? {}), ...(pagination ?? {}) })}`
     ),
 
-  getPetInventory: () => request<UserPetItem[]>("/pet-items/inventory"),
+  getPetInventory: () =>
+    request<UserPetItem[]>("/pet-items/inventory", { cache: "no-store" }),
 
   buyPetItem: (id: string, quantity = 1) =>
     request<UserPetItem>(

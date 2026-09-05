@@ -94,9 +94,14 @@ async def my_full_state(
     my_paged = alive[my_skip : my_skip + my_limit]
     my_has_more = (my_skip + my_limit) < my_total
 
-    # Pet items catalog (admin-controlled and bounded, no pagination)
+    # Pet items catalog (admin-controlled and bounded, no pagination).
+    # Sold-out items (stock == 0) are hidden from users; admins restock them
+    # via the admin CRUD endpoint, which lists everything.
     items_result = await db.execute(
-        select(PetItem).order_by(PetItem.pet_type, PetItem.kind, PetItem.price).limit(100)
+        select(PetItem)
+        .where(PetItem.stock > 0)
+        .order_by(PetItem.pet_type, PetItem.kind, PetItem.price)
+        .limit(100)
     )
     pet_items = items_result.scalars().all()
 

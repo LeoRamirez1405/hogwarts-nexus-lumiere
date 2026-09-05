@@ -28,6 +28,27 @@ def pet_aging_warning(user_id: str, creature_id: str, name: str) -> Notification
     )
 
 
+def pet_needs_attention(user_id: str, creature_id: str, name: str, reason: str) -> Notification:
+    return Notification(
+        user_id=user_id,
+        type=N.PET_NEEDS_ATTENTION,
+        title=f"{name} necesita atención",
+        body=f"{name} {reason}. Pasate por el santuario a cuidarla.",
+        related_id=creature_id,
+    )
+
+
+def pet_escape_warning(user_id: str, creature_id: str, name: str) -> Notification:
+    return Notification(
+        user_id=user_id,
+        type=N.PET_ESCAPE_WARNING,
+        title=f"{name} esta a punto de escapar",
+        body=f"{name} esta en numeros rojos. Vuelve a alimentarla o jugar con ella "
+        "antes de que se escape para siempre.",
+        related_id=creature_id,
+    )
+
+
 def pet_escaped(user_id: str, creature_id: str, name: str) -> Notification:
     return Notification(
         user_id=user_id,

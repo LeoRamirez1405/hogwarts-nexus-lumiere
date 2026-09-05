@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...cache import cache_clear_prefix
 from ...database import get_db
 from ...middleware.roles import require_role
 from ...models.announcement import Announcement
@@ -26,10 +27,10 @@ async def create_announcement(
 ):
     announcement = Announcement(**data.model_dump())
     db.add(announcement)
-    await db.commit()
-    await db.refresh(announcement)
-
-    # Broadcast the new announcement to everyone.
+    # The crowd notification is part of this same transaction: if its INSERT
+    # fails (e.g. a schema mismatch), the whole create fails loudly and rolls
+    # back — no half-created announcement, no silent masking, no retry
+    # duplicates. Web/FCM push inside notify_all_users is already best-effort.
     await notify_all_users(
         db,
         type=N.ANNOUNCEMENT,
@@ -39,6 +40,10 @@ async def create_announcement(
         exclude_id=current_user.id,
     )
     await db.commit()
+    await db.refresh(announcement)
+
+    # Invalidate announcements cache so the new one shows immediately.
+    cache_clear_prefix("announcements:")
     return announcement
 
 
@@ -79,3 +84,4 @@ async def delete_announcement(
 
     await db.delete(announcement)
     await db.commit()
+    cache_clear_prefix("announcements:")

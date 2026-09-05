@@ -53,7 +53,7 @@ async def notify_subscribers(db: AsyncSession, article: Article, notification_ty
             title=title,
             body=body,
             related_id=article.id,
-            read="false",
+            read=False,
         )
         db.add(notification)
 
@@ -72,15 +72,15 @@ async def create_article(
         author_id=current_user.id,
     )
     db.add(article)
-    await db.commit()
-    await db.refresh(article)
 
     # Only one article may be pinned as the main story at a time.
     if article.pinned:
         await clear_other_pinned(db, article.id)
-        await db.commit()
 
     # A brand-new article is public news: tell everyone (except the author).
+    # This runs INSIDE the same transaction as the insert — if the broadcast
+    # INSERT fails, the whole create rolls back and surfaces as an error, so
+    # there is no silent half-create and no duplicate-on-retry.
     await notify_all_users(
         db,
         type=N.ARTICLE_CREATED,
@@ -89,7 +89,6 @@ async def create_article(
         related_id=article.id,
         exclude_id=current_user.id,
     )
-    await db.commit()
 
     # Notify anyone @mentioned in the article body.
     mentioned = await resolve_mentions(db, article.body)
@@ -106,7 +105,10 @@ async def create_article(
                 related_id=article.id,
                 actor_id=current_user.id,
             )
-        await db.commit()
+
+    # Notify subscribers of the article.
+    await notify_subscribers(db, article, "article_created")
+    await db.commit()
 
     # Load author for response
     result = await db.execute(

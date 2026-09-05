@@ -2,8 +2,8 @@
 
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from ..database import get_db
 from ..models.pet_item import PetItem
@@ -42,7 +42,7 @@ async def buy_pet_item(
     result = await db.execute(select(PetItem).where(PetItem.id == item_id))
     item = result.scalar_one_or_none()
     if not item:
-        raise HTTPException(status_code=404, detail="Pet item not found")
+        raise HTTPException(status_code=404, detail="Este objeto ya no está disponible")
 
     total = item.price * quantity
     if current_user.zerines < total:
@@ -50,6 +50,16 @@ async def buy_pet_item(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Not enough zerines. Need {total}, have {current_user.zerines}",
         )
+
+    # Atomic availability decrement: the WHERE re-checks stock under the same
+    # statement, so two concurrent buyers can never oversell the last unit.
+    decrement = await db.execute(
+        update(PetItem)
+        .where(PetItem.id == item_id, PetItem.stock >= quantity)
+        .values(stock=PetItem.stock - quantity)
+    )
+    if decrement.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Este objeto ya no está disponible")
 
     current_user.zerines -= total
 

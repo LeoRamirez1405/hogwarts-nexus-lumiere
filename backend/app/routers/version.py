@@ -90,6 +90,7 @@ def update_version_info(payload: VersionUpdate):
     """
     info = load_version_info()
     info["latest"] = payload.version
+    info["current"] = payload.version
     if payload.version_code:
         info["version_code"] = payload.version_code
     if payload.release_notes:

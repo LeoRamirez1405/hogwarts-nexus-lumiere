@@ -11,9 +11,15 @@ export default function APKInstallBanner() {
   const { user } = useAuthStore();
   const [dismissed, setDismissed] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [isCapacitor, setIsCapacitor] = useState(false);
 
   const isAndroid = isAndroidWeb();
-  const isCapacitor = isNativeApp();
+
+  // Re-evaluate Capacitor detection after mount (bridge may load later).
+  useEffect(() => {
+    const timer = setTimeout(() => setIsCapacitor(isNativeApp()), 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (isAndroid && !isCapacitor && user && !dismissed) {

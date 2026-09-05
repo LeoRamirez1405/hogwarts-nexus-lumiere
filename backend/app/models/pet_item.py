@@ -25,5 +25,8 @@ class PetItem(Base):
     price = Column(Integer, nullable=False)
     restore_amount = Column(Integer, default=10, nullable=False)  # per single use
     pack_size = Column(Integer, default=1, nullable=False)  # units granted per purchase
+    # Availability: how many purchases remain before the item is sold out.
+    # Items with stock == 0 are hidden from the user shop. Admins set/restock it.
+    stock = Column(Integer, default=0, server_default="0", nullable=False)
     image_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=utcnow, nullable=False)

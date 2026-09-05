@@ -97,12 +97,24 @@ async def consume_item(
     )
     user_creature = uc_result.scalar_one_or_none()
     if not user_creature:
-        raise HTTPException(status_code=404, detail="You don't own this creature")
+        raise HTTPException(status_code=404, detail="No posees esta criatura")
 
     item_result = await db.execute(select(PetItem).where(PetItem.id == item_id))
     item = item_result.scalar_one_or_none()
     if not item:
-        raise HTTPException(status_code=404, detail="Pet item not found")
+        raise HTTPException(status_code=400, detail="Este objeto ya no está disponible")
+
+    # Check inventory first so users get the most helpful message.
+    inv_result = await db.execute(
+        select(UserPetItem).where(
+            UserPetItem.user_id == current_user.id,
+            UserPetItem.pet_item_id == item_id,
+        )
+    )
+    inventory = inv_result.scalar_one_or_none()
+    if not inventory or inventory.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Ya no tienes este objeto en tu inventario")
+
     if item.kind != kind:
         expected = "comida" if kind == "food" else "un juguete"
         raise HTTPException(status_code=400, detail=f"Ese objeto no es {expected}")
@@ -113,16 +125,6 @@ async def consume_item(
             status_code=400,
             detail="Ese objeto no es del tipo adecuado para esta mascota",
         )
-
-    inv_result = await db.execute(
-        select(UserPetItem).where(
-            UserPetItem.user_id == current_user.id,
-            UserPetItem.pet_item_id == item_id,
-        )
-    )
-    inventory = inv_result.scalar_one_or_none()
-    if not inventory or inventory.quantity <= 0:
-        raise HTTPException(status_code=400, detail="No tienes este objeto en el inventario")
 
     settle_decay(user_creature)
     inventory.quantity -= 1

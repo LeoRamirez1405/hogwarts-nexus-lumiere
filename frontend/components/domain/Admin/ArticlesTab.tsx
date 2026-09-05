@@ -219,7 +219,6 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
           title={crud.showCreate ? "Nuevo Artículo" : "Editar Artículo"}
           size="lg"
           saving={crud.saving || crud.creating}
-          saveDisabled={articleCategories.length === 0}
           onSave={handleSave}
         >
           {articleCategories.length === 0 && (
@@ -229,7 +228,6 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
               itemName="un artículo de El Quisquilloso"
             />
           )}
-          {articleCategories.length > 0 && (
           <div className="space-y-4">
               <FormField label="Titulo" required>
                 <InputField
@@ -249,12 +247,12 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
                 />
               </FormField>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField label="Categoria" required>
+                <FormField label="Categoria" required={articleCategories.length > 0}>
                   <SelectField
                     value={form.category}
                     onChange={(v: string) => setForm((f) => ({ ...f, category: v }))}
                     options={articleCategories.map((cat) => ({ value: cat.label, label: cat.label }))}
-                    placeholder="Seleccionar..."
+                    placeholder={articleCategories.length > 0 ? "Seleccionar..." : "Sin categorías configuradas"}
                   />
                 </FormField>
                 <FormField label="Imagen (opcional)">
@@ -328,7 +326,6 @@ export function ArticlesTab({ search, setSearch }: ArticlesTabProps) {
                 Principal: solo uno a la vez, se muestra en grande en El Quisquilloso. Destacado: aparece en la pestaña &ldquo;Destacadas&rdquo;, puede haber varios.
               </p>
             </div>
-          )}
         </AdminCrudModal>
       )}
     </>

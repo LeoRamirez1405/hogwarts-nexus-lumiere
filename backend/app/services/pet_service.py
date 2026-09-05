@@ -17,8 +17,10 @@ from .. import pet_progress
 from ..utils.magic_level import get_magic_level
 from .notification_templates import (
     pet_aging_warning,
+    pet_escape_warning,
     pet_escaped,
     pet_farewell,
+    pet_needs_attention,
 )
 from ..utils.dates import utcnow
 
@@ -146,14 +148,31 @@ async def apply_aging_and_decay(
     owner: User,
 ) -> bool:
     """Run aging + decay for one pet. Returns True if the pet no longer exists
-    (retired or escaped) and was removed from the session."""
+    (retired or escaped) and was removed from the session.
+
+    Creates the attention/escape-warning notifications when a pet *transitions*
+    into a warning state (the flags in ``settle_decay`` would otherwise consume
+    the transition silently and the background sweep would see them as already
+    sent). Does not commit; the caller commits the batch.
+    """
     retired = await process_aging(db, uc)
     if retired:
         return True
+
+    name = uc.pet_name or (uc.creature.name if uc.creature else "Tu mascota")
+    attention_armed = uc.attention_warned
+    escape_armed = uc.escaped_warned
+
     escaped = settle_decay(uc)
     if escaped:
         await settle_escaped_pet(db, uc, owner)
         return True
+
+    if uc.attention_warned and not attention_armed:
+        reason = "tiene hambre" if uc.hunger <= settings.PET_ATTENTION_HUNGER else "esta triste"
+        db.add(pet_needs_attention(uc.user_id, uc.creature_id, name, reason))
+    if uc.escaped_warned and not escape_armed:
+        db.add(pet_escape_warning(uc.user_id, uc.creature_id, name))
     return False
 
 

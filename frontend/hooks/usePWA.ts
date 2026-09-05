@@ -170,7 +170,9 @@ export function useAppVersion() {
   }, [startPeriodicCheck, stopPeriodicCheck]);
 
   const currentVersion = process.env.NEXT_PUBLIC_APP_VERSION || "0.1.0";
-  const hasUpdate = versionInfo?.available_update ?? false;
+  const hasUpdate = versionInfo
+    ? compareVersions(currentVersion, versionInfo.latest) < 0
+    : false;
   const isForceUpdate = versionInfo?.force_update ?? false;
   const isMinSupported = versionInfo
     ? compareVersions(currentVersion, versionInfo.min_supported_version) >= 0

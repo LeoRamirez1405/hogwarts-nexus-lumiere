@@ -262,6 +262,15 @@ async function cacheFirst(request) {
 }
 
 async function staleWhileRevalidate(request) {
+  // Skip cache for requests with cache: 'no-store' (user-scoped data like inventory).
+  if (request.cache === "no-store") {
+    try {
+      return await fetch(request);
+    } catch {
+      return Response.error();
+    }
+  }
+
   const cachedResponse = await caches.match(request);
 
   if (cachedResponse) {

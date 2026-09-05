@@ -353,3 +353,107 @@ async def send_push_to_user(
         pass
 
     return total
+
+
+async def deliver_webpush_bulk(
+    subscriptions: list[PushSubscription],
+    title: str,
+    body: str,
+    url: Optional[str] = None,
+    tag: Optional[str] = None,
+) -> list[str]:
+    """Deliver a Web Push to a batch of subscriptions WITHOUT touching the DB.
+
+    Used by the broadcast fan-out so a single AsyncSession is never shared
+    across concurrent tasks. Returns the ids of expired/removed subscriptions
+    so the caller can delete those rows (serially, then commit).
+    """
+    wp = get_webpush()
+    if not wp:
+        return []
+
+    payload = json.dumps(
+        {
+            "title": title,
+            "body": body,
+            "icon": "/icons/icon-owl.svg",
+            "badge": "/icons/badge-owl.svg",
+            "tag": tag or "nexus-notification",
+            "data": {"url": url or "/notifications"},
+        }
+    )
+    pairs = [(sub.id, sub.subscription_json) for sub in subscriptions]
+    _sent, expired_ids = await _deliver_async(wp, pairs, payload)
+    return expired_ids
+
+
+async def deliver_fcm_bulk(
+    tokens: list[FCMToken],
+    title: str,
+    body: str,
+    url: Optional[str] = None,
+    data: Optional[dict] = None,
+) -> tuple[set[str], set[str]]:
+    """Deliver an FCM push to a batch of tokens WITHOUT touching the DB.
+
+    Returns ``(inactive_token_ids, used_token_ids)``. The caller marks the
+    API-model rows (``active=False`` / ``last_used_at=utcnow()``) serially and
+    commits — never commit from inside the fan-out.
+    """
+    if not _init_firebase_admin():
+        return set(), set()
+
+    try:
+        from firebase_admin import messaging
+    except Exception:
+        return set(), set()
+
+    inactive: set[str] = set()
+    used: set[str] = set()
+    for token_row in tokens:
+        try:
+            message = messaging.Message(
+                token=token_row.token,
+                notification=messaging.Notification(title=title, body=body),
+                data={
+                    **(data or {}),
+                    "url": url or "/notifications",
+                },
+                android=messaging.AndroidConfig(
+                    priority="high",
+                    notification=messaging.AndroidNotification(
+                        icon="ic_launcher",
+                        color="#0e3b60",
+                        sound="default",
+                    ),
+                ),
+                apns=messaging.APNSConfig(
+                    payload=messaging.APNSPayload(
+                        aps=messaging.Aps(
+                            alert=messaging.ApsAlert(title=title, body=body),
+                            sound="default",
+                            category="NEW_MESSAGE",
+                        )
+                    ),
+                ),
+            )
+            messaging.send(message, app=_firebase_app)
+            used.add(token_row.id)
+        except Exception as error:
+            message_str = str(error)
+            # Token invalid/unregistered -> mark inactive
+            if any(
+                code in message_str
+                for code in [
+                    "UNREGISTERED",
+                    "INVALID_ARGUMENT",
+                    "NOT_FOUND",
+                    "INVALID_TOKEN",
+                ]
+            ):
+                inactive.add(token_row.id)
+                print(f"[FCM] Deactivated invalid token {token_row.id}: {message_str}")
+            else:
+                print(f"[FCM] Send error for token {token_row.id}: {message_str}")
+
+    return inactive, used

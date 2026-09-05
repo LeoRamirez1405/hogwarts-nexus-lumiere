@@ -11,6 +11,7 @@ class PetItemCreate(BaseModel):
     price: int = Field(ge=0)
     restore_amount: int = Field(default=10, ge=1, le=100)
     pack_size: int = Field(default=1, ge=1)
+    stock: int = Field(default=0, ge=0)  # availability; 0 = sold out / hidden
     image_url: Optional[str] = None
 
 
@@ -22,6 +23,7 @@ class PetItemUpdate(BaseModel):
     price: Optional[int] = Field(default=None, ge=0)
     restore_amount: Optional[int] = Field(default=None, ge=1, le=100)
     pack_size: Optional[int] = Field(default=None, ge=1)
+    stock: Optional[int] = Field(default=None, ge=0)
     image_url: Optional[str] = None
 
 
@@ -34,6 +36,7 @@ class PetItemResponse(BaseModel):
     price: int
     restore_amount: int
     pack_size: int
+    stock: int
     image_url: Optional[str] = None
     created_at: datetime
 

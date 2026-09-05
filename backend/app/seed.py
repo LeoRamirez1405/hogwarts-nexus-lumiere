@@ -620,6 +620,7 @@ async def seed_pet_supplies():
                     price=price,
                     restore_amount=restore,
                     pack_size=pack,
+                    stock=100,
                     image_url=None,
                 )
                 for (name, desc, kind, pet_type, price, restore, pack) in _PET_SUPPLIES

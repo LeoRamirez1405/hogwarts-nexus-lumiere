@@ -123,7 +123,6 @@ def run_migrations_online() -> None:
             try:
                 # psycopg requires SelectorEventLoop on Windows
                 if __import__("sys").platform == "win32":
-                    import selectors
                     asyncio.run(run_async_migrations(), loop_factory=asyncio.SelectorEventLoop)
                 else:
                     asyncio.run(run_async_migrations())
@@ -140,7 +139,6 @@ def run_migrations_online() -> None:
     else:
         # psycopg requires SelectorEventLoop on Windows
         if __import__("sys").platform == "win32":
-            import selectors
             asyncio.run(run_async_migrations(), loop_factory=asyncio.SelectorEventLoop)
         else:
             asyncio.run(run_async_migrations())

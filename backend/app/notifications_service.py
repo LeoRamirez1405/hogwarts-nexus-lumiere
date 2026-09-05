@@ -14,20 +14,30 @@ Helpers only *add* to the session; the calling router is responsible for
 ``commit`` (it usually already commits its own writes in the same transaction).
 """
 
+import logging
 from typing import Optional
 
-from sqlalchemy import select, func, insert, literal, String, true
+from sqlalchemy import select, func, insert, literal, String, true, false
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models.article_subscription import Notification
 from .models.user import User
 from .models.post import PostLike
+from .models.fcm_token import FCMToken
+from .models.push_subscription import PushSubscription
 # Re-exported for backwards compatibility: articles/forum/posts still import
 # `resolve_mentions` from this module.
 from .services.mentions import resolve_mentions  # noqa: F401
-from .services.push_service import notification_url, send_push_to_user
+from .services.push_service import (
+    notification_url,
+    send_push_to_user,
+    deliver_webpush_bulk,
+    deliver_fcm_bulk,
+)
 from .ws_manager import manager
 from app.utils.dates import utcnow
+
+logger = logging.getLogger("nexus.notifications")
 
 
 class N:
@@ -248,8 +258,6 @@ async def notify_all_users(
     Also sends Web Push notifications (best-effort) so users receive alerts
     even with the app closed/installed as PWA.
     """
-    import asyncio
-
     dialect = getattr(getattr(db, "bind", None), "dialect", None)
     if dialect is not None and dialect.name == "postgresql":
         id_expr = func.gen_random_uuid().cast(String)
@@ -274,7 +282,7 @@ async def notify_all_users(
                 literal(body).label("body"),
                 literal(related_id).label("related_id"),
                 literal(exclude_id).label("actor_id"),
-                literal("false").label("read"),
+                false().label("read"),
                 literal(now).label("created_at"),
             ).where(where_cond),
         )
@@ -293,46 +301,60 @@ async def notify_all_users(
     # Fetch user_ids that were notified (excluding exclude_id) to target push.
     if count > 0:
         try:
-            # Get the user_ids that received the notification
+            # Get the user_ids that received the notification. The fan-out below
+            # must NOT touch the shared session concurrently: SQLAlchemy
+            # AsyncSession is not safe for concurrent use, and every
+            # premature commit from the old per-user loop corrupted the
+            # caller's transaction. So we prefetch every subscription/token
+            # up front, deliver in bulk without the session, and only then
+            # apply cleanup (expired subs, inactive tokens) serially.
             user_ids_stmt = select(User.id).where(where_cond)
             user_ids_result = await db.execute(user_ids_stmt)
             notified_user_ids = [row[0] for row in user_ids_result.all()]
 
             if notified_user_ids:
                 url = notification_url(type, related_id, exclude_id)
-                # Send push to each user (Web Push + FCM)
-                import asyncio
+                tag = f"nexus-broadcast-{type}"
 
-                semaphore = asyncio.Semaphore(10)
-                batch_size = 50
-
-                async def send_to_user(user_id: str):
-                    async with semaphore:
-                        try:
-                            await send_push_to_user(
-                                db,
-                                user_id=user_id,
-                                title=title,
-                                body=body,
-                                url=url,
-                                tag=f"nexus-broadcast-{type}",
-                            )
-                        except Exception:
-                            pass
-
-                user_items = list(notified_user_ids)
-                for i in range(0, len(user_items), batch_size):
-                    batch = user_items[i : i + batch_size]
-                    await asyncio.gather(
-                        *[send_to_user(uid) for uid in batch],
-                        return_exceptions=True,
+                subs_result = await db.execute(
+                    select(PushSubscription).where(
+                        PushSubscription.user_id.in_(notified_user_ids)
                     )
-                    if i + batch_size < len(user_items):
-                        await asyncio.sleep(0.1)
+                )
+                subs = subs_result.scalars().all()
+
+                tokens_result = await db.execute(
+                    select(FCMToken).where(
+                        FCMToken.user_id.in_(notified_user_ids),
+                        FCMToken.active.is_(True),
+                    )
+                )
+                tokens = tokens_result.scalars().all()
+
+                if subs:
+                    expired_ids = await deliver_webpush_bulk(
+                        subs, title=title, body=body, url=url, tag=tag
+                    )
+                    for sub_id in expired_ids:
+                        sub = next((s for s in subs if s.id == sub_id), None)
+                        if sub is not None:
+                            await db.delete(sub)
+
+                if tokens:
+                    inactive_ids, used_ids = await deliver_fcm_bulk(
+                        tokens, title=title, body=body, url=url
+                    )
+                    for token_row in tokens:
+                        if token_row.id in used_ids:
+                            token_row.last_used_at = utcnow()
+                        if token_row.id in inactive_ids:
+                            token_row.active = False
 
         except Exception:
-            # Best-effort: never let push failures break the main notification flow
-            pass
+            # Best-effort: never let push failures break the main notification
+            # flow, but keep the real error in the logs (this used to be a
+            # silent `pass` that hid schema/broadcast bugs).
+            logger.exception("Push broadcast failed for type=%s", type)
 
     return count
 
