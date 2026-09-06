@@ -95,7 +95,6 @@ export interface PetItem {
   price: number;
   restore_amount: number;
   pack_size: number;
-  stock: number;
   image_url?: string;
   created_at: string;
 }

@@ -30,7 +30,6 @@ const defaultCreateForm: Partial<PetItem> = {
   price: 0,
   restore_amount: 10,
   pack_size: 1,
-  stock: 100,
   image_url: "",
 };
 
@@ -46,7 +45,6 @@ export default function AdminPetItemsPage() {
     price: "",
     restore_amount: "",
     pack_size: "",
-    stock: "",
     image_url: "",
   });
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -96,7 +94,6 @@ export default function AdminPetItemsPage() {
       price: "",
       restore_amount: "",
       pack_size: "",
-      stock: "",
       image_url: "",
     });
     setShowCreate(true);
@@ -111,7 +108,6 @@ export default function AdminPetItemsPage() {
       price: it.price.toString(),
       restore_amount: it.restore_amount.toString(),
       pack_size: it.pack_size.toString(),
-      stock: it.stock.toString(),
       image_url: it.image_url ?? "",
     });
     crud.setEditItem(it);
@@ -126,7 +122,6 @@ export default function AdminPetItemsPage() {
       price: parseInt(form.price) || 0,
       restore_amount: Math.max(1, parseInt(form.restore_amount) || 10),
       pack_size: Math.max(1, parseInt(form.pack_size) || 1),
-      stock: Math.max(0, parseInt(form.stock) || 0),
       image_url: form.image_url || undefined,
     };
     if (showCreate) {
@@ -142,7 +137,6 @@ export default function AdminPetItemsPage() {
       price: "",
       restore_amount: "",
       pack_size: "",
-      stock: "",
       image_url: "",
     });
     setShowCreate(false);
@@ -271,14 +265,6 @@ export default function AdminPetItemsPage() {
                     <p className="text-label-sm text-on-surface-variant">
                       Lote: {it.pack_size} {it.pack_size === 1 ? "unidad" : "unidades"} por compra
                     </p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <Badge
-                        variant="tag"
-                        color={it.stock === 0 ? "error" : it.stock <= 10 ? "secondary" : "success"}
-                      >
-                        {it.stock === 0 ? "Agotado" : `Disponible: ${it.stock}`}
-                      </Badge>
-                    </div>
                   </div>
                 </div>
               ))}
@@ -385,17 +371,9 @@ export default function AdminPetItemsPage() {
                       />
                     </FormField>
                   </div>
-                  <FormField label="Disponibilidad" required className="sm:order-6 sm:col-span-2">
-                    <InputField
-                      type="number"
-                      value={form.stock}
-                      onChange={(v: string) => setForm((p) => ({ ...p, stock: v }))}
-                      placeholder="0"
-                    />
-                  </FormField>
                 </div>
                 <p className="text-label-sm text-on-surface-variant -mt-2">
-                  &ldquo;Restaura&rdquo; es cuanto sube la estadistica por uso. &ldquo;Lote&rdquo; es cuantas unidades recibe el comprador por compra. &ldquo;Disponibilidad&rdquo; son las compras restantes; con 0 el objeto se oculta del santuario.
+                  &ldquo;Restaura&rdquo; es cuanto sube la estadistica por uso. &ldquo;Lote&rdquo; es cuantas unidades recibe el comprador por compra.
                 </p>
                 <FormField label="Imagen (opcional)">
                   <div className="flex items-center gap-3">
